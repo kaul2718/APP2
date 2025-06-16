@@ -1,0 +1,295 @@
+// enums/user-role.enum.ts
+export enum UserRole {
+    ADMINISTRADOR = 'administrador',
+    TECNICO = 'tecnico',
+    CLIENTE = 'cliente'
+}
+
+// enums/estado-orden.enum.ts
+export enum EstadoOrden {
+    PENDIENTE = 'pendiente',
+    EN_PROCESO = 'en_proceso',
+    FINALIZADO = 'finalizado',
+    CANCELADO = 'cancelado'
+}
+
+// enums/estado-presupuesto.enum.ts
+export enum EstadoPresupuesto {
+    PENDIENTE = 'pendiente',
+    APROBADO = 'aprobado',
+    RECHAZADO = 'rechazado'
+}
+
+// enums/estado-casillero.enum.ts
+export enum EstadoCasillero {
+    OCUPADO = 'ocupado',
+    LIBRE = 'libre'
+}
+
+// enums/tipo-estado-casillero.enum.ts
+export enum TipoEstadoCasillero {
+    REPARACION = 'reparacion',
+    ESPERA = 'espera',
+    ENTREGA = 'entrega'
+}
+
+// enums/categoria-inventario.enum.ts
+export enum CategoriaInventario {
+    REPUESTO = 'repuesto',
+    CONSUMIBLE = 'consumible',
+    HERRAMIENTA = 'herramienta'
+}
+
+// entities/usuario.entity.ts
+@Entity()
+export class Usuario {
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column()
+    nombre: string;
+
+    @Column({ unique: true })
+    email: string;
+
+    @Column()
+    password: string;
+
+    @Column()
+    telefono: string;
+
+    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+    fechaRegistro: Date;
+
+    @Column({
+        type: 'enum',
+        enum: UserRole,
+        default: UserRole.CLIENTE
+    })
+    rol: UserRole;
+
+    @OneToMany(() => OrdenServicio, ordenServicio => ordenServicio.usuario)
+    ordenesServicio: OrdenServicio[];
+}
+
+// entities/orden-servicio.entity.ts
+@Entity()
+export class OrdenServicio {
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+    fechaIngreso: Date;
+
+    @Column()
+    tipoEquipo: string;
+
+    @Column()
+    marca: string;
+
+    @Column()
+    modelo: string;
+
+    @Column()
+    numeroSerie: string;
+
+    @Column()
+    estadoInicial: string;
+
+    @Column()
+    problemaReportado: string;
+
+    @Column({ nullable: true })
+    accesorios: string;
+
+    @Column({
+        type: 'enum',
+        enum: EstadoOrden,
+        default: EstadoOrden.PENDIENTE
+    })
+    estado: EstadoOrden;
+
+    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+    fechaActualizacion: Date;
+
+    @ManyToOne(() => Usuario, usuario => usuario.ordenesServicio)
+    usuario: Usuario;
+
+    @OneToMany(() => ActividadTecnica, actividadTecnica => actividadTecnica.ordenServicio)
+    actividadesTecnicas: ActividadTecnica[];
+
+    @OneToOne(() => Presupuesto)
+    @JoinColumn()
+    presupuesto: Presupuesto;
+
+    @ManyToOne(() => Casillero, casillero => casillero.ordenesServicio)
+    casillero: Casillero;
+
+    @OneToMany(() => DetalleRepuestos, detalleRepuestos => detalleRepuestos.ordenServicio)
+    detallesRepuestos: DetalleRepuestos[];
+}
+
+// entities/actividad-tecnica.entity.ts
+@Entity()
+export class ActividadTecnica {
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+    fecha: Date;
+
+    @Column()
+    descripcion: string;
+
+    @Column()
+    diagnostico: string;
+
+    @Column()
+    trabajoRealizado: string;
+
+    @ManyToOne(() => OrdenServicio, ordenServicio => ordenServicio.actividadesTecnicas)
+    ordenServicio: OrdenServicio;
+}
+
+// entities/presupuesto.entity.ts
+@Entity()
+export class Presupuesto {
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+    fechaEmision: Date;
+
+    @Column('decimal', { precision: 10, scale: 2 })
+    montoTotal: number;
+
+    @Column({
+        type: 'enum',
+        enum: EstadoPresupuesto,
+        default: EstadoPresupuesto.PENDIENTE
+    })
+    estado: EstadoPresupuesto;
+
+    @Column({ nullable: true })
+    observaciones: string;
+
+    @OneToMany(() => DetallePresupuesto, detallePresupuesto => detallePresupuesto.presupuesto)
+    detallesPresupuesto: DetallePresupuesto[];
+
+    @OneToOne(() => OrdenServicio)
+    ordenServicio: OrdenServicio;
+}
+
+// entities/detalle-presupuesto.entity.ts
+@Entity()
+export class DetallePresupuesto {
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column()
+    descripcion: string;
+
+    @Column('decimal', { precision: 10, scale: 2 })
+    cantidad: number;
+
+    @Column('decimal', { precision: 10, scale: 2 })
+    precioUnitario: number;
+
+    @Column('decimal', { precision: 10, scale: 2 })
+    subtotal: number;
+
+    @ManyToOne(() => Presupuesto, presupuesto => presupuesto.detallesPresupuesto)
+    presupuesto: Presupuesto;
+}
+
+// entities/casillero.entity.ts
+@Entity()
+export class Casillero {
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column()
+    numero: string;
+
+    @Column({
+        type: 'enum',
+        enum: EstadoCasillero,
+        default: EstadoCasillero.LIBRE
+    })
+    estado: EstadoCasillero;
+
+    @Column({
+        type: 'enum',
+        enum: TipoEstadoCasillero,
+        default: TipoEstadoCasillero.ESPERA
+    })
+    tipoEstado: TipoEstadoCasillero;
+
+    @OneToMany(() => OrdenServicio, ordenServicio => ordenServicio.casillero)
+    ordenesServicio: OrdenServicio[];
+}
+
+// entities/inventario.entity.ts
+@Entity()
+export class Inventario {
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column({ unique: true })
+    codigo: string;
+
+    @Column()
+    nombre: string;
+
+    @Column({
+        type: 'enum',
+        enum: CategoriaInventario
+    })
+    categoria: CategoriaInventario;
+
+    @Column()
+    descripcion: string;
+
+    @Column()
+    stockActual: number;
+
+    @Column()
+    stockMinimo: number;
+
+    @Column('decimal', { precision: 10, scale: 2 })
+    precioCompra: number;
+
+    @Column('decimal', { precision: 10, scale: 2 })
+    precioVenta: number;
+
+    @Column()
+    ubicacion: string;
+
+    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+    ultimaActualizacion: Date;
+
+    @OneToMany(() => DetalleRepuestos, detalleRepuestos => detalleRepuestos.inventario)
+    detallesRepuestos: DetalleRepuestos[];
+}
+
+// entities/detalle-repuestos.entity.ts
+@Entity()
+export class DetalleRepuestos {
+    @PrimaryGeneratedColumn()
+    id: number;
+
+    @Column()
+    cantidad: number;
+
+    @Column('decimal', { precision: 10, scale: 2 })
+    precioUnitario: number;
+
+    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+    fechaUso: Date;
+
+    @ManyToOne(() => OrdenServicio, ordenServicio => ordenServicio.detallesRepuestos)
+    ordenServicio: OrdenServicio;
+
+    @ManyToOne(() => Inventario, inventario => inventario.detallesRepuestos)
+    inventario: Inventario;
+}
