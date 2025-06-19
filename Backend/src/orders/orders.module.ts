@@ -6,6 +6,8 @@ import { Order } from './entities/order.entity';
 import { User } from '../users/entities/user.entity';
 import { Casillero } from '../casillero/entities/casillero.entity';
 import { Equipo } from '../equipo/entities/equipo.entity';
+import { DataSource } from 'typeorm';
+
 
 @Module({
   imports: [

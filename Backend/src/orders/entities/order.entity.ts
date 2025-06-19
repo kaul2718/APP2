@@ -1,15 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn, OneToMany, OneToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn, OneToMany, OneToOne, DeleteDateColumn } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { ActividadTecnica } from '../../actividad-tecnica/entities/actividad-tecnica.entity';
 import { Presupuesto } from '../../presupuesto/entities/presupuesto.entity';
 import { DetalleRepuestos } from '../../detalle-repuestos/entities/detalle-repuesto.entity';
 import { DetalleServicio } from 'src/detalle-servicios/entities/detalle-servicio.entity';
 import { Casillero } from 'src/casillero/entities/casillero.entity';
-import { Repuesto } from 'src/repuestos/entities/repuesto.entity';
-import { Equipo } from '../../equipo/entities/equipo.entity';
 import { EstadoOrden } from 'src/common/enums/estadoOrden.enum';
 import { EstadoFinal } from 'src/common/enums/estadoFinalOrden';
 import { TareaRealizar } from 'src/common/enums/tareaRealizar.enum';
+import { Equipo } from '../../equipo/entities/equipo.entity';
 
 @Entity()
 export class Order {
@@ -33,21 +32,26 @@ export class Order {
     @Column({ nullable: true })
     technicianId: number;
 
-    @OneToMany(() => ActividadTecnica, (actividadTecnica) => actividadTecnica.orden, { 
-        cascade: true, 
-        eager: true 
+    @OneToMany(() => ActividadTecnica, (actividadTecnica) => actividadTecnica.orden, {
+        cascade: true,
+        eager: true,
     })
     actividades: ActividadTecnica[];
 
     @CreateDateColumn({ type: 'timestamp' })
     fechaIngreso: Date;
 
-    @OneToOne(() => Equipo, (equipo) => equipo.order, { cascade: true })
+    // Relación OneToOne con Equipo (Opción A)
+    @ManyToOne(() => Equipo, (equipo) => equipo.ordenes, {
+        nullable: false,
+        onDelete: 'RESTRICT', // o SET NULL según tu preferencia
+    })
     @JoinColumn({ name: 'equipoId' })
     equipo: Equipo;
 
-    @Column({ nullable: true })
+    @Column()
     equipoId: number;
+
 
     @Column()
     problemaReportado: string;
@@ -55,24 +59,24 @@ export class Order {
     @Column('simple-array')
     accesorios: string[];
 
-    @Column({ 
-        type: 'enum', 
-        enum: EstadoOrden, 
-        default: EstadoOrden.PENDIENTE
+    @Column({
+        type: 'enum',
+        enum: EstadoOrden,
+        default: EstadoOrden.PENDIENTE,
     })
     estado: EstadoOrden;
 
-    @Column({ 
-        type: 'enum', 
-        enum: EstadoFinal, 
-        default: EstadoFinal.NO_ENTREGADO
+    @Column({
+        type: 'enum',
+        enum: EstadoFinal,
+        default: EstadoFinal.NO_ENTREGADO,
     })
     estadoFinal: EstadoFinal;
 
-    @Column({ 
-        type: 'enum', 
-        enum: TareaRealizar, 
-        default: TareaRealizar.REVISION
+    @Column({
+        type: 'enum',
+        enum: TareaRealizar,
+        default: TareaRealizar.REVISION,
     })
     tareaRealizar: string;
 
@@ -82,24 +86,29 @@ export class Order {
     @UpdateDateColumn({ type: 'timestamp' })
     fechaActualizacion: Date;
 
-    // Actualización de las relaciones con las nuevas entidades
-    @OneToOne(() => Presupuesto, (presupuesto) => presupuesto.order, { 
-        cascade: true 
+    @OneToOne(() => Presupuesto, (presupuesto) => presupuesto.order, {
+        cascade: true,
     })
     presupuesto: Presupuesto;
 
     @OneToMany(() => DetalleRepuestos, (detalle) => detalle.order, {
-        cascade: true
+        cascade: true,
     })
     detallesRepuestos: DetalleRepuestos[];
 
     @OneToMany(() => DetalleServicio, (detalle) => detalle.order, {
-        cascade: true
+        cascade: true,
     })
     detallesServicio: DetalleServicio[];
 
-    @OneToOne(() => Casillero, (casillero) => casillero.order, { 
-        cascade: true 
+    @OneToOne(() => Casillero, (casillero) => casillero.order, {
+        cascade: true,
     })
     casillero: Casillero;
+    // order.entity.ts (o donde esté tu entidad)
+    @Column({ default: false })
+    isDeleted: boolean;
+
+    @DeleteDateColumn({ nullable: true })
+    deletedAt?: Date;
 }

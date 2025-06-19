@@ -21,4 +21,11 @@ export class Casillero {
 
   @Column({ nullable: true })
   orderId: number;
+
+  // ===  campos para soft delete ===
+  @Column({ default: false })
+  isDeleted: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  deletedAt: Date;
 }

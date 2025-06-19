@@ -1,27 +1,28 @@
-import { IsString, IsOptional, IsInt, Min } from 'class-validator';
-import { IsNotBlank } from 'src/decorators/is-not-blank-decorator';
+import { IsNumber, IsNotEmpty, IsString, IsOptional } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateEquipoDto {
-  @IsNotBlank({ message: 'El tipo de equipo no puede estar vacío' })
-  @IsString()
-  tipoEquipo: string; // Tipo de equipo (computadora, laptop, etc.)
+  @IsNotEmpty({ message: 'El tipo de equipo no puede estar vacío' })
+  @IsNumber({}, { message: 'El tipo de equipo debe ser un número' })
+  @Type(() => Number)
+  tipoEquipoId: number;
 
-  @IsNotBlank({ message: 'La marca no puede estar vacía' })
-  @IsString()
-  marca: string; // Marca del equipo
+  @IsNotEmpty({ message: 'La marca no puede estar vacía' })
+  @IsNumber({}, { message: 'La marca debe ser un número' })
+  @Type(() => Number)
+  marcaId: number;
 
-  @IsNotBlank({ message: 'El modelo no puede estar vacío' })
-  @IsString()
-  modelo: string; // Modelo del equipo
+  @IsNotEmpty({ message: 'El modelo no puede estar vacío' })
+  @IsNumber({}, { message: 'El modelo debe ser un número' })
+  @Type(() => Number)
+  modeloId: number;
 
-  @IsNotBlank({ message: 'El numero de serie no puede estar vacío' })
+  @IsNotEmpty({ message: 'El número de serie no puede estar vacío' })
   @IsString()
-  numeroSerie: string; // Número de serie del equipo
-  
-  @IsNotBlank({ message: 'El numero de serie no puede estar vacío' })
-  @IsInt()
-  @Min(1)
+  numeroSerie: string;
+
   @IsOptional()
-  orderId?: number; 
-  
+  @IsNumber({}, { message: 'La orden debe ser un número' })
+  @Type(() => Number)
+  orderId?: number;
 }
