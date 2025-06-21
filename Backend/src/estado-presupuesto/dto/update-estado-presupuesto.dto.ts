@@ -1,4 +1,11 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateEstadoPresupuestoDto } from './create-estado-presupuesto.dto';
+import { IsOptional, IsString } from 'class-validator';
 
-export class UpdateEstadoPresupuestoDto extends PartialType(CreateEstadoPresupuestoDto) {}
+export class UpdateEstadoPresupuestoDto {
+  @IsOptional()
+  @IsString()
+  nombre?: string;
+
+  @IsOptional()
+  @IsString()
+  descripcion?: string;
+}

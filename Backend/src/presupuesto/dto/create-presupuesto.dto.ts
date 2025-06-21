@@ -1,13 +1,13 @@
-import { IsNumber, IsOptional, IsPositive, IsString, MaxLength, Min } from "class-validator";
-import { EstadoPresupuesto } from "src/common/enums/estadoPresupuesto.enum";
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreatePresupuestoDto {
+  @IsNumber()
+  ordenId: number;
+
+  @IsNumber()
+  estadoId: number;
 
   @IsOptional()
   @IsString()
-  @MaxLength(500)
   descripcion?: string;
-
-  @IsNumber()
-  orderId: number;
 }

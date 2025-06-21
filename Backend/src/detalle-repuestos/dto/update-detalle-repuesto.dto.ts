@@ -1,31 +1,14 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateDetalleRepuestoDto } from './create-detalle-repuesto.dto';
-import { IsDecimal, IsInt, IsNumber, IsOptional, IsPositive } from 'class-validator';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { EstadoDetalleRepuesto } from 'src/common/enums/estadoDetalleRepuesto';
 
 export class UpdateDetalleRepuestoDto extends PartialType(CreateDetalleRepuestoDto) {
-    @IsOptional()
-    @IsNumber()
-    @IsInt()
-    @IsPositive()
-    cantidad?: number;
-  
-    @IsOptional()
-    @IsNumber()
-    @IsPositive()
-    precioUnitario?: number;
-  
-    @IsOptional()
-    @IsNumber()
-    @IsPositive()
-    subtotal?: number;
-  
-    @IsOptional()
-    @IsInt()
-    @IsPositive()
-    orderId?: number;
-  
-    @IsOptional()
-    @IsInt()
-    @IsPositive()
-    repuestoId?: number;
-  }
+  @IsOptional()
+  @IsEnum(EstadoDetalleRepuesto)
+  estado?: EstadoDetalleRepuesto;
+
+  @IsOptional()
+  @IsString()
+  comentario?: string;
+}

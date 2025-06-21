@@ -6,9 +6,10 @@ import { DetalleRepuestos } from 'src/detalle-repuestos/entities/detalle-repuest
 import { Order } from 'src/orders/entities/order.entity';
 import { User } from 'src/users/entities/user.entity';
 import { Repuesto } from './entities/repuesto.entity';
+import { Inventario } from 'src/inventario/entities/inventario.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([DetalleRepuestos, Order, User, Repuesto])],
+  imports: [TypeOrmModule.forFeature([DetalleRepuestos, Order, User, Repuesto, Inventario])],
   controllers: [RepuestosController],
   providers: [RepuestosService],
   exports: [RepuestosService] // Solo se exportan los servicios, no las entidades

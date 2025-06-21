@@ -86,7 +86,7 @@ export class Order {
     @UpdateDateColumn({ type: 'timestamp' })
     fechaActualizacion: Date;
 
-    @OneToOne(() => Presupuesto, (presupuesto) => presupuesto.order, {
+    @OneToOne(() => Presupuesto, (presupuesto) => presupuesto.orden, {
         cascade: true,
     })
     presupuesto: Presupuesto;

@@ -1,9 +1,9 @@
-import { Controller, Get, Param, Patch, BadRequestException, NotFoundException, InternalServerErrorException, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, BadRequestException } from '@nestjs/common';
 import { PresupuestoService } from './presupuesto.service';
-import { Presupuesto } from './entities/presupuesto.entity';
+import { CreatePresupuestoDto } from './dto/create-presupuesto.dto';
+import { UpdatePresupuestoDto } from './dto/update-presupuesto.dto';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { Role } from 'src/common/enums/rol.enum';
-import { CreatePresupuestoDto } from './dto/create-presupuesto.dto';
 
 @Auth(Role.ADMIN)
 @Controller('presupuestos')
@@ -12,46 +12,34 @@ export class PresupuestoController {
 
   @Auth(Role.TECH)
   @Post()
-  async create(@Body() createPresupuestoDto: CreatePresupuestoDto): Promise<Presupuesto> {
-    if (!createPresupuestoDto.orderId) {
-      throw new BadRequestException('El orderId es obligatorio.');
-    }
-    try {
-      return await this.presupuestoService.create(createPresupuestoDto);
-    } catch (error) {
-      throw new InternalServerErrorException(`Error al crear el presupuesto: ${error.message}`);
-    }
+  async create(@Body() createDto: CreatePresupuestoDto) {
+    return this.presupuestoService.create(createDto);
   }
-  // Ruta para obtener un presupuesto por ID
+
+  @Auth(Role.TECH)
+  @Get()
+  async findAll() {
+    return this.presupuestoService.findAll();
+  }
+
+  @Auth(Role.TECH)
   @Get(':id')
-  async getPresupuesto(@Param('id') id: number): Promise<Presupuesto> {
-    if (isNaN(id)) {
-      throw new BadRequestException('El ID proporcionado no es válido.');
-    }
-    try {
-      return await this.presupuestoService.getPresupuesto(id);
-    } catch (error) {
-      throw new NotFoundException(`Presupuesto con ID ${id} no encontrado.`);
-    }
+  async findOne(@Param('id') id: number) {
+    if (isNaN(id)) throw new BadRequestException('ID inválido');
+    return this.presupuestoService.findOne(id);
   }
 
-  // Ruta para aceptar un presupuesto
-  @Patch(':id/aceptar')
-  async aceptarPresupuesto(@Param('id') id: number): Promise<Presupuesto> {
-    try {
-      return await this.presupuestoService.aceptarPresupuesto(id);
-    } catch (error) {
-      throw new InternalServerErrorException(`Error al aceptar el presupuesto: ${error.message}`);
-    }
+  @Auth(Role.TECH)
+  @Patch(':id')
+  async update(@Param('id') id: number, @Body() updateDto: UpdatePresupuestoDto) {
+    if (isNaN(id)) throw new BadRequestException('ID inválido');
+    return this.presupuestoService.update(id, updateDto);
   }
 
-  // Ruta para rechazar un presupuesto
-  @Patch(':id/rechazar')
-  async rechazarPresupuesto(@Param('id') id: number): Promise<Presupuesto> {
-    try {
-      return await this.presupuestoService.rechazarPresupuesto(id);
-    } catch (error) {
-      throw new InternalServerErrorException(`Error al rechazar el presupuesto: ${error.message}`);
-    }
+  @Auth(Role.TECH)
+  @Delete(':id')
+  async remove(@Param('id') id: number) {
+    if (isNaN(id)) throw new BadRequestException('ID inválido');
+    return this.presupuestoService.remove(id);
   }
 }

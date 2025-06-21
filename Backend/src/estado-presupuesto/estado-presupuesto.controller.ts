@@ -1,34 +1,54 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {Controller,Get,Post,Body,Patch,Param,Delete,BadRequestException,NotFoundException,} from '@nestjs/common';
 import { EstadoPresupuestoService } from './estado-presupuesto.service';
 import { CreateEstadoPresupuestoDto } from './dto/create-estado-presupuesto.dto';
 import { UpdateEstadoPresupuestoDto } from './dto/update-estado-presupuesto.dto';
+import { Auth } from 'src/auth/decorators/auth.decorator';
+import { Role } from 'src/common/enums/rol.enum';
 
-@Controller('estado-presupuesto')
+@Auth(Role.ADMIN) // Por defecto, todo el recurso solo accesible por ADMIN
+@Controller('estado-presupuestos')
 export class EstadoPresupuestoController {
   constructor(private readonly estadoPresupuestoService: EstadoPresupuestoService) {}
 
+  // Crear un estado de presupuesto
   @Post()
-  create(@Body() createEstadoPresupuestoDto: CreateEstadoPresupuestoDto) {
-    return this.estadoPresupuestoService.create(createEstadoPresupuestoDto);
+  async create(@Body() dto: CreateEstadoPresupuestoDto) {
+    return this.estadoPresupuestoService.create(dto);
   }
 
+  // Listar todos los estados
   @Get()
-  findAll() {
+  async findAll() {
     return this.estadoPresupuestoService.findAll();
   }
 
+  // Obtener un estado por su ID
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.estadoPresupuestoService.findOne(+id);
+  async findOne(@Param('id') id: string) {
+    const numericId = Number(id);
+    if (isNaN(numericId)) {
+      throw new BadRequestException('El ID proporcionado no es válido.');
+    }
+    return this.estadoPresupuestoService.findOne(numericId);
   }
 
+  // Actualizar un estado
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateEstadoPresupuestoDto: UpdateEstadoPresupuestoDto) {
-    return this.estadoPresupuestoService.update(+id, updateEstadoPresupuestoDto);
+  async update(@Param('id') id: string, @Body() dto: UpdateEstadoPresupuestoDto) {
+    const numericId = Number(id);
+    if (isNaN(numericId)) {
+      throw new BadRequestException('El ID proporcionado no es válido.');
+    }
+    return this.estadoPresupuestoService.update(numericId, dto);
   }
 
+  // Eliminar un estado
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.estadoPresupuestoService.remove(+id);
+  async remove(@Param('id') id: string) {
+    const numericId = Number(id);
+    if (isNaN(numericId)) {
+      throw new BadRequestException('El ID proporcionado no es válido.');
+    }
+    return this.estadoPresupuestoService.remove(numericId);
   }
 }

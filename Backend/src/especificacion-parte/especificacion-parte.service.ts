@@ -37,23 +37,21 @@ export class EspecificacionParteService {
   }
 
   async findAll(): Promise<EspecificacionParte[]> {
-    return await this.repo.find({
+    return this.repo.find({
+      where: { isDeleted: false },
       relations: ['parte', 'tipoEspecificacion'],
-      where: {
-        isDeleted: false,
-      },
     });
   }
 
 
   async findOne(id: number): Promise<EspecificacionParte> {
     const especificacion = await this.repo.findOne({
-      where: { id },
+      where: { id, isDeleted: false },
       relations: ['parte', 'tipoEspecificacion'],
     });
 
     if (!especificacion) {
-      throw new NotFoundException('Especificación no encontrada.');
+      throw new NotFoundException(`Especificación con ID ${id} no encontrada o ya eliminada.`);
     }
 
     return especificacion;
@@ -80,8 +78,34 @@ export class EspecificacionParteService {
     return this.repo.save(especificacion);
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: number): Promise<{ message: string }> {
     const especificacion = await this.findOne(id);
-    await this.repo.remove(especificacion);
+
+    if (especificacion.isDeleted) {
+      throw new BadRequestException('La especificación ya fue eliminada.');
+    }
+
+    especificacion.isDeleted = true;
+    especificacion.deletedAt = new Date();
+
+    await this.repo.save(especificacion);
+
+    return { message: `La especificación con ID ${id} fue eliminada correctamente (soft delete).` };
+  }
+  async restore(id: number): Promise<{ message: string }> {
+    const especificacion = await this.repo.findOne({
+      where: { id, isDeleted: true },
+    });
+
+    if (!especificacion) {
+      throw new NotFoundException(`No se encontró una especificación eliminada con el ID ${id}.`);
+    }
+
+    especificacion.isDeleted = false;
+    especificacion.deletedAt = null;
+
+    await this.repo.save(especificacion);
+
+    return { message: `Especificación con ID ${id} restaurada correctamente.` };
   }
 }

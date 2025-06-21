@@ -1,7 +1,9 @@
-// detalle-repuesto.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, } from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
 import { Repuesto } from '../../repuestos/entities/repuesto.entity';
+import { EstadoDetalleRepuesto } from 'src/common/enums/estadoDetalleRepuesto';
+
+
 @Entity()
 export class DetalleRepuestos {
   @PrimaryGeneratedColumn()
@@ -32,4 +34,13 @@ export class DetalleRepuestos {
 
   @Column()
   repuestoId: number;
+
+  // Nuevo campo para estado del detalle
+  @Column({ type: 'enum', enum: EstadoDetalleRepuesto, default: EstadoDetalleRepuesto.ACTIVO })
+  estado: EstadoDetalleRepuesto;
+
+
+  // 📝 Opcional: para guardar razones de modificación/anulación
+  @Column({ type: 'text', nullable: true })
+  comentario: string;
 }

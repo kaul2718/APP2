@@ -1,25 +1,18 @@
-import { IsNotEmpty, IsNumber, IsPositive, IsDecimal, IsInt, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsPositive, IsOptional, IsInt, IsString, MaxLength } from 'class-validator';
 
 export class CreateDetalleRepuestoDto {
-  @IsNotEmpty()
   @IsNumber()
-  @IsInt()
   @IsPositive()
   cantidad: number;
 
-  @IsOptional()
-  @IsNotEmpty()
   @IsNumber()
-  @IsPositive()
-  precioUnitario?: number;
-
-  @IsNotEmpty()
-  @IsInt()
-  @IsPositive()
   orderId: number;
 
-  @IsNotEmpty()
-  @IsInt()
-  @IsPositive()
+  @IsNumber()
   repuestoId: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500, { message: 'El comentario no puede tener más de 500 caracteres.' })
+  comentario?: string;
 }

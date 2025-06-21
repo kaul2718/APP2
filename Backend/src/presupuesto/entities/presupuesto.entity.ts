@@ -1,37 +1,32 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToOne, JoinColumn, BeforeInsert, BeforeUpdate } from 'typeorm';
-import { Order } from '../../orders/entities/order.entity';
-import { EstadoPresupuesto } from '../../common/enums/estadoPresupuesto.enum';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Order } from 'src/orders/entities/order.entity';
+import { EstadoPresupuesto } from '../../estado-presupuesto/entities/estado-presupuesto.entity';
 
 @Entity()
 export class Presupuesto {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @ManyToOne(() => Order, orden => orden.presupuesto)
+  @JoinColumn({ name: 'ordenId' })
+  orden: Order;
+
+  @Column()
+  ordenId: number;
+
   @CreateDateColumn({ type: 'timestamp' })
   fechaEmision: Date;
-  
-  @Column({ nullable: true })
-  fechaEstadoCambio: Date; // Aquí agregamos la propiedad
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  costoManoObra: number;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  costoRepuesto: number;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  costoTotal: number;
-
-  @Column({ type: 'enum', enum: EstadoPresupuesto, default: EstadoPresupuesto.PENDIENTE })
+  @ManyToOne(() => EstadoPresupuesto, estado => estado.presupuestos)
+  @JoinColumn({ name: 'estadoId' })
   estado: EstadoPresupuesto;
+
+  @Column()
+  estadoId: number;
 
   @Column({ type: 'text', nullable: true })
   descripcion: string;
 
-  @OneToOne(() => Order, order => order.presupuesto)
-  @JoinColumn({ name: 'orderId' })
-  order: Order;
-
-  @Column()
-  orderId: number;
+  @UpdateDateColumn({ type: 'timestamp' })
+  fechaActualizacion: Date;
 }

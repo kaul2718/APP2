@@ -1,26 +1,41 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { EstadoPresupuesto } from './entities/estado-presupuesto.entity';
 import { CreateEstadoPresupuestoDto } from './dto/create-estado-presupuesto.dto';
 import { UpdateEstadoPresupuestoDto } from './dto/update-estado-presupuesto.dto';
 
 @Injectable()
 export class EstadoPresupuestoService {
-  create(createEstadoPresupuestoDto: CreateEstadoPresupuestoDto) {
-    return 'This action adds a new estadoPresupuesto';
+  constructor(
+    @InjectRepository(EstadoPresupuesto)
+    private estadoRepo: Repository<EstadoPresupuesto>,
+  ) {}
+
+  async create(dto: CreateEstadoPresupuestoDto): Promise<EstadoPresupuesto> {
+    const estado = this.estadoRepo.create(dto);
+    return await this.estadoRepo.save(estado);
   }
 
-  findAll() {
-    return `This action returns all estadoPresupuesto`;
+  async findAll(): Promise<EstadoPresupuesto[]> {
+    return await this.estadoRepo.find();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} estadoPresupuesto`;
+  async findOne(id: number): Promise<EstadoPresupuesto> {
+    const estado = await this.estadoRepo.findOneBy({ id });
+    if (!estado) throw new NotFoundException(`EstadoPresupuesto con ID ${id} no encontrado`);
+    return estado;
   }
 
-  update(id: number, updateEstadoPresupuestoDto: UpdateEstadoPresupuestoDto) {
-    return `This action updates a #${id} estadoPresupuesto`;
+  async update(id: number, dto: UpdateEstadoPresupuestoDto): Promise<EstadoPresupuesto> {
+    const estado = await this.findOne(id);
+    Object.assign(estado, dto);
+    return await this.estadoRepo.save(estado);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} estadoPresupuesto`;
+  async remove(id: number): Promise<{ message: string }> {
+    const estado = await this.findOne(id);
+    await this.estadoRepo.remove(estado);
+    return { message: 'Estado eliminado correctamente' };
   }
 }

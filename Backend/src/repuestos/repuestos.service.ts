@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException, HttpStatus, HttpException } from '@nestjs/common';
+import {Injectable,NotFoundException,InternalServerErrorException,BadRequestException,} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Repuesto } from './entities/repuesto.entity';
@@ -10,46 +10,42 @@ export class RepuestosService {
   constructor(
     @InjectRepository(Repuesto)
     private readonly repuestoRepository: Repository<Repuesto>,
-  ) { }
+  ) {}
 
   // Crear un nuevo repuesto
-  async create(CreateRepuestoDto: CreateRepuestoDto): Promise<Repuesto> {
-    const { codigo } = CreateRepuestoDto;
+  async create(dto: CreateRepuestoDto): Promise<Repuesto> {
+    const { codigo } = dto;
 
-    // Validar si ya existe un repuesto con el mismo código
-    const existingRepuesto = await this.repuestoRepository.findOne({ where: { codigo } });
-    if (existingRepuesto) {
+    const existing = await this.repuestoRepository.findOne({
+      where: { codigo, isDeleted: false },
+    });
+    if (existing) {
       throw new BadRequestException(`Ya existe un repuesto con el código ${codigo}.`);
     }
 
-    const repuesto = this.repuestoRepository.create(CreateRepuestoDto);
-    try {
-      return await this.repuestoRepository.save(repuesto);
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Ocurrió un error al crear el repuesto: ${error.message}`,
-      );
-    }
+    const repuesto = this.repuestoRepository.create(dto);
+    return await this.repuestoRepository.save(repuesto);
   }
 
-  // Obtener todos los repuestos
+  // Obtener todos los repuestos (no eliminados)
   async findAll(): Promise<Repuesto[]> {
-    try {
-      return await this.repuestoRepository.find();
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Ocurrió un error al obtener los repuestos: ${error.message}`,
-      );
-    }
+    return await this.repuestoRepository.find({
+      where: { isDeleted: false },
+      relations: ['parte'], // opcional
+    });
   }
 
-  // Obtener un repuesto por ID
+  // Obtener un repuesto por ID (no eliminado)
   async findOne(id: number): Promise<Repuesto> {
     if (isNaN(id)) {
       throw new BadRequestException('El ID debe ser un número válido.');
     }
 
-    const repuesto = await this.repuestoRepository.findOne({ where: { id } });
+    const repuesto = await this.repuestoRepository.findOne({
+      where: { id, isDeleted: false },
+      relations: ['parte'],
+    });
+
     if (!repuesto) {
       throw new NotFoundException(`Repuesto con ID ${id} no encontrado.`);
     }
@@ -58,58 +54,41 @@ export class RepuestosService {
   }
 
   // Actualizar un repuesto
-  async update(id: number, updateRepuestoDto: UpdateRepuestoDto): Promise<Repuesto> {
+  async update(id: number, dto: UpdateRepuestoDto): Promise<Repuesto> {
     if (isNaN(id)) {
       throw new BadRequestException('El ID debe ser un número válido.');
     }
 
-    // Verificar si el repuesto existe antes de intentar actualizarlo
     const repuesto = await this.repuestoRepository.preload({
       id,
-      ...updateRepuestoDto,
+      ...dto,
     });
 
-    if (!repuesto) {
+    if (!repuesto || repuesto.isDeleted) {
       throw new NotFoundException(`No se ha encontrado el repuesto con ID ${id}`);
     }
 
-    try {
-      return await this.repuestoRepository.save(repuesto);
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Ocurrió un error al intentar actualizar el repuesto: ${error.message}`,
-      );
-    }
+    return await this.repuestoRepository.save(repuesto);
   }
 
-  // Eliminar un repuesto
+  // Eliminar (lógicamente) un repuesto
   async remove(id: number): Promise<{ message: string }> {
-    // Verificar si el ID es válido
     if (isNaN(id)) {
       throw new BadRequestException('El ID proporcionado no es válido.');
     }
 
-    // Buscar el repuesto por ID
     const repuesto = await this.repuestoRepository.findOne({
-      where: { id },
+      where: { id, isDeleted: false },
     });
 
-    // Verificar si el repuesto existe
     if (!repuesto) {
       throw new NotFoundException(`Repuesto con ID ${id} no encontrado.`);
     }
 
-    try {
-      // Eliminar el repuesto
-      await this.repuestoRepository.remove(repuesto);
+    repuesto.isDeleted = true;
+    repuesto.deletedAt = new Date();
+    await this.repuestoRepository.save(repuesto);
 
-      // Retornar un mensaje de éxito
-      return { message: `Repuesto con ID ${id} eliminado con éxito.` };
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Ocurrió un error al intentar eliminar el repuesto: ${error.message}`,
-      );
-    }
+    return { message: `Repuesto con ID ${id} eliminado con éxito (soft delete).` };
   }
 }
-

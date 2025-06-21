@@ -2,6 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, Jo
 import { Categoria } from 'src/categoria/entities/categoria.entity';
 import { Marca } from 'src/marca/entities/marca.entity';
 import { EspecificacionParte } from 'src/especificacion-parte/entities/especificacion-parte.entity';
+import { Inventario } from 'src/inventario/entities/inventario.entity';
 
 @Entity()
 export class Parte {
@@ -34,6 +35,8 @@ export class Parte {
   @OneToMany(() => EspecificacionParte, (esp) => esp.parte)
   especificaciones: EspecificacionParte[];
 
+  @OneToMany(() => Inventario, (inv) => inv.parte)
+  inventarios: Inventario[];
 
   @Column({ default: false })
   isDeleted: boolean;

@@ -1,116 +1,166 @@
-import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException, } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Presupuesto } from './entities/presupuesto.entity';
-import { EstadoPresupuesto } from '../common/enums/estadoPresupuesto.enum';
 import { CreatePresupuestoDto } from './dto/create-presupuesto.dto';
-import { DetalleServicio } from '../detalle-servicios/entities/detalle-servicio.entity';
-import { DetalleRepuestos } from '../detalle-repuestos/entities/detalle-repuesto.entity';
+import { UpdatePresupuestoDto } from './dto/update-presupuesto.dto';
+import { Order } from 'src/orders/entities/order.entity';
+import { EstadoPresupuesto } from '../estado-presupuesto/entities/estado-presupuesto.entity';
+import { DetalleRepuestos } from 'src/detalle-repuestos/entities/detalle-repuesto.entity';
+import { Inventario } from 'src/inventario/entities/inventario.entity';
+import { EstadoDetalleRepuesto } from 'src/common/enums/estadoDetalleRepuesto';
+import { Repuesto } from 'src/repuestos/entities/repuesto.entity';
 
 @Injectable()
 export class PresupuestoService {
   constructor(
     @InjectRepository(Presupuesto)
     private readonly presupuestoRepository: Repository<Presupuesto>,
-    @InjectRepository(DetalleServicio)
-    private readonly detalleServicioRepository: Repository<DetalleServicio>,
+
+    @InjectRepository(Order)
+    private readonly ordenRepository: Repository<Order>,
+
+    @InjectRepository(EstadoPresupuesto)
+    private readonly estadoPresupuestoRepository: Repository<EstadoPresupuesto>,
 
     @InjectRepository(DetalleRepuestos)
-    private readonly detalleRepuestoRepository: Repository<DetalleRepuestos>,
+    private readonly detalleRepuestosRepository: Repository<DetalleRepuestos>,
+
+    @InjectRepository(Inventario)
+    private readonly inventarioRepository: Repository<Inventario>,
+
+    @InjectRepository(Repuesto)
+    private readonly repuestoRepository: Repository<Repuesto>,
   ) { }
 
-  async create(createPresupuestoDto: CreatePresupuestoDto): Promise<Presupuesto> {
-    const { orderId, descripcion } = createPresupuestoDto;
+  async create(createDto: CreatePresupuestoDto): Promise<Presupuesto> {
+    const { ordenId, estadoId, descripcion } = createDto;
 
-    // Obtener los detalles de servicios y repuestos
-    const detalleServicios = await this.detalleServicioRepository.find({
-      where: { orderId },
-    });
+    const orden = await this.ordenRepository.findOne({ where: { id: ordenId } });
+    if (!orden) throw new NotFoundException(`Orden con ID ${ordenId} no encontrada.`);
 
-    const detalleRepuestos = await this.detalleRepuestoRepository.find({
-      where: { orderId },
-    });
+    const estado = await this.estadoPresupuestoRepository.findOne({ where: { id: estadoId } });
+    if (!estado) throw new NotFoundException(`EstadoPresupuesto con ID ${estadoId} no encontrado.`);
 
-    // Calcular costos usando el subtotal y asegurarse de que los valores son numéricos
-    const costoManoObra = detalleServicios.reduce(
-      (total, item) => total + (Number(item.subtotal) || 0), // Convierte a número
-      0
-    );
-
-    const costoRepuesto = detalleRepuestos.reduce(
-      (total, item) => total + (Number(item.subtotal) || 0), // Convierte a número
-      0
-    );
-
-    const costoTotal = costoManoObra + costoRepuesto;
-
-    // Crear el presupuesto
     const presupuesto = this.presupuestoRepository.create({
-      fechaEmision: new Date(),
-      costoManoObra,
-      costoRepuesto,
-      costoTotal,
-      estado: EstadoPresupuesto.PENDIENTE,
+      ordenId,
+      estadoId,
       descripcion,
-      orderId,
+      fechaEmision: new Date(),
     });
 
-    return this.presupuestoRepository.save(presupuesto);
+    try {
+      return await this.presupuestoRepository.save(presupuesto);
+    } catch (error) {
+      throw new InternalServerErrorException(`Error creando presupuesto: ${error.message}`);
+    }
   }
 
-  // Obtener un presupuesto por ID
-  async getPresupuesto(id: number): Promise<Presupuesto> {
-    if (isNaN(id)) {
-      throw new BadRequestException('El ID proporcionado no es válido.');
-    }
+  async findAll(): Promise<Presupuesto[]> {
+    return this.presupuestoRepository.find({
+      relations: ['orden', 'estado'],
+    });
+  }
 
-    const presupuesto = await this.presupuestoRepository.findOne({ where: { id } });
-    if (!presupuesto) {
-      throw new NotFoundException(`Presupuesto con ID ${id} no encontrado.`);
-    }
-
+  async findOne(id: number): Promise<Presupuesto> {
+    const presupuesto = await this.presupuestoRepository.findOne({
+      where: { id },
+      relations: ['orden', 'estado'],
+    });
+    if (!presupuesto) throw new NotFoundException(`Presupuesto con ID ${id} no encontrado.`);
     return presupuesto;
   }
 
-  // Aceptar un presupuesto
-  async aceptarPresupuesto(id: number): Promise<Presupuesto> {
+  async update(id: number, updateDto: UpdatePresupuestoDto): Promise<Presupuesto> {
     const presupuesto = await this.presupuestoRepository.findOne({ where: { id } });
-    if (!presupuesto) {
-      throw new NotFoundException('Presupuesto no encontrado');
+    if (!presupuesto) throw new NotFoundException(`Presupuesto con ID ${id} no encontrado.`);
+
+    if (updateDto.ordenId) {
+      const orden = await this.ordenRepository.findOne({ where: { id: updateDto.ordenId } });
+      if (!orden) throw new NotFoundException(`Orden con ID ${updateDto.ordenId} no encontrada.`);
     }
 
-    if (presupuesto.estado !== EstadoPresupuesto.PENDIENTE) {
-      throw new BadRequestException('Solo los presupuestos pendientes pueden ser aceptados');
+    if (updateDto.estadoId) {
+      const nuevoEstado = await this.estadoPresupuestoRepository.findOne({ where: { id: updateDto.estadoId } });
+      if (!nuevoEstado) throw new NotFoundException(`EstadoPresupuesto con ID ${updateDto.estadoId} no encontrado.`);
+
+      // Detectar si cambio de estado para aplicar lógica inventario
+      if (presupuesto.estadoId !== updateDto.estadoId) {
+        // Si cambia a aprobado (ajusta según el id o nombre que uses para aprobado)
+        if (nuevoEstado.nombre.toLowerCase() === 'aprobado') {
+          await this.descontarInventario(presupuesto.ordenId);
+        }
+        // Si cambia a rechazado o cancelado
+        else if (
+          ['rechazado', 'cancelado'].includes(nuevoEstado.nombre.toLowerCase())
+        ) {
+          await this.revertirInventario(presupuesto.ordenId);
+        }
+      }
     }
 
-    presupuesto.estado = EstadoPresupuesto.ACEPTADO;
-    presupuesto.fechaEstadoCambio = new Date(); // Se asume que esta propiedad está en la entidad Presupuesto
+    Object.assign(presupuesto, updateDto);
+    await this.presupuestoRepository.save(presupuesto);
 
-    try {
-      return await this.presupuestoRepository.save(presupuesto);
-    } catch (error) {
-      throw new InternalServerErrorException(`Error al aceptar el presupuesto: ${error.message}`);
+    // Refrescar para obtener relaciones actualizadas
+    const presupuestoActualizado = await this.presupuestoRepository.findOne({
+      where: { id },
+      relations: ['orden', 'estado'],
+    });
+
+    return presupuestoActualizado;
+  }
+
+
+  async remove(id: number): Promise<{ message: string }> {
+    const presupuesto = await this.presupuestoRepository.findOne({ where: { id } });
+    if (!presupuesto) throw new NotFoundException(`Presupuesto con ID ${id} no encontrado.`);
+
+    await this.presupuestoRepository.remove(presupuesto);
+    return { message: `Presupuesto con ID ${id} eliminado.` };
+  }
+
+  // ✅ Lógica: aplicar cambios al inventario si se aprueba
+  private async descontarInventario(ordenId: number) {
+    const detalles = await this.detalleRepuestosRepository.find({
+      where: { orderId: ordenId, estado: EstadoDetalleRepuesto.ACTIVO },
+      relations: ['repuesto'],
+    });
+
+    for (const detalle of detalles) {
+      const inventario = await this.inventarioRepository.findOne({
+        where: { parteId: detalle.repuesto.parteId, isDeleted: false },
+      });
+
+      if (!inventario) throw new NotFoundException(`Inventario para parte ${detalle.repuesto.parteId} no encontrado.`);
+      if (inventario.cantidad < detalle.cantidad)
+        throw new BadRequestException(`Stock insuficiente para parte ${detalle.repuesto.parteId}`);
+
+      inventario.cantidad -= detalle.cantidad;
+      await this.inventarioRepository.save(inventario);
     }
   }
 
-  // Rechazar un presupuesto
-  async rechazarPresupuesto(id: number): Promise<Presupuesto> {
-    const presupuesto = await this.presupuestoRepository.findOne({ where: { id } });
-    if (!presupuesto) {
-      throw new NotFoundException('Presupuesto no encontrado');
-    }
+  // ✅ Lógica: restaurar stock si se rechaza/cancela
+  private async revertirInventario(ordenId: number) {
+    const detalles = await this.detalleRepuestosRepository.find({
+      where: { orderId: ordenId, estado: EstadoDetalleRepuesto.ACTIVO },
+      relations: ['repuesto'],
+    });
 
-    if (presupuesto.estado !== EstadoPresupuesto.PENDIENTE) {
-      throw new BadRequestException('Solo los presupuestos pendientes pueden ser rechazados');
-    }
+    for (const detalle of detalles) {
+      const inventario = await this.inventarioRepository.findOne({
+        where: { parteId: detalle.repuesto.parteId, isDeleted: false },
+      });
 
-    presupuesto.estado = EstadoPresupuesto.RECHAZADO;
-    presupuesto.fechaEstadoCambio = new Date(); // Se asume que esta propiedad está en la entidad Presupuesto
+      if (inventario) {
+        inventario.cantidad += detalle.cantidad;
+        await this.inventarioRepository.save(inventario);
+      }
 
-    try {
-      return await this.presupuestoRepository.save(presupuesto);
-    } catch (error) {
-      throw new InternalServerErrorException(`Error al rechazar el presupuesto: ${error.message}`);
+      detalle.estado = EstadoDetalleRepuesto.ANULADO;
+      detalle.comentario = 'Detalle anulado por rechazo/cancelación de presupuesto';
+      await this.detalleRepuestosRepository.save(detalle);
     }
   }
 }

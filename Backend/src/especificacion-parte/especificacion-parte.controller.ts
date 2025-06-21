@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {Controller,Get,Post,Body,Patch,Param,Delete,ParseIntPipe,} from '@nestjs/common';
 import { EspecificacionParteService } from './especificacion-parte.service';
 import { CreateEspecificacionParteDto } from './dto/create-especificacion-parte.dto';
 import { UpdateEspecificacionParteDto } from './dto/update-especificacion-parte.dto';
@@ -21,17 +21,25 @@ export class EspecificacionParteController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(+id);
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.service.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateEspecificacionParteDto) {
-    return this.service.update(+id, dto);
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateEspecificacionParteDto,
+  ) {
+    return this.service.update(id, dto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.service.remove(+id);
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.service.remove(id);
+  }
+
+  @Patch(':id/restore')
+  restore(@Param('id', ParseIntPipe) id: number) {
+    return this.service.restore(id);
   }
 }

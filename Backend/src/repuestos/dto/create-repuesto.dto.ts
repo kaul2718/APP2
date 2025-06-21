@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, IsDecimal, Min, Max } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsDecimal, Min, Max, IsInt } from 'class-validator';
 
 export class CreateRepuestoDto {
   @IsString()
@@ -6,22 +6,15 @@ export class CreateRepuestoDto {
   codigo: string;
 
   @IsString()
-  @IsNotEmpty()
   nombre: string;
 
   @IsString()
-  @IsNotEmpty()
   descripcion: string;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   precioVenta: number;
 
-  @IsNumber()
-  @Min(0)
-  stockActual: number;
-
-  @IsNumber()
-  @Min(0)
-  stockMinimo: number;
+  @IsInt()
+  parteId: number;
 }

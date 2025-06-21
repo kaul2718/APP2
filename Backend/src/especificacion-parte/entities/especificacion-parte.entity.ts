@@ -1,12 +1,4 @@
-// src/especificacion-parte/entities/especificacion-parte.entity.ts
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  DeleteDateColumn,
-} from 'typeorm';
+import {  Entity,PrimaryGeneratedColumn,Column,ManyToOne,JoinColumn,DeleteDateColumn,} from 'typeorm';
 import { Parte } from 'src/parte/entities/parte.entity';
 import { TipoEspecificacion } from 'src/tipo-especificacion/entities/tipo-especificacion.entity';
 
