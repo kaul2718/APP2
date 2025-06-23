@@ -7,11 +7,12 @@ import { User } from '../users/entities/user.entity';
 import { Casillero } from '../casillero/entities/casillero.entity';
 import { Equipo } from '../equipo/entities/equipo.entity';
 import { DataSource } from 'typeorm';
+import { EvidenciaTecnica } from 'src/evidencia-tecnica/entities/evidencia-tecnica.entity';
 
 
 @Module({
   imports: [
-      TypeOrmModule.forFeature([Order,User,Casillero,Equipo])
+      TypeOrmModule.forFeature([Order,User,Casillero,Equipo,EvidenciaTecnica])
     ],
   controllers: [OrdersController],
   providers: [OrderService],

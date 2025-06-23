@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, BadRequestException, ParseIntPipe } from '@nestjs/common';
 import { PresupuestoService } from './presupuesto.service';
 import { CreatePresupuestoDto } from './dto/create-presupuesto.dto';
 import { UpdatePresupuestoDto } from './dto/update-presupuesto.dto';
@@ -8,7 +8,7 @@ import { Role } from 'src/common/enums/rol.enum';
 @Auth(Role.ADMIN)
 @Controller('presupuestos')
 export class PresupuestoController {
-  constructor(private readonly presupuestoService: PresupuestoService) {}
+  constructor(private readonly presupuestoService: PresupuestoService) { }
 
   @Auth(Role.TECH)
   @Post()
@@ -41,5 +41,9 @@ export class PresupuestoController {
   async remove(@Param('id') id: number) {
     if (isNaN(id)) throw new BadRequestException('ID inválido');
     return this.presupuestoService.remove(id);
+  }
+  @Get(':id/resumen')
+  async getResumen(@Param('id', ParseIntPipe) id: number) {
+    return this.presupuestoService.getResumenPresupuesto(id);
   }
 }

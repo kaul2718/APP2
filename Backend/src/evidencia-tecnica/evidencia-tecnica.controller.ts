@@ -1,34 +1,53 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {Controller, Get,Post,Patch,Delete,Param,Body,BadRequestException,NotFoundException,InternalServerErrorException,ParseIntPipe,} from '@nestjs/common';
 import { EvidenciaTecnicaService } from './evidencia-tecnica.service';
 import { CreateEvidenciaTecnicaDto } from './dto/create-evidencia-tecnica.dto';
 import { UpdateEvidenciaTecnicaDto } from './dto/update-evidencia-tecnica.dto';
+import { EvidenciaTecnica } from './entities/evidencia-tecnica.entity';
+import { Auth } from 'src/auth/decorators/auth.decorator';
+import { Role } from 'src/common/enums/rol.enum';
 
-@Controller('evidencia-tecnica')
+@Auth(Role.ADMIN)
+@Controller('evidencias-tecnicas')
 export class EvidenciaTecnicaController {
-  constructor(private readonly evidenciaTecnicaService: EvidenciaTecnicaService) {}
+  constructor(private readonly evidenciaService: EvidenciaTecnicaService) {}
 
+  @Auth(Role.TECH, Role.ADMIN)
   @Post()
-  create(@Body() createEvidenciaTecnicaDto: CreateEvidenciaTecnicaDto) {
-    return this.evidenciaTecnicaService.create(createEvidenciaTecnicaDto);
+  async create(
+    @Body() createDto: CreateEvidenciaTecnicaDto,
+  ): Promise<EvidenciaTecnica> {
+    if (!createDto.ordenId || !createDto.urlImagen || !createDto.subidoPorId) {
+      throw new BadRequestException(
+        'ordenId, urlImagen y subidoPorId son obligatorios.',
+      );
+    }
+    return await this.evidenciaService.create(createDto);
   }
 
+  @Auth(Role.TECH, Role.ADMIN)
   @Get()
-  findAll() {
-    return this.evidenciaTecnicaService.findAll();
+  async findAll(): Promise<EvidenciaTecnica[]> {
+    return await this.evidenciaService.findAll();
   }
 
+  @Auth(Role.TECH, Role.ADMIN)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.evidenciaTecnicaService.findOne(+id);
+  async findOne(@Param('id', ParseIntPipe) id: number): Promise<EvidenciaTecnica> {
+    return await this.evidenciaService.findOne(id);
   }
 
+  @Auth(Role.TECH, Role.ADMIN)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateEvidenciaTecnicaDto: UpdateEvidenciaTecnicaDto) {
-    return this.evidenciaTecnicaService.update(+id, updateEvidenciaTecnicaDto);
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateDto: UpdateEvidenciaTecnicaDto,
+  ): Promise<EvidenciaTecnica> {
+    return await this.evidenciaService.update(id, updateDto);
   }
 
+  @Auth(Role.TECH, Role.ADMIN)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.evidenciaTecnicaService.remove(+id);
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
+    return await this.evidenciaService.remove(id);
   }
 }

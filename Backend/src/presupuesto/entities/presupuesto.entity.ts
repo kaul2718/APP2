@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { Order } from 'src/orders/entities/order.entity';
 import { EstadoPresupuesto } from '../../estado-presupuesto/entities/estado-presupuesto.entity';
+import { DetalleManoObra } from 'src/detalle-mano-obra/entities/detalle-mano-obra.entity';
 
 @Entity()
 export class Presupuesto {
@@ -21,6 +22,9 @@ export class Presupuesto {
   @JoinColumn({ name: 'estadoId' })
   estado: EstadoPresupuesto;
 
+  @OneToMany(() => DetalleManoObra, detalle => detalle.presupuesto)
+  detallesManoObra: DetalleManoObra[];
+
   @Column()
   estadoId: number;
 
@@ -29,4 +33,5 @@ export class Presupuesto {
 
   @UpdateDateColumn({ type: 'timestamp' })
   fechaActualizacion: Date;
+
 }

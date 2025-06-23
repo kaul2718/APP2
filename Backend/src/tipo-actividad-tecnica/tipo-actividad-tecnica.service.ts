@@ -1,26 +1,76 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { TipoActividadTecnica } from './entities/tipo-actividad-tecnica.entity';
 import { CreateTipoActividadTecnicaDto } from './dto/create-tipo-actividad-tecnica.dto';
 import { UpdateTipoActividadTecnicaDto } from './dto/update-tipo-actividad-tecnica.dto';
 
 @Injectable()
 export class TipoActividadTecnicaService {
-  create(createTipoActividadTecnicaDto: CreateTipoActividadTecnicaDto) {
-    return 'This action adds a new tipoActividadTecnica';
+  constructor(
+    @InjectRepository(TipoActividadTecnica)
+    private readonly tipoActividadRepository: Repository<TipoActividadTecnica>,
+  ) {}
+
+  async create(createDto: CreateTipoActividadTecnicaDto): Promise<TipoActividadTecnica> {
+    const nuevoTipo = this.tipoActividadRepository.create(createDto);
+    try {
+      return await this.tipoActividadRepository.save(nuevoTipo);
+    } catch (error) {
+      throw new InternalServerErrorException('Error al crear TipoActividadTecnica');
+    }
   }
 
-  findAll() {
-    return `This action returns all tipoActividadTecnica`;
+  async findAll(): Promise<TipoActividadTecnica[]> {
+    return this.tipoActividadRepository.find({
+      where: { isDeleted: false },
+      order: { nombre: 'ASC' },
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} tipoActividadTecnica`;
+  async findOne(id: number): Promise<TipoActividadTecnica> {
+    const tipo = await this.tipoActividadRepository.findOne({
+      where: { id, isDeleted: false },
+    });
+    if (!tipo) {
+      throw new NotFoundException(`TipoActividadTecnica con ID ${id} no encontrada`);
+    }
+    return tipo;
   }
 
-  update(id: number, updateTipoActividadTecnicaDto: UpdateTipoActividadTecnicaDto) {
-    return `This action updates a #${id} tipoActividadTecnica`;
+  async update(id: number, updateDto: UpdateTipoActividadTecnicaDto): Promise<TipoActividadTecnica> {
+    const tipo = await this.tipoActividadRepository.findOne({
+      where: { id, isDeleted: false },
+    });
+    if (!tipo) {
+      throw new NotFoundException(`TipoActividadTecnica con ID ${id} no encontrada`);
+    }
+
+    Object.assign(tipo, updateDto);
+
+    try {
+      return await this.tipoActividadRepository.save(tipo);
+    } catch (error) {
+      throw new InternalServerErrorException('Error al actualizar TipoActividadTecnica');
+    }
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} tipoActividadTecnica`;
+  async remove(id: number): Promise<{ message: string }> {
+    const tipo = await this.tipoActividadRepository.findOne({
+      where: { id, isDeleted: false },
+    });
+    if (!tipo) {
+      throw new NotFoundException(`TipoActividadTecnica con ID ${id} no encontrada`);
+    }
+
+    tipo.isDeleted = true;
+    tipo.deletedAt = new Date();
+
+    try {
+      await this.tipoActividadRepository.save(tipo);
+      return { message: `TipoActividadTecnica con ID ${id} eliminada (soft delete)` };
+    } catch (error) {
+      throw new InternalServerErrorException('Error al eliminar TipoActividadTecnica');
+    }
   }
 }

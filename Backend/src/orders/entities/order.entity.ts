@@ -3,12 +3,12 @@ import { User } from '../../users/entities/user.entity';
 import { ActividadTecnica } from '../../actividad-tecnica/entities/actividad-tecnica.entity';
 import { Presupuesto } from '../../presupuesto/entities/presupuesto.entity';
 import { DetalleRepuestos } from '../../detalle-repuestos/entities/detalle-repuesto.entity';
-import { DetalleServicio } from 'src/detalle-servicios/entities/detalle-servicio.entity';
 import { Casillero } from 'src/casillero/entities/casillero.entity';
 import { EstadoOrden } from 'src/common/enums/estadoOrden.enum';
 import { EstadoFinal } from 'src/common/enums/estadoFinalOrden';
 import { TareaRealizar } from 'src/common/enums/tareaRealizar.enum';
 import { Equipo } from '../../equipo/entities/equipo.entity';
+import { EvidenciaTecnica } from 'src/evidencia-tecnica/entities/evidencia-tecnica.entity';
 
 @Entity()
 export class Order {
@@ -96,10 +96,7 @@ export class Order {
     })
     detallesRepuestos: DetalleRepuestos[];
 
-    @OneToMany(() => DetalleServicio, (detalle) => detalle.order, {
-        cascade: true,
-    })
-    detallesServicio: DetalleServicio[];
+
 
     @OneToOne(() => Casillero, (casillero) => casillero.order, {
         cascade: true,
@@ -111,4 +108,10 @@ export class Order {
 
     @DeleteDateColumn({ nullable: true })
     deletedAt?: Date;
+
+    @OneToMany(() => EvidenciaTecnica, (evidencia) => evidencia.orden, {
+        cascade: true,
+    })
+    evidencias: EvidenciaTecnica[];
+
 }

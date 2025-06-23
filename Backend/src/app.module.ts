@@ -11,8 +11,6 @@ import { CasilleroModule } from './casillero/casillero.module';
 import { RepuestosModule } from './repuestos/repuestos.module';
 import { DetalleRepuestosModule } from './detalle-repuestos/detalle-repuestos.module';
 import { EquipoModule } from './equipo/equipo.module';
-import { ServiciosModule } from './servicios/servicios.module';
-import { DetalleServiciosModule } from './detalle-servicios/detalle-servicios.module';
 import { ConfigModule } from '@nestjs/config';
 import { rejects } from 'assert';
 import { RolModule } from './rol/rol.module';
@@ -69,8 +67,6 @@ import { TipoNotificacionModule } from './tipo-notificacion/tipo-notificacion.mo
     RepuestosModule,
     DetalleRepuestosModule,
     EquipoModule,
-    ServiciosModule,
-    DetalleServiciosModule,
     RolModule,
     UsuarioRolModule,
     EstadoOrdenModule,

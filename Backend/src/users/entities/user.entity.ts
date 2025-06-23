@@ -2,6 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, OneToOne, OneToMany, DeleteDate
 import { IsEmail, Matches, MinLength } from 'class-validator';
 import { Role } from '../../common/enums/rol.enum';
 import { Order } from '../../orders/entities/order.entity';
+import { EvidenciaTecnica } from 'src/evidencia-tecnica/entities/evidencia-tecnica.entity';
 
 @Entity('users')
 export class User {
@@ -49,4 +50,8 @@ export class User {
   // Relación con las órdenes como técnico
   @OneToMany(() => Order, (order) => order.technician)
   technicianOrders: Order[];
+
+  
+  @OneToMany(() => EvidenciaTecnica, (evidencia) => evidencia.subidoPor)
+  evidenciasTecnicas: EvidenciaTecnica[];
 }

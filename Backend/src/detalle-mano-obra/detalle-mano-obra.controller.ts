@@ -1,34 +1,77 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, InternalServerErrorException, BadRequestException, NotFoundException, UsePipes, HttpCode } from '@nestjs/common';
 import { DetalleManoObraService } from './detalle-mano-obra.service';
 import { CreateDetalleManoObraDto } from './dto/create-detalle-mano-obra.dto';
 import { UpdateDetalleManoObraDto } from './dto/update-detalle-mano-obra.dto';
+import { TrimPipe } from 'src/common/pipes/trim.pipe';
+import { Auth } from 'src/auth/decorators/auth.decorator';
+import { Role } from 'src/common/enums/rol.enum';
+import { DetalleManoObra } from './entities/detalle-mano-obra.entity';
 
+@Auth(Role.ADMIN, Role.TECH)
 @Controller('detalle-mano-obra')
 export class DetalleManoObraController {
-  constructor(private readonly detalleManoObraService: DetalleManoObraService) {}
+  constructor(private readonly detalleService: DetalleManoObraService) {}
 
   @Post()
-  create(@Body() createDetalleManoObraDto: CreateDetalleManoObraDto) {
-    return this.detalleManoObraService.create(createDetalleManoObraDto);
+  @UsePipes(TrimPipe)
+  async create(@Body() dto: CreateDetalleManoObraDto): Promise<DetalleManoObra> {
+    try {
+      return await this.detalleService.create(dto);
+    } catch (error) {
+      throw new InternalServerErrorException(`Error al crear detalle de mano de obra: ${error.message}`);
+    }
   }
 
   @Get()
-  findAll() {
-    return this.detalleManoObraService.findAll();
+  async findAll(): Promise<DetalleManoObra[]> {
+    try {
+      return await this.detalleService.findAll();
+    } catch (error) {
+      throw new InternalServerErrorException(`Error al obtener detalles: ${error.message}`);
+    }
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.detalleManoObraService.findOne(+id);
+  async findOne(@Param('id') id: string): Promise<DetalleManoObra> {
+    const parsedId = Number(id);
+    if (isNaN(parsedId)) {
+      throw new BadRequestException('El ID proporcionado no es válido.');
+    }
+
+    try {
+      return await this.detalleService.findOne(parsedId);
+    } catch (error) {
+      throw new NotFoundException(error.message);
+    }
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateDetalleManoObraDto: UpdateDetalleManoObraDto) {
-    return this.detalleManoObraService.update(+id, updateDetalleManoObraDto);
+  @UsePipes(TrimPipe)
+  async update(@Param('id') id: string, @Body() dto: UpdateDetalleManoObraDto): Promise<DetalleManoObra> {
+    const parsedId = Number(id);
+    if (isNaN(parsedId)) {
+      throw new BadRequestException('El ID proporcionado no es válido.');
+    }
+
+    try {
+      return await this.detalleService.update(parsedId, dto);
+    } catch (error) {
+      throw new InternalServerErrorException(`Error al actualizar detalle: ${error.message}`);
+    }
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.detalleManoObraService.remove(+id);
+  @HttpCode(200)
+  async remove(@Param('id') id: string): Promise<{ message: string }> {
+    const parsedId = Number(id);
+    if (isNaN(parsedId)) {
+      throw new BadRequestException('El ID proporcionado no es válido.');
+    }
+
+    try {
+      return await this.detalleService.remove(parsedId);
+    } catch (error) {
+      throw new InternalServerErrorException(`Error al eliminar detalle: ${error.message}`);
+    }
   }
 }

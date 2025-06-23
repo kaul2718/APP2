@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException, } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Presupuesto } from './entities/presupuesto.entity';
 import { CreatePresupuestoDto } from './dto/create-presupuesto.dto';
 import { UpdatePresupuestoDto } from './dto/update-presupuesto.dto';
@@ -10,6 +10,7 @@ import { DetalleRepuestos } from 'src/detalle-repuestos/entities/detalle-repuest
 import { Inventario } from 'src/inventario/entities/inventario.entity';
 import { EstadoDetalleRepuesto } from 'src/common/enums/estadoDetalleRepuesto';
 import { Repuesto } from 'src/repuestos/entities/repuesto.entity';
+import { DetalleManoObra } from 'src/detalle-mano-obra/entities/detalle-mano-obra.entity';
 
 @Injectable()
 export class PresupuestoService {
@@ -31,6 +32,9 @@ export class PresupuestoService {
 
     @InjectRepository(Repuesto)
     private readonly repuestoRepository: Repository<Repuesto>,
+
+    private readonly dataSource: DataSource, // 👈 Agregado
+
   ) { }
 
   async create(createDto: CreatePresupuestoDto): Promise<Presupuesto> {
@@ -163,4 +167,66 @@ export class PresupuestoService {
       await this.detalleRepuestosRepository.save(detalle);
     }
   }
+  //RESUMEN DE COSTOS
+  async getResumenPresupuesto(id: number) {
+    // Primero obtén el presupuesto con la relación orden
+    const presupuesto = await this.presupuestoRepository.findOne({
+      where: { id },
+      relations: ['orden'], // carga la orden relacionada
+    });
+    if (!presupuesto) throw new NotFoundException('Presupuesto no encontrado');
+
+    // Obtén los detalles de mano de obra filtrando por presupuestoId
+    const detallesManoObra = await this.dataSource
+      .getRepository(DetalleManoObra)
+      .find({
+        where: { presupuestoId: id },
+        relations: ['tipoManoObra'],
+      });
+
+    // Obtén los detalles de repuestos filtrando por orderId (orden relacionada)
+    const detallesRepuestos = await this.dataSource
+      .getRepository(DetalleRepuestos)
+      .find({
+        where: { orderId: presupuesto.orden.id },
+        relations: ['repuesto'],
+      });
+
+    // Calcula costos
+    const costoManoObra = detallesManoObra.reduce((sum, d) => sum + Number(d.costoTotal), 0);
+    const costoRepuestos = detallesRepuestos.reduce(
+      (sum, d) => sum + Number(d.precioUnitario) * d.cantidad,
+      0,
+    );
+
+    // Arma resumen
+    const resumen = {
+      presupuestoId: presupuesto.id,
+      descripcion: presupuesto.descripcion,
+      fechaEmision: presupuesto.fechaEmision,
+      orden: {
+        numeroOrden: presupuesto.orden.workOrderNumber,
+        clienteId: presupuesto.orden.clientId,
+        equipoId: presupuesto.orden.equipoId,
+      },
+      detalleManoObra: detallesManoObra.map((d) => ({
+        tipo: d.tipoManoObra?.nombre,
+        cantidad: d.cantidad,
+        costoUnitario: d.costoUnitario,
+        costoTotal: d.costoTotal,
+      })),
+      detalleRepuestos: detallesRepuestos.map((d) => ({
+        nombre: d.repuesto?.nombre,
+        cantidad: d.cantidad,
+        precioUnitario: d.precioUnitario,
+        subtotal: d.cantidad * Number(d.precioUnitario),
+      })),
+      costoManoObra,
+      costoRepuestos,
+      costoTotal: costoManoObra + costoRepuestos,
+    };
+
+    return resumen;
+  }
+
 }

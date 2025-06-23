@@ -1,16 +1,29 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, JoinColumn } from 'typeorm';
-import { Order } from 'src/orders/entities/order.entity';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Order } from '../../orders/entities/order.entity';
+import { TipoActividadTecnica } from '../../tipo-actividad-tecnica/entities/tipo-actividad-tecnica.entity';
 
 @Entity()
 export class ActividadTecnica {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @ManyToOne(() => Order, (order) => order.actividades, { nullable: false })
+  @JoinColumn({ name: 'ordenId' })
+  orden: Order;
+
+  @Column()
+  ordenId: number;
+
+  @ManyToOne(() => TipoActividadTecnica, (tipo) => tipo.actividades, { nullable: false })
+  @JoinColumn({ name: 'tipoActividadId' })
+  tipoActividad: TipoActividadTecnica;
+
+  @Column()
+  tipoActividadId: number;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   fecha: Date;
 
-  @Column({ type: 'text' })
-  descripcion: string;
 
   @Column({ type: 'text' })
   diagnostico: string;
@@ -18,12 +31,9 @@ export class ActividadTecnica {
   @Column({ type: 'text' })
   trabajoRealizado: string;
 
-  @ManyToOne(() => Order, (orden) => orden.actividades, { 
-    onDelete: 'CASCADE' 
-  })
-  @JoinColumn({ name: 'ordenId' }) // Relación explícita con 'ordenId'
-  orden: Order;
+  @Column({ default: false })
+  isDeleted: boolean;
 
-  @Column()
-  ordenId: number;  // Esta columna representa la clave foránea a 'Order'
+  @UpdateDateColumn({ nullable: true })
+  deletedAt?: Date;
 }

@@ -35,6 +35,7 @@ export class DetalleRepuestos {
   @Column()
   repuestoId: number;
 
+  
   // Nuevo campo para estado del detalle
   @Column({ type: 'enum', enum: EstadoDetalleRepuesto, default: EstadoDetalleRepuesto.ACTIVO })
   estado: EstadoDetalleRepuesto;

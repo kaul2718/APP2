@@ -1,9 +1,11 @@
-import { IsString, IsNotEmpty, IsDate, IsDateString, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsInt, IsDateString, IsString } from 'class-validator';
 
 export class CreateActividadTecnicaDto {
-    @IsString()
-    @IsNotEmpty()
-    descripcion: string;
+    @IsInt()
+    ordenId: number;
+
+    @IsInt()
+    tipoActividadId: number;
 
     @IsString()
     @IsNotEmpty()
@@ -12,8 +14,4 @@ export class CreateActividadTecnicaDto {
     @IsString()
     @IsNotEmpty()
     trabajoRealizado: string;
-
-    @IsDateString()
-    @IsOptional() // Esta es opcional ya que se asigna automáticamente en la entidad
-    fecha: Date;
 }
