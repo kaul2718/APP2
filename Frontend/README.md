@@ -2,7 +2,6 @@
 
 Este proyecto es un panel administrativo desarrollado con **Next.js** y **Tailwind CSS**, orientado a facilitar la construcción de dashboards modernos, responsivos y listos para integrarse con aplicaciones web basadas en datos.
 
-![Vista previa del panel](./banner.png)
 
 Incluye una colección de componentes reutilizables, interfaces limpias y páginas base que permiten acelerar el desarrollo de sistemas internos como paneles de control, gestión de usuarios, monitoreo de datos, entre otros.
 
