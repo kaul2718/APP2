@@ -1,34 +1,31 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {Controller,Post,Get,Param,Body, ParseIntPipe,UseGuards,} from '@nestjs/common';
 import { HistorialEstadoOrdenService } from './historial-estado-orden.service';
 import { CreateHistorialEstadoOrdenDto } from './dto/create-historial-estado-orden.dto';
-import { UpdateHistorialEstadoOrdenDto } from './dto/update-historial-estado-orden.dto';
+import { AuthGuard } from 'src/auth/guard/auth.guard';
+import { RolesGuard } from 'src/auth/guard/roles.guard';
+import { Auth } from 'src/auth/decorators/auth.decorator';
+import { Role } from 'src/common/enums/rol.enum';
 
 @Controller('historial-estado-orden')
+@UseGuards(AuthGuard, RolesGuard)
 export class HistorialEstadoOrdenController {
-  constructor(private readonly historialEstadoOrdenService: HistorialEstadoOrdenService) {}
+  constructor(private readonly service: HistorialEstadoOrdenService) {}
 
   @Post()
-  create(@Body() createHistorialEstadoOrdenDto: CreateHistorialEstadoOrdenDto) {
-    return this.historialEstadoOrdenService.create(createHistorialEstadoOrdenDto);
+  @Auth(Role.ADMIN, Role.TECH)
+  create(@Body() dto: CreateHistorialEstadoOrdenDto) {
+    return this.service.create(dto);
   }
 
   @Get()
+  @Auth(Role.ADMIN, Role.TECH)
   findAll() {
-    return this.historialEstadoOrdenService.findAll();
+    return this.service.findAll();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.historialEstadoOrdenService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateHistorialEstadoOrdenDto: UpdateHistorialEstadoOrdenDto) {
-    return this.historialEstadoOrdenService.update(+id, updateHistorialEstadoOrdenDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.historialEstadoOrdenService.remove(+id);
+  @Get('orden/:ordenId')
+  @Auth(Role.ADMIN, Role.TECH)
+  findByOrden(@Param('ordenId', ParseIntPipe) ordenId: number) {
+    return this.service.findByOrden(ordenId);
   }
 }

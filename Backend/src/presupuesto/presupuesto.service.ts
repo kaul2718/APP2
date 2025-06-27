@@ -11,6 +11,8 @@ import { Inventario } from 'src/inventario/entities/inventario.entity';
 import { EstadoDetalleRepuesto } from 'src/common/enums/estadoDetalleRepuesto';
 import { Repuesto } from 'src/repuestos/entities/repuesto.entity';
 import { DetalleManoObra } from 'src/detalle-mano-obra/entities/detalle-mano-obra.entity';
+import { TipoNotificacion } from 'src/tipo-notificacion/entities/tipo-notificacion.entity';
+import { NotificacionService } from 'src/notificacion/notificacion.service';
 
 @Injectable()
 export class PresupuestoService {
@@ -33,7 +35,12 @@ export class PresupuestoService {
     @InjectRepository(Repuesto)
     private readonly repuestoRepository: Repository<Repuesto>,
 
+    @InjectRepository(TipoNotificacion)
+    private readonly tipoNotificacionRepository: Repository<TipoNotificacion>,
+
     private readonly dataSource: DataSource, // 👈 Agregado
+
+    private readonly notificacionService: NotificacionService, // Inyectamos el servicio de notificaciones
 
   ) { }
 
@@ -75,8 +82,9 @@ export class PresupuestoService {
     return presupuesto;
   }
 
+
   async update(id: number, updateDto: UpdatePresupuestoDto): Promise<Presupuesto> {
-    const presupuesto = await this.presupuestoRepository.findOne({ where: { id } });
+    const presupuesto = await this.presupuestoRepository.findOne({ where: { id }, relations: ['orden', 'orden.client', 'estado'] });
     if (!presupuesto) throw new NotFoundException(`Presupuesto con ID ${id} no encontrado.`);
 
     if (updateDto.ordenId) {
@@ -88,17 +96,29 @@ export class PresupuestoService {
       const nuevoEstado = await this.estadoPresupuestoRepository.findOne({ where: { id: updateDto.estadoId } });
       if (!nuevoEstado) throw new NotFoundException(`EstadoPresupuesto con ID ${updateDto.estadoId} no encontrado.`);
 
-      // Detectar si cambio de estado para aplicar lógica inventario
+      // Detectar si cambio de estado para aplicar lógica inventario y crear notificación
       if (presupuesto.estadoId !== updateDto.estadoId) {
-        // Si cambia a aprobado (ajusta según el id o nombre que uses para aprobado)
+        // Ajustes en inventario según el estado
         if (nuevoEstado.nombre.toLowerCase() === 'aprobado') {
           await this.descontarInventario(presupuesto.ordenId);
-        }
-        // Si cambia a rechazado o cancelado
-        else if (
-          ['rechazado', 'cancelado'].includes(nuevoEstado.nombre.toLowerCase())
-        ) {
+        } else if (['rechazado', 'cancelado'].includes(nuevoEstado.nombre.toLowerCase())) {
           await this.revertirInventario(presupuesto.ordenId);
+        }
+
+        // Crear notificación para el cambio de estado presupuesto
+        // Buscar tipoNotificacion según el nombre del estado (puedes ajustar los nombres para que coincidan)
+        const tipoNotificacion = await this.tipoNotificacionRepository.findOne({
+          where: { nombre: nuevoEstado.nombre }
+        });
+
+        if (tipoNotificacion) {
+          await this.notificacionService.create({
+            usuarioId: presupuesto.orden.client.id,  // Se notifica al cliente
+            ordenServicioId: presupuesto.orden.id,
+            tipoId: tipoNotificacion.id,
+            mensaje: `El estado del presupuesto ha cambiado a: ${nuevoEstado.nombre}`,
+            leido: false,
+          });
         }
       }
     }
@@ -106,7 +126,6 @@ export class PresupuestoService {
     Object.assign(presupuesto, updateDto);
     await this.presupuestoRepository.save(presupuesto);
 
-    // Refrescar para obtener relaciones actualizadas
     const presupuestoActualizado = await this.presupuestoRepository.findOne({
       where: { id },
       relations: ['orden', 'estado'],

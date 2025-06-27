@@ -26,12 +26,14 @@ export class AuthController {
 
     @Post('login')
     login(@Body() loginDto: LoginDto) {
+        console.log('📥 Petición de login recibida:', loginDto);
+
         return this.authService.login(loginDto);
     }
 
     @Get('profile')
     @Auth(Role.CLIENT)
-    profile(@ActiveUser() user:UserActiveInterface) {
+    profile(@ActiveUser() user: UserActiveInterface) {
         return this.authService.profile(user);
     }
 }

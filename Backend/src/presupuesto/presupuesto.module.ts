@@ -8,7 +8,9 @@ import { EstadoPresupuesto } from 'src/estado-presupuesto/entities/estado-presup
 import { DetalleRepuestos } from 'src/detalle-repuestos/entities/detalle-repuesto.entity';
 import { Inventario } from 'src/inventario/entities/inventario.entity';
 import { Repuesto } from 'src/repuestos/entities/repuesto.entity';
-import { InventarioModule } from 'src/inventario/inventario.module'; 
+import { InventarioModule } from 'src/inventario/inventario.module';
+import { TipoNotificacionModule } from 'src/tipo-notificacion/tipo-notificacion.module';
+import { NotificacionModule } from 'src/notificacion/notificacion.module';
 
 @Module({
   imports: [
@@ -20,9 +22,11 @@ import { InventarioModule } from 'src/inventario/inventario.module';
       Inventario,
       Repuesto,
     ]),
-    InventarioModule, 
+    InventarioModule,
+    TipoNotificacionModule,  
+    NotificacionModule,     
   ],
   controllers: [PresupuestoController],
   providers: [PresupuestoService],
 })
-export class PresupuestoModule {}
+export class PresupuestoModule { }
