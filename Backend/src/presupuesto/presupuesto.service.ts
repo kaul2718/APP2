@@ -152,7 +152,11 @@ export class PresupuestoService {
 
     for (const detalle of detalles) {
       const inventario = await this.inventarioRepository.findOne({
-        where: { parteId: detalle.repuesto.parteId, isDeleted: false },
+        where: {
+          parteId: detalle.repuesto.parteId,
+          deletedAt: null, // Cambiado de isDeleted a deletedAt
+          estado: true // Añadido para verificar que esté activo
+        },
       });
 
       if (!inventario) throw new NotFoundException(`Inventario para parte ${detalle.repuesto.parteId} no encontrado.`);
@@ -173,7 +177,11 @@ export class PresupuestoService {
 
     for (const detalle of detalles) {
       const inventario = await this.inventarioRepository.findOne({
-        where: { parteId: detalle.repuesto.parteId, isDeleted: false },
+        where: {
+          parteId: detalle.repuesto.parteId,
+          deletedAt: null, // Cambiado de isDeleted a deletedAt
+          estado: true // Añadido para verificar que esté activo
+        },
       });
 
       if (inventario) {

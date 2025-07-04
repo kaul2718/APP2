@@ -19,19 +19,23 @@ export class DetalleRepuestosService {
 
     @InjectRepository(Inventario)
     private readonly inventarioRepository: Repository<Inventario>,
-  ) {}
+  ) { }
 
   // Crear detalle (no toca inventario)
   async create(createDto: CreateDetalleRepuestoDto): Promise<DetalleRepuestos> {
     const { repuestoId, cantidad, orderId } = createDto;
 
     const repuesto = await this.repuestoRepository.findOne({
-      where: { id: repuestoId, isDeleted: false },
+      where: { id: repuestoId, deletedAt: null }, // Cambiado isDeleted por deletedAt
     });
     if (!repuesto) throw new NotFoundException(`Repuesto con ID ${repuestoId} no encontrado.`);
 
     const inventario = await this.inventarioRepository.findOne({
-      where: { parteId: repuesto.parteId, isDeleted: false },
+      where: {
+        parteId: repuesto.parteId,
+        deletedAt: null, // Cambiado isDeleted por deletedAt
+        estado: true // Añadido para verificar que esté activo
+      },
     });
     if (!inventario) throw new NotFoundException(`Inventario para parte ID ${repuesto.parteId} no encontrado.`);
 
@@ -89,7 +93,11 @@ export class DetalleRepuestosService {
 
     const repuesto = detalle.repuesto;
     const inventario = await this.inventarioRepository.findOne({
-      where: { parteId: repuesto.parteId, isDeleted: false },
+      where: {
+        parteId: repuesto.parteId,
+        deletedAt: null, // Cambiado isDeleted por deletedAt
+        estado: true // Añadido para verificar que esté activo
+      },
     });
     if (!inventario) throw new NotFoundException(`Inventario para parte ID ${repuesto.parteId} no encontrado.`);
 

@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException, } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Like, Repository } from 'typeorm';
 import { CreateEquipoDto } from './dto/create-equipo.dto';
 import { UpdateEquipoDto } from './dto/update-equipo.dto';
 import { Equipo } from './entities/equipo.entity';
@@ -14,80 +14,64 @@ export class EquipoService {
   constructor(
     @InjectRepository(Equipo)
     private readonly equipoRepository: Repository<Equipo>,
-
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
-
     @InjectRepository(TipoEquipo)
     private readonly tipoEquipoRepository: Repository<TipoEquipo>,
-
     @InjectRepository(Marca)
     private readonly marcaRepository: Repository<Marca>,
-
     @InjectRepository(Modelo)
     private readonly modeloRepository: Repository<Modelo>,
-  ) { }
+  ) {}
 
-  //METODO PARA REGISTRAR UN EQUIPO
   async create(createEquipoDto: CreateEquipoDto): Promise<Equipo> {
-    const {
-      numeroSerie,
-      tipoEquipoId,
-      marcaId,
-      modeloId,
-      ...equipoData
-    } = createEquipoDto;
+    const { numeroSerie, tipoEquipoId, marcaId, modeloId, ...equipoData } = createEquipoDto;
 
+    // Verificar número de serie único (incluyendo eliminados)
     const existingEquipo = await this.equipoRepository.findOne({
       where: { numeroSerie },
+      withDeleted: true,
     });
 
     if (existingEquipo) {
       throw new BadRequestException('El número de serie ya está registrado.');
     }
 
-    const tipoEquipo = await this.tipoEquipoRepository.findOne({
-      where: { id: tipoEquipoId },
-    });
-    if (!tipoEquipo) throw new BadRequestException('Tipo de equipo no encontrado.');
+    // Verificar relaciones
+    const [tipoEquipo, marca, modelo] = await Promise.all([
+      this.tipoEquipoRepository.findOneBy({ id: tipoEquipoId }),
+      this.marcaRepository.findOneBy({ id: marcaId }),
+      this.modeloRepository.findOneBy({ id: modeloId }),
+    ]);
 
-    const marca = await this.marcaRepository.findOne({
-      where: { id: marcaId },
-    });
-    if (!marca) throw new BadRequestException('Marca no encontrada.');
-
-    const modelo = await this.modeloRepository.findOne({
-      where: { id: modeloId },
-    });
-    if (!modelo) throw new BadRequestException('Modelo no encontrado.');
+    if (!tipoEquipo) throw new NotFoundException('Tipo de equipo no encontrado.');
+    if (!marca) throw new NotFoundException('Marca no encontrada.');
+    if (!modelo) throw new NotFoundException('Modelo no encontrado.');
 
     const equipo = this.equipoRepository.create({
       numeroSerie,
       tipoEquipo,
       marca,
       modelo,
+      estado: true, // Por defecto activo
       ...equipoData,
     });
 
-    return await this.equipoRepository.save(equipo);
+    return this.equipoRepository.save(equipo);
   }
 
-
-  //METODO PARA LISTAR TODOS LOS EQUIPOS
-  async findAll(): Promise<Equipo[]> {
+  async findAll(includeDeleted = false): Promise<Equipo[]> {
     return this.equipoRepository.find({
+      where: includeDeleted ? {} : { estado: true },
+      withDeleted: includeDeleted,
       relations: ['ordenes', 'tipoEquipo', 'marca', 'modelo'],
     });
   }
 
-  //METODO PARA LISTAR ALGUN EQUIPO
-  async findOne(id: number): Promise<Equipo> {
-    if (isNaN(id)) {
-      throw new BadRequestException('El ID proporcionado no es válido.');
-    }
-
+  async findOne(id: number, includeDeleted = false): Promise<Equipo> {
     const equipo = await this.equipoRepository.findOne({
       where: { id },
+      withDeleted: includeDeleted,
       relations: ['ordenes', 'tipoEquipo', 'marca', 'modelo'],
     });
 
@@ -98,21 +82,14 @@ export class EquipoService {
     return equipo;
   }
 
-  //METODO PARA ACTULIZAR ALGUN EQUIPO
   async update(id: number, updateEquipoDto: UpdateEquipoDto): Promise<Equipo> {
-    const equipo = await this.equipoRepository.findOne({
-      where: { id },
-      relations: ['tipoEquipo', 'marca', 'modelo'], // sin 'order'
-    });
+    const equipo = await this.findOne(id, true);
 
-    if (!equipo) {
-      throw new NotFoundException('Equipo no encontrado.');
-    }
-
-    // Validar si se actualiza el número de serie y no está duplicado
+    // Validar número de serie único
     if (updateEquipoDto.numeroSerie) {
       const existingEquipo = await this.equipoRepository.findOne({
         where: { numeroSerie: updateEquipoDto.numeroSerie },
+        withDeleted: true,
       });
 
       if (existingEquipo && existingEquipo.id !== id) {
@@ -120,63 +97,102 @@ export class EquipoService {
       }
     }
 
-    // Actualizar relaciones si vienen en el DTO
-    if (updateEquipoDto.tipoEquipoId) {
-      const tipoEquipo = await this.tipoEquipoRepository.findOne({
-        where: { id: updateEquipoDto.tipoEquipoId },
-      });
-      if (!tipoEquipo) throw new NotFoundException('Tipo de equipo no encontrado.');
-      equipo.tipoEquipo = tipoEquipo;
+    // Actualizar relaciones si existen en el DTO
+    const [tipoEquipo, marca, modelo] = await Promise.all([
+      updateEquipoDto.tipoEquipoId 
+        ? this.tipoEquipoRepository.findOneBy({ id: updateEquipoDto.tipoEquipoId })
+        : Promise.resolve(null),
+      updateEquipoDto.marcaId 
+        ? this.marcaRepository.findOneBy({ id: updateEquipoDto.marcaId })
+        : Promise.resolve(null),
+      updateEquipoDto.modeloId 
+        ? this.modeloRepository.findOneBy({ id: updateEquipoDto.modeloId })
+        : Promise.resolve(null),
+    ]);
+
+    if (updateEquipoDto.tipoEquipoId && !tipoEquipo) {
+      throw new NotFoundException('Tipo de equipo no encontrado.');
+    }
+    if (updateEquipoDto.marcaId && !marca) {
+      throw new NotFoundException('Marca no encontrada.');
+    }
+    if (updateEquipoDto.modeloId && !modelo) {
+      throw new NotFoundException('Modelo no encontrado.');
     }
 
-    if (updateEquipoDto.marcaId) {
-      const marca = await this.marcaRepository.findOne({
-        where: { id: updateEquipoDto.marcaId },
-      });
-      if (!marca) throw new NotFoundException('Marca no encontrada.');
-      equipo.marca = marca;
-    }
-
-    if (updateEquipoDto.modeloId) {
-      const modelo = await this.modeloRepository.findOne({
-        where: { id: updateEquipoDto.modeloId },
-      });
-      if (!modelo) throw new NotFoundException('Modelo no encontrado.');
-      equipo.modelo = modelo;
-    }
-
-    // Asignar las demás propiedades directamente del DTO
+    // Actualizar propiedades
     Object.assign(equipo, updateEquipoDto);
-    return await this.equipoRepository.save(equipo);
+    if (tipoEquipo) equipo.tipoEquipo = tipoEquipo;
+    if (marca) equipo.marca = marca;
+    if (modelo) equipo.modelo = modelo;
+
+    return this.equipoRepository.save(equipo);
   }
 
-  //METODO PARA ELIMINAR UN EQUIPO
-  async remove(id: number): Promise<{ message: string }> {
-    if (isNaN(id)) {
-      throw new BadRequestException('El ID proporcionado no es válido.');
-    }
-
-    const equipo = await this.equipoRepository.findOne({
-      where: { id },
-    });
-
-    if (!equipo) {
-      throw new NotFoundException(`Equipo con ID ${id} no encontrado.`);
-    }
-    // Verificar si existe alguna orden que tenga asignado este equipo
+  async remove(id: number): Promise<Equipo> {
+    const equipo = await this.findOne(id);
+    
+    // Verificar si está asignado a alguna orden
     const ordenAsignada = await this.orderRepository.findOne({
       where: { equipoId: id },
     });
     if (ordenAsignada) {
-      throw new BadRequestException(
-        'No se puede eliminar el equipo porque está asignado a una orden.'
-      );
+      throw new BadRequestException('No se puede eliminar el equipo porque está asignado a una orden.');
     }
-    if (equipo.isDeleted) {
-      throw new BadRequestException('El equipo ya ha sido eliminado.');
+
+    equipo.estado = false;
+    await this.equipoRepository.softRemove(equipo);
+    return this.findOne(id, true); // Devuelve el equipo eliminado
+  }
+
+  async restore(id: number): Promise<Equipo> {
+    const equipo = await this.findOne(id, true);
+
+    if (!equipo.deletedAt) {
+      throw new BadRequestException('El equipo no está eliminado.');
     }
-    equipo.isDeleted = true;
+
+    await this.equipoRepository.restore(id);
+    equipo.estado = true;
     await this.equipoRepository.save(equipo);
-    return { message: `Equipo con ID ${id} eliminado.` };
+    return this.findOne(id); // Devuelve el equipo restaurado
+  }
+
+  async findAllPaginated(
+    page: number,
+    limit: number,
+    search?: string,
+    includeDeleted = false,
+  ): Promise<{ data: Equipo[]; total: number }> {
+    const skip = (page - 1) * limit;
+
+    const query = this.equipoRepository.createQueryBuilder('equipo')
+      .leftJoinAndSelect('equipo.tipoEquipo', 'tipoEquipo')
+      .leftJoinAndSelect('equipo.marca', 'marca')
+      .leftJoinAndSelect('equipo.modelo', 'modelo');
+
+    if (search) {
+      query.where('LOWER(equipo.numeroSerie) LIKE LOWER(:search)', { search: `%${search}%` });
+    }
+
+    if (!includeDeleted) {
+      query.andWhere('equipo.deletedAt IS NULL');
+    }
+
+    query.skip(skip).take(limit).orderBy('equipo.numeroSerie', 'ASC');
+
+    const [data, total] = await query.getManyAndCount();
+
+    return { data, total };
+  }
+
+  async actualizarEstado(id: number, estado: boolean): Promise<Equipo> {
+    const equipo = await this.equipoRepository.findOneBy({ id });
+    if (!equipo) throw new NotFoundException('Equipo no encontrado');
+
+    equipo.estado = estado;
+    await this.equipoRepository.save(equipo);
+
+    return equipo;
   }
 }

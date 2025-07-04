@@ -1,11 +1,18 @@
-import { IsString,IsNumber } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsBoolean } from 'class-validator';
 import { IsNotBlank } from 'src/decorators/is-not-blank-decorator';
 
 export class CreateModeloDto {
+  // ✅ Valida que no sea vacío ni espacios en blanco y que sea una cadena
   @IsNotBlank({ message: 'El nombre del modelo no puede estar vacío' })
-  @IsString()
+  @IsString({ message: 'El nombre del modelo debe ser un texto' })
   nombre: string;
 
-  @IsNumber()
+  // ✅ Valida que sea un número (puedes cambiar por IsInt si debe ser entero)
+  @IsNumber({}, { message: 'La marca debe ser un número' })
   marcaId: number;
+  
+  // ✅ Campo opcional que debe ser booleano si se proporciona
+  @IsOptional()
+  @IsBoolean({ message: 'El estado debe ser verdadero o falso' })
+  estado?: boolean;
 }

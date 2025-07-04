@@ -1,5 +1,5 @@
 import { ActividadTecnica } from 'src/actividad-tecnica/entities/actividad-tecnica.entity';
-import { Entity, PrimaryGeneratedColumn, Column, UpdateDateColumn, DeleteDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, UpdateDateColumn, DeleteDateColumn, OneToMany, CreateDateColumn } from 'typeorm';
 
 @Entity()
 export class TipoActividadTecnica {
@@ -10,15 +10,18 @@ export class TipoActividadTecnica {
   nombre: string;
 
   @Column({ type: 'text', nullable: true })
-  descripcion?: string;
+  descripcion: string;
 
-  @Column({ default: false })
-  isDeleted: boolean;
+  @Column({ default: true })
+  estado: boolean;
 
-  @DeleteDateColumn({ nullable: true })
-  deletedAt?: Date;
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
 
-  @UpdateDateColumn()
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
   updatedAt: Date;
 
   @OneToMany(() => ActividadTecnica, (actividad) => actividad.tipoActividad)

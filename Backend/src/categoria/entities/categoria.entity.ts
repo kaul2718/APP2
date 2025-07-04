@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, DeleteDateColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity()
 export class Categoria {
@@ -7,14 +7,19 @@ export class Categoria {
 
   @Column()
   nombre: string;
+
+  @Column({ default: true })
+  estado: boolean;
   
   @Column()
   descripcion: string;
 
-  // === Soft Delete ===
-  @Column({ default: false })
-  isDeleted: boolean;
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
 
-  @Column({ type: 'timestamp', nullable: true })
-  deletedAt: Date;
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }

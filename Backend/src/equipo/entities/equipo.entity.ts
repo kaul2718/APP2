@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToOne, JoinColumn, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToOne, JoinColumn, OneToMany, CreateDateColumn, UpdateDateColumn, DeleteDateColumn } from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
 import { TipoEquipo } from '../../tipo-equipo/entities/tipo-equipo.entity';
 import { Marca } from '../../marca/entities/marca.entity';
@@ -14,6 +14,9 @@ export class Equipo {
 
   @OneToMany(() => Order, (order) => order.equipo)
   ordenes: Order[];
+
+  @Column({ default: true })
+  estado: boolean;
 
   @Column({ default: false })
   isDeleted: boolean;
@@ -35,6 +38,9 @@ export class Equipo {
     nullable: true,
   })
   modelo: Modelo;
+
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;

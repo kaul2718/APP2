@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, OneToMany, } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, OneToMany, DeleteDateColumn, UpdateDateColumn, } from 'typeorm';
 import { Categoria } from 'src/categoria/entities/categoria.entity';
 import { Marca } from 'src/marca/entities/marca.entity';
 import { EspecificacionParte } from 'src/especificacion-parte/entities/especificacion-parte.entity';
@@ -10,27 +10,30 @@ export class Parte {
   id: number;
 
   @Column()
+  nombre: string;
+
+  @Column()
   modelo: string;
 
   @Column()
   descripcion: string;
 
-  @CreateDateColumn()
-  fechaCreacion: Date;
-
-  @Column()
-  categoriaId: number;
+  @Column({ default: true })
+  estado: boolean;
 
   @ManyToOne(() => Categoria)
   @JoinColumn({ name: 'categoriaId' })
   categoria: Categoria;
 
   @Column()
-  marcaId: number;
+  categoriaId: number;
 
   @ManyToOne(() => Marca)
   @JoinColumn({ name: 'marcaId' })
   marca: Marca;
+
+  @Column()
+  marcaId: number;
 
   @OneToMany(() => EspecificacionParte, (esp) => esp.parte)
   especificaciones: EspecificacionParte[];
@@ -38,9 +41,13 @@ export class Parte {
   @OneToMany(() => Inventario, (inv) => inv.parte)
   inventarios: Inventario[];
 
-  @Column({ default: false })
-  isDeleted: boolean;
+  /*CONTROL */
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
 
-  @Column({ type: 'timestamp', nullable: true })
-  deletedAt: Date;
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }

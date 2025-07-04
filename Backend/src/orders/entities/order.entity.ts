@@ -9,7 +9,7 @@ import { EvidenciaTecnica } from 'src/evidencia-tecnica/entities/evidencia-tecni
 import { EstadoOrden } from 'src/estado-orden/entities/estado-orden.entity';
 import { HistorialEstadoOrden } from 'src/historial-estado-orden/entities/historial-estado-orden.entity';
 
-@Entity()
+@Entity('orders')
 export class Order {
     @PrimaryGeneratedColumn()
     id: number;

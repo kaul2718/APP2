@@ -4,145 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
-import { BoxCubeIcon, CalenderIcon, ChevronDownIcon, GridIcon, HorizontaLDots, ListIcon, PageIcon, PieChartIcon, PlugInIcon, TableIcon, UserCircleIcon, } from "../icons/index";
+import { ChevronDownIcon, HorizontaLDots, } from "../icons/index";
 import SidebarWidget from "./SidebarWidget";
+import { NavItem, navItems } from "@/data/sidebar/navItems";
 
-type NavItem = {
-  name: string;
-  icon: React.ReactNode;
-  path?: string;
-  subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
-};
-
-const navItems: NavItem[] = [
-  {
-    icon: <GridIcon />,
-    name: "Dashboard",
-    subItems: [{ name: "Ecommerce", path: "/", pro: false }],
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "Clientes",
-    subItems: [
-      { name: "Nuevo Usuario", path: "/clientes/nuevo" },
-      { name: "Ver Usuarios", path: "/clientes" },
-    ],
-  },
-  {
-    icon: <ListIcon />,
-    name: "Orden de Servicio",
-    subItems: [
-      { name: "Nueva Orden de Servicio", path: "/ordenes-servicio/nueva" },
-      { name: "Ver Ordenes de Servicio", path: "/ordenes-servicio" },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: "Equipos",
-    subItems: [
-      { name: "Nueva Marca", path: "/equipos/marca/nuevo" },
-      { name: "Nuevo Tipo Equipo", path: "/equipos/tipo/nuevo" },
-      { name: "Nuevo Modelo", path: "/equipos/modelo/nuevo" },
-    ],
-  },
-  {
-    icon: <TableIcon />,
-    name: "Casilleros",
-    subItems: [
-      { name: "Nuevo Casillero", path: "/casilleros/nuevo" },
-      { name: "Ver Casilleros", path: "/casilleros" },
-    ],
-  },
-  {
-    icon: <PageIcon />,
-    name: "Estados Ordenes ",
-    subItems: [
-      { name: "Nuevo Estado", path: "/ordenes/estado/nuevo" },
-      { name: "Ver Estados", path: "/ordenes/estado" },
-    ],
-  },
-  {
-    icon: <PageIcon />,
-    name: "Tipo Actividad Tecnica",
-    subItems: [
-      { name: "Nuevo Tipo Actividad Tecnica", path: "/actividad-tecnica/tipo/nuevo" },
-      { name: "Ver Tipos Actividad Tecnica", path: "/actividad-tecnica/tipo" },
-    ],
-  },
-  {
-    icon: <PageIcon />,
-    name: "Estado Presupuesto",
-    subItems: [
-      { name: "Nuevo Estado Presupuesto", path: "/presupuesto/estado/nuevo" },
-      { name: "Ver Estado Presupuesto", path: "/presupuesto/estado" },
-    ],
-  },
-  {
-    icon: <PageIcon />,
-    name: "Presupuestos",
-    subItems: [
-      { name: "Nuevo Presupuesto", path: "/presupuestos/nuevo" },
-      { name: "Ver Presupuestos", path: "/presupuestos" },
-    ],
-  },
-  {
-    icon: <PageIcon />,
-    name: "Tipo Mano Obra",
-    subItems: [
-      { name: "Nuevo Tipo Mano Obra", path: "/mano-obra/tipo/nuevo" },
-      { name: "Ver Tipos de Mano Obra", path: "/mano-obra/tipo" },
-    ],
-  },
-  {
-    icon: <PageIcon />,
-    name: "Inventario / Partes",
-    subItems: [
-      { name: "Ver Inventario", path: "/inventario" },
-      { name: "Categoria", path: "/inventario/categoria" },
-      { name: "Tipo Especificacion", path: "/inventario/especificacion" },
-      { name: "Marca", path: "/inventario/marca" },
-    ],
-  },
-  {
-    icon: <PageIcon />,
-    name: "Repuestos",
-    subItems: [
-      { name: "Nuevo Repuesto", path: "/repuestos/nuevo" },
-      { name: "Ver Repuestos", path: "/repuestos" },
-    ],
-  },
-];
-
-const othersItems: NavItem[] = [
-  {
-    icon: <PieChartIcon />,
-    name: "Charts",
-    subItems: [
-      { name: "Line Chart", path: "/line-chart", pro: false },
-      { name: "Bar Chart", path: "/bar-chart", pro: false },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: "UI Elements",
-    subItems: [
-      { name: "Alerts", path: "/alerts", pro: false },
-      { name: "Avatar", path: "/avatars", pro: false },
-      { name: "Badge", path: "/badge", pro: false },
-      { name: "Buttons", path: "/buttons", pro: false },
-      { name: "Images", path: "/images", pro: false },
-      { name: "Videos", path: "/videos", pro: false },
-    ],
-  },
-  {
-    icon: <PlugInIcon />,
-    name: "Authentication",
-    subItems: [
-      { name: "Sign In", path: "/signin", pro: false },
-      { name: "Sign Up", path: "/signup", pro: false },
-    ],
-  },
-];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
@@ -278,32 +143,6 @@ const AppSidebar: React.FC = () => {
   const isActive = useCallback((path: string) => path === pathname, [pathname]);
 
   useEffect(() => {
-    // Check if the current path matches any submenu item
-    let submenuMatched = false;
-    ["main", "others"].forEach((menuType) => {
-      const items = menuType === "main" ? navItems : othersItems;
-      items.forEach((nav, index) => {
-        if (nav.subItems) {
-          nav.subItems.forEach((subItem) => {
-            if (isActive(subItem.path)) {
-              setOpenSubmenu({
-                type: menuType as "main" | "others",
-                index,
-              });
-              submenuMatched = true;
-            }
-          });
-        }
-      });
-    });
-
-    // If no submenu item matches, close the open submenu
-    if (!submenuMatched) {
-      setOpenSubmenu(null);
-    }
-  }, [pathname, isActive]);
-
-  useEffect(() => {
     // Set the height of the submenu items when the submenu is opened
     if (openSubmenu !== null) {
       const key = `${openSubmenu.type}-${openSubmenu.index}`;
@@ -352,22 +191,22 @@ const AppSidebar: React.FC = () => {
             <>
               <Image
                 className="dark:hidden"
-                src="/images/logo/logo.svg"
+                src="/images/logo/logohdc.svg"
                 alt="Logo"
-                width={150}
+                width={40}
                 height={40}
               />
               <Image
                 className="hidden dark:block"
-                src="/images/logo/logo-dark.svg"
+                src="/images/logo/logohdc.svg"
                 alt="Logo"
-                width={150}
+                width={40}
                 height={40}
               />
             </>
           ) : (
             <Image
-              src="/images/logo/logo-icon.svg"
+              src="/images/logo/logohdc.svg"
               alt="Logo"
               width={32}
               height={32}
@@ -392,22 +231,6 @@ const AppSidebar: React.FC = () => {
                 )}
               </h2>
               {renderMenuItems(navItems, "main")}
-            </div>
-
-            <div className="">
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "justify-start"
-                  }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Others"
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderMenuItems(othersItems, "others")}
             </div>
           </div>
         </nav>

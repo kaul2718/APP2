@@ -1,105 +1,84 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, Query } from '@nestjs/common';
+import {Controller,Post,Body,Get,Param,Patch,Delete,Query,ParseIntPipe,} from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Auth } from 'src/auth/decorators/auth.decorator';
-import { Role } from 'src/common/enums/rol.enum';
+import { User } from './entities/user.entity';
+import { Auth } from '../auth/decorators/auth.decorator';
+import { Role } from '../common/enums/rol.enum';
+import { RegisterDto } from 'src/auth/dto/register.dto';
 
+@Auth(Role.ADMIN)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
-  // Crear un nuevo usuario
   @Post()
-  @HttpCode(HttpStatus.CREATED) // Establecer el código de respuesta 201
-  async create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  create(@Body() dto: RegisterDto): Promise<User> {
+    return this.usersService.create(dto);
   }
-  // Obtener todos los usuarios (solo ADMIN)
-  @Auth(Role.ADMIN, Role.TECH)
+
   @Get('all')
   async findAll(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
-    @Query('role') role?: string // El parámetro de rol sigue siendo opcional
+    @Query('search') search?: string,
+    @Query('includeDeleted') includeDeleted?: boolean,
   ) {
-    if (role) {
-      return this.usersService.findAll(page, limit, role); // Filtra por rol
-    } else {
-      return this.usersService.findAll(page, limit); // Devuelve todos los usuarios si no se pasa rol
-    }
+    const result = await this.usersService.findAllPaginated(
+      page,
+      limit,
+      search,
+      includeDeleted,
+    );
+
+    return {
+      items: result.data,
+      totalItems: result.total,
+      totalPages: Math.ceil(result.total / limit),
+      currentPage: page,
+    };
   }
 
-  // Obtener un usuario por ID
-  @Auth(Role.ADMIN)
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const userId = +id;
-    if (isNaN(userId)) {
-      return {
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: `El ID de usuario proporcionado (${id}) no es válido.`,
-      };
-    }
-    return this.usersService.findOne(userId);
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('includeDeleted') includeDeleted?: boolean,
+  ): Promise<User> {
+    return this.usersService.findOne(id, includeDeleted);
   }
 
-  // Actualizar un usuario por ID
-  @Auth(Role.ADMIN)
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    const userId = +id;
-    if (isNaN(userId)) {
-      return {
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: `El identificador de usuario ${id} no es válido o no se encuentra registrado.`,
-      };
-    }
-    return this.usersService.update(userId, updateUserDto);
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateUserDto,
+  ): Promise<User> {
+    return this.usersService.update(id, dto);
   }
 
-  // Eliminar un usuario por ID (eliminación lógica)
-  @Auth(Role.ADMIN)
-  @Patch(':id/soft-delete')
-  @HttpCode(HttpStatus.NO_CONTENT) // Establecer código de respuesta 204
-  async softDelete(@Param('id') id: string) {
-    const userId = +id;
-    if (isNaN(userId)) {
-      return {
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: `El ID de usuario proporcionado (${id}) no es válido.`,
-      };
-    }
-    await this.usersService.softDeleteUser(userId);
-  }
-
-  // Restaurar un usuario eliminado lógicamente
-  @Auth(Role.ADMIN)
-  @Patch(':id/restore')
-  @HttpCode(HttpStatus.NO_CONTENT) // Establecer código de respuesta 204
-  async restore(@Param('id') id: string) {
-    const userId = +id;
-    if (isNaN(userId)) {
-      return {
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: `El ID de usuario proporcionado (${id}) no es válido.`,
-      };
-    }
-    await this.usersService.restoreUser(userId);
-  }
-
-  // Eliminar un usuario por ID (eliminación física)
-  @Auth(Role.ADMIN)
   @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT) // Establecer código de respuesta 204
-  async remove(@Param('id') id: string) {
-    const userId = +id;
-    if (isNaN(userId)) {
-      return {
-        statusCode: HttpStatus.BAD_REQUEST,
-        message: `El ID de usuario proporcionado (${id}) no es válido.`,
-      };
-    }
-    await this.usersService.remove(userId);
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<User> {
+    await this.usersService.remove(id);
+    return this.usersService.findOne(id, true); // devuelve el soft deleted
+  }
+
+  @Patch(':id/restore')
+  async restore(@Param('id', ParseIntPipe) id: number): Promise<User> {
+    await this.usersService.restore(id);
+    return this.usersService.findOne(id); // devuelve restaurado
+  }
+
+  @Patch(':id/estado')
+  async cambiarEstado(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('estado') estado: boolean,
+  ): Promise<User> {
+    return this.usersService.actualizarEstado(id, estado);
+  }
+
+  @Patch(':id/toggle-estado')
+  async toggleEstado(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('estado') estado: boolean,
+  ): Promise<User> {
+    return this.usersService.actualizarEstado(id, estado);
   }
 }

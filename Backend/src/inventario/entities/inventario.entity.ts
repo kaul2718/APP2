@@ -1,4 +1,4 @@
-import {Entity,PrimaryGeneratedColumn,Column,ManyToOne,JoinColumn,CreateDateColumn,} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, DeleteDateColumn, UpdateDateColumn, } from 'typeorm';
 import { Parte } from 'src/parte/entities/parte.entity';
 
 @Entity()
@@ -9,14 +9,14 @@ export class Inventario {
   @Column()
   cantidad: number;
 
+  @Column({ default: true })
+  estado: boolean;
+  
   @Column()
   stockMinimo: number;
 
   @Column()
   ubicacion: string;
-
-  @CreateDateColumn({ type: 'timestamp' })
-  ultimaActualizacion: Date;
 
   @ManyToOne(() => Parte, (parte) => parte.inventarios, { eager: true })
   @JoinColumn({ name: 'parteId' })
@@ -25,10 +25,12 @@ export class Inventario {
   @Column()
   parteId: number;
 
-  // === Soft Delete ===
-  @Column({ default: false })
-  isDeleted: boolean;
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
 
-  @Column({ type: 'timestamp', nullable: true })
-  deletedAt: Date;
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }

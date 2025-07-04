@@ -1,4 +1,4 @@
-import { IsInt, IsNotEmpty, IsString, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateEspecificacionParteDto {
   @IsInt()
@@ -12,4 +12,8 @@ export class CreateEspecificacionParteDto {
   @IsString()
   @IsNotEmpty()
   valor: string;
+  
+  @IsOptional()
+  @IsBoolean()
+  estado?: boolean;
 }

@@ -1,5 +1,5 @@
 import { EspecificacionParte } from 'src/especificacion-parte/entities/especificacion-parte.entity';
-import { Entity, Column, PrimaryGeneratedColumn, DeleteDateColumn, OneToMany } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, DeleteDateColumn, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity('tipo_especificacion')
 export class TipoEspecificacion {
@@ -9,12 +9,21 @@ export class TipoEspecificacion {
   @Column({ type: 'varchar', length: 100 })
   nombre: string;
 
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ nullable: true, type: 'varchar', length: 50 })
   unidad: string;
 
-  @DeleteDateColumn()
-  deletedAt?: Date;
+  @Column({ default: true })
+  estado: boolean;
   
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
+
   @OneToMany(() => EspecificacionParte, (esp) => esp.tipoEspecificacion)
   especificaciones: EspecificacionParte[];
 

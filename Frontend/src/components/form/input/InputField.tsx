@@ -1,6 +1,6 @@
 import React, { FC } from "react";
 
-interface InputProps {
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   type?: "text" | "number" | "email" | "password" | "date" | "time" | string;
   id?: string;
   name?: string;
@@ -17,6 +17,9 @@ interface InputProps {
   error?: boolean;
   hint?: string;
   required?: boolean; // ✅ Esto soluciona el error
+  suffix?: string; // Nueva prop opcional
+  prefix?: string; // También puedes agregar prefix si lo necesitas
+
 
 }
 
@@ -68,10 +71,10 @@ const Input: FC<InputProps> = ({
       {hint && (
         <p
           className={`mt-1.5 text-xs ${error
-              ? "text-error-500"
-              : success
-                ? "text-success-500"
-                : "text-gray-500"
+            ? "text-error-500"
+            : success
+              ? "text-success-500"
+              : "text-gray-500"
             }`}
         >
           {hint}

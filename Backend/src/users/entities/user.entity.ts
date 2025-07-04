@@ -40,6 +40,9 @@ export class User {
   @Column({ type: 'enum', default: Role.CLIENT, enum: Role })
   role: Role;
 
+  @Column({ default: true })
+  estado: boolean;
+  
   @DeleteDateColumn()
   deletedAt: Date;
 

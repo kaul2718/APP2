@@ -1,115 +1,101 @@
-import {  Controller, Get, Post, Body, Patch, Param, Delete,BadRequestException, NotFoundException,InternalServerErrorException,UsePipes,HttpCode, Put,} from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  ParseIntPipe,
+  Query
+} from '@nestjs/common';
 import { TipoManoObraService } from './tipo-mano-obra.service';
 import { CreateTipoManoObraDto } from './dto/create-tipo-mano-obra.dto';
 import { UpdateTipoManoObraDto } from './dto/update-tipo-mano-obra.dto';
+import { Auth } from '../auth/decorators/auth.decorator';
+import { Role } from '../common/enums/rol.enum';
 import { TipoManoObra } from './entities/tipo-mano-obra.entity';
-import { Auth } from 'src/auth/decorators/auth.decorator';
-import { Role } from 'src/common/enums/rol.enum';
-import { TrimPipe } from 'src/common/pipes/trim.pipe';
 
 @Auth(Role.ADMIN)
-@Controller('tipo-mano-obra')
+@Controller('tipos-mano-obra')
 export class TipoManoObraController {
-  constructor(private readonly tipoService: TipoManoObraService) {}
+  constructor(private readonly tipoManoObraService: TipoManoObraService) { }
 
   @Post()
-  @UsePipes(TrimPipe)
-  async create(@Body() dto: CreateTipoManoObraDto): Promise<TipoManoObra> {
-    try {
-      return await this.tipoService.create(dto);
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Error al crear tipo de mano de obra: ${error.message}`,
-      );
-    }
+  create(@Body() dto: CreateTipoManoObraDto): Promise<TipoManoObra> {
+    return this.tipoManoObraService.create(dto);
   }
 
   @Get()
-  async findAll(): Promise<TipoManoObra[]> {
-    try {
-      return await this.tipoService.findAll();
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Error al obtener los tipos de mano de obra: ${error.message}`,
-      );
-    }
+  async findAll(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Query('search') search?: string,
+    @Query('includeInactive') includeInactive?: boolean,
+  ) {
+    const result = await this.tipoManoObraService.findAllPaginated(
+      page,
+      limit,
+      search,
+      includeInactive,
+    );
+
+    return {
+      items: result.data,
+      totalItems: result.total,
+      totalPages: Math.ceil(result.total / limit),
+      currentPage: page,
+    };
+  }
+
+  @Get('all')
+  findAllSimple(@Query('includeInactive') includeInactive?: boolean): Promise<TipoManoObra[]> {
+    return this.tipoManoObraService.findAll(includeInactive);
+  }
+
+  @Get('codigo/:codigo')
+  findByCodigo(@Param('codigo') codigo: string): Promise<TipoManoObra> {
+    return this.tipoManoObraService.findByCodigo(codigo);
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<TipoManoObra> {
-    if (!id) {
-      throw new BadRequestException('El ID no puede estar vacío.');
-    }
-
-    const tipo = await this.tipoService.findOne(Number(id));
-    if (!tipo) {
-      throw new NotFoundException('No se encontró el tipo de mano de obra con ese ID.');
-    }
-
-    return tipo;
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('includeInactive') includeInactive?: boolean,
+  ): Promise<TipoManoObra> {
+    return this.tipoManoObraService.findOne(id, includeInactive);
   }
 
   @Patch(':id')
-  @UsePipes(TrimPipe)
-  async update(
-    @Param('id') id: string,
+  update(
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateTipoManoObraDto,
   ): Promise<TipoManoObra> {
-    if (!id) {
-      throw new BadRequestException('El ID no puede estar vacío.');
-    }
-
-    try {
-      const tipo = await this.tipoService.findOne(Number(id));
-      if (!tipo) {
-        throw new NotFoundException('No se encontró el tipo de mano de obra con ese ID.');
-      }
-
-      return await this.tipoService.update(Number(id), dto);
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Error al actualizar el tipo de mano de obra: ${error.message}`,
-      );
-    }
+    return this.tipoManoObraService.update(id, dto);
   }
 
   @Delete(':id')
-  @HttpCode(200)
-  async remove(@Param('id') id: string): Promise<{ message: string }> {
-    const parsedId = parseInt(id, 10);
-
-    if (isNaN(parsedId)) {
-      throw new BadRequestException('El ID proporcionado no es válido.');
-    }
-
-    try {
-      await this.tipoService.remove(parsedId);
-      return {
-        message: `Tipo de mano de obra con ID ${id} eliminado (soft delete) exitosamente.`,
-      };
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Error al eliminar el tipo de mano de obra: ${error.message}`,
-      );
-    }
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<TipoManoObra> {
+    await this.tipoManoObraService.remove(id);
+    return this.tipoManoObraService.findOne(id, true); // Devuelve el registro con soft delete
   }
 
-  // Nuevo endpoint para restaurar un soft deleted
-  @Put('restore/:id')
-  @HttpCode(200)
-  async restore(@Param('id') id: string): Promise<TipoManoObra> {
-    const parsedId = parseInt(id, 10);
+  @Patch(':id/restore')
+  async restore(@Param('id', ParseIntPipe) id: number): Promise<TipoManoObra> {
+    await this.tipoManoObraService.restore(id);
+    return this.tipoManoObraService.findOne(id); // Devuelve el registro restaurado
+  }
 
-    if (isNaN(parsedId)) {
-      throw new BadRequestException('El ID proporcionado no es válido.');
-    }
+  @Patch(':id/estado')
+  async cambiarEstado(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('estado') estado: boolean,
+  ): Promise<TipoManoObra> {
+    return this.tipoManoObraService.update(id, { estado });
+  }
 
-    try {
-      return await this.tipoService.restore(parsedId);
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Error al restaurar el tipo de mano de obra: ${error.message}`,
-      );
-    }
+  @Patch(':id/toggle-estado')
+  async toggleEstado(@Param('id', ParseIntPipe) id: number): Promise<TipoManoObra> {
+    return this.tipoManoObraService.toggleStatus(id);
   }
 }

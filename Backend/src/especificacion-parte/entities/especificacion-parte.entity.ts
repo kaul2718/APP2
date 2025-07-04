@@ -1,4 +1,4 @@
-import {  Entity,PrimaryGeneratedColumn,Column,ManyToOne,JoinColumn,DeleteDateColumn,} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, DeleteDateColumn, CreateDateColumn, UpdateDateColumn, } from 'typeorm';
 import { Parte } from 'src/parte/entities/parte.entity';
 import { TipoEspecificacion } from 'src/tipo-especificacion/entities/tipo-especificacion.entity';
 
@@ -9,6 +9,9 @@ export class EspecificacionParte {
 
   @Column()
   valor: string;
+
+  @Column({ default: true })
+  estado: boolean;
 
   @ManyToOne(() => Parte, (parte) => parte.especificaciones, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'parteId' })
@@ -24,9 +27,12 @@ export class EspecificacionParte {
   @Column()
   tipoEspecificacionId: number;
 
-  @Column({ default: false })
-  isDeleted: boolean;
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
 
-  @DeleteDateColumn({ nullable: true })
-  deletedAt?: Date;
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }

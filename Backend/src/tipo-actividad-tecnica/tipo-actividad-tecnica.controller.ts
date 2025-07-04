@@ -1,80 +1,86 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, InternalServerErrorException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query } from '@nestjs/common';
 import { TipoActividadTecnicaService } from './tipo-actividad-tecnica.service';
 import { CreateTipoActividadTecnicaDto } from './dto/create-tipo-actividad-tecnica.dto';
 import { UpdateTipoActividadTecnicaDto } from './dto/update-tipo-actividad-tecnica.dto';
+import { Auth } from '../auth/decorators/auth.decorator';
+import { Role } from '../common/enums/rol.enum';
 import { TipoActividadTecnica } from './entities/tipo-actividad-tecnica.entity';
-import { Auth } from 'src/auth/decorators/auth.decorator';
-import { Role } from 'src/common/enums/rol.enum';
 
 @Auth(Role.ADMIN)
-@Controller('tipo-actividad-tecnica')
+@Controller('tipos-actividad-tecnica')
 export class TipoActividadTecnicaController {
-  constructor(private readonly tipoActividadService: TipoActividadTecnicaService) {}
+  constructor(
+    private readonly tipoActividadService: TipoActividadTecnicaService
+  ) {}
 
-  @Auth(Role.TECH)
   @Post()
-  async create(
-    @Body() createDto: CreateTipoActividadTecnicaDto,
-  ): Promise<TipoActividadTecnica> {
-    if (!createDto.nombre || !createDto.descripcion) {
-      throw new BadRequestException('Nombre y descripción son obligatorios.');
-    }
-    try {
-      return await this.tipoActividadService.create(createDto);
-    } catch (error) {
-      throw new InternalServerErrorException('Error creando tipo de actividad técnica.');
-    }
+  create(@Body() dto: CreateTipoActividadTecnicaDto): Promise<TipoActividadTecnica> {
+    return this.tipoActividadService.create(dto);
   }
 
-  @Auth(Role.TECH)
-  @Get()
-  async findAll(): Promise<TipoActividadTecnica[]> {
-    try {
-      return await this.tipoActividadService.findAll();
-    } catch (error) {
-      throw new InternalServerErrorException('Error al obtener tipos de actividad técnica.');
-    }
+  @Get('all')
+  async findAll(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Query('search') search?: string,
+    @Query('includeInactive') includeInactive?: boolean,
+  ) {
+    const result = await this.tipoActividadService.findAllPaginated(
+      page,
+      limit,
+      search,
+      includeInactive,
+    );
+
+    return {
+      items: result.data,
+      totalItems: result.total,
+      totalPages: Math.ceil(result.total / limit),
+      currentPage: page,
+    };
   }
 
-  @Auth(Role.TECH)
   @Get(':id')
-  async findOne(@Param('id') id: number): Promise<TipoActividadTecnica> {
-    if (isNaN(id)) {
-      throw new BadRequestException('ID inválido.');
-    }
-    const tipo = await this.tipoActividadService.findOne(id);
-    if (!tipo) {
-      throw new NotFoundException(`TipoActividadTecnica con ID ${id} no encontrado.`);
-    }
-    return tipo;
-  }
-
-  @Auth(Role.TECH)
-  @Patch(':id')
-  async update(
-    @Param('id') id: number,
-    @Body() updateDto: UpdateTipoActividadTecnicaDto,
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('includeInactive') includeInactive?: boolean,
   ): Promise<TipoActividadTecnica> {
-    if (isNaN(id)) {
-      throw new BadRequestException('ID inválido.');
-    }
-    try {
-      return await this.tipoActividadService.update(id, updateDto);
-    } catch (error) {
-      throw new InternalServerErrorException('Error actualizando tipo de actividad técnica.');
-    }
+    return this.tipoActividadService.findOne(id, includeInactive);
   }
 
-  @Auth(Role.TECH)
+  @Patch(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateTipoActividadTecnicaDto,
+  ): Promise<TipoActividadTecnica> {
+    return this.tipoActividadService.update(id, dto);
+  }
+
   @Delete(':id')
-  async remove(@Param('id') id: number): Promise<{ message: string }> {
-    if (isNaN(id)) {
-      throw new BadRequestException('ID inválido.');
-    }
-    try {
-      return await this.tipoActividadService.remove(id);
-    } catch (error) {
-      throw new InternalServerErrorException('Error eliminando tipo de actividad técnica.');
-    }
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
+    return this.tipoActividadService.remove(id);
+  }
+
+  @Patch(':id/restore')
+  async restore(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
+    return this.tipoActividadService.restore(id);
+  }
+
+  @Patch(':id/estado')
+  async cambiarEstado(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('estado') estado: boolean,
+  ): Promise<TipoActividadTecnica> {
+    return this.tipoActividadService.update(id, { estado });
+  }
+
+  @Patch(':id/toggle-estado')
+  async toggleEstado(@Param('id', ParseIntPipe) id: number): Promise<TipoActividadTecnica> {
+    return this.tipoActividadService.toggleStatus(id);
+  }
+
+  @Get()
+  async findAllSimple(@Query('includeInactive') includeInactive?: boolean): Promise<TipoActividadTecnica[]> {
+    return this.tipoActividadService.findAll(includeInactive);
   }
 }

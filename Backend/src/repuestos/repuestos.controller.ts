@@ -1,67 +1,94 @@
-import {Controller,Get,Post,Body,Param,Patch,Delete,BadRequestException,NotFoundException,InternalServerErrorException,} from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query } from '@nestjs/common';
 import { RepuestosService } from './repuestos.service';
 import { CreateRepuestoDto } from './dto/create-repuesto.dto';
 import { UpdateRepuestoDto } from './dto/update-repuesto.dto';
+import { Auth } from '../auth/decorators/auth.decorator';
+import { Role } from '../common/enums/rol.enum';
 import { Repuesto } from './entities/repuesto.entity';
-import { Auth } from 'src/auth/decorators/auth.decorator';
-import { Role } from 'src/common/enums/rol.enum';
 
 @Auth(Role.ADMIN)
 @Controller('repuestos')
 export class RepuestosController {
   constructor(private readonly repuestosService: RepuestosService) {}
 
-  // Crear un nuevo repuesto
-  @Auth(Role.TECH)
   @Post()
-  async create(@Body() createRepuestoDto: CreateRepuestoDto): Promise<Repuesto> {
-    if (!createRepuestoDto.codigo || !createRepuestoDto.nombre) {
-      throw new BadRequestException('El código y nombre son obligatorios.');
-    }
-
-    return await this.repuestosService.create(createRepuestoDto);
+  create(@Body() dto: CreateRepuestoDto): Promise<Repuesto> {
+    return this.repuestosService.create(dto);
   }
 
-  // Obtener todos los repuestos no eliminados
-  @Auth(Role.TECH)
-  @Get()
-  async findAll(): Promise<Repuesto[]> {
-    return await this.repuestosService.findAll();
+  @Get('all')
+  async findAll(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Query('search') search?: string,
+    @Query('includeInactive') includeInactive?: boolean,
+  ) {
+    const result = await this.repuestosService.findAllPaginated(
+      page,
+      limit,
+      search,
+      includeInactive,
+    );
+
+    return {
+      items: result.data,
+      totalItems: result.total,
+      totalPages: Math.ceil(result.total / limit),
+      currentPage: page,
+    };
   }
 
-  // Obtener un repuesto por ID
-  @Auth(Role.TECH)
   @Get(':id')
-  async findOne(@Param('id') id: number): Promise<Repuesto> {
-    if (isNaN(id)) {
-      throw new BadRequestException('El ID proporcionado no es válido.');
-    }
-
-    return await this.repuestosService.findOne(id);
-  }
-
-  // Actualizar un repuesto
-  @Auth(Role.TECH)
-  @Patch(':id')
-  async update(
-    @Param('id') id: number,
-    @Body() updateRepuestoDto: UpdateRepuestoDto,
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('includeInactive') includeInactive?: boolean,
   ): Promise<Repuesto> {
-    if (isNaN(id)) {
-      throw new BadRequestException('El ID proporcionado no es válido.');
-    }
-
-    return await this.repuestosService.update(id, updateRepuestoDto);
+    return this.repuestosService.findOne(id, includeInactive);
   }
 
-  // Eliminar un repuesto (borrado lógico)
-  @Auth(Role.TECH)
-  @Delete(':id')
-  async remove(@Param('id') id: number): Promise<{ message: string }> {
-    if (isNaN(id)) {
-      throw new BadRequestException('El ID proporcionado no es válido.');
-    }
+  @Get('codigo/:codigo')
+  findByCodigo(
+    @Param('codigo') codigo: string,
+    @Query('includeInactive') includeInactive?: boolean,
+  ): Promise<Repuesto> {
+    return this.repuestosService.findByCodigo(codigo, includeInactive);
+  }
 
-    return await this.repuestosService.remove(id);
+  @Patch(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateRepuestoDto,
+  ): Promise<Repuesto> {
+    return this.repuestosService.update(id, dto);
+  }
+
+  @Delete(':id')
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
+    return this.repuestosService.remove(id);
+  }
+
+  @Patch(':id/restore')
+  async restore(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
+    return this.repuestosService.restore(id);
+  }
+
+  @Patch(':id/estado')
+  async cambiarEstado(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('estado') estado: boolean,
+  ): Promise<Repuesto> {
+    return this.repuestosService.update(id, { estado });
+  }
+
+  @Patch(':id/toggle-estado')
+  async toggleEstado(@Param('id', ParseIntPipe) id: number): Promise<Repuesto> {
+    return this.repuestosService.toggleStatus(id);
+  }
+
+  @Get()
+  async findAllSimple(
+    @Query('includeInactive') includeInactive?: boolean,
+  ): Promise<Repuesto[]> {
+    return this.repuestosService.findAll(includeInactive);
   }
 }

@@ -1,4 +1,4 @@
-import {Entity,PrimaryGeneratedColumn, Column,OneToMany,UpdateDateColumn,OneToOne,JoinColumn,} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, UpdateDateColumn, OneToOne, JoinColumn, DeleteDateColumn, CreateDateColumn, } from 'typeorm';
 import { DetalleRepuestos } from '../../detalle-repuestos/entities/detalle-repuesto.entity';
 import { Parte } from '../../parte/entities/parte.entity';
 
@@ -16,11 +16,11 @@ export class Repuesto {
   @Column()
   descripcion: string;
 
+  @Column({ default: true })
+  estado: boolean;
+
   @Column('decimal', { precision: 10, scale: 2 })
   precioVenta: number;
-
-  @UpdateDateColumn()
-  ultimaActualizacion: Date;
 
   // Relación con Parte
   @OneToOne(() => Parte)
@@ -34,10 +34,15 @@ export class Repuesto {
   @OneToMany(() => DetalleRepuestos, detalle => detalle.repuesto)
   detallesRepuestos: DetalleRepuestos[];
 
-  // Soft delete
-  @Column({ default: false })
-  isDeleted: boolean;
+  //CREATE UPDATE DELETE
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
 
-  @Column({ type: 'timestamp', nullable: true })
-  deletedAt: Date;
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
+
+
 }
