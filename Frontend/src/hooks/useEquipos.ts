@@ -15,11 +15,11 @@ export interface Equipo {
   marca: {
     id: number;
     nombre: string;
-  } | null; // Asegúrate que marca puede ser null
+  } | null;
   modelo: {
     id: number;
     nombre: string;
-  } | null; // Asegúrate que modelo puede ser null
+  } | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -46,12 +46,13 @@ interface UseEquiposReturn {
     search?: string,
     includeInactive?: boolean
   ) => Promise<void>;
+  refetch: () => Promise<void>; // Nueva función refetch
   setEquipos: React.Dispatch<React.SetStateAction<Equipo[]>>;
   setSearchTerm: React.Dispatch<React.SetStateAction<string>>;
   setShowInactive: React.Dispatch<React.SetStateAction<boolean>>;
   toggleEstado: (equipo: Equipo) => Promise<void>;
-  createEquipo: (equipoData: any) => Promise<Equipo | undefined>;
-  updateEquipo: (id: number, equipoData: any) => Promise<Equipo | undefined>;
+  createEquipo: (equipoData: any) => Promise<Equipo>; // Cambiado para devolver siempre Equipo
+  updateEquipo: (id: number, equipoData: any) => Promise<Equipo>;
   deleteEquipo: (id: number) => Promise<boolean>;
   restoreEquipo: (id: number) => Promise<boolean>;
 }
@@ -68,7 +69,7 @@ export function useEquipos(): UseEquiposReturn {
 
   const fetchEquipos = async (
     page: number = 1,
-    limit: number = 10,
+    limit: number = 1000,
     search: string = "",
     includeInactive: boolean = false
   ) => {
@@ -118,7 +119,12 @@ export function useEquipos(): UseEquiposReturn {
     }
   };
 
-  const createEquipo = async (equipoData: any) => {
+  // Nueva función refetch
+  const refetch = async () => {
+    await fetchEquipos(currentPage, 1000, searchTerm, showInactive);
+  };
+
+  const createEquipo = async (equipoData: any): Promise<Equipo> => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/equipos`, {
         method: 'POST',
@@ -130,12 +136,16 @@ export function useEquipos(): UseEquiposReturn {
       });
 
       if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error: ${response.status}`);
       }
 
       const newEquipo = await response.json();
       toast.success("Equipo creado exitosamente");
-      fetchEquipos(currentPage, 10, searchTerm, showInactive);
+      
+      // Actualizamos la lista de equipos pero no redirigimos
+      await refetch();
+      
       return newEquipo;
     } catch (error) {
       console.error("Error al crear equipo:", error);
@@ -144,7 +154,7 @@ export function useEquipos(): UseEquiposReturn {
     }
   };
 
-  const updateEquipo = async (id: number, equipoData: any) => {
+  const updateEquipo = async (id: number, equipoData: any): Promise<Equipo> => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/equipos/${id}`, {
         method: 'PATCH',
@@ -156,12 +166,13 @@ export function useEquipos(): UseEquiposReturn {
       });
 
       if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error: ${response.status}`);
       }
 
       const updatedEquipo = await response.json();
       toast.success("Equipo actualizado exitosamente");
-      fetchEquipos(currentPage, 10, searchTerm, showInactive);
+      await refetch();
       return updatedEquipo;
     } catch (error) {
       console.error("Error al actualizar equipo:", error);
@@ -187,7 +198,6 @@ export function useEquipos(): UseEquiposReturn {
             Authorization: `Bearer ${session.accessToken}`,
             "Content-Type": "application/json",
           },
-          // Asegúrate de enviar el estado como cuerpo de la petición
           body: JSON.stringify({ estado: nuevoEstado }),
         }
       );
@@ -198,11 +208,11 @@ export function useEquipos(): UseEquiposReturn {
       }
 
       toast.success(`Equipo ${accion}ado correctamente`);
-      // Forzar recarga de datos
-      fetchEquipos(currentPage, 10, searchTerm, showInactive);
+      await refetch();
     } catch (error) {
       console.error(`Error al cambiar estado del equipo:`, error);
       toast.error(error instanceof Error ? error.message : "Error al cambiar estado");
+      throw error;
     }
   };
 
@@ -216,11 +226,12 @@ export function useEquipos(): UseEquiposReturn {
       });
 
       if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error: ${response.status}`);
       }
 
       toast.success("Equipo eliminado exitosamente");
-      fetchEquipos(currentPage, 10, searchTerm, showInactive);
+      await refetch();
       return true;
     } catch (error) {
       console.error("Error al eliminar equipo:", error);
@@ -239,11 +250,12 @@ export function useEquipos(): UseEquiposReturn {
       });
 
       if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error: ${response.status}`);
       }
 
       toast.success("Equipo restaurado exitosamente");
-      fetchEquipos(currentPage, 10, searchTerm, showInactive);
+      await refetch();
       return true;
     } catch (error) {
       console.error("Error al restaurar equipo:", error);
@@ -254,7 +266,7 @@ export function useEquipos(): UseEquiposReturn {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetchEquipos(1, 10, searchTerm, showInactive);
+      fetchEquipos(1, 1000, searchTerm, showInactive);
     }
   }, [status, session, searchTerm, showInactive]);
 
@@ -267,6 +279,7 @@ export function useEquipos(): UseEquiposReturn {
     searchTerm,
     showInactive,
     fetchEquipos,
+    refetch, // Añadimos refetch al objeto retornado
     setEquipos,
     setSearchTerm,
     setShowInactive,

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, BadRequestException, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, BadRequestException, ParseIntPipe, NotFoundException } from '@nestjs/common';
 import { PresupuestoService } from './presupuesto.service';
 import { CreatePresupuestoDto } from './dto/create-presupuesto.dto';
 import { UpdatePresupuestoDto } from './dto/update-presupuesto.dto';
@@ -12,38 +12,76 @@ export class PresupuestoController {
 
   @Auth(Role.TECH)
   @Post()
-  async create(@Body() createDto: CreatePresupuestoDto) {
-    return this.presupuestoService.create(createDto);
+  async crearPresupuesto(@Body() createDto: CreatePresupuestoDto) {
+    try {
+      return await this.presupuestoService.create(createDto);
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
   }
 
   @Auth(Role.TECH)
   @Get()
-  async findAll() {
-    return this.presupuestoService.findAll();
+  async obtenerTodos() {
+    try {
+      return await this.presupuestoService.findAll();
+    } catch (error) {
+      throw new BadRequestException('Error al obtener los presupuestos');
+    }
   }
 
   @Auth(Role.TECH)
   @Get(':id')
-  async findOne(@Param('id') id: number) {
-    if (isNaN(id)) throw new BadRequestException('ID inválido');
-    return this.presupuestoService.findOne(id);
+  async obtenerUno(@Param('id', ParseIntPipe) id: number) {
+    try {
+      return await this.presupuestoService.findOne(id);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException('Error al obtener el presupuesto');
+    }
   }
 
   @Auth(Role.TECH)
   @Patch(':id')
-  async update(@Param('id') id: number, @Body() updateDto: UpdatePresupuestoDto) {
-    if (isNaN(id)) throw new BadRequestException('ID inválido');
-    return this.presupuestoService.update(id, updateDto);
+  async actualizarPresupuesto(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateDto: UpdatePresupuestoDto
+  ) {
+    try {
+      return await this.presupuestoService.update(id, updateDto);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException('Error al actualizar el presupuesto');
+    }
   }
 
   @Auth(Role.TECH)
   @Delete(':id')
-  async remove(@Param('id') id: number) {
-    if (isNaN(id)) throw new BadRequestException('ID inválido');
-    return this.presupuestoService.remove(id);
+  async eliminarPresupuesto(@Param('id', ParseIntPipe) id: number) {
+    try {
+      return await this.presupuestoService.remove(id);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException('Error al eliminar el presupuesto');
+    }
   }
+
+  @Auth(Role.TECH)
   @Get(':id/resumen')
-  async getResumen(@Param('id', ParseIntPipe) id: number) {
-    return this.presupuestoService.getResumenPresupuesto(id);
+  async obtenerResumen(@Param('id', ParseIntPipe) id: number) {
+    try {
+      return await this.presupuestoService.getResumenPresupuesto(id);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException('Error al generar el resumen del presupuesto');
+    }
   }
 }

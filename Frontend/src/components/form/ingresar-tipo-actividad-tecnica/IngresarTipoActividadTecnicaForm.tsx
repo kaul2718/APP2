@@ -117,7 +117,7 @@ export default function IngresarTipoActividadTecnicaForm() {
                     <Label>Descripción (Opcional)</Label>
                     <TextArea
                         value={formData.descripcion}
-                        onChange={(value) => handleChange("descripcion", value)}
+                        onChange={(e) => handleChange("descripcion", e.target.value)}
                         placeholder="Descripción detallada del tipo de actividad..."
                         rows={4}
                         className="bg-white dark:bg-gray-800 text-black dark:text-white"

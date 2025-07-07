@@ -1,21 +1,16 @@
-import { IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateHistorialEstadoOrdenDto {
   @IsInt()
   @IsNotEmpty()
   ordenId: number;
 
-  @IsInt()
-  @IsNotEmpty()
-  estadoAnteriorId: number;
+  @IsNumber()
+  estadoOrdenId: number;
 
-  @IsInt()
-  @IsNotEmpty()
-  estadoNuevoId: number;
 
-  @IsInt()
-  @IsNotEmpty()
-  usuarioEstadoId: number;
+  @IsNumber()
+  usuarioId: number;
 
   @IsString()
   @IsOptional()

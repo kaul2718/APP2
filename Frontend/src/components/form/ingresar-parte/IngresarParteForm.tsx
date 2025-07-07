@@ -8,7 +8,7 @@ import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { useRouter } from 'next/navigation';
-import { CogIcon, TagIcon } from "@heroicons/react/24/outline";
+import { CogIcon, FolderIcon, TagIcon } from "@heroicons/react/24/outline";
 import { useMarcas } from "@/hooks/useMarcas";
 import { useCategoria } from "@/hooks/useCategoria";
 
@@ -109,12 +109,12 @@ export default function IngresarParteForm() {
 
       toast.success("Parte registrada con éxito ✅");
 
-      setFormData({ 
+      setFormData({
         nombre: "", // Nuevo campo
-        modelo: "", 
+        modelo: "",
         descripcion: "",
         categoriaId: null,
-        marcaId: null 
+        marcaId: null
       });
 
       setTimeout(() => {
@@ -178,45 +178,52 @@ export default function IngresarParteForm() {
         {/* Selección de categoría */}
         <div>
           <Label>Categoría</Label>
-          <Select
-            value={formData.categoriaId || ""}
-            onChange={(e) => handleChange("categoriaId", Number(e.target.value))}
-            disabled={loadingCategorias}
-            className="bg-white dark:bg-gray-800 text-black dark:text-white"
-          >
-            <option value="">Seleccione una categoría</option>
-            {categorias.map((categoria) => (
-              <option key={categoria.id} value={categoria.id}>
-                {categoria.nombre}
-              </option>
-            ))}
-          </Select>
+          <div className="relative">
+            <FolderIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+            <select
+              value={formData.categoriaId ?? ""}
+              onChange={(e) => handleChange("categoriaId", Number(e.target.value))}
+              disabled={loadingCategorias}
+              className="pl-10 pr-4 py-2 w-full rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Seleccione una categoría</option>
+              {categorias.map((categoria) => (
+                <option key={categoria.id} value={categoria.id}>
+                  {categoria.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
           {errors.categoriaId && <p className="text-sm text-red-500 mt-1">{errors.categoriaId}</p>}
         </div>
 
         {/* Selección de marca */}
         <div>
           <Label>Marca</Label>
-          <Select
-            value={formData.marcaId || ""}
-            onChange={(e) => handleChange("marcaId", Number(e.target.value))}
-            disabled={loadingMarcas}
-            className="bg-white dark:bg-gray-800 text-black dark:text-white"
-          >
-            <option value="">Seleccione una marca</option>
-            {marcas.map((marca) => (
-              <option key={marca.id} value={marca.id}>
-                {marca.nombre}
-              </option>
-            ))}
-          </Select>
+          <div className="relative">
+            <TagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+            <select
+              value={formData.marcaId ?? ""}
+              onChange={(e) => handleChange("marcaId", Number(e.target.value))}
+              disabled={loadingMarcas}
+              className="pl-10 pr-4 py-2 w-full rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Seleccione una marca</option>
+              {marcas.map((marca) => (
+                <option key={marca.id} value={marca.id}>
+                  {marca.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
           {errors.marcaId && <p className="text-sm text-red-500 mt-1">{errors.marcaId}</p>}
         </div>
 
+
         {/* Botón */}
         <div>
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             className="w-full flex items-center justify-center gap-2"
             disabled={loading || loadingMarcas || loadingCategorias}
           >

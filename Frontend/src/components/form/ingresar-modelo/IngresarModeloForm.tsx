@@ -1,13 +1,11 @@
 "use client";
 import React from "react";
-import ComponentCard from "@/components/common/ComponentCard";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import { Select } from "@headlessui/react";
 import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
-import { useRouter } from 'next/navigation';
 import { DevicePhoneMobileIcon } from "@heroicons/react/24/outline";
 import { useMarcas } from "@/hooks/useMarcas";
 
@@ -16,13 +14,22 @@ interface FormData {
   marcaId: number | null;
 }
 
-export default function IngresarModeloForm() {
+interface Props {
+  onSuccess?: (newModelo: { 
+    id: number; 
+    nombre: string; 
+    marca: { id: number; nombre: string } 
+  }) => void;
+  onClose?: () => void;
+  defaultMarcaId?: number;
+}
+
+export default function IngresarModeloForm({ onSuccess, onClose, defaultMarcaId }: Props) {
   const { data: session } = useSession();
-  const router = useRouter();
   const { marcas, loading: loadingMarcas } = useMarcas();
   const [formData, setFormData] = React.useState<FormData>({
     nombre: "",
-    marcaId: null
+    marcaId: defaultMarcaId || null
   });
   const [errors, setErrors] = React.useState<Partial<FormData>>({});
   const [loading, setLoading] = React.useState(false);
@@ -80,13 +87,13 @@ export default function IngresarModeloForm() {
         return;
       }
 
+      const newModelo = await res.json();
       toast.success("Modelo registrado con éxito ✅");
 
-      setFormData({ nombre: "", marcaId: null });
+      setFormData({ nombre: "", marcaId: defaultMarcaId || null });
 
-      setTimeout(() => {
-        router.push('/ver-modelo');
-      }, 1000);
+      if (onSuccess) onSuccess(newModelo);
+      if (onClose) onClose();
 
     } catch (error) {
       console.error(error);
@@ -97,7 +104,7 @@ export default function IngresarModeloForm() {
   };
 
   return (
-    <ComponentCard title="Registrar Nuevo Modelo">
+    <div className="p-4">
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
         {/* Nombre del modelo */}
         <div>
@@ -116,12 +123,12 @@ export default function IngresarModeloForm() {
 
         {/* Selección de marca */}
         <div>
-          <Label>Marca</Label>
+          <Label>Marca *</Label>
           <Select
             value={formData.marcaId || ""}
             onChange={(e) => handleChange("marcaId", Number(e.target.value))}
             disabled={loadingMarcas}
-            className="bg-white dark:bg-gray-800 text-black dark:text-white"
+            className="w-full px-4 py-2 rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Seleccione una marca</option>
             {marcas.map((marca) => (
@@ -134,16 +141,26 @@ export default function IngresarModeloForm() {
         </div>
 
         {/* Botón */}
-        <div>
+        <div className="flex justify-end gap-4">
+          {onClose && (
+            <Button 
+              type="button" 
+              variant="outline"
+              onClick={onClose}
+              disabled={loading || loadingMarcas}
+            >
+              Cancelar
+            </Button>
+          )}
           <Button 
             type="submit" 
-            className="w-full flex items-center justify-center gap-2"
+            className="flex items-center justify-center gap-2"
             disabled={loading || loadingMarcas}
           >
             {loading ? "Registrando..." : "Registrar Modelo"}
           </Button>
         </div>
       </form>
-    </ComponentCard>
+    </div>
   );
 }

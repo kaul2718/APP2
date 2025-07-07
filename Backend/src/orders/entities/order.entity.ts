@@ -17,6 +17,8 @@ export class Order {
     @Column()
     workOrderNumber: string;
 
+    @Column({ default: true })
+    estado: boolean;
 
     // RELACIONES QUE DEBEN IR CON RESPECTO A QUE CLIENTE LE PERTENECE, Y EL TECNICO ASIGNADO 
     @ManyToOne(() => User, (user) => user.clientOrders)
@@ -26,6 +28,7 @@ export class Order {
     @Column({ nullable: true })
     clientId: number;
 
+    //TECNICO
     @ManyToOne(() => User, (user) => user.technicianOrders, { nullable: true })
     @JoinColumn({ name: 'technicianId' })
     technician: User;
@@ -33,16 +36,21 @@ export class Order {
     @Column({ nullable: true })
     technicianId: number;
 
+    //RECEPCIONISTA
+    @ManyToOne(() => User, (user) => user.recepcionistaOrders, { nullable: true })
+    @JoinColumn({ name: 'recepcionistaId' })
+    recepcionista: User;
+
+    @Column({ nullable: true })
+    recepcionistaId: number;
+
+
     //REALCION CON EVIDENCIA TECNICA, YA SEA LO QUE EL DIAGNOSTICO O LO QUE REALICE EL TECNICO
     @OneToMany(() => ActividadTecnica, (actividadTecnica) => actividadTecnica.orden, {
         cascade: true,
         eager: true,
     })
     actividades: ActividadTecnica[];
-
-    // FECHA QUE INGRESA EL EQUIPO, DEBE SER CAPTURADA POR EL SISTEMA
-    @CreateDateColumn({ type: 'timestamp' })
-    fechaIngreso: Date;
 
     // RELACION CON EQUIPO YA QUE UN CLIENTE TIENE UN EQUIPO 
     @ManyToOne(() => Equipo, (equipo) => equipo.ordenes, {
@@ -67,20 +75,13 @@ export class Order {
     @Column({ nullable: true })
     fechaPrometidaEntrega: Date;
 
-
-
     //RELACION HACIA PRESUPUESTO
     @OneToOne(() => Presupuesto, (presupuesto) => presupuesto.orden, {
         cascade: true,
+        nullable: true, // la orden puede existir sin presupuesto aún
+
     })
     presupuesto: Presupuesto;
-
-
-    //RELACION HACIA DETALLE REPUESTOS
-    @OneToMany(() => DetalleRepuestos, (detalle) => detalle.order, {
-        cascade: true,
-    })
-    detallesRepuestos: DetalleRepuestos[];
 
     //RELACION HACIA CASILLERO 
     @OneToOne(() => Casillero, (casillero) => casillero.order, {
@@ -97,11 +98,11 @@ export class Order {
 
     //RELACION HACIA ESTADO ORDEN 
     @ManyToOne(() => EstadoOrden, { nullable: true }) // <- también aquí
-    @JoinColumn({ name: 'estadoId' })
-    estado: EstadoOrden;
+    @JoinColumn({ name: 'estadoOrdenId' })
+    estadoOrden: EstadoOrden;
 
     @Column({ nullable: true })
-    estadoId: number;
+    estadoOrdenId: number;
 
     //RELACION CON HISTORIAL DE ESTADOS
 
@@ -112,13 +113,13 @@ export class Order {
 
 
     //ELIMINACION LOGICA
-    @Column({ default: false })
-    isDeleted: boolean;
+    @DeleteDateColumn({ type: 'timestamp', nullable: true })
+    deletedAt: Date | null;
 
-    @DeleteDateColumn({ nullable: true })
-    deletedAt?: Date;
+    @CreateDateColumn({ type: 'timestamp' })
+    createdAt: Date;
 
-    // CAMPO PARA REGISTRAR FECHAS SI HAY CAMBIOS
     @UpdateDateColumn({ type: 'timestamp' })
-    fechaActualizacion: Date;
+    updatedAt: Date;
+
 }

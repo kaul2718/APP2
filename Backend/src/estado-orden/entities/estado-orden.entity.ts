@@ -1,4 +1,12 @@
-import {Entity,PrimaryGeneratedColumn,Column,OneToMany,DeleteDateColumn,UpdateDateColumn,} from 'typeorm';
+import { 
+  Entity, 
+  PrimaryGeneratedColumn, 
+  Column, 
+  OneToMany, 
+  DeleteDateColumn, 
+  UpdateDateColumn, 
+  CreateDateColumn 
+} from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
 import { HistorialEstadoOrden } from '../../historial-estado-orden/entities/historial-estado-orden.entity';
 
@@ -13,20 +21,23 @@ export class EstadoOrden {
   @Column({ type: 'text', nullable: true })
   descripcion: string;
 
-  @UpdateDateColumn({ type: 'timestamp' })
-  fechaActualizacion: Date;
-
-  @DeleteDateColumn({ nullable: true })
-  deletedAt?: Date;
+  @Column({ default: true })
+  estado: boolean;
 
   // Relación con orden actual (una orden tiene un estado actual)
-  @OneToMany(() => Order, (order) => order.estado)
-  ordenes: Order[];
+  @OneToMany(() => Order, (order) => order.estadoOrden)
+  estadoOrdenes: Order[];
 
-  // Relación con historial (estadoAnterior o estadoNuevo)
-  @OneToMany(() => HistorialEstadoOrden, (hist) => hist.estadoAnterior)
-  historialComoAnterior: HistorialEstadoOrden[];
+  // Relación con historial (ahora solo hay una relación con estadoOrden)
+  @OneToMany(() => HistorialEstadoOrden, (hist) => hist.estadoOrden)
+  historialEstados: HistorialEstadoOrden[];
 
-  @OneToMany(() => HistorialEstadoOrden, (hist) => hist.estadoNuevo)
-  historialComoNuevo: HistorialEstadoOrden[];
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }

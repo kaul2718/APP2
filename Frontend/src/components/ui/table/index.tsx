@@ -52,7 +52,9 @@ const TableBody: React.FC<TableBodyProps> = ({ children, className }) => {
 const TableRow: React.FC<TableRowProps> = ({ children, className }) => {
   return <tr className={className}>{children}</tr>;
 };
-
+const TableHead: React.FC<TableCellProps> = (props) => (
+  <TableCell {...props} isHeader />
+);
 // TableCell Component
 const TableCell: React.FC<TableCellProps> = ({
   children,
@@ -63,4 +65,4 @@ const TableCell: React.FC<TableCellProps> = ({
   return <CellTag className={` ${className}`}>{children}</CellTag>;
 };
 
-export { Table, TableHeader, TableBody, TableRow, TableCell };
+export { Table, TableHeader, TableBody, TableRow, TableCell,TableHead };

@@ -1,9 +1,11 @@
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { createParamDecorator, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 
-// Este decorador obtiene el usuario del request (suponiendo que el usuario está en la request)
 export const User = createParamDecorator(
     (data: unknown, ctx: ExecutionContext) => {
         const request = ctx.switchToHttp().getRequest();
-        return request.user; // El usuario autenticado estará en request.user
+        if (!request.user) {
+            throw new UnauthorizedException('Usuario no autenticado');
+        }
+        return request.user;
     },
 );

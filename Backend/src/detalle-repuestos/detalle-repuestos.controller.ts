@@ -1,51 +1,114 @@
-import { Controller, Get, Param, Post, Body, Patch, Delete, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query } from '@nestjs/common';
 import { DetalleRepuestosService } from './detalle-repuestos.service';
 import { CreateDetalleRepuestoDto } from './dto/create-detalle-repuesto.dto';
 import { UpdateDetalleRepuestoDto } from './dto/update-detalle-repuesto.dto';
-import { Auth } from 'src/auth/decorators/auth.decorator';
-import { Role } from 'src/common/enums/rol.enum';
+import { Auth } from '../auth/decorators/auth.decorator';
+import { Role } from '../common/enums/rol.enum';
+import { DetalleRepuestos } from './entities/detalle-repuesto.entity';
 
 @Auth(Role.ADMIN)
-@Controller('detalle-repuestos')
+@Controller('detalles-repuestos')
 export class DetalleRepuestosController {
-  constructor(private readonly detalleRepuestosService: DetalleRepuestosService) {}
+  constructor(private readonly detalleService: DetalleRepuestosService) { }
 
-  @Auth(Role.TECH)
   @Post()
-  async create(@Body() createDetalleRepuestoDto: CreateDetalleRepuestoDto) {
-    return this.detalleRepuestosService.create(createDetalleRepuestoDto);
+  create(@Body() dto: CreateDetalleRepuestoDto): Promise<DetalleRepuestos> {
+    return this.detalleService.create(dto);
   }
 
-  @Auth(Role.TECH)
-  @Get()
-  async findAll() {
-    return this.detalleRepuestosService.findAll();
+  @Get('all')
+  async findAll(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Query('search') search?: string,
+    @Query('includeInactive') includeInactive?: boolean,
+  ) {
+    const result = await this.detalleService.findAllPaginated(
+      page,
+      limit,
+      search,
+      includeInactive,
+    );
+
+    return {
+      items: result.data,
+      totalItems: result.total,
+      totalPages: Math.ceil(result.total / limit),
+      currentPage: page,
+    };
   }
 
-  @Auth(Role.TECH)
+  @Get('by-presupuesto/:presupuestoId')
+  async findByPresupuesto(
+    @Param('presupuestoId', ParseIntPipe) presupuestoId: number,
+    @Query('includeInactive') includeInactive?: boolean,
+  ) {
+    const detalles = await this.detalleService.findAll(includeInactive);
+    return detalles.filter(d => d.presupuestoId === presupuestoId);
+  }
+
   @Get(':id')
-  async findOne(@Param('id') id: number) {
-    if (isNaN(id)) {
-      throw new BadRequestException('El ID proporcionado no es válido.');
-    }
-    return this.detalleRepuestosService.findOne(id);
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('includeInactive') includeInactive?: boolean,
+  ): Promise<DetalleRepuestos> {
+    return this.detalleService.findOne(id, includeInactive);
   }
 
-  @Auth(Role.TECH)
   @Patch(':id')
-  async update(@Param('id') id: number, @Body() updateDetalleRepuestoDto: UpdateDetalleRepuestoDto) {
-    if (isNaN(id)) {
-      throw new BadRequestException('El ID proporcionado no es válido.');
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateDetalleRepuestoDto,
+  ): Promise<DetalleRepuestos> {
+    const detalleActualizado = await this.detalleService.update(id, dto);
+    // Forzar la carga de relaciones si no vinieron en la respuesta
+    if (!detalleActualizado.repuesto) {
+      return await this.detalleService.findOne(id, true);
     }
-    return this.detalleRepuestosService.update(id, updateDetalleRepuestoDto);
+    return detalleActualizado;
   }
 
-  @Auth(Role.TECH)
   @Delete(':id')
-  async remove(@Param('id') id: number) {
-    if (isNaN(id)) {
-      throw new BadRequestException('El ID proporcionado no es válido.');
-    }
-    return this.detalleRepuestosService.remove(id);
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<DetalleRepuestos> {
+    await this.detalleService.remove(id);
+    return this.detalleService.findOne(id, true); // devuelve el soft deleted
   }
+
+  @Patch(':id/restore')
+  async restore(@Param('id', ParseIntPipe) id: number): Promise<DetalleRepuestos> {
+    await this.detalleService.restore(id);
+    return this.detalleService.findOne(id); // devuelve restaurado
+  }
+
+  @Patch(':id/estado')
+  async cambiarEstado(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('estado') estado: boolean,
+  ): Promise<DetalleRepuestos> {
+    return this.detalleService.update(id, { estado });
+  }
+
+  @Patch(':id/toggle-estado')
+  async toggleEstado(@Param('id', ParseIntPipe) id: number): Promise<DetalleRepuestos> {
+    return this.detalleService.toggleStatus(id);
+  }
+
+  @Get('by-presupuesto/:presupuestoId/total')
+  async calcularTotalRepuestos(
+    @Param('presupuestoId', ParseIntPipe) presupuestoId: number,
+  ) {
+    const detalles = await this.detalleService.findAll(true);
+    const detallesPresupuesto = detalles.filter(d =>
+      d.presupuestoId === presupuestoId && d.estado && !d.deletedAt
+    );
+
+    const total = detallesPresupuesto.reduce((sum, detalle) => sum + detalle.subtotal, 0);
+
+    return {
+      totalRepuestos: total,
+      cantidadItems: detallesPresupuesto.length,
+      detalles: detallesPresupuesto
+    };
+  }
+
 }

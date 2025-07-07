@@ -16,6 +16,6 @@ import { HistorialEstadoOrden } from 'src/historial-estado-orden/entities/histor
   ],
   controllers: [EstadoOrdenController],
   providers: [EstadoOrdenService],
-  exports: [EstadoOrdenService], // si se necesita usar en otros módulos
+  exports: [TypeOrmModule,EstadoOrdenService], // si se necesita usar en otros módulos
 })
 export class EstadoOrdenModule {}

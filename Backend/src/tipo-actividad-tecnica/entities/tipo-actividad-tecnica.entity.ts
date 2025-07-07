@@ -6,7 +6,7 @@ export class TipoActividadTecnica {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ length: 100 })
+  @Column({ length: 100, unique: true })
   nombre: string;
 
   @Column({ type: 'text', nullable: true })

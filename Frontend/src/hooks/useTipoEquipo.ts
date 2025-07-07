@@ -34,7 +34,7 @@ export function useTipoEquipo() {
 
   const fetchTiposEquipo = async (
     page: number = 1,
-    limit: number = 10,
+    limit: number = 1000,
     search: string = "",
     includeInactive: boolean = false
   ) => {
@@ -86,7 +86,7 @@ export function useTipoEquipo() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetchTiposEquipo(1, 10, searchTerm, showInactive);
+      fetchTiposEquipo(1, 1000, searchTerm, showInactive);
     }
   }, [status, session, searchTerm, showInactive]);
 

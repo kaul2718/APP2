@@ -11,6 +11,7 @@ import {
   WrenchScrewdriverIcon,
   ArchiveBoxIcon,
   PuzzlePieceIcon,
+  BellAlertIcon,
 } from "@heroicons/react/24/outline";
 
 export type SubNavItem = {
@@ -45,8 +46,17 @@ export const navItems: NavItem[] = [
     icon: <ClipboardDocumentListIcon className="w-5 h-5" />,
     name: "Orden de Servicio",
     subItems: [
-      { name: "Nueva Orden de Servicio", path: "/ordenes-servicio/nueva" },
-      { name: "Ver Ordenes de Servicio", path: "/ordenes-servicio" },
+      { name: "Nueva Orden de Servicio", path: "/ingresar-orden" },
+      { name: "Ver Ordenes de Servicio", path: "/ver-orden" },
+    ],
+  },
+
+  {
+    icon: <ClipboardDocumentListIcon className="w-5 h-5" />,
+    name: "Actividad Técnica",
+    subItems: [
+      { name: "Nueva Actividad Técnica", path: "/ingresar-actividad-tecnica" },
+      { name: "Ver Actividades Técnicas", path: "/ver-actividad-tecnica" },
     ],
   },
   {
@@ -67,16 +77,16 @@ export const navItems: NavItem[] = [
     icon: <RectangleGroupIcon className="w-5 h-5" />,
     name: "Casilleros",
     subItems: [
-      { name: "Nuevo Casillero", path: "/casilleros/nuevo" },
-      { name: "Ver Casilleros", path: "/casilleros" },
+      { name: "Ingresar Casillero", path: "/ingresar-casillero" },
+      { name: "Ver Casilleros", path: "/ver-casillero" },
     ],
   },
   {
     icon: <DocumentTextIcon className="w-5 h-5" />,
-    name: "Estados Ordenes",
+    name: "Estados Orden Servicio",
     subItems: [
-      { name: "Nuevo Estado", path: "/ordenes/estado/nuevo" },
-      { name: "Ver Estados", path: "/ordenes/estado" },
+      { name: "Ingresar Estado Orden", path: "/ingresar-estado-orden" },
+      { name: "Ver Estados Orden", path: "/ver-estado-orden" },
     ],
   },
   {
@@ -87,22 +97,30 @@ export const navItems: NavItem[] = [
       { name: "Ver Tipos Actividad Tecnica", path: "/ver-tipo-actividad-tecnica" },
     ],
   },
-  {
-    icon: <DocumentTextIcon className="w-5 h-5" />,
-    name: "Estado Presupuesto",
-    subItems: [
-      { name: "Nuevo Estado Presupuesto", path: "/presupuesto/estado/nuevo" },
-      { name: "Ver Estado Presupuesto", path: "/presupuesto/estado" },
-    ],
-  },
+
   {
     icon: <DocumentTextIcon className="w-5 h-5" />,
     name: "Presupuestos",
     subItems: [
-      { name: "Nuevo Presupuesto", path: "/presupuestos/nuevo" },
-      { name: "Ver Presupuestos", path: "/presupuestos" },
+      { name: "Ingresar  Presupuesto", path: "/ingresar-estado-presupuesto" },
+      { name: "Ver  Presupuestos", path: "/ver-estado-presupuesto" },
+      { name: "Ingresar Detalle Mano de Obra", path: "/ingresar-detalle-mano-obra" },
+      { name: "Ver  Mano de Obra", path: "/ver-detalle-mano-obra" },
+      { name: "Ingresar  Detalle Repuesto", path: "/ingresar-detalle-repuesto" },
+      { name: "Ver Detalle Repuesto", path: "/ver-detalle-repuesto" },
     ],
   },
+
+  
+  {
+    icon: <DocumentTextIcon className="w-5 h-5" />,
+    name: "Estado Presupuesto",
+    subItems: [
+      { name: "Ingresar Estado Presupuesto", path: "/ingresar-estado-presupuesto" },
+      { name: "Ver Estados Presupuestos", path: "/ver-estado-presupuesto" },
+    ],
+  },
+  
   {
     icon: <WrenchScrewdriverIcon className="w-5 h-5" />,
     name: "Tipo Mano Obra",
@@ -132,16 +150,16 @@ export const navItems: NavItem[] = [
 
       { name: "Ingresar Repuesto", path: "/ingresar-repuesto" },
       { name: "Ver Repuestos", path: "/ver-repuesto" },
-     
+
 
     ],
   },
   {
-    icon: <PuzzlePieceIcon className="w-5 h-5" />,
-    name: "Repuestos",
+    icon: <BellAlertIcon className="w-5 h-5" />,
+    name: "Tipo Notificación",
     subItems: [
-      { name: "Nuevo Repuesto", path: "/repuestos/nuevo" },
-      { name: "Ver Repuestos", path: "/repuestos" },
+      { name: "Ingresar Tipo Notificación", path: "/ingresar-tipo-notificacion" },
+      { name: "Ver Tipos de Notificación", path: "/ver-tipo-notificacion" },
     ],
   },
 ];

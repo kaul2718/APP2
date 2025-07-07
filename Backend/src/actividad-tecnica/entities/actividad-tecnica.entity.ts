@@ -24,16 +24,23 @@ export class ActividadTecnica {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   fecha: Date;
 
-
   @Column({ type: 'text' })
   diagnostico: string;
 
   @Column({ type: 'text' })
   trabajoRealizado: string;
 
-  @Column({ default: false })
-  isDeleted: boolean;
 
+  @Column({ default: true })
+  estado: boolean;
+  
   @UpdateDateColumn({ nullable: true })
   deletedAt?: Date;
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
+
 }

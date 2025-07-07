@@ -13,6 +13,11 @@ export class RegisterDto {
   @IsNotEmpty()
   nombre: string;
 
+  @Transform(({value})=> value.trim())
+  @IsString()
+  @IsNotEmpty()
+  apellido?: string;
+
   @IsNotEmpty()
   @IsEmail({}, { message: 'El correo no es válido.' })
   correo: string;

@@ -8,7 +8,7 @@ import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { useRouter } from 'next/navigation';
-import { CubeIcon, MapPinIcon, HashtagIcon, ExclamationCircleIcon } from "@heroicons/react/24/outline";
+import { CubeIcon, MapPinIcon, HashtagIcon, ExclamationCircleIcon, Cog8ToothIcon } from "@heroicons/react/24/outline";
 import { usePartes } from "@/hooks/usePartes";
 import { useInventario } from "@/hooks/useInventario";
 
@@ -119,22 +119,25 @@ export default function IngresarInventarioForm() {
         {/* Selección de parte */}
         <div>
           <Label>Parte/Repuesto</Label>
-          <Select
-            value={formData.parteId || ""}
-            onChange={(e) => handleChange("parteId", Number(e.target.value))}
-            disabled={loadingPartes}
-            className="bg-white dark:bg-gray-800 text-black dark:text-white"
-          >
-            <option value="">Seleccione una parte</option>
-            {partes.map((parte) => (
-              <option key={parte.id} value={parte.id}>
-                {parte.nombre} - {parte.modelo}
-              </option>
-            ))}
-          </Select>
+          <div className="relative">
+            {/* Puedes cambiar el ícono si prefieres otro más representativo */}
+            <Cog8ToothIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+            <Select
+              value={formData.parteId ?? ""}
+              onChange={(e) => handleChange("parteId", Number(e.target.value))}
+              disabled={loadingPartes}
+              className="pl-10 pr-4 py-2 w-full rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Seleccione una parte</option>
+              {partes.map((parte) => (
+                <option key={parte.id} value={parte.id}>
+                  {parte.nombre} - {parte.modelo}
+                </option>
+              ))}
+            </Select>
+          </div>
           {errors.parteId && <p className="text-sm text-red-500 mt-1">{errors.parteId}</p>}
         </div>
-
         {/* Cantidad */}
         <div>
           <Label>Cantidad</Label>

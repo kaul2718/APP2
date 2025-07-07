@@ -8,7 +8,7 @@ import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { useRouter } from 'next/navigation';
-import { DocumentTextIcon } from "@heroicons/react/24/outline";
+import { DocumentTextIcon, ListBulletIcon, WrenchIcon } from "@heroicons/react/24/outline";
 import { usePartes } from "@/hooks/usePartes";
 import { useTipoEspecificacion } from "@/hooks/useTipoEspecificacion";
 
@@ -91,10 +91,10 @@ export default function IngresarEspecificacionParteForm() {
 
       toast.success("Especificación registrada con éxito ✅");
 
-      setFormData({ 
-        valor: "", 
-        parteId: null, 
-        tipoEspecificacionId: null 
+      setFormData({
+        valor: "",
+        parteId: null,
+        tipoEspecificacionId: null
       });
 
       setTimeout(() => {
@@ -130,45 +130,52 @@ export default function IngresarEspecificacionParteForm() {
         {/* Selección de parte */}
         <div>
           <Label>Parte</Label>
-          <Select
-            value={formData.parteId || ""}
-            onChange={(e) => handleChange("parteId", Number(e.target.value))}
-            disabled={loadingPartes}
-            className="bg-white dark:bg-gray-800 text-black dark:text-white"
-          >
-            <option value="">Seleccione una parte</option>
-            {partes.map((parte) => (
-              <option key={parte.id} value={parte.id}>
-                {parte.modelo}
-              </option>
-            ))}
-          </Select>
+          <div className="relative">
+            <WrenchIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+            <select
+              value={formData.parteId ?? ""}
+              onChange={(e) => handleChange("parteId", Number(e.target.value))}
+              disabled={loadingPartes}
+              className="pl-10 pr-4 py-2 w-full rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Seleccione una parte</option>
+              {partes.map((parte) => (
+                <option key={parte.id} value={parte.id}>
+                  {parte.modelo}
+                </option>
+              ))}
+            </select>
+          </div>
           {errors.parteId && <p className="text-sm text-red-500 mt-1">{errors.parteId}</p>}
         </div>
 
         {/* Selección de tipo de especificación */}
         <div>
           <Label>Tipo de Especificación</Label>
-          <Select
-            value={formData.tipoEspecificacionId || ""}
-            onChange={(e) => handleChange("tipoEspecificacionId", Number(e.target.value))}
-            disabled={loadingTipos}
-            className="bg-white dark:bg-gray-800 text-black dark:text-white"
-          >
-            <option value="">Seleccione un tipo</option>
-            {tipos.map((tipo) => (
-              <option key={tipo.id} value={tipo.id}>
-                {tipo.nombre}
-              </option>
-            ))}
-          </Select>
+          <div className="relative">
+            <ListBulletIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+            <select
+              value={formData.tipoEspecificacionId ?? ""}
+              onChange={(e) => handleChange("tipoEspecificacionId", Number(e.target.value))}
+              disabled={loadingTipos}
+              className="pl-10 pr-4 py-2 w-full rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Seleccione un tipo</option>
+              {tipos.map((tipo) => (
+                <option key={tipo.id} value={tipo.id}>
+                  {tipo.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
           {errors.tipoEspecificacionId && <p className="text-sm text-red-500 mt-1">{errors.tipoEspecificacionId}</p>}
         </div>
 
+
         {/* Botón */}
         <div>
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             className="w-full flex items-center justify-center gap-2"
             disabled={loading || loadingPartes || loadingTipos}
           >

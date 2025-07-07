@@ -1,129 +1,155 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Put, BadRequestException, NotFoundException, InternalServerErrorException, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  ParseIntPipe,
+  Query,
+  UseInterceptors,
+  ClassSerializerInterceptor,
+  Req
+} from '@nestjs/common';
 import { OrderService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
-import { Order } from './entities/order.entity';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { Role } from 'src/common/enums/rol.enum';
-import { Request } from 'express';
-
-@Auth(Role.ADMIN)
+import { Order } from './entities/order.entity';
+import { CreateActividadTecnicaDto } from 'src/actividad-tecnica/dto/create-actividad-tecnica.dto';
+import { CreatePresupuestoDto } from 'src/presupuesto/dto/create-presupuesto.dto';
+import { CreateDetalleRepuestoDto } from 'src/detalle-repuestos/dto/create-detalle-repuesto.dto';
+import { CreateCasilleroDto } from 'src/casillero/dto/create-casillero.dto';
+import { CreateEvidenciaTecnicaDto } from 'src/evidencia-tecnica/dto/create-evidencia-tecnica.dto';
+import { User as UserDecorator } from 'src/auth/decorators/user.decorator';
+import { User } from 'src/users/entities/user.entity';
+@UseInterceptors(ClassSerializerInterceptor)
 @Controller('orders')
-export class OrdersController {
-  constructor(private readonly OrderService: OrderService) { }
-  // Crear una nueva orden de reparación
-  @Auth(Role.TECH)
+export class OrderController {
+  constructor(private readonly orderService: OrderService) { }
+
+  @Auth(Role.RECEP, Role.ADMIN)
   @Post()
-  async create(@Body() CreateOrderDto: CreateOrderDto): Promise<Order> {
-    return this.OrderService.create(CreateOrderDto);
+  create(@Body() dto: CreateOrderDto): Promise<Order> {
+    return this.orderService.create(dto);
   }
 
-  //TRAE TODAS LAS ORDENES DEL TECNICO QUE ESTEN ASOCIADAS A SU IDDDDDDDDD
-  @Auth(Role.TECH)
-  @Get('tecnico')
-  async getOrdersForTechnician(@Req() req) {
-    const technicianId = req.user.sub;  // Usar el sub del token
-    return await this.OrderService.findOrdersByTechnician(technicianId);
-  }
-
-  @Auth(Role.CLIENT)
-  @Get('cliente')
-  async getOrdersForClient(@Req() req) {
-    const clientId = req.user.sub;  // Usar el sub del token para obtener el ID del cliente
-    return await this.OrderService.findOrdersByClient(clientId);
-  }
-
-  // Obtener todas las órdenes de reparación
+  @Auth()
   @Get()
-  async findAll(@Req() request: Request): Promise<Order[]> {
-    const user = request.user; // Asume que el usuario autenticado está en request.user
-    return this.OrderService.findAll(user);
+  async findAll(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Query('search') search?: string,
+    @Query('estadoOrdenId') estadoOrdenId?: number,
+    @Query('technicianId') technicianId?: number,
+    @Query('clientId') clientId?: number,
+    @Query('fechaInicio') fechaInicio?: Date,
+    @Query('fechaFin') fechaFin?: Date,
+    @Query('includeInactive') includeInactive?: boolean,
+  ) {
+    const result = await this.orderService.findAllPaginated(
+      page,
+      limit,
+      search,
+      estadoOrdenId,
+      technicianId,
+      clientId,
+      fechaInicio,
+      fechaFin,
+      includeInactive,
+    );
+
+    return {
+      items: result.data,
+      totalItems: result.total,
+      totalPages: Math.ceil(result.total / limit),
+      currentPage: page,
+    };
   }
 
-  /* Obtener una orden de reparación por ID
-  @Auth(Role.TECH)
+  @Auth()
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<Order> {
-    return this.OrderService.findOne(Number(id));
-  }*/
-
-  @Get(':workOrderNumber')
-  async findOneByWorkOrderNumber(@Param('workOrderNumber') workOrderNumber: string) {
-    if (!workOrderNumber) {
-      throw new BadRequestException('El número de orden de trabajo no puede estar vacío.');
-    }
-    return this.OrderService.findOneByWorkOrderNumber(workOrderNumber);
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('includeInactive') includeInactive?: boolean,
+  ): Promise<Order> {
+    return this.orderService.findOne(id, includeInactive);
   }
 
-  // Actualizar una orden de reparación por workOrderNumber
-  @Auth(Role.TECH) // Solo accesible por técnicos
-  @Patch(':workOrderNumber')
-  async update(
-    @Param('workOrderNumber') workOrderNumber: string,
-    @Body() updateRepairOrderDto: UpdateOrderDto,
+  @Auth(Role.TECH, Role.RECEP, Role.ADMIN)
+  @Patch(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateOrderDto,
+  ): Promise<Order> {
+    return this.orderService.update(id, dto);
+  }
+
+  @Auth(Role.ADMIN)
+  @Delete(':id')
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<Order> {
+    await this.orderService.remove(id);
+    return this.orderService.findOne(id, true);
+  }
+
+  @Auth(Role.ADMIN)
+  @Patch(':id/restore')
+  async restore(@Param('id', ParseIntPipe) id: number): Promise<Order> {
+    await this.orderService.restore(id);
+    return this.orderService.findOne(id);
+  }
+
+  @Auth(Role.TECH, Role.ADMIN)
+  @Patch(':id/toggle-estado')
+  async toggleEstado(@Param('id', ParseIntPipe) id: number): Promise<Order> {
+    return this.orderService.toggleStatus(id);
+  }
+
+  @Auth(Role.TECH, Role.ADMIN)
+  @Post(':id/actividades')
+  addActividadTecnica(
+    @Param('id', ParseIntPipe) orderId: number,
+    @Body() dto: CreateActividadTecnicaDto,
   ) {
-    if (!workOrderNumber) {
-      throw new BadRequestException('El número de orden de trabajo no puede estar vacío.');
-    }
-
-    try {
-      // Verificar si la orden de reparación existe
-      const existingOrder = await this.OrderService.findOneByWorkOrderNumber(workOrderNumber);
-      if (!existingOrder) {
-        throw new NotFoundException('No se ha encontrado una orden de reparación con ese número de orden de trabajo.');
-      }
-
-      // Actualizar la orden de reparación con el DTO proporcionado
-      return await this.OrderService.update(workOrderNumber, updateRepairOrderDto);
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Ocurrió un error al intentar actualizar la orden: ${error.message}`,
-      );
-    }
+    return this.orderService.addActividadTecnica(orderId, dto);
   }
 
-
-  // Eliminar una orden de reparación por workOrderNumber
-  @Auth(Role.TECH)  // Solo accesible por técnicos
-  @Delete(':workOrderNumber')
-  async remove(@Param('workOrderNumber') workOrderNumber: string): Promise<void> {
-    if (!workOrderNumber) {
-      throw new BadRequestException('El número de orden de trabajo no puede estar vacío.');
-    }
-    await this.OrderService.remove(workOrderNumber);
-  }
-
-  // Asignar casillero a  una orden de reparación
-  @Auth(Role.TECH)
-  @Patch(':workOrderNumber/assign-casillero/:casilleroId')
-  async assignCasillero(
-    @Param('workOrderNumber') workOrderNumber: string,
-    @Param('casilleroId') casilleroId: string,
+  @Auth(Role.TECH, Role.ADMIN)
+  @Post(':id/presupuesto')
+  addPresupuesto(
+    @Param('id', ParseIntPipe) orderId: number,
+    @Body() dto: CreatePresupuestoDto,
   ) {
-    if (!workOrderNumber) {
-      throw new BadRequestException('El número de orden de trabajo no puede estar vacío.');
-    }
+    return this.orderService.addPresupuesto(orderId, dto);
+  }
 
-    if (!casilleroId || isNaN(Number(casilleroId))) {
-      throw new BadRequestException('El ID del casillero no es válido.');
-    }
+  @Auth(Role.RECEP, Role.ADMIN)
+  @Post(':id/casillero')
+  assignCasillero(
+    @Param('id', ParseIntPipe) orderId: number,
+    @Body() dto: CreateCasilleroDto,
+  ) {
+    return this.orderService.assignCasillero(orderId, dto);
+  }
 
-    try {
-      // Verificar si la orden existe
-      const existingOrder = await this.OrderService.findOneByWorkOrderNumber(workOrderNumber);
-      if (!existingOrder) {
-        throw new NotFoundException('No se ha encontrado una orden de reparación con ese número de orden de trabajo.');
-      }
+  @Auth(Role.TECH, Role.ADMIN)
+  @Post(':id/evidencias')
+  addEvidenciaTecnica(
+    @Param('id', ParseIntPipe) orderId: number,
+    @Body() dto: CreateEvidenciaTecnicaDto,
+  ) {
+    return this.orderService.addEvidenciaTecnica(orderId, dto);
+  }
 
-      // Asignar el casillero
-      return await this.OrderService.assignCasillero(workOrderNumber, Number(casilleroId));
-    } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new InternalServerErrorException(
-        `Ocurrió un error al intentar asignar el casillero: ${error.message}`,
-      );
-    }
+  @Auth(Role.TECH, Role.RECEP, Role.ADMIN)
+  @Patch(':id/estado/:estadoId')
+  async changeEstadoOrden(
+    @Param('id', ParseIntPipe) orderId: number,
+    @Param('estadoId', ParseIntPipe) estadoOrdenId: number,
+    @UserDecorator() user: User, // Usando tu decorador personalizado
+  ): Promise<Order> {
+    return this.orderService.changeEstadoOrden(orderId, estadoOrdenId, user.id);
   }
 }

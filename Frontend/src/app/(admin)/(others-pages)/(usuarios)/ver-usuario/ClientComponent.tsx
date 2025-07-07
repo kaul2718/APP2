@@ -6,6 +6,7 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import UsuarioTableOne from "@/components/tables/usuarioTable";
 import Button from "@/components/ui/button/Button";
 import { PlusCircleIcon } from "@heroicons/react/24/outline";
+import UsuarioNuevoTable from "@/components/tables/usuarioNuevoTable";
 
 export default function ClientComponent() {
     const router = useRouter();
@@ -29,7 +30,7 @@ export default function ClientComponent() {
                         </div>
                     }
                 >
-                    <UsuarioTableOne />
+                    <UsuarioNuevoTable />
                 </ComponentCard>
             </div>
         </div>

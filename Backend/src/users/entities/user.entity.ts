@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToOne, OneToMany, DeleteDateColumn, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, OneToMany, DeleteDateColumn, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { IsEmail, Matches, MinLength } from 'class-validator';
 import { Role } from '../../common/enums/rol.enum';
 import { Order } from '../../orders/entities/order.entity';
@@ -15,6 +15,9 @@ export class User {
 
   @Column({ nullable: false })
   nombre: string;
+
+  @Column({ nullable: true })
+  apellido: string;
 
   @Column({ unique: true })
   @IsEmail({}, { message: 'El correo debe ser válido.' })
@@ -42,9 +45,16 @@ export class User {
 
   @Column({ default: true })
   estado: boolean;
-  
-  @DeleteDateColumn()
-  deletedAt: Date;
+
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
+
 
   // Relación con las órdenes como cliente
   @OneToMany(() => Order, (order) => order.client)
@@ -54,7 +64,11 @@ export class User {
   @OneToMany(() => Order, (order) => order.technician)
   technicianOrders: Order[];
 
-  
+  // Relación con las órdenes como recepcionista
+  @OneToMany(() => Order, (order) => order.recepcionista)
+  recepcionistaOrders: Order[];
+
+  // Relación con las evidencias Tecnicas subidas - fotos
   @OneToMany(() => EvidenciaTecnica, (evidencia) => evidencia.subidoPor)
   evidenciasTecnicas: EvidenciaTecnica[];
 }

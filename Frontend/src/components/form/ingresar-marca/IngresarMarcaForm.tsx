@@ -1,21 +1,23 @@
 "use client";
 import React from "react";
-import ComponentCard from "@/components/common/ComponentCard";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
-import { useRouter } from 'next/navigation';
 import { TagIcon } from "@heroicons/react/24/outline";
 
 interface FormData {
   nombre: string;
 }
 
-export default function IngresarMarcaForm() {
+interface Props {
+  onSuccess?: (newMarca: { id: number; nombre: string }) => void;
+  onClose?: () => void;
+}
+
+export default function IngresarMarcaForm({ onSuccess, onClose }: Props) {
   const { data: session } = useSession();
-  const router = useRouter();
   const [formData, setFormData] = React.useState<FormData>({
     nombre: ""
   });
@@ -24,7 +26,6 @@ export default function IngresarMarcaForm() {
 
   const handleChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // Limpiar error al editar
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
@@ -33,7 +34,6 @@ export default function IngresarMarcaForm() {
   const validateFields = () => {
     const newErrors: Partial<FormData> = {};
 
-    // Validación de nombre
     if (!formData.nombre.trim()) {
       newErrors.nombre = "El nombre de la marca es requerido";
     } else if (formData.nombre.trim().length < 2) {
@@ -70,15 +70,13 @@ export default function IngresarMarcaForm() {
         return;
       }
 
+      const newMarca = await res.json();
       toast.success("Marca registrada con éxito ✅");
       
-      // Resetear formulario
       setFormData({ nombre: "" });
-      
-      // Redirigir después de 1 segundo
-      setTimeout(() => {
-        router.push('/ver-marca');
-      }, 1000);
+
+      if (onSuccess) onSuccess(newMarca);
+      if (onClose) onClose();
 
     } catch (error) {
       console.error(error);
@@ -89,7 +87,7 @@ export default function IngresarMarcaForm() {
   };
 
   return (
-    <ComponentCard title="Registrar Nueva Marca">
+    <div className="p-4">
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
         {/* Nombre de la Marca */}
         <div>
@@ -107,16 +105,26 @@ export default function IngresarMarcaForm() {
         </div>
 
         {/* Botón */}
-        <div>
+        <div className="flex justify-end gap-4">
+          {onClose && (
+            <Button 
+              type="button" 
+              variant="outline"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+          )}
           <Button 
             type="submit" 
-            className="w-full flex items-center justify-center gap-2"
+            className="flex items-center justify-center gap-2"
             disabled={loading}
           >
             {loading ? "Registrando..." : "Registrar Marca"}
           </Button>
         </div>
       </form>
-    </ComponentCard>
+    </div>
   );
 }

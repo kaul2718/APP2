@@ -13,67 +13,73 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) { }
 
-  async register({ cedula, nombre, correo, password, telefono, direccion, ciudad, role }: RegisterDto) {
+  async register(registerDto: RegisterDto) {
+    const { cedula, nombre, apellido, correo, password, telefono, direccion, ciudad, role } = registerDto;
+
     // Verificar si ya existe un usuario con el mismo correo
-    const userByEmail = await this.usersService.findOneByEmail(correo);
-    if (userByEmail) {
-      throw new BadRequestException('Ya existe un usuario registrado con este correo. Por favor, verifique la información e intente nuevamente.');
+    const existingUser = await this.usersService.findByEmail(correo);
+    if (existingUser) {
+      throw new BadRequestException('El correo electrónico ya está registrado');
     }
-  
-    // Verificar si ya existe un usuario con la misma cédula
-    const userByCedula = await this.usersService.findOneByCedula(cedula);
-    if (userByCedula) {
-      throw new BadRequestException('Ya existe un usuario registrado con esta cédula. Por favor, verifique la información e intente nuevamente.');
+
+    // Verificar duplicados de cédula y teléfono
+    const allUsers = await this.usersService.findAll(true);
+    if (allUsers.some(user => user.cedula === cedula)) {
+      throw new BadRequestException('La cédula ya está registrada');
     }
-  
-    // Verificar si ya existe un usuario con el mismo teléfono
-    const userByPhone = await this.usersService.findOneByTelefono(telefono);
-    if (userByPhone) {
-      throw new BadRequestException('Ya existe un usuario registrado con este teléfono. Por favor, verifique la información e intente nuevamente.');
+    if (allUsers.some(user => user.telefono === telefono)) {
+      throw new BadRequestException('El teléfono ya está registrado');
     }
-  
-    // Asignar rol por defecto si no se proporciona
-    const userRole = role ?? Role.CLIENT;
-  
-    // Crear usuario con todos los campos requeridos
-    await this.usersService.create({
+
+    // Crear nuevo usuario
+    const newUser = await this.usersService.create({
       cedula,
       nombre,
+      apellido: apellido || '',
       correo,
       telefono,
       direccion,
       ciudad,
       password: await bcryptjs.hash(password, 10),
-      role: userRole,
+      role: role || Role.CLIENT,
     });
-  
+
     return {
-      nombre,
-      cedula,
-      correo,
+      id: newUser.id,
+      nombre: newUser.nombre,
+      apellido: newUser.apellido,
+      correo: newUser.correo,
+      role: newUser.role
     };
   }
 
+  async login(loginDto: LoginDto) {
+    const { correo, password } = loginDto;
 
-  async login({ correo, password }: LoginDto) {
-    const user = await this.usersService.findByEmailWithPassword(correo);
+    // Buscar usuario incluyendo la contraseña (necesita un método especial en UsersService)
+    const user = await this.usersService.findByEmail(correo);
     if (!user) {
-      throw new UnauthorizedException('El correo electrónico proporcionado es incorrecto o no se encuentra registrado en nuestro sistema.');
+      throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const isPasswordValid = await bcryptjs.compare(password, user.password);
+    // Para comparar contraseña necesitamos el usuario con password
+    const userWithPassword = await this.usersService.findByEmail(correo, true);
+    if (!userWithPassword || !userWithPassword.password) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    const isPasswordValid = await bcryptjs.compare(password, userWithPassword.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('La contraseña proporcionada es incorrecta. Por favor, verifique e intente nuevamente.');
+      throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // Aquí agregamos el `id` del usuario como `sub` en el payload
     const payload = {
-      sub: user.id,  // ✅ Agregar el ID del usuario
+      sub: user.id,
       correo: user.correo,
       role: user.role
     };
 
-    const token = await this.jwtService.signAsync(payload, { expiresIn: '1h' }); // Expiración del token
+    const token = await this.jwtService.signAsync(payload);
 
     return {
       token,
@@ -81,16 +87,14 @@ export class AuthService {
         id: user.id,
         cedula: user.cedula,
         nombre: user.nombre,
-        telefono: user.telefono,
-        direccion: user.direccion,
-        ciudad: user.ciudad,
+        apellido: user.apellido,
         correo: user.correo,
         role: user.role,
-      },
+      }
     };
   }
 
-  async profile({ correo, role }: { correo: string; role: string }) {
-    return await this.usersService.findOneByEmail(correo);
+  async profile({ correo }: { correo: string }) {
+    return this.usersService.findByEmail(correo);
   }
 }

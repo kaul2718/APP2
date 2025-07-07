@@ -96,7 +96,7 @@ export function useClientes(): UseClientesReturn {
       setCurrentPage(data.currentPage);
 
     } catch (error) {
-      console.error("Error fetching clientes:", error);
+      //console.error("Error fetching clientes:", error);
       toast.error(error instanceof Error ? error.message : "Error al cargar clientes");
       setClientes([]);
     } finally {
@@ -135,7 +135,7 @@ export function useClientes(): UseClientesReturn {
       toast.success(`Cliente ${accion}ado correctamente`);
       fetchClientes(currentPage, 10, searchTerm, showDisabled);
     } catch (error) {
-      console.error("Error al cambiar estado del cliente:", error);
+      //console.error("Error al cambiar estado del cliente:", error);
       toast.error(error instanceof Error ? error.message : "Error al cambiar estado");
     }
   };

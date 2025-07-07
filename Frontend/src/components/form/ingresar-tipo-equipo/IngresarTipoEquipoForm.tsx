@@ -1,21 +1,23 @@
 "use client";
 import React from "react";
-import ComponentCard from "@/components/common/ComponentCard";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
-import { useRouter } from 'next/navigation';
-import { CubeIcon } from "@heroicons/react/24/outline"; // icono sugerido para tipo de equipo
+import { CubeIcon } from "@heroicons/react/24/outline";
 
 interface FormData {
   nombre: string;
 }
 
-export default function IngresarTipoEquipoForm() {
+interface Props {
+  onSuccess?: (newTipoEquipo: { id: number; nombre: string }) => void;
+  onClose?: () => void;
+}
+
+export default function IngresarTipoEquipoForm({ onSuccess, onClose }: Props) {
   const { data: session } = useSession();
-  const router = useRouter();
   const [formData, setFormData] = React.useState<FormData>({
     nombre: ""
   });
@@ -68,13 +70,20 @@ export default function IngresarTipoEquipoForm() {
         return;
       }
 
+      const newTipoEquipo = await res.json();
       toast.success("Tipo de equipo registrado con éxito ✅");
 
       setFormData({ nombre: "" });
 
-      setTimeout(() => {
-        router.push('/ver-tipo-equipo');
-      }, 1000);
+      // Llamar a onSuccess si está definido
+      if (onSuccess) {
+        onSuccess(newTipoEquipo);
+      }
+
+      // Cerrar el modal si está definido onClose
+      if (onClose) {
+        onClose();
+      }
 
     } catch (error) {
       console.error(error);
@@ -85,7 +94,7 @@ export default function IngresarTipoEquipoForm() {
   };
 
   return (
-    <ComponentCard title="Registrar Nuevo Tipo de Equipo">
+    <div className="p-4">
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
         {/* Nombre del tipo de equipo */}
         <div>
@@ -102,17 +111,27 @@ export default function IngresarTipoEquipoForm() {
           {errors.nombre && <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>}
         </div>
 
-        {/* Botón */}
-        <div>
+        {/* Botones */}
+        <div className="flex justify-end gap-4">
+          {onClose && (
+            <Button 
+              type="button" 
+              variant="outline"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+          )}
           <Button 
             type="submit" 
-            className="w-full flex items-center justify-center gap-2"
+            className="flex items-center justify-center gap-2"
             disabled={loading}
           >
             {loading ? "Registrando..." : "Registrar Tipo de Equipo"}
           </Button>
         </div>
       </form>
-    </ComponentCard>
+    </div>
   );
 }

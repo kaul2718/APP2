@@ -1,33 +1,48 @@
-import {Controller,Post,Body,Get,Param,Patch,Delete,Query,ParseIntPipe,} from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  ParseIntPipe,
+  Query,
+  UseInterceptors,
+  ClassSerializerInterceptor
+} from '@nestjs/common';
 import { UsersService } from './users.service';
+import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { User } from './entities/user.entity';
 import { Auth } from '../auth/decorators/auth.decorator';
 import { Role } from '../common/enums/rol.enum';
-import { RegisterDto } from 'src/auth/dto/register.dto';
+import { User } from './entities/user.entity';
+import { UpdatePasswordDto } from './dto/update-password.dto';
 
-@Auth(Role.ADMIN)
+@UseInterceptors(ClassSerializerInterceptor)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
+  @Auth(Role.ADMIN)
   @Post()
-  create(@Body() dto: RegisterDto): Promise<User> {
+  create(@Body() dto: CreateUserDto): Promise<User> {
     return this.usersService.create(dto);
   }
 
+  @Auth(Role.ADMIN, Role.RECEP)
   @Get('all')
   async findAll(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
     @Query('search') search?: string,
-    @Query('includeDeleted') includeDeleted?: boolean,
+    @Query('includeInactive') includeInactive?: boolean,
   ) {
     const result = await this.usersService.findAllPaginated(
       page,
       limit,
       search,
-      includeDeleted,
+      includeInactive,
     );
 
     return {
@@ -38,14 +53,16 @@ export class UsersController {
     };
   }
 
+  @Auth(Role.ADMIN, Role.RECEP, Role.TECH)
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,
-    @Query('includeDeleted') includeDeleted?: boolean,
+    @Query('includeInactive') includeInactive?: boolean,
   ): Promise<User> {
-    return this.usersService.findOne(id, includeDeleted);
+    return this.usersService.findOne(id, includeInactive);
   }
 
+  @Auth(Role.ADMIN)
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -54,31 +71,40 @@ export class UsersController {
     return this.usersService.update(id, dto);
   }
 
+  @Auth(Role.ADMIN)
   @Delete(':id')
-  async remove(@Param('id', ParseIntPipe) id: number): Promise<User> {
-    await this.usersService.remove(id);
-    return this.usersService.findOne(id, true); // devuelve el soft deleted
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
+    return this.usersService.remove(id);
   }
 
+  @Auth(Role.ADMIN)
   @Patch(':id/restore')
-  async restore(@Param('id', ParseIntPipe) id: number): Promise<User> {
-    await this.usersService.restore(id);
-    return this.usersService.findOne(id); // devuelve restaurado
+  async restore(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
+    return this.usersService.restore(id);
   }
 
-  @Patch(':id/estado')
-  async cambiarEstado(
-    @Param('id', ParseIntPipe) id: number,
-    @Body('estado') estado: boolean,
-  ): Promise<User> {
-    return this.usersService.actualizarEstado(id, estado);
+  @Auth(Role.ADMIN)
+  @Patch(':id/toggle-status')
+  async toggleStatus(@Param('id', ParseIntPipe) id: number): Promise<User> {
+    return this.usersService.toggleStatus(id);
   }
 
-  @Patch(':id/toggle-estado')
-  async toggleEstado(
+  @Auth(Role.ADMIN)
+  @Get('count/:role')
+  async countByRole(@Param('role') role: Role): Promise<number> {
+    return this.usersService.countByRole(role);
+  }
+  @Auth()
+  @Patch(':id/password')
+  async updatePassword(
     @Param('id', ParseIntPipe) id: number,
-    @Body('estado') estado: boolean,
-  ): Promise<User> {
-    return this.usersService.actualizarEstado(id, estado);
+    @Body() updatePasswordDto: UpdatePasswordDto,
+  ) {
+    console.log('Received data:', updatePasswordDto); // Para depuración
+    return this.usersService.updatePassword(
+      id,
+      updatePasswordDto.currentPassword,
+      updatePasswordDto.newPassword
+    );
   }
 }

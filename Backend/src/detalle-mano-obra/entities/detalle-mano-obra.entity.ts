@@ -1,4 +1,4 @@
-import {  Entity, PrimaryGeneratedColumn, Column, ManyToOne,JoinColumn,CreateDateColumn,UpdateDateColumn,} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, } from 'typeorm';
 import { Presupuesto } from 'src/presupuesto/entities/presupuesto.entity';
 import { TipoManoObra } from 'src/tipo-mano-obra/entities/tipo-mano-obra.entity';
 
@@ -30,9 +30,15 @@ export class DetalleManoObra {
   @Column('decimal', { precision: 10, scale: 2 })
   costoTotal: number;
 
-  @CreateDateColumn()
-  creadoEn: Date;
+  @Column({ default: true })
+  estado: boolean;
 
-  @UpdateDateColumn()
-  actualizadoEn: Date;
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }

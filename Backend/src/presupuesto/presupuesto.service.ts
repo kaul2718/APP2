@@ -8,7 +8,6 @@ import { Order } from 'src/orders/entities/order.entity';
 import { EstadoPresupuesto } from '../estado-presupuesto/entities/estado-presupuesto.entity';
 import { DetalleRepuestos } from 'src/detalle-repuestos/entities/detalle-repuesto.entity';
 import { Inventario } from 'src/inventario/entities/inventario.entity';
-import { EstadoDetalleRepuesto } from 'src/common/enums/estadoDetalleRepuesto';
 import { Repuesto } from 'src/repuestos/entities/repuesto.entity';
 import { DetalleManoObra } from 'src/detalle-mano-obra/entities/detalle-mano-obra.entity';
 import { TipoNotificacion } from 'src/tipo-notificacion/entities/tipo-notificacion.entity';
@@ -50,6 +49,14 @@ export class PresupuestoService {
     const orden = await this.ordenRepository.findOne({ where: { id: ordenId } });
     if (!orden) throw new NotFoundException(`Orden con ID ${ordenId} no encontrada.`);
 
+    // 👇 Aquí validas si ya hay un presupuesto para esa orden
+    const existente = await this.presupuestoRepository.findOne({
+      where: { ordenId },
+    });
+    if (existente) {
+      throw new BadRequestException('Ya existe un presupuesto para esta orden.');
+    }
+
     const estado = await this.estadoPresupuestoRepository.findOne({ where: { id: estadoId } });
     if (!estado) throw new NotFoundException(`EstadoPresupuesto con ID ${estadoId} no encontrado.`);
 
@@ -66,6 +73,7 @@ export class PresupuestoService {
       throw new InternalServerErrorException(`Error creando presupuesto: ${error.message}`);
     }
   }
+
 
   async findAll(): Promise<Presupuesto[]> {
     return this.presupuestoRepository.find({
@@ -100,9 +108,9 @@ export class PresupuestoService {
       if (presupuesto.estadoId !== updateDto.estadoId) {
         // Ajustes en inventario según el estado
         if (nuevoEstado.nombre.toLowerCase() === 'aprobado') {
-          await this.descontarInventario(presupuesto.ordenId);
+          await this.descontarInventario(presupuesto.id);
         } else if (['rechazado', 'cancelado'].includes(nuevoEstado.nombre.toLowerCase())) {
-          await this.revertirInventario(presupuesto.ordenId);
+          await this.revertirInventario(presupuesto.id);
         }
 
         // Crear notificación para el cambio de estado presupuesto
@@ -144,9 +152,9 @@ export class PresupuestoService {
   }
 
   // ✅ Lógica: aplicar cambios al inventario si se aprueba
-  private async descontarInventario(ordenId: number) {
+  private async descontarInventario(presupuestoId: number) {
     const detalles = await this.detalleRepuestosRepository.find({
-      where: { orderId: ordenId, estado: EstadoDetalleRepuesto.ACTIVO },
+      where: { presupuestoId },
       relations: ['repuesto'],
     });
 
@@ -154,12 +162,14 @@ export class PresupuestoService {
       const inventario = await this.inventarioRepository.findOne({
         where: {
           parteId: detalle.repuesto.parteId,
-          deletedAt: null, // Cambiado de isDeleted a deletedAt
-          estado: true // Añadido para verificar que esté activo
+          deletedAt: null,
+          estado: true,
         },
       });
 
-      if (!inventario) throw new NotFoundException(`Inventario para parte ${detalle.repuesto.parteId} no encontrado.`);
+      if (!inventario)
+        throw new NotFoundException(`Inventario para parte ${detalle.repuesto.parteId} no encontrado.`);
+
       if (inventario.cantidad < detalle.cantidad)
         throw new BadRequestException(`Stock insuficiente para parte ${detalle.repuesto.parteId}`);
 
@@ -168,10 +178,11 @@ export class PresupuestoService {
     }
   }
 
+
   // ✅ Lógica: restaurar stock si se rechaza/cancela
-  private async revertirInventario(ordenId: number) {
+  private async revertirInventario(presupuestoId: number) {
     const detalles = await this.detalleRepuestosRepository.find({
-      where: { orderId: ordenId, estado: EstadoDetalleRepuesto.ACTIVO },
+      where: { presupuestoId },
       relations: ['repuesto'],
     });
 
@@ -179,8 +190,8 @@ export class PresupuestoService {
       const inventario = await this.inventarioRepository.findOne({
         where: {
           parteId: detalle.repuesto.parteId,
-          deletedAt: null, // Cambiado de isDeleted a deletedAt
-          estado: true // Añadido para verificar que esté activo
+          deletedAt: null,
+          estado: true,
         },
       });
 
@@ -189,11 +200,11 @@ export class PresupuestoService {
         await this.inventarioRepository.save(inventario);
       }
 
-      detalle.estado = EstadoDetalleRepuesto.ANULADO;
       detalle.comentario = 'Detalle anulado por rechazo/cancelación de presupuesto';
       await this.detalleRepuestosRepository.save(detalle);
     }
   }
+
   //RESUMEN DE COSTOS
   async getResumenPresupuesto(id: number) {
     // Primero obtén el presupuesto con la relación orden
@@ -215,7 +226,7 @@ export class PresupuestoService {
     const detallesRepuestos = await this.dataSource
       .getRepository(DetalleRepuestos)
       .find({
-        where: { orderId: presupuesto.orden.id },
+        where: { presupuestoId: presupuesto.id },
         relations: ['repuesto'],
       });
 

@@ -8,12 +8,19 @@ interface Usuario {
   id: number;
   cedula: string;
   nombre: string;
+  apellido: string;
   correo: string;
   telefono?: string;
   direccion?: string;
   ciudad?: string;
   deletedAt?: string; // por si viene del backend
-  role?:string;
+  role?: string;
+}
+
+interface PasswordChangeData {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
 }
 
 export function useUserProfile() {
@@ -22,6 +29,11 @@ export function useUserProfile() {
   const [cargando, setCargando] = useState(true);
   const [editando, setEditando] = useState<Usuario | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [passwordData, setPasswordData] = useState<PasswordChangeData>({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
 
   useEffect(() => {
     const obtenerDatosUsuario = async () => {
@@ -69,7 +81,7 @@ export function useUserProfile() {
         setEditando(userData);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Error desconocido";
-        console.error("Error al obtener perfil:", errorMessage);
+        //console.error("Error al obtener perfil:", errorMessage);
         setError(errorMessage);
         toast.error(`Error al cargar perfil: ${errorMessage}`);
       } finally {
@@ -91,10 +103,12 @@ export function useUserProfile() {
       return false;
     }
 
-    if (!editando.nombre?.trim() || !editando.correo?.trim()) {
-      toast.error("Nombre y correo son campos obligatorios");
+    // Validaciones de campos obligatorios
+    if (!editando.nombre?.trim() || !editando.correo?.trim() || !editando.apellido?.trim()) {
+      toast.error("Nombre, apellido y correo son campos obligatorios");
       return false;
     }
+    
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editando.correo)) {
       toast.error("Por favor ingresa un correo electrónico válido");
@@ -104,9 +118,22 @@ export function useUserProfile() {
     try {
       setCargando(true);
 
-      // ✅ Excluir campos no permitidos
-      const { id, deletedAt, resetPasswordToken,
-        ...datosLimpios } = editando;
+      // Guardar copia del estado anterior para posible rollback
+      const backupUsuario = usuario;
+      const backupEditando = editando;
+
+      // Actualización optimista (antes de la petición)
+      setUsuario(prev => ({ ...prev, ...editando }));
+      setEditando(prev => ({ ...prev, ...editando }));
+
+      const datosPermitidos = {
+        nombre: editando.nombre,
+        apellido: editando.apellido,
+        correo: editando.correo,
+        telefono: editando.telefono,
+        direccion: editando.direccion,
+        ciudad: editando.ciudad
+      };
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${session.user.id}`,
@@ -116,7 +143,83 @@ export function useUserProfile() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.accessToken}`,
           },
-          body: JSON.stringify(datosLimpios),
+          body: JSON.stringify(datosPermitidos),
+        }
+      );
+
+      if (!response.ok) {
+        // Si falla, revertir al estado anterior
+        setUsuario(backupUsuario);
+        setEditando(backupEditando);
+
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Error ${response.status}: ${response.statusText}`
+        );
+      }
+
+      const updatedUser: Usuario = await response.json();
+
+      // Sincronizar con la respuesta del servidor
+      setUsuario(updatedUser);
+      setEditando(updatedUser);
+
+      toast.success("Perfil actualizado con éxito ✅");
+      return true;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Error desconocido";
+      //console.error("Error al actualizar perfil:", errorMessage);
+      setError(errorMessage);
+      toast.error(`Error al actualizar perfil: ${errorMessage}`);
+      return false;
+    } finally {
+      setCargando(false);
+    }
+  };
+
+
+  const cambiarContrasena = async (): Promise<boolean> => {
+    if (!session?.user?.id || !session.accessToken) {
+      toast.error("No hay sesión activa");
+      return false;
+    }
+
+    // Validaciones
+    if (!passwordData.currentPassword) {
+      toast.error("Debes ingresar tu contraseña actual");
+      return false;
+    }
+
+    if (!passwordData.newPassword) {
+      toast.error("Debes ingresar una nueva contraseña");
+      return false;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast.error("La nueva contraseña debe tener al menos 6 caracteres");
+      return false;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("Las contraseñas nuevas no coinciden");
+      return false;
+    }
+
+    try {
+      setCargando(true);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${session.user.id}/password`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+          body: JSON.stringify({
+            currentPassword: passwordData.currentPassword,
+            newPassword: passwordData.newPassword
+          }),
         }
       );
 
@@ -127,16 +230,20 @@ export function useUserProfile() {
         );
       }
 
-      const updatedUser: Usuario = await response.json();
-      setUsuario(updatedUser);
-      setEditando(updatedUser);
-      toast.success("Perfil actualizado con éxito ✅");
+      // Limpiar el formulario de contraseña
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+
+      toast.success("Contraseña actualizada con éxito ✅");
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Error desconocido";
-      console.error("Error al actualizar perfil:", errorMessage);
+      //console.error("Error al cambiar contraseña:", errorMessage);
       setError(errorMessage);
-      toast.error(`Error al actualizar perfil: ${errorMessage}`);
+      toast.error(`Error al cambiar contraseña: ${errorMessage}`);
       return false;
     } finally {
       setCargando(false);
@@ -152,8 +259,20 @@ export function useUserProfile() {
     });
   };
 
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPasswordData({
+      ...passwordData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
   const resetearEdicion = () => {
     setEditando(usuario);
+    setPasswordData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
   };
 
   return {
@@ -161,9 +280,12 @@ export function useUserProfile() {
     cargando,
     error,
     editando,
+    passwordData,
     setEditando,
     actualizarPerfil,
+    cambiarContrasena,
     handleInputChange,
+    handlePasswordChange,
     resetearEdicion,
   };
 }

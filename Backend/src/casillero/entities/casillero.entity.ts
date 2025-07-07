@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, DeleteDateColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
 import { EstadoCasillero } from '../../common/enums/estadoCasillero.enum';
 @Entity()
@@ -7,14 +7,18 @@ export class Casillero {
   id: number;
 
   @Column()
-  numero: string;
+  codigo: string;
 
   @Column({ type: 'enum', enum: EstadoCasillero })
-  estado: EstadoCasillero;
+  situacion: EstadoCasillero;
 
   @Column()
   descripcion: string;
 
+  @Column({ default: true })
+  estado: boolean;
+
+  //RELACIONES//
   @OneToOne(() => Order, (order) => order.casillero)
   @JoinColumn({ name: 'orderId' })
   order: Order;
@@ -22,10 +26,13 @@ export class Casillero {
   @Column({ nullable: true })
   orderId: number;
 
-  // ===  campos para soft delete ===
-  @Column({ default: false })
-  isDeleted: boolean;
+  // MANEJO DEL SISTEMA
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
 
-  @Column({ type: 'timestamp', nullable: true })
-  deletedAt: Date;
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }

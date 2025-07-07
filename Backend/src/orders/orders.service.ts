@@ -1,321 +1,506 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { CreateOrderDto } from './dto/create-order.dto';
-import { UpdateOrderDto } from './dto/update-order.dto';
-import { Repository } from 'typeorm';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Between, Like, Not, IsNull } from 'typeorm';
 import { Order } from './entities/order.entity';
 import { User } from '../users/entities/user.entity';
-import { Role } from '../common/enums/rol.enum';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Casillero } from '../casillero/entities/casillero.entity';
-import { EstadoCasillero } from '../common/enums/estadoCasillero.enum';
 import { Equipo } from 'src/equipo/entities/equipo.entity';
-import { DataSource } from 'typeorm';  // Importa DataSource
-import { EstadoFinal } from 'src/common/enums/estadoFinalOrden';
+import { EstadoOrden } from 'src/estado-orden/entities/estado-orden.entity';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
+import { ActividadTecnica } from 'src/actividad-tecnica/entities/actividad-tecnica.entity';
+import { Presupuesto } from 'src/presupuesto/entities/presupuesto.entity';
+import { DetalleRepuestos } from 'src/detalle-repuestos/entities/detalle-repuesto.entity';
+import { Casillero } from 'src/casillero/entities/casillero.entity';
+import { EvidenciaTecnica } from 'src/evidencia-tecnica/entities/evidencia-tecnica.entity';
+import { HistorialEstadoOrden } from 'src/historial-estado-orden/entities/historial-estado-orden.entity';
 
 @Injectable()
 export class OrderService {
   constructor(
-    private readonly dataSource: DataSource,  // Inyección DataSource
     @InjectRepository(Order)
-    private readonly repairOrderRepository: Repository<Order>,
+    private readonly orderRepository: Repository<Order>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(Equipo)  // Inyecta el repositorio de Equipo
+    @InjectRepository(Equipo)
     private readonly equipoRepository: Repository<Equipo>,
+    @InjectRepository(EstadoOrden)
+    private readonly estadoOrdenRepository: Repository<EstadoOrden>,
+    @InjectRepository(ActividadTecnica)
+    private readonly actividadTecnicaRepository: Repository<ActividadTecnica>,
+    @InjectRepository(Presupuesto)
+    private readonly presupuestoRepository: Repository<Presupuesto>,
+    @InjectRepository(DetalleRepuestos)
+    private readonly detalleRepuestosRepository: Repository<DetalleRepuestos>,
     @InjectRepository(Casillero)
     private readonly casilleroRepository: Repository<Casillero>,
+    @InjectRepository(EvidenciaTecnica)
+    private readonly evidenciaTecnicaRepository: Repository<EvidenciaTecnica>,
+    @InjectRepository(HistorialEstadoOrden)
+    private readonly historialEstadoOrdenRepository: Repository<HistorialEstadoOrden>,
   ) { }
 
-  async create(createOrderDto: CreateOrderDto): Promise<Order> {
-    const {
-      clientId,
-      technicianId,
-      workOrderNumber,
-      equipoId,
-      ...orderData
-    } = createOrderDto;
-
-    // Validar si el número de orden ya existe
-    const existingOrder = await this.repairOrderRepository.findOne({
-      where: { workOrderNumber },
-    });
-    if (existingOrder) {
-      throw new BadRequestException(
-        `El número de orden de trabajo "${workOrderNumber}" ya existe.`,
-      );
+  async create(createDto: CreateOrderDto): Promise<Order> {
+    // Validación de datos requeridos
+    if (!createDto.clientId || !createDto.equipoId || !createDto.problemaReportado) {
+      throw new BadRequestException('Datos incompletos para crear la orden');
     }
 
-    // Buscar cliente
-    const client = await this.userRepository.findOne({
-      where: { id: clientId, role: Role.CLIENT },
-    });
-    if (!client) {
-      throw new BadRequestException('Cliente no encontrado.');
-    }
+    // Generar número de orden (versión corregida)
+    const workOrderNumber = await this.generateOrderNumber();
 
-    // Buscar técnico (opcional)
-    let technician = null;
-    if (technicianId) {
-      technician = await this.userRepository.findOne({
-        where: { id: technicianId, role: Role.TECH },
-      });
-      if (!technician) {
-        throw new BadRequestException('Técnico no encontrado.');
-      }
-    }
+    // Obtener relaciones con manejo de errores mejorado
+    const [client, equipo] = await Promise.all([
+      this.validateUser(createDto.clientId, 'Cliente'),
+      this.validateEquipo(createDto.equipoId)
+    ]);
 
-    // Buscar equipo (opcional)
-    let equipo = null;
-    if (equipoId) {
-      equipo = await this.equipoRepository.findOne({
-        where: { id: equipoId },
-      });
-      if (!equipo) {
-        throw new BadRequestException('No se ha encontrado el equipo con ese ID.');
-      }
+    const technician = createDto.technicianId
+      ? await this.validateUser(createDto.technicianId, 'Técnico')
+      : null;
+
+    const recepcionista = createDto.recepcionistaId
+      ? await this.validateUser(createDto.recepcionistaId, 'Recepcionista')
+      : null;
+
+    const estadoOrden = createDto.estadoOrdenId
+      ? await this.estadoOrdenRepository.findOneBy({ id: createDto.estadoOrdenId })
+      : await this.estadoOrdenRepository.findOneBy({ nombre: 'Ingresado / Recepcionado' });
+
+    if (!estadoOrden) {
+      throw new Error('No se pudo determinar el estado de la orden');
     }
 
     // Crear y guardar la orden
-    const repairOrder = this.repairOrderRepository.create({
+    const nuevaOrden = this.orderRepository.create({
       workOrderNumber,
+      estado: true,
       client,
+      equipo,
       technician,
-      equipo, // ← se guarda como relación ManyToOne
-      ...orderData,
+      recepcionista,
+      problemaReportado: createDto.problemaReportado,
+      accesorios: createDto.accesorios || [],
+      fechaPrometidaEntrega: createDto.fechaPrometidaEntrega || null,
+      estadoOrden
     });
 
-    return this.repairOrderRepository.save(repairOrder);
+    const ordenGuardada = await this.orderRepository.save(nuevaOrden);
+
+    // Crear historial
+    await this.createHistorial(ordenGuardada, estadoOrden, recepcionista || technician || client);
+
+    return ordenGuardada;
   }
 
-  // Obtener todas las órdenes de reparación
-  async findAll(user: any): Promise<Order[]> {
-    const { userId, role } = user;
-    let whereCondition = {};
-    if (role === Role.TECH) {
-      whereCondition = { technician: { id: userId } };
-    } else if (role === Role.CLIENT) {
-      whereCondition = { client: { id: userId } };
+  // Métodos auxiliares corregidos
+  private async generateOrderNumber(): Promise<string> {
+    try {
+      // Obtener la última orden
+      const ultimaOrden = await this.orderRepository.createQueryBuilder("order")
+        .select("order.workOrderNumber")
+        .orderBy("order.id", "DESC")
+        .withDeleted()
+        .getOne();
+
+      // Si no hay órdenes previas, comenzar con 1
+      if (!ultimaOrden || !ultimaOrden.workOrderNumber) {
+        return '00001';
+      }
+
+      // Extraer solo los dígitos numéricos (por si hay prefijos)
+      const soloNumeros = ultimaOrden.workOrderNumber.replace(/\D/g, '');
+
+      // Convertir a número y sumar 1
+      const siguienteNumero = parseInt(soloNumeros) + 1;
+
+      // Formatear a 5 dígitos con ceros a la izquierda
+      return siguienteNumero.toString().padStart(5, '0');
+
+    } catch (error) {
+      console.error('Error generando número de orden:', error);
+      // Fallback: número aleatorio de 5 dígitos
+      return Math.floor(10000 + Math.random() * 90000).toString();
+    }
+  }
+
+  private async validateUser(id: number, role: string): Promise<User> {
+    const user = await this.userRepository.findOneBy({ id });
+
+    if (!user) {
+      throw new NotFoundException(`${role} con ID ${id} no encontrado`);
     }
 
-    return this.repairOrderRepository.find({
-      where: whereCondition,
-      relations: ['client','technician','presupuesto','equipo',],
-      order: {
-        fechaIngreso: 'DESC',
-      },
-    });
+    return user;
   }
 
-  // Obtener todas las órdenes de reparación por cliente
-  async findOrdersByClient(clientId: number): Promise<Order[]> {
-    return await this.repairOrderRepository.find({
-      where: {
-        client: { id: clientId },
-      },
-      relations: ['technician', 'actividades', 'client', 'equipo', 'presupuesto'],
-      order: {
-        fechaIngreso: 'DESC',
-      },
-    });
-  }
-
-  // Obtener todas las órdenes de reparación por tecnico
-  async findOrdersByTechnician(technicianId: number): Promise<Order[]> {
-    return await this.repairOrderRepository.find({
-      where: {
-        technician: { id: technicianId },
-      },
-      relations: ['technician', 'actividades', 'client', 'equipo', 'presupuesto'],
-      order: {
-        fechaIngreso: 'DESC',
-      },
-    });
-  }
-
-  // Obtener  las órdenes de reparación por ID -- Vista interna para admin o técnico,
-  async findOne(id: number): Promise<Order> {
-    if (isNaN(id)) {
-      throw new BadRequestException('El ID proporcionado no es válido.');
-    }
-
-    const repairOrder = await this.repairOrderRepository.findOne({
+  private async validateEquipo(id: number): Promise<Equipo> {
+    const equipo = await this.equipoRepository.findOne({
       where: { id },
-      relations: ['client', 'technician', 'equipo', 'presupuesto', 'actividades', 'detalleRepuestos',
-        'detalleRepuestos.repuesto',
-        'detalleServicios',
-        'detalleServicios.servicio',
+      relations: ['tipoEquipo', 'marca', 'modelo']
+    });
+
+    if (!equipo) {
+      throw new NotFoundException(`Equipo con ID ${id} no encontrado`);
+    }
+
+    return equipo;
+  }
+
+  private async validateEstadoOrden(id: number): Promise<EstadoOrden> {
+    const estado = await this.estadoOrdenRepository.findOne({ where: { id } });
+    if (!estado) {
+      throw new NotFoundException(`Estado de orden con ID ${id} no encontrado`);
+    }
+    return estado;
+  }
+
+  private async getDefaultEstadoOrden(): Promise<EstadoOrden> {
+    return this.estadoOrdenRepository.findOne({
+      where: { nombre: 'Pendiente' } // O el estado por defecto que uses
+    }) || this.estadoOrdenRepository.findOne({ order: { id: 'ASC' } });
+  }
+
+  private async createHistorial(
+    orden: Order,
+    estado: EstadoOrden,
+    usuario: User
+  ): Promise<void> {
+    const historial = new HistorialEstadoOrden(orden, estado, usuario);
+    await this.historialEstadoOrdenRepository.save(historial);
+  }
+
+  async findAll(includeInactive = false): Promise<Order[]> {
+    return this.orderRepository.find({
+      where: includeInactive ? {} : { estado: true },
+      withDeleted: includeInactive,
+      relations: [
+        'client',
+        'technician',
+        'recepcionista',
+        'equipo',
+        'actividades',
+        'presupuesto',
+        'detallesRepuestos',
         'casillero',
+        'evidencias',
+        'estadoOrden',
+        'historialEstados',
+      ],
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+  }
+
+  async findOne(id: number, includeInactive = false): Promise<Order> {
+    const orden = await this.orderRepository.findOne({
+      where: { id },
+      withDeleted: includeInactive,
+      relations: [
+        'client',
+        'technician',
+        'recepcionista',
+        'equipo',
+        'actividades',
+        'presupuesto',
+        'detallesRepuestos',
+        'casillero',
+        'evidencias',
+        'estadoOrden',
+        'historialEstados',
       ],
     });
 
-    if (!repairOrder) {
-      throw new NotFoundException(
-        'No se ha encontrado ninguna orden de reparación con ese número.'
+    if (!orden || (!includeInactive && !orden.estado)) {
+      throw new NotFoundException('Orden no encontrada');
+    }
+
+    return orden;
+  }
+
+  async update(id: number, updateDto: UpdateOrderDto): Promise<Order> {
+    const orden = await this.findOne(id, true);
+
+    // Registrar cambios importantes en el historial
+    const cambiosHistorial: string[] = [];
+
+    if (updateDto.clientId && updateDto.clientId !== orden.client.id) {
+      const client = await this.validateUser(updateDto.clientId, 'Cliente');
+      orden.client = client;
+      cambiosHistorial.push(`Cliente cambiado a ${client.nombre}`);
+    }
+
+    if (updateDto.equipoId && updateDto.equipoId !== orden.equipo.id) {
+      const equipo = await this.validateEquipo(updateDto.equipoId);
+      orden.equipo = equipo;
+      cambiosHistorial.push(`Equipo cambiado a ${equipo.numeroSerie}`);
+    }
+
+    if (updateDto.technicianId !== undefined) {
+      const oldTech = orden.technician?.nombre;
+
+      if (updateDto.technicianId === null) {
+        orden.technician = null;
+        cambiosHistorial.push('Técnico removido');
+      } else {
+        const technician = await this.validateUser(updateDto.technicianId, 'Técnico');
+        orden.technician = technician;
+
+        if (!oldTech || technician.id !== orden.technician?.id) {
+          cambiosHistorial.push(`Técnico cambiado a ${technician.nombre}`);
+        }
+      }
+    }
+
+    if (updateDto.estadoOrdenId !== undefined &&
+      updateDto.estadoOrdenId !== orden.estadoOrden?.id) {
+      const estadoOrden = updateDto.estadoOrdenId
+        ? await this.validateEstadoOrden(updateDto.estadoOrdenId)
+        : await this.getDefaultEstadoOrden();
+
+      const historial = new HistorialEstadoOrden();
+      historial.orden = orden;
+      historial.estadoOrden = estadoOrden;
+      historial.fechaCambio = new Date();
+      historial.observaciones = 'Estado cambiado desde actualización';
+
+      await this.historialEstadoOrdenRepository.save(historial);
+      orden.estadoOrden = estadoOrden;
+    }
+
+    // Validar y actualizar campos simples
+    if (updateDto.problemaReportado !== undefined) {
+      orden.problemaReportado = updateDto.problemaReportado;
+    }
+
+    if (updateDto.fechaPrometidaEntrega !== undefined) {
+      orden.fechaPrometidaEntrega = updateDto.fechaPrometidaEntrega;
+    }
+
+    const ordenActualizada = await this.orderRepository.save(orden);
+
+    // Registrar otros cambios en el historial si hay
+    if (cambiosHistorial.length > 0) {
+      const historial = new HistorialEstadoOrden();
+      historial.orden = orden;
+      historial.estadoOrden = orden.estadoOrden;
+      historial.fechaCambio = new Date();
+      historial.observaciones = cambiosHistorial.join(', ');
+
+      await this.historialEstadoOrdenRepository.save(historial);
+    }
+
+    return ordenActualizada;
+  }
+
+  async remove(id: number): Promise<{ message: string }> {
+    const orden = await this.findOne(id);
+
+    // Soft delete con TypeORM
+    await this.orderRepository.softRemove(orden);
+
+    // Además marcamos como inactivo
+    orden.estado = false;
+    await this.orderRepository.save(orden);
+
+    return { message: `Orden con ID ${id} deshabilitada (soft delete).` };
+  }
+
+  async restore(id: number): Promise<{ message: string }> {
+    const orden = await this.findOne(id, true);
+
+    if (!orden.deletedAt) {
+      throw new BadRequestException('La orden no está eliminada');
+    }
+
+    // Restauramos el soft delete
+    await this.orderRepository.restore(id);
+
+    // Lo marcamos como activo
+    orden.estado = true;
+    await this.orderRepository.save(orden);
+
+    return { message: `Orden con ID ${id} restaurada.` };
+  }
+
+  async findAllPaginated(
+    page: number,
+    limit: number,
+    search?: string,
+    estadoOrdenId?: number,
+    technicianId?: number,
+    clientId?: number,
+    fechaInicio?: Date,
+    fechaFin?: Date,
+    includeInactive = false,
+  ): Promise<{ data: Order[]; total: number }> {
+    const skip = (page - 1) * limit;
+
+    const query = this.orderRepository.createQueryBuilder('order')
+      .leftJoinAndSelect('order.client', 'client')
+      .leftJoinAndSelect('order.technician', 'technician')
+      .leftJoinAndSelect('order.recepcionista', 'recepcionista')
+      .leftJoinAndSelect('order.equipo', 'equipo')
+      .leftJoinAndSelect('order.estadoOrden', 'estadoOrden')
+      .orderBy('order.createdAt', 'DESC');
+
+    // Manejo de la búsqueda corregido
+    if (search) {
+      query.where(
+        '(order.workOrderNumber ILIKE :search OR ' +
+        'client.nombre ILIKE :search OR ' +
+        'equipo.numeroSerie ILIKE :search)',
+        { search: `%${search}%` }
       );
     }
 
-    return repairOrder;
+    // Filtros adicionales
+    if (estadoOrdenId) {
+      query.andWhere('order.estadoOrdenId = :estadoOrdenId', { estadoOrdenId });
+    }
+
+    if (technicianId) {
+      query.andWhere('order.technicianId = :technicianId', { technicianId });
+    }
+
+    if (clientId) {
+      query.andWhere('order.clientId = :clientId', { clientId });
+    }
+
+    if (fechaInicio && fechaFin) {
+      query.andWhere('order.createdAt BETWEEN :fechaInicio AND :fechaFin', {
+        fechaInicio,
+        fechaFin
+      });
+    }
+
+    // Manejo de inactivos
+    if (!includeInactive) {
+      query.andWhere('order.estado = :estado', { estado: true })
+        .andWhere('order.deletedAt IS NULL');
+    }
+
+    // Paginación
+    const [data, total] = await query
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
+
+    return { data, total };
   }
 
-  // Obtener una orden de reparación por workOrderNumber -- Consulta del cliente usando el número de orden
-  async findOneByWorkOrderNumber(workOrderNumber: string): Promise<Order> {
-    if (!workOrderNumber) {
-      throw new BadRequestException('El número de orden de trabajo proporcionado no es válido.');
-    }
+  async toggleStatus(id: number): Promise<Order> {
+    const orden = await this.findOne(id, true);
 
-    // Buscar la orden con las relaciones necesarias
-    const repairOrder = await this.repairOrderRepository.findOne({
-      where: { workOrderNumber, isDeleted: false },
-      relations: ['client', 'technician', 'presupuesto', 'casillero'],
-    });
+    orden.estado = !orden.estado;
+    await this.orderRepository.save(orden);
 
-    if (!repairOrder) {
-      throw new BadRequestException('No se ha encontrado ninguna orden de reparación con ese número. Por favor, verifica el número de orden e inténtalo nuevamente.');
-    }
-
-    return repairOrder; // Retornar la orden sin validar el presupuesto
+    return orden;
   }
 
-  //UPDATE
-  async update(workOrderNumber: string, updateRepairOrderDto: UpdateOrderDto): Promise<Order> {
-    const repairOrder = await this.repairOrderRepository.findOne({
-      where: { workOrderNumber },
-      relations: ['technician', 'client', 'equipo', 'casillero'],
+  async addActividadTecnica(orderId: number, actividadData: Partial<ActividadTecnica>): Promise<ActividadTecnica> {
+    const orden = await this.findOne(orderId);
+
+    const actividad = this.actividadTecnicaRepository.create({
+      ...actividadData,
+      orden,
     });
 
-    if (!repairOrder) {
-      throw new NotFoundException('Orden de reparación no encontrada.');
-    }
-
-    // Validación de cambio de técnico
-    if (
-      updateRepairOrderDto.technicianId &&
-      updateRepairOrderDto.technicianId !== repairOrder.technician?.id
-    ) {
-      const newTechnician = await this.userRepository.findOne({
-        where: {
-          id: updateRepairOrderDto.technicianId,
-          role: Role.TECH,
-        },
-      });
-
-      if (!newTechnician) {
-        throw new NotFoundException(
-          `Técnico con ID ${updateRepairOrderDto.technicianId} no encontrado.`
-        );
-      }
-
-      repairOrder.technician = newTechnician;
-    }
-
-    // Asignar los nuevos valores
-    Object.assign(repairOrder, updateRepairOrderDto);
-
-    //  Si el estado final es "ENTREGADO", liberar el casillero
-    if (
-      updateRepairOrderDto.EstadoFinal === EstadoFinal.ENTREGADO &&
-      repairOrder.casillero
-    ) {
-      const casillero = await this.casilleroRepository.findOne({
-        where: { id: repairOrder.casillero.id },
-      });
-
-      if (casillero) {
-        casillero.estado = EstadoCasillero.DISPONIBLE;
-        casillero.orderId = null;
-        await this.casilleroRepository.save(casillero);
-      }
-
-      repairOrder.casillero = null; // Limpiar la relación si es bidireccional
-    }
-
-    await this.repairOrderRepository.save(repairOrder);
-
-    // Recargar la orden actualizada con relaciones completas
-    return this.repairOrderRepository.findOne({
-      where: { workOrderNumber },
-      relations: ['technician','client','equipo','presupuesto','detalleServicios','detalleServicios.servicio',
-        'detalleRepuestos',
-        'detalleRepuestos.repuesto',
-        'actividades',
-      ],
-    });
+    return this.actividadTecnicaRepository.save(actividad);
   }
 
-  async remove(workOrderNumber: string): Promise<{ message: string }> {
-    const repairOrder = await this.repairOrderRepository.findOne({
-      where: { workOrderNumber, isDeleted: false },
-      relations: ['equipo', 'presupuesto'],
+  async addPresupuesto(orderId: number, presupuestoData: Partial<Presupuesto>): Promise<Presupuesto> {
+    const orden = await this.findOne(orderId);
+
+    // Verificar si ya tiene presupuesto
+    const existe = await this.presupuestoRepository.findOne({
+      where: { orden: { id: orderId } },
     });
 
-    if (!repairOrder) {
-      throw new NotFoundException('Orden no encontrada o ya eliminada.');
+    if (existe) {
+      throw new BadRequestException('La orden ya tiene un presupuesto asociado');
     }
 
-    if (repairOrder.equipo) {
-      throw new BadRequestException('No se puede eliminar la orden porque está vinculada a un equipo.');
-    }
+    const presupuesto = this.presupuestoRepository.create({
+      ...presupuestoData,
+      orden,
+    });
 
-    // Marca como eliminado (soft delete)
-    repairOrder.isDeleted = true;
-    repairOrder.deletedAt = new Date();
-
-    await this.repairOrderRepository.save(repairOrder);
-
-    return { message: `La orden ${workOrderNumber} fue eliminada (soft delete).` };
+    return this.presupuestoRepository.save(presupuesto);
   }
 
-  // Agregar este nuevo método
-  async assignCasillero(workOrderNumber: string, casilleroId: number): Promise<Order> {
-    const queryRunner = this.dataSource.createQueryRunner();
+  async assignCasillero(orderId: number, casilleroData: Partial<Casillero>): Promise<Casillero> {
+    const orden = await this.findOne(orderId);
 
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+    // Verificar si ya tiene casillero
+    const existe = await this.casilleroRepository.findOne({
+      where: { order: { id: orderId } },
+    });
 
-    try {
-      const order = await queryRunner.manager.findOne(Order, {
-        where: { workOrderNumber },
-        relations: ['casillero'],
-      });
-
-      if (!order) {
-        throw new NotFoundException('Orden no encontrada.');
-      }
-
-      if (order.casillero) {
-        throw new BadRequestException(`La orden ya tiene asignado el casillero ${order.casillero.numero}`);
-      }
-
-      const casillero = await queryRunner.manager.findOne(Casillero, {
-        where: { id: casilleroId },
-      });
-
-      if (!casillero) {
-        throw new NotFoundException('Casillero no encontrado.');
-      }
-
-      if (casillero.estado === EstadoCasillero.OCUPADO) {
-        throw new BadRequestException(`El casillero ${casillero.numero} ya está ocupado.`);
-      }
-
-      casillero.orderId = order.id;
-      casillero.estado = EstadoCasillero.OCUPADO;
-      order.casillero = casillero;
-
-      await queryRunner.manager.save(casillero);
-      await queryRunner.manager.save(order);
-
-      await queryRunner.commitTransaction();
-
-      return await this.repairOrderRepository.findOne({
-        where: { id: order.id },
-        relations: ['casillero', 'client', 'technician', 'equipo'],
-      });
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
+    if (existe) {
+      throw new BadRequestException('La orden ya tiene un casillero asociado');
     }
+
+    const casillero = this.casilleroRepository.create({
+      ...casilleroData,
+      order: orden,
+    });
+
+    return this.casilleroRepository.save(casillero);
+  }
+
+  async addEvidenciaTecnica(orderId: number, evidenciaData: Partial<EvidenciaTecnica>): Promise<EvidenciaTecnica> {
+    const orden = await this.findOne(orderId);
+
+    const evidencia = this.evidenciaTecnicaRepository.create({
+      ...evidenciaData,
+      orden,
+    });
+
+    return this.evidenciaTecnicaRepository.save(evidencia);
+  }
+
+  async changeEstadoOrden(
+    orderId: number,
+    estadoOrdenId: number,
+    userId: number
+  ): Promise<Order> {
+    const orden = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: ['estadoOrden']
+    });
+
+    if (!orden) {
+      throw new NotFoundException('Orden no encontrada');
+    }
+
+    const nuevoEstado = await this.estadoOrdenRepository.findOne({
+      where: { id: estadoOrdenId }
+    });
+
+    if (!nuevoEstado) {
+      throw new NotFoundException('Estado de orden no encontrado');
+    }
+
+    const usuario = await this.userRepository.findOne({
+      where: { id: userId }
+    });
+
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    // Registrar en el historial
+    const historial = new HistorialEstadoOrden();
+    historial.orden = orden;
+    historial.estadoOrden = nuevoEstado;
+    historial.usuario = usuario;
+    historial.fechaCambio = new Date();
+
+    await this.historialEstadoOrdenRepository.save(historial);
+
+    // Actualizar el estado actual
+    orden.estadoOrden = nuevoEstado;
+    return this.orderRepository.save(orden);
   }
 }

@@ -1,53 +1,79 @@
-import {Controller,Get,Post,Patch,Delete,Param,Body,BadRequestException,NotFoundException,} from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query } from '@nestjs/common';
 import { TipoNotificacionService } from './tipo-notificacion.service';
 import { CreateTipoNotificacionDto } from './dto/create-tipo-notificacion.dto';
 import { UpdateTipoNotificacionDto } from './dto/update-tipo-notificacion.dto';
+import { Auth } from '../auth/decorators/auth.decorator';
+import { Role } from '../common/enums/rol.enum';
 import { TipoNotificacion } from './entities/tipo-notificacion.entity';
-import { Auth } from 'src/auth/decorators/auth.decorator';
-import { Role } from 'src/common/enums/rol.enum';
 
 @Auth(Role.ADMIN)
 @Controller('tipos-notificacion')
 export class TipoNotificacionController {
-  constructor(private readonly tipoService: TipoNotificacionService) {}
+  constructor(private readonly tipoNotificacionService: TipoNotificacionService) {}
 
-  @Auth(Role.ADMIN)
   @Post()
-  async create(@Body() dto: CreateTipoNotificacionDto): Promise<TipoNotificacion> {
-    if (!dto.nombre || !dto.descripcion) {
-      throw new BadRequestException('Nombre y descripción son requeridos.');
-    }
-
-    return await this.tipoService.create(dto);
+  create(@Body() dto: CreateTipoNotificacionDto): Promise<TipoNotificacion> {
+    return this.tipoNotificacionService.create(dto);
   }
 
-  @Auth(Role.ADMIN, Role.TECH)
-  @Get()
-  async findAll(): Promise<TipoNotificacion[]> {
-    return await this.tipoService.findAll();
+  @Get('all')
+  async findAll(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Query('search') search?: string,
+    @Query('includeInactive') includeInactive?: boolean,
+  ) {
+    const result = await this.tipoNotificacionService.findAllPaginated(
+      page,
+      limit,
+      search,
+      includeInactive,
+    );
+
+    return {
+      items: result.data,
+      totalItems: result.total,
+      totalPages: Math.ceil(result.total / limit),
+      currentPage: page,
+    };
   }
 
-  @Auth(Role.ADMIN, Role.TECH)
   @Get(':id')
-  async findOne(@Param('id') id: number): Promise<TipoNotificacion> {
-    if (isNaN(id)) throw new BadRequestException('ID inválido.');
-    return await this.tipoService.findOne(id);
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('includeInactive') includeInactive?: boolean,
+  ): Promise<TipoNotificacion> {
+    return this.tipoNotificacionService.findOne(id, includeInactive);
   }
 
-  @Auth(Role.ADMIN)
   @Patch(':id')
-  async update(
-    @Param('id') id: number,
+  update(
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateTipoNotificacionDto,
   ): Promise<TipoNotificacion> {
-    if (isNaN(id)) throw new BadRequestException('ID inválido.');
-    return await this.tipoService.update(id, dto);
+    return this.tipoNotificacionService.update(id, dto);
   }
 
-  @Auth(Role.ADMIN)
   @Delete(':id')
-  async remove(@Param('id') id: number): Promise<{ message: string }> {
-    if (isNaN(id)) throw new BadRequestException('ID inválido.');
-    return await this.tipoService.remove(id);
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
+    return this.tipoNotificacionService.remove(id);
+  }
+
+  @Patch(':id/restore')
+  async restore(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
+    return this.tipoNotificacionService.restore(id);
+  }
+
+  @Patch(':id/estado')
+  async cambiarEstado(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('estado') estado: boolean,
+  ): Promise<TipoNotificacion> {
+    return this.tipoNotificacionService.update(id, { estado });
+  }
+
+  @Patch(':id/toggle-estado')
+  async toggleEstado(@Param('id', ParseIntPipe) id: number): Promise<TipoNotificacion> {
+    return this.tipoNotificacionService.toggleStatus(id);
   }
 }

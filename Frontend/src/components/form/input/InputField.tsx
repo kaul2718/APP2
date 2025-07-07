@@ -60,7 +60,7 @@ const Input: FC<InputProps> = ({
         name={name}
         placeholder={placeholder}
         defaultValue={defaultValue}
-        value={value} // ✅ aquí ahora lo puedes usar sin error
+        value={value !== null && value !== undefined ? value : ""}
         onChange={onChange}
         min={min}
         max={max}

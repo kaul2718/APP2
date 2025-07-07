@@ -1,8 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, DeleteDateColumn, UpdateDateColumn, } from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
 import { Repuesto } from '../../repuestos/entities/repuesto.entity';
-import { EstadoDetalleRepuesto } from 'src/common/enums/estadoDetalleRepuesto';
-
+import { Presupuesto } from 'src/presupuesto/entities/presupuesto.entity';
 
 @Entity()
 export class DetalleRepuestos {
@@ -21,12 +20,12 @@ export class DetalleRepuestos {
   @CreateDateColumn()
   fechaUso: Date;
 
-  @ManyToOne(() => Order, order => order.detallesRepuestos)
-  @JoinColumn({ name: 'orderId' })
-  order: Order;
+  @ManyToOne(() => Presupuesto, presupuesto => presupuesto.detallesRepuestos, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'presupuestoId' })
+  presupuesto: Presupuesto;
 
   @Column()
-  orderId: number;
+  presupuestoId: number;
 
   @ManyToOne(() => Repuesto, repuesto => repuesto.detallesRepuestos)
   @JoinColumn({ name: 'repuestoId' })
@@ -35,13 +34,20 @@ export class DetalleRepuestos {
   @Column()
   repuestoId: number;
 
-  
-  // Nuevo campo para estado del detalle
-  @Column({ type: 'enum', enum: EstadoDetalleRepuesto, default: EstadoDetalleRepuesto.ACTIVO })
-  estado: EstadoDetalleRepuesto;
+  @Column({ default: true })
+  estado: boolean;
 
+  //Opcional: para guardar razones de modificación
 
-  // 📝 Opcional: para guardar razones de modificación/anulación
   @Column({ type: 'text', nullable: true })
   comentario: string;
+
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }

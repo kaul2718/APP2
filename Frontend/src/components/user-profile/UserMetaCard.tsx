@@ -1,12 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useModal } from "@/hooks/useModal";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
-import Image from "next/image";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { Spinner } from "../ui/spinner";
 import { toast } from "react-toastify";
@@ -18,19 +17,24 @@ export default function UserMetaCard() {
     cargando,
     error,
     editando: datosEditables,
+    passwordData,
     setEditando: setDatosEditables,
     actualizarPerfil: guardarCambios,
+    cambiarContrasena,
     handleInputChange: handleChangeCampo,
+    handlePasswordChange: handleChangePassword,
     resetearEdicion,
   } = useUserProfile();
 
+  const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
+
   const handleOpenModal = () => {
     openModal();
-    // Resetear a los valores originales al abrir el modal
     resetearEdicion();
+    setActiveTab('profile');
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitProfile = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!datosEditables) {
@@ -38,7 +42,7 @@ export default function UserMetaCard() {
       return;
     }
 
-    // Validación nombre: no vacío, solo letras y espacios
+    // Validación nombre
     if (!datosEditables.nombre.trim()) {
       toast.error("El nombre es obligatorio");
       return;
@@ -58,14 +62,42 @@ export default function UserMetaCard() {
       return;
     }
 
-    // Validación teléfono (opcional)
+    // Validación teléfono
     if (datosEditables.telefono && !/^[0-9\s]+$/.test(datosEditables.telefono)) {
       toast.error("El teléfono solo debe contener números");
       return;
     }
 
-    // Si pasa todas las validaciones, guarda cambios
     const success = await guardarCambios();
+    if (success) {
+      closeModal();
+    }
+  };
+
+  const handleSubmitPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!passwordData.currentPassword) {
+      toast.error("Debes ingresar tu contraseña actual");
+      return;
+    }
+
+    if (!passwordData.newPassword) {
+      toast.error("Debes ingresar una nueva contraseña");
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast.error("La nueva contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("Las contraseñas nuevas no coinciden");
+      return;
+    }
+
+    const success = await cambiarContrasena();
     if (success) {
       closeModal();
     }
@@ -84,27 +116,27 @@ export default function UserMetaCard() {
     );
   }
 
-  if (error || !datosUsuario) {
-    return (
-      <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6 text-center">
-        <p className="text-red-500 dark:text-red-400 mb-2">
-          Error al cargar los datos del usuario
-        </p>
-        {error && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-            {error}
-          </p>
-        )}
-        <Button
-          size="sm"
-          onClick={() => window.location.reload()}
-          variant="outline"
-        >
-          Intentar nuevamente
-        </Button>
-      </div>
-    );
-  }
+  // if (error || !datosUsuario) {
+  //   return (
+  //     <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6 text-center">
+  //       <p className="text-red-500 dark:text-red-400 mb-2">
+  //         Error al cargar los datos del usuario
+  //       </p>
+  //       {error && (
+  //         <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+  //           {error}
+  //         </p>
+  //       )}
+  //       <Button
+  //         size="sm"
+  //         onClick={() => window.location.reload()}
+  //         variant="outline"
+  //       >
+  //         Intentar nuevamente
+  //       </Button>
+  //     </div>
+  //   );
+  // }
 
   return (
     <>
@@ -122,15 +154,21 @@ export default function UserMetaCard() {
             </div>
             <div className="order-3 xl:order-2">
               <h4 className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
-                {datosUsuario.nombre}
+                {datosEditables?.nombre || datosUsuario.nombre}  {datosEditables?.apellido || datosUsuario.apellido}
+
               </h4>
               <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {datosUsuario.ciudad}
+                  {datosEditables?.ciudad || datosUsuario?.ciudad}
+
                 </p>
                 <div className="hidden h-3.5 w-px bg-gray-300 dark:bg-gray-700 xl:block"></div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {datosUsuario.direccion}
+                  {datosEditables?.direccion || datosUsuario?.direccion}
+                </p>
+                <div className="hidden h-3.5 w-px bg-gray-300 dark:bg-gray-700 xl:block"></div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {datosEditables?.role || datosUsuario?.role}
                 </p>
               </div>
             </div>
@@ -172,112 +210,211 @@ export default function UserMetaCard() {
         <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
           <div className="px-2 pr-14">
             <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
-              Editar información personal
+              {activeTab === 'profile' ? 'Editar información personal' : 'Cambiar contraseña'}
             </h4>
             <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
-              Actualiza tus datos personales
+              {activeTab === 'profile' ? 'Actualiza tus datos personales' : 'Ingresa tu contraseña actual y la nueva contraseña'}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col">
-            <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
-              <div className="mt-7">
-                <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
-                  Información del usuario
-                </h5>
+          <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+            <button
+              className={`py-2 px-4 font-medium ${activeTab === 'profile' ? 'text-primary border-b-2 border-primary' : 'text-gray-500 dark:text-gray-400'}`}
+              onClick={() => setActiveTab('profile')}
+            >
+              Perfil
+            </button>
+            <button
+              className={`py-2 px-4 font-medium ${activeTab === 'password' ? 'text-primary border-b-2 border-primary' : 'text-gray-500 dark:text-gray-400'}`}
+              onClick={() => setActiveTab('password')}
+            >
+              Contraseña
+            </button>
+          </div>
 
-                <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Cédula</Label>
-                    <Input
-                      type="text"
-                      name="cedula"
-                      value={datosEditables?.cedula || ""}
-                      onChange={handleChangeCampo}
-                      disabled
-                    />
-                  </div>
+          {activeTab === 'profile' ? (
+            <form onSubmit={handleSubmitProfile} className="flex flex-col">
+              <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
+                <div className="mt-7">
+                  <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
+                    Información del usuario
+                  </h5>
 
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Nombre completo *</Label>
-                    <Input
-                      type="text"
-                      name="nombre"
-                      value={datosEditables?.nombre || ""}
-                      onChange={handleChangeCampo}
-                      required
-                      disabled={cargando}
-                    />
-                  </div>
+                  <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
+                    <div className="col-span-2 lg:col-span-1">
+                      <Label>Cédula</Label>
+                      <Input
+                        type="text"
+                        name="cedula"
+                        value={datosEditables?.cedula || ""}
+                        onChange={handleChangeCampo}
+                        disabled
+                      />
+                    </div>
 
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Correo electrónico *</Label>
-                    <Input
-                      type="email"
-                      name="correo"
-                      value={datosEditables?.correo || ""}
-                      onChange={handleChangeCampo}
-                      required
-                      disabled={cargando}
-                    />
-                  </div>
+                    <div className="col-span-2 lg:col-span-1">
+                      <Label>Nombre *</Label>
+                      <Input
+                        type="text"
+                        name="nombre"
+                        value={datosEditables?.nombre || ""}
+                        onChange={handleChangeCampo}
+                        required
+                        disabled={cargando}
+                      />
+                    </div>
 
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Teléfono</Label>
-                    <Input
-                      type="text"
-                      name="telefono"
-                      value={datosEditables?.telefono || ""}
-                      onChange={handleChangeCampo}
-                      disabled={cargando}
-                    />
-                  </div>
+                    <div className="col-span-2 lg:col-span-1">
+                      <Label>Apellido *</Label>
+                      <Input
+                        type="text"
+                        name="apellido"
+                        value={datosEditables?.apellido || ""}
+                        onChange={handleChangeCampo}
+                        required
+                        disabled={cargando}
+                      />
+                    </div>
+                    <div className="col-span-2 lg:col-span-1">
+                      <Label>Correo electrónico *</Label>
+                      <Input
+                        type="email"
+                        name="correo"
+                        value={datosEditables?.correo || ""}
+                        onChange={handleChangeCampo}
+                        required
+                        disabled={cargando}
+                      />
+                    </div>
 
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Ciudad</Label>
-                    <Input
-                      type="text"
-                      name="ciudad"
-                      value={datosEditables?.ciudad || ""}
-                      onChange={handleChangeCampo}
-                      disabled={cargando}
-                    />
-                  </div>
+                    <div className="col-span-2 lg:col-span-1">
+                      <Label>Teléfono</Label>
+                      <Input
+                        type="text"
+                        name="telefono"
+                        value={datosEditables?.telefono || ""}
+                        onChange={handleChangeCampo}
+                        disabled={cargando}
+                      />
+                    </div>
 
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Dirección</Label>
-                    <Input
-                      type="text"
-                      name="direccion"
-                      value={datosEditables?.direccion || ""}
-                      onChange={handleChangeCampo}
-                      disabled={cargando}
-                    />
+                    <div className="col-span-2 lg:col-span-1">
+                      <Label>Ciudad</Label>
+                      <Input
+                        type="text"
+                        name="ciudad"
+                        value={datosEditables?.ciudad || ""}
+                        onChange={handleChangeCampo}
+                        disabled={cargando}
+                      />
+                    </div>
+
+                    <div className="col-span-2 lg:col-span-1">
+                      <Label>Dirección</Label>
+                      <Input
+                        type="text"
+                        name="direccion"
+                        value={datosEditables?.direccion || ""}
+                        onChange={handleChangeCampo}
+                        disabled={cargando}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCancel}
-                type="button"
-                disabled={cargando}
-              >
-                Cancelar
-              </Button>
-              <Button
-                size="sm"
-                type="submit"
-                disabled={cargando}
-                loading={cargando}
-              >
-                {cargando ? "Guardando..." : "Guardar cambios"}
-              </Button>
-            </div>
-          </form>
+              <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCancel}
+                  type="button"
+                  disabled={cargando}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  type="submit"
+                  disabled={cargando}
+                  loading={cargando}
+                >
+                  {cargando ? "Guardando..." : "Guardar cambios"}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmitPassword} className="flex flex-col">
+              <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
+                <div className="mt-7">
+                  <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
+                    Cambiar contraseña
+                  </h5>
+
+                  <div className="grid grid-cols-1 gap-x-6 gap-y-5">
+                    <div className="col-span-1">
+                      <Label>Contraseña actual *</Label>
+                      <Input
+                        type="password"
+                        name="currentPassword"
+                        value={passwordData.currentPassword}
+                        onChange={handleChangePassword}
+                        required
+                        disabled={cargando}
+                      />
+                    </div>
+
+                    <div className="col-span-1">
+                      <Label>Nueva contraseña *</Label>
+                      <Input
+                        type="password"
+                        name="newPassword"
+                        value={passwordData.newPassword}
+                        onChange={handleChangePassword}
+                        required
+                        disabled={cargando}
+                      />
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        La contraseña debe tener al menos 6 caracteres
+                      </p>
+                    </div>
+
+                    <div className="col-span-1">
+                      <Label>Confirmar nueva contraseña *</Label>
+                      <Input
+                        type="password"
+                        name="confirmPassword"
+                        value={passwordData.confirmPassword}
+                        onChange={handleChangePassword}
+                        required
+                        disabled={cargando}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCancel}
+                  type="button"
+                  disabled={cargando}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  type="submit"
+                  disabled={cargando}
+                  loading={cargando}
+                >
+                  {cargando ? "Actualizando..." : "Actualizar contraseña"}
+                </Button>
+              </div>
+            </form>
+          )}
         </div>
       </Modal>
     </>

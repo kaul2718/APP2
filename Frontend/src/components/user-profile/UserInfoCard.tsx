@@ -1,11 +1,11 @@
 "use client";
 import React from "react";
-import { useUserProfile } from "@/hooks/useUserProfile"; // Ajusta la ruta si es necesario
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 export default function UserInfoCard() {
-  const { usuario, cargando, error } = useUserProfile();
+  const { usuario, editando, cargando, error } = useUserProfile(); // Añadimos editando
 
-  if (cargando) {
+  if (cargando && !usuario) {
     return (
       <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6 text-center">
         Cargando información...
@@ -29,6 +29,9 @@ export default function UserInfoCard() {
     );
   }
 
+  // Usamos editando como fuente de verdad si existe, sino usuario
+  const datosMostrados = editando || usuario;
+
   return (
     <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -43,7 +46,8 @@ export default function UserInfoCard() {
                 Nombre completo
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {usuario.nombre}
+                {datosMostrados.nombre}  {datosMostrados.apellido}
+
               </p>
             </div>
 
@@ -52,7 +56,7 @@ export default function UserInfoCard() {
                 Correo electrónico
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {usuario.correo}
+                {datosMostrados.correo}
               </p>
             </div>
 
@@ -61,17 +65,15 @@ export default function UserInfoCard() {
                 Teléfono
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {usuario.telefono || "-"}
+                {datosMostrados.telefono || "-"}
               </p>
             </div>
-
             <div>
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Rol
+                Cédula
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {/* Asumiendo que tu usuario tiene un campo "role" */}
-                {usuario.role || "Usuario"}
+                {datosMostrados.cedula || "-"}
               </p>
             </div>
           </div>
