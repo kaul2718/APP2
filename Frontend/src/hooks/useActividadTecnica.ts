@@ -13,6 +13,13 @@ export interface TipoActividadTecnica {
 export interface OrderActividad {
   id: number;
   workOrderNumber: string;
+  equipo?: {
+    nombre: string;
+  };
+  cliente?: {
+    nombre: string;
+    apellido: string;
+  };
 }
 
 export interface ActividadTecnica {
@@ -47,7 +54,7 @@ export function useActividadTecnica() {
 
   const fetchActividades = async (
     page: number = 1,
-    limit: number = 10000,
+    limit: number = 100,
     search: string = "",
     includeInactive: boolean = false
   ) => {
@@ -73,7 +80,7 @@ export function useActividadTecnica() {
         url += `&estado=true`;
       }
 
-      console.log("URL de solicitud:", url); // Para debug
+      //console.log("URL de solicitud:", url); // Para debug
 
       const response = await fetch(url, {
         headers: {
@@ -96,7 +103,7 @@ export function useActividadTecnica() {
       setTotalItems(data.totalItems);
       setCurrentPage(data.currentPage);
     } catch (error) {
-      console.error("Error al obtener actividades técnicas:", error);
+      //console.error("Error al obtener actividades técnicas:", error);
       toast.error(error instanceof Error ? error.message : "Error al cargar actividades técnicas");
       setActividades([]);
     } finally {
@@ -128,7 +135,7 @@ export function useActividadTecnica() {
       const data: ActividadTecnica[] = await response.json();
       return data;
     } catch (error) {
-      console.error("Error al obtener actividades por orden:", error);
+      //console.error("Error al obtener actividades por orden:", error);
       toast.error(error instanceof Error ? error.message : "Error al cargar actividades por orden");
       throw error;
     } finally {
@@ -160,11 +167,11 @@ export function useActividadTecnica() {
       toast.success("Actividad técnica creada exitosamente");
 
       // Actualiza la lista después de crear
-      await fetchActividades(currentPage, 10000, searchTerm, showInactive);
+      await fetchActividades(currentPage, 100, searchTerm, showInactive);
 
       return newActividad;
     } catch (error) {
-      console.error("Error al crear actividad técnica:", error);
+      //console.error("Error al crear actividad técnica:", error);
       toast.error(error instanceof Error ? error.message : "Error al crear actividad técnica");
       throw error;
     }
@@ -196,11 +203,11 @@ export function useActividadTecnica() {
       toast.success("Actividad técnica actualizada exitosamente");
 
       // Actualiza la lista después de modificar
-      await fetchActividades(currentPage, 10000, searchTerm, showInactive);
+      await fetchActividades(currentPage, 100, searchTerm, showInactive);
 
       return updatedActividad;
     } catch (error) {
-      console.error("Error al actualizar actividad técnica:", error);
+     // console.error("Error al actualizar actividad técnica:", error);
       toast.error(error instanceof Error ? error.message : "Error al actualizar actividad técnica");
       throw error;
     }
@@ -228,7 +235,7 @@ export function useActividadTecnica() {
       );
       return updatedActividad;
     } catch (error) {
-      console.error("Error al cambiar estado de la actividad técnica:", error);
+      //.error("Error al cambiar estado de la actividad técnica:", error);
       toast.error(
         error instanceof Error ? error.message : "Error al cambiar estado de la actividad técnica"
       );
@@ -252,7 +259,7 @@ export function useActividadTecnica() {
       toast.success("Actividad técnica eliminada exitosamente");
       return true;
     } catch (error) {
-      console.error("Error al eliminar actividad técnica:", error);
+     // console.error("Error al eliminar actividad técnica:", error);
       toast.error(error instanceof Error ? error.message : "Error al eliminar actividad técnica");
       throw error;
     }
@@ -277,19 +284,120 @@ export function useActividadTecnica() {
       toast.success("Actividad técnica restaurada exitosamente");
       return true;
     } catch (error) {
-      console.error("Error al restaurar actividad técnica:", error);
+      //console.error("Error al restaurar actividad técnica:", error);
       toast.error(error instanceof Error ? error.message : "Error al restaurar actividad técnica");
       throw error;
     }
   };
 
+  /*PARA QUE FUNCIONE EL MODAL DESDE LA TABLA ORDERS*/
+
+  // Función para crear actividad técnica (Paso 1 del modal)
+  const createActividadTecnica = async (actividadData: {
+    ordenId: number;
+    tipoActividadId: number;
+    diagnostico: string;
+    trabajoRealizado: string;
+  }) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/actividades-tecnicas`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.accessToken}`,
+        },
+        body: JSON.stringify(actividadData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al crear actividad técnica');
+      }
+
+      const newActividad = await response.json();
+      toast.success("Actividad técnica creada exitosamente");
+      return newActividad;
+    } catch (error) {
+      //console.error("Error al crear actividad técnica:", error);
+      toast.error(error instanceof Error ? error.message : "Error al crear actividad técnica");
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para actualizar actividad técnica (Paso 2 del modal)
+  const updateActividadTecnica = async (
+    id: number,
+    updateData: {
+      diagnostico?: string;
+      trabajoRealizado?: string;
+      tipoActividadId?: number;
+    }
+  ) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/actividades-tecnicas/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.accessToken}`,
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al actualizar actividad técnica');
+      }
+
+      const updatedActividad = await response.json();
+      toast.success("Actividad técnica actualizada exitosamente");
+      return updatedActividad;
+    } catch (error) {
+     // console.error("Error al actualizar actividad técnica:", error);
+      toast.error(error instanceof Error ? error.message : "Error al actualizar actividad técnica");
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para obtener actividades por orden (para mostrar en tabla)
+  const getActividadesByOrder = async (ordenId: number) => {
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/actividades-tecnicas/por-orden/${ordenId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Error al obtener actividades técnicas');
+      }
+
+      return await response.json() as ActividadTecnica[];
+    } catch (error) {
+      //console.error("Error al obtener actividades técnicas:", error);
+      toast.error(error instanceof Error ? error.message : "Error al obtener actividades técnicas");
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    console.log("Estado de autenticación:", status);
-    console.log("Token de sesión:", session?.accessToken ? "Disponible" : "No disponible");
+    //onsole.log("Estado de autenticación:", status);
+    //console.log("Token de sesión:", session?.accessToken ? "Disponible" : "No disponible");
 
     if (status === "authenticated") {
-      console.log("Iniciando carga inicial de actividades");
-      fetchActividades(1, 10000, searchTerm, showInactive);
+      //console.log("Iniciando carga inicial de actividades");
+      fetchActividades(1, 100, searchTerm, showInactive);
     }
   }, [status, session, searchTerm, showInactive]);
   return {
@@ -300,6 +408,9 @@ export function useActividadTecnica() {
     currentPage,
     searchTerm,
     showInactive,
+    createActividadTecnica,
+    updateActividadTecnica,
+    getActividadesByOrder,
     fetchActividades,
     fetchActividadesByOrder,
     createActividad,

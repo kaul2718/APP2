@@ -6,10 +6,10 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { Role } from '../common/enums/rol.enum';
 import { Parte } from './entities/parte.entity';
 
-@Auth(Role.ADMIN)
+@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
 @Controller('partes')
 export class ParteController {
-  constructor(private readonly parteService: ParteService) {}
+  constructor(private readonly parteService: ParteService) { }
 
   @Post()
   create(@Body() dto: CreateParteDto): Promise<Parte> {

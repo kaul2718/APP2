@@ -1,25 +1,17 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Request, UseGuards, } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { Role } from '../common/enums/rol.enum';
 import { UserActiveInterface } from 'src/common/interfaces/user-active.interface';
 import { ActiveUser } from 'src/common/decorators/active-user.decorator';
-import { Auth } from './decorators/auth.decorator';
+import { EnviarInvitacionDto } from './dto/enviar-invitacion.dto';
+import { GuardarNuevaClaveDto } from './dto/guardar-nueva-clave.dto';
 
-
-interface RequestWithUser extends Request {
-    user: {
-        correo: string;
-        role: string;
-    };
-}
-
-@Controller("auth")
+@Controller('auth')
 export class AuthController {
     constructor(private readonly authService: AuthService) { }
 
-    @Post("register")
+    @Post('register')
     register(@Body() registerDto: RegisterDto) {
         return this.authService.register(registerDto);
     }
@@ -27,13 +19,29 @@ export class AuthController {
     @Post('login')
     login(@Body() loginDto: LoginDto) {
         console.log('📥 Petición de login recibida:', loginDto);
-
         return this.authService.login(loginDto);
     }
 
     @Get('profile')
-    @Auth(Role.CLIENT)
     profile(@ActiveUser() user: UserActiveInterface) {
         return this.authService.profile(user);
+    }
+
+    // ✅ Nueva ruta para enviar invitación al correo
+    @Post('enviar-invitacion')
+    enviarInvitacion(@Body() dto: EnviarInvitacionDto) {
+        return this.authService.enviarInvitacion(dto);
+    }
+
+    // ✅ Nueva ruta para guardar la contraseña desde el enlace
+    @Post('guardar-clave')
+    guardarClave(@Body() dto: GuardarNuevaClaveDto) {
+        return this.authService.guardarNuevaClave(dto);
+    }
+
+    @Post('restablecer-contrasena')
+    @HttpCode(HttpStatus.OK)
+    restablecerContrasena(@Body('correo') correo: string) {
+        return this.authService.restablecerContraseña(correo);
     }
 }

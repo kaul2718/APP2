@@ -22,6 +22,10 @@ export class Presupuesto {
   @ManyToOne(() => EstadoPresupuesto, estado => estado.presupuestos)
   @JoinColumn({ name: 'estadoId' })
   estado: EstadoPresupuesto;
+  
+  @Column()
+  estadoId: number;
+
 
   @OneToMany(() => DetalleManoObra, detalle => detalle.presupuesto)
   detallesManoObra: DetalleManoObra[];
@@ -29,8 +33,7 @@ export class Presupuesto {
   @OneToMany(() => DetalleRepuestos, detalle => detalle.presupuesto)
   detallesRepuestos: DetalleRepuestos[];
 
-  @Column()
-  estadoId: number;
+
 
   @Column({ type: 'text', nullable: true })
   descripcion: string;

@@ -42,7 +42,7 @@ export default function LogoutButton() {
                         fill=""
                     />
                 </svg>
-                Sign out
+                Cerrar Sesión
             </button>
             <ToastContainer />
         </>

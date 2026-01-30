@@ -7,7 +7,7 @@ import { Role } from 'src/common/enums/rol.enum';
 import { Modelo } from './entities/modelo.entity';
 
 
-@Auth(Role.ADMIN)
+@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
 @Controller('modelos')
 export class ModeloController {
   constructor(private readonly modeloService: ModeloService) {}

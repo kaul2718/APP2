@@ -115,8 +115,6 @@ export function useDetalleManoObra() {
     includeInactive: boolean = false
   ) => {
     try {
-      setLoading(true);
-
       if (!session?.accessToken) {
         throw new Error("Token de sesión no disponible");
       }
@@ -134,22 +132,27 @@ export function useDetalleManoObra() {
       });
 
       if (!response.ok) {
+        // Si el status es 404 (no encontrado), devolver array vacío
+        if (response.status === 404) {
+          return [];
+        }
         throw new Error(`Error: ${response.status}`);
       }
 
-      const data: DetalleManoObra[] = await response.json();
-
-      if (!Array.isArray(data)) {
-        throw new Error("Formato de respuesta inválido");
+      // Verificar si la respuesta tiene contenido
+      const contentLength = response.headers.get('Content-Length');
+      if (contentLength === '0') {
+        return [];
       }
 
-      setDetalles(data);
+      const data = await response.json();
+
+      // Asegurarse de que siempre devolvemos un array
+      if (!data) return [];
+      return Array.isArray(data) ? data : [data];
     } catch (error) {
-      console.error("Error al obtener detalles por presupuesto:", error);
-      toast.error(error instanceof Error ? error.message : "Error al cargar detalles");
-      setDetalles([]);
-    } finally {
-      setLoading(false);
+      console.error(`Error al obtener detalles por presupuesto ${presupuestoId}:`, error);
+      return []; // Siempre devolver un array, incluso en caso de error
     }
   };
 

@@ -16,7 +16,7 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { Role } from '../common/enums/rol.enum';
 import { TipoManoObra } from './entities/tipo-mano-obra.entity';
 
-@Auth(Role.ADMIN)
+@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
 @Controller('tipos-mano-obra')
 export class TipoManoObraController {
   constructor(private readonly tipoManoObraService: TipoManoObraService) { }

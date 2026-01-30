@@ -9,6 +9,9 @@ import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
+  findByResetToken(token: string) {
+    throw new Error('Method not implemented.');
+  }
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -35,8 +38,11 @@ export class UsersService {
     }
 
     // Encriptar la contraseña
-    const salt = await bcrypt.genSalt();
-    const hashedPassword = await bcrypt.hash(createDto.password, salt);
+    let hashedPassword = null;
+    if (createDto.password) {
+      const salt = await bcrypt.genSalt();
+      hashedPassword = await bcrypt.hash(createDto.password, salt);
+    }
 
     const nuevoUsuario = this.userRepository.create({
       ...createDto,

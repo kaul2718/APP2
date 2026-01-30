@@ -34,10 +34,15 @@ export default function UserDropdown() {
             <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
           </svg>
         </span>
-
+        
         <span className="block mr-1 font-medium text-theme-sm">
-          {cargando ? "Cargando..." : usuario?.nombre || "Usuario"}
+          {cargando
+            ? "Cargando..."
+            : usuario
+              ? `${usuario.nombre ?? ""} ${usuario.apellido ?? ""}`.trim() || "Usuario"
+              : "Usuario"}
         </span>
+
 
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
@@ -64,7 +69,7 @@ export default function UserDropdown() {
       >
         <div className="mb-2">
           <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-            {usuario?.nombre || "Nombre no disponible"}
+            {usuario?.nombre || "Nombre no disponible"} {usuario?.apellido || "Nombre no disponible"}
           </span>
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
             {usuario?.correo || "correo@ejemplo.com"}

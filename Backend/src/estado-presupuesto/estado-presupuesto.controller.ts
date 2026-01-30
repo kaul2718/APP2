@@ -6,16 +6,16 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { Role } from '../common/enums/rol.enum';
 import { EstadoPresupuesto } from './entities/estado-presupuesto.entity';
 
-@Auth(Role.ADMIN)
+@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
 @Controller('estados-presupuesto')
 export class EstadoPresupuestoController {
-  constructor(private readonly estadoPresupuestoService: EstadoPresupuestoService) {}
+  constructor(private readonly estadoPresupuestoService: EstadoPresupuestoService) { }
 
   @Post()
   create(@Body() dto: CreateEstadoPresupuestoDto): Promise<EstadoPresupuesto> {
     return this.estadoPresupuestoService.create(dto);
   }
-
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
   @Get('all')
   async findAll(
     @Query('page') page: number = 1,
@@ -38,6 +38,7 @@ export class EstadoPresupuestoController {
     };
   }
 
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -45,7 +46,7 @@ export class EstadoPresupuestoController {
   ): Promise<EstadoPresupuesto> {
     return this.estadoPresupuestoService.findOne(id, includeInactive);
   }
-
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -59,21 +60,21 @@ export class EstadoPresupuestoController {
     await this.estadoPresupuestoService.remove(id);
     return this.estadoPresupuestoService.findOne(id, true); // devuelve el soft deleted
   }
-
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
   @Patch(':id/restore')
   async restore(@Param('id', ParseIntPipe) id: number): Promise<EstadoPresupuesto> {
     await this.estadoPresupuestoService.restore(id);
     return this.estadoPresupuestoService.findOne(id); // devuelve restaurado
   }
 
-  @Patch(':id/estado')
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT) @Patch(':id/estado')
   async cambiarEstado(
     @Param('id', ParseIntPipe) id: number,
     @Body('estado') estado: boolean,
   ): Promise<EstadoPresupuesto> {
     return this.estadoPresupuestoService.update(id, { estado });
   }
-
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
   @Patch(':id/toggle-estado')
   async toggleEstado(@Param('id', ParseIntPipe) id: number): Promise<EstadoPresupuesto> {
     return this.estadoPresupuestoService.toggleStatus(id);

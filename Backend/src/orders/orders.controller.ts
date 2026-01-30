@@ -10,7 +10,8 @@ import {
   Query,
   UseInterceptors,
   ClassSerializerInterceptor,
-  Req
+  Req,
+  UnauthorizedException
 } from '@nestjs/common';
 import { OrderService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -20,22 +21,25 @@ import { Role } from 'src/common/enums/rol.enum';
 import { Order } from './entities/order.entity';
 import { CreateActividadTecnicaDto } from 'src/actividad-tecnica/dto/create-actividad-tecnica.dto';
 import { CreatePresupuestoDto } from 'src/presupuesto/dto/create-presupuesto.dto';
-import { CreateDetalleRepuestoDto } from 'src/detalle-repuestos/dto/create-detalle-repuesto.dto';
 import { CreateCasilleroDto } from 'src/casillero/dto/create-casillero.dto';
 import { CreateEvidenciaTecnicaDto } from 'src/evidencia-tecnica/dto/create-evidencia-tecnica.dto';
-import { User as UserDecorator } from 'src/auth/decorators/user.decorator';
+import { CurrentUser, CurrentUser as UserDecorator } from 'src/auth/decorators/user.decorator';
 import { User } from 'src/users/entities/user.entity';
+
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('orders')
+@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+
 export class OrderController {
   constructor(private readonly orderService: OrderService) { }
 
-  @Auth(Role.RECEP, Role.ADMIN)
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Post()
   create(@Body() dto: CreateOrderDto): Promise<Order> {
     return this.orderService.create(dto);
   }
 
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Auth()
   @Get()
   async findAll(
@@ -69,6 +73,7 @@ export class OrderController {
     };
   }
 
+  @Auth(Role.CLIENT) // Ajusta los roles según necesites
   @Auth()
   @Get(':id')
   findOne(
@@ -78,14 +83,27 @@ export class OrderController {
     return this.orderService.findOne(id, includeInactive);
   }
 
+  // Endpoint unificado para actualización (incluye casillero y estado)
   @Auth(Role.TECH, Role.RECEP, Role.ADMIN)
   @Patch(':id')
-  update(
+  async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateOrderDto,
+    @Req() req,
   ): Promise<Order> {
-    return this.orderService.update(id, dto);
+    console.log('Usuario desde req.user:', req.user); // debug temporal
+
+    if (!req.user || !req.user.sub) {
+      throw new UnauthorizedException('Usuario no autenticado');
+    }
+
+    return await this.orderService.update(id, {
+      ...dto,
+      userId: req.user.sub
+    });
   }
+
+
 
   @Auth(Role.ADMIN)
   @Delete(':id')
@@ -101,13 +119,13 @@ export class OrderController {
     return this.orderService.findOne(id);
   }
 
-  @Auth(Role.TECH, Role.ADMIN)
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Patch(':id/toggle-estado')
   async toggleEstado(@Param('id', ParseIntPipe) id: number): Promise<Order> {
     return this.orderService.toggleStatus(id);
   }
 
-  @Auth(Role.TECH, Role.ADMIN)
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Post(':id/actividades')
   addActividadTecnica(
     @Param('id', ParseIntPipe) orderId: number,
@@ -116,7 +134,7 @@ export class OrderController {
     return this.orderService.addActividadTecnica(orderId, dto);
   }
 
-  @Auth(Role.TECH, Role.ADMIN)
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Post(':id/presupuesto')
   addPresupuesto(
     @Param('id', ParseIntPipe) orderId: number,
@@ -125,7 +143,7 @@ export class OrderController {
     return this.orderService.addPresupuesto(orderId, dto);
   }
 
-  @Auth(Role.RECEP, Role.ADMIN)
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Post(':id/casillero')
   assignCasillero(
     @Param('id', ParseIntPipe) orderId: number,
@@ -134,7 +152,7 @@ export class OrderController {
     return this.orderService.assignCasillero(orderId, dto);
   }
 
-  @Auth(Role.TECH, Role.ADMIN)
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Post(':id/evidencias')
   addEvidenciaTecnica(
     @Param('id', ParseIntPipe) orderId: number,
@@ -143,7 +161,7 @@ export class OrderController {
     return this.orderService.addEvidenciaTecnica(orderId, dto);
   }
 
-  @Auth(Role.TECH, Role.RECEP, Role.ADMIN)
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Patch(':id/estado/:estadoId')
   async changeEstadoOrden(
     @Param('id', ParseIntPipe) orderId: number,
@@ -151,5 +169,20 @@ export class OrderController {
     @UserDecorator() user: User, // Usando tu decorador personalizado
   ): Promise<Order> {
     return this.orderService.changeEstadoOrden(orderId, estadoOrdenId, user.id);
+  }
+
+  @Auth(Role.TECH)
+  @Get('tecnico/mis-ordenes')
+  async getOrdersForTechnician(@CurrentUser() user: any) { // Usa CurrentUser como decorador
+    console.log('USER ID TO SEARCH:', user.sub);
+
+    return this.orderService.findOrdersByTechnician(user.sub);
+  }
+
+  @Auth(Role.CLIENT)
+  @Get('cliente/mis-ordenes')
+  async getOrdersForClient(@CurrentUser() user: any) {  // Usa any temporalmente para debug
+    console.log('USER ID TO SEARCH:', user.sub);
+    return this.orderService.findOrdersByClient(user.sub); // Usa user.sub en lugar de user.id
   }
 }

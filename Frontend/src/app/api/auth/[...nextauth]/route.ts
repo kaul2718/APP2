@@ -38,7 +38,7 @@ const handler = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      console.log("session token:", token);
+      console.log("JWT CALLBACK token.user:", token.user); // Verifica si el role llega bien
 
       session.user = token.user;             // Session solo tiene los datos usuario limpios
       session.accessToken = token.accessToken;  // También puedes exponer el accessToken en la sesión

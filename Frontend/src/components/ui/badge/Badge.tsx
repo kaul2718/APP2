@@ -10,6 +10,7 @@ type BadgeColor =
   | "info"
   | "light"
   | "dark";
+export type { BadgeColor }; 
 
 interface BadgeProps {
   variant?: BadgeVariant; // Light or solid variant

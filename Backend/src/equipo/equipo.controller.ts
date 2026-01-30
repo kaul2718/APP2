@@ -18,10 +18,10 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { Role } from '../common/enums/rol.enum';
 import { TrimPipe } from '../common/pipes/trim.pipe';
 
-@Auth(Role.ADMIN)
+@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
 @Controller('equipos')
 export class EquipoController {
-  constructor(private readonly equipoService: EquipoService) {}
+  constructor(private readonly equipoService: EquipoService) { }
 
   @Post()
   @UsePipes(TrimPipe)

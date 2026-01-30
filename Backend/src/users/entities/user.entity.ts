@@ -33,7 +33,7 @@ export class User {
   @Column({ nullable: false })
   ciudad: string;
 
-  @Column({ nullable: false, select: false })
+  @Column({ nullable: true, select: false })
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres.' })
   password: string;
 

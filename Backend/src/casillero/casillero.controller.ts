@@ -7,7 +7,7 @@ import { Role } from '../common/enums/rol.enum';
 import { Casillero } from './entities/casillero.entity';
 import { EstadoCasillero } from 'src/common/enums/estadoCasillero.enum';
 
-@Auth(Role.ADMIN)
+@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
 @Controller('casilleros')
 export class CasilleroController {
   constructor(private readonly casilleroService: CasilleroService) {}

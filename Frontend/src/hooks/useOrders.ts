@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { getSession, useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 
 // Interfaces para tipos de datos
@@ -79,6 +79,7 @@ export function useOrders() {
   const [fechaInicio, setFechaInicio] = useState<string | undefined>();
   const [fechaFin, setFechaFin] = useState<string | undefined>();
 
+
   const fetchOrders = async (
     page: number = 1,
     limit: number = 1000,
@@ -93,34 +94,56 @@ export function useOrders() {
     try {
       setLoading(true);
 
-      if (!session?.accessToken) {
-        throw new Error("Token de sesión no disponible");
+      if (!session?.accessToken || !session.user) {
+        throw new Error("Sesión no disponible");
       }
 
-      let url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/orders?page=${page}&limit=${limit}`;
+      // Determinar el endpoint basado en el rol del usuario
+      let endpoint = 'orders';
+      let isRoleSpecificEndpoint = false;
 
-      if (search) {
-        url += `&search=${encodeURIComponent(search)}`;
+      if (session.user.role === 'TECH') {
+        endpoint = 'tecnico/mis-ordenes';
+        isRoleSpecificEndpoint = true;
+      } else if (session.user.role === 'CLIENT') {
+        endpoint = 'cliente/mis-ordenes';
+        isRoleSpecificEndpoint = true;
       }
 
-      if (includeInactive) {
-        url += `&includeInactive=true`;
-      }
+      let url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/${endpoint}`;
 
-      if (estadoId) {
-        url += `&estadoOrdenId=${estadoId}`;
-      }
+      // Solo agregamos parámetros de consulta para el endpoint general
+      if (!isRoleSpecificEndpoint) {
+        const queryParams = new URLSearchParams();
+        queryParams.append('page', page.toString());
+        queryParams.append('limit', limit.toString());
 
-      if (techId) {
-        url += `&technicianId=${techId}`;
-      }
+        if (search) {
+          queryParams.append('search', search);
+        }
 
-      if (clientId) {
-        url += `&clientId=${clientId}`;
-      }
+        if (includeInactive) {
+          queryParams.append('includeInactive', 'true');
+        }
 
-      if (startDate && endDate) {
-        url += `&fechaInicio=${encodeURIComponent(startDate)}&fechaFin=${encodeURIComponent(endDate)}`;
+        if (estadoId) {
+          queryParams.append('estadoOrdenId', estadoId.toString());
+        }
+
+        if (techId) {
+          queryParams.append('technicianId', techId.toString());
+        }
+
+        if (clientId) {
+          queryParams.append('clientId', clientId.toString());
+        }
+
+        if (startDate && endDate) {
+          queryParams.append('fechaInicio', startDate);
+          queryParams.append('fechaFin', endDate);
+        }
+
+        url += `?${queryParams.toString()}`;
       }
 
       const response = await fetch(url, {
@@ -133,20 +156,40 @@ export function useOrders() {
         throw new Error(`Error: ${response.status}`);
       }
 
-      const data: PaginatedOrderResponse = await response.json();
+      // Manejar diferentes formatos de respuesta
+      let responseData: PaginatedOrderResponse;
 
-      if (!data.items || !Array.isArray(data.items)) {
+      if (isRoleSpecificEndpoint) {
+        // Los endpoints específicos devuelven un array directo
+        const items = await response.json();
+        responseData = {
+          items,
+          totalItems: items.length,
+          totalPages: 1,
+          currentPage: 1
+        };
+      } else {
+        // El endpoint general devuelve la estructura paginada
+        responseData = await response.json();
+      }
+
+      // Verificar que los datos sean válidos
+      if (!responseData.items || !Array.isArray(responseData.items)) {
         throw new Error("Formato de respuesta inválido");
       }
 
-      setOrders(data.items);
-      setTotalPages(data.totalPages);
-      setTotalItems(data.totalItems);
-      setCurrentPage(data.currentPage);
+      // Actualizar los estados con los datos recibidos
+      setOrders(responseData.items);
+      setTotalPages(responseData.totalPages);
+      setTotalItems(responseData.totalItems);
+      setCurrentPage(responseData.currentPage);
+
     } catch (error) {
-      console.error("Error al obtener órdenes:", error);
       toast.error(error instanceof Error ? error.message : "Error al cargar órdenes");
       setOrders([]);
+      setTotalPages(1);
+      setTotalItems(0);
+      setCurrentPage(1);
     } finally {
       setLoading(false);
     }
@@ -175,7 +218,7 @@ export function useOrders() {
         recepcionistaId: session?.user?.id
       };
 
-      console.log('Enviando al backend:', payload);
+      //console.log('Enviando al backend:', payload);
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/orders`, {
         method: 'POST',
@@ -194,7 +237,7 @@ export function useOrders() {
 
       return data;
     } catch (error) {
-      console.error('Error en createOrder:', error);
+      //console.error('Error en createOrder:', error);
       throw error;
     }
   };
@@ -205,23 +248,25 @@ export function useOrders() {
     problemaReportado?: string;
     fechaPrometidaEntrega?: string | null;
     accesorios?: string[];
+    casilleroId?: number | null;
   }) => {
     try {
+      if (!session?.accessToken || !session.user?.id) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      const payload = {
+        ...orderData,
+        userId: session.user.id, // 👈 lo agregas tú aquí
+      };
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/orders/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.accessToken}`,
+          'Authorization': `Bearer ${session.accessToken}`
         },
-        body: JSON.stringify({
-          // Solo envía los campos permitidos por el DTO
-          technicianId: orderData.technicianId,
-          estadoOrdenId: orderData.estadoOrdenId,
-          problemaReportado: orderData.problemaReportado,
-          fechaPrometidaEntrega: orderData.fechaPrometidaEntrega,
-          accesorios: orderData.accesorios
-          // NO incluyas userId aquí
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -229,12 +274,9 @@ export function useOrders() {
         throw new Error(errorData.message || `Error: ${response.status}`);
       }
 
-      const updatedOrder = await response.json();
-      toast.success("Orden actualizada exitosamente");
-      return updatedOrder;
+      return await response.json();
     } catch (error) {
-      console.error("Error al actualizar orden:", error);
-      toast.error(error instanceof Error ? error.message : "Error al actualizar orden");
+      //console.error("Error updating order:", error);
       throw error;
     }
   };
@@ -256,7 +298,7 @@ export function useOrders() {
       toast.success(`Orden ${updatedOrder.estado ? 'activada' : 'desactivada'} exitosamente`);
       return updatedOrder;
     } catch (error) {
-      console.error("Error al cambiar estado de la orden:", error);
+      //console.error("Error al cambiar estado de la orden:", error);
       toast.error(error instanceof Error ? error.message : "Error al cambiar estado de la orden");
       throw error;
     }
@@ -278,7 +320,7 @@ export function useOrders() {
       toast.success("Orden eliminada exitosamente");
       return true;
     } catch (error) {
-      console.error("Error al eliminar orden:", error);
+      //console.error("Error al eliminar orden:", error);
       toast.error(error instanceof Error ? error.message : "Error al eliminar orden");
       throw error;
     }
@@ -300,7 +342,7 @@ export function useOrders() {
       toast.success("Orden restaurada exitosamente");
       return true;
     } catch (error) {
-      console.error("Error al restaurar orden:", error);
+      //console.error("Error al restaurar orden:", error);
       toast.error(error instanceof Error ? error.message : "Error al restaurar orden");
       throw error;
     }
@@ -330,7 +372,7 @@ export function useOrders() {
       toast.success("Estado de la orden actualizado exitosamente");
       return updatedOrder;
     } catch (error) {
-      console.error("Error al cambiar estado de la orden:", error);
+      //console.error("Error al cambiar estado de la orden:", error);
       toast.error(error instanceof Error ? error.message : "Error al cambiar estado de la orden");
       throw error;
     }
@@ -358,7 +400,7 @@ export function useOrders() {
       toast.success("Actividad técnica agregada exitosamente");
       return newActivity;
     } catch (error) {
-      console.error("Error al agregar actividad técnica:", error);
+      //console.error("Error al agregar actividad técnica:", error);
       toast.error(error instanceof Error ? error.message : "Error al agregar actividad técnica");
       throw error;
     }

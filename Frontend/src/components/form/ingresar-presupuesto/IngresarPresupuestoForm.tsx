@@ -146,7 +146,7 @@ export default function IngresarPresupuestoForm() {
             });
 
             // Redirigir a la página de detalles del presupuesto
-            setTimeout(() => router.push(`/ver-presupuesto/${result.id}`), 1500);
+            setTimeout(() => router.push(`/ver-presupuesto/`), 1000);
 
         } catch (error) {
             console.error('Error al crear presupuesto:', error);

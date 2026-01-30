@@ -1,4 +1,4 @@
-import { IsString, IsArray, IsDateString, IsOptional, IsInt, Min, IsBoolean,} from 'class-validator';
+import { IsString, IsArray, IsDateString, IsOptional, IsInt, Min, IsBoolean, ValidateIf } from 'class-validator';
 
 export class UpdateOrderDto {
 
@@ -11,12 +11,12 @@ export class UpdateOrderDto {
   estado?: boolean;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'El problema reportado debe ser una cadena de texto' })
   problemaReportado?: string;
 
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
+  @IsArray({ message: 'Los accesorios deben ser un arreglo' })
+  @IsString({ each: true, message: 'Cada accesorio debe ser una cadena de texto' })
   accesorios?: string[];
 
   @IsOptional()
@@ -24,27 +24,39 @@ export class UpdateOrderDto {
   fechaPrometidaEntrega?: Date;
 
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  technicianId?: number;
+  @ValidateIf(o => o.technicianId !== null && o.technicianId !== undefined)
+  @IsInt({ message: 'El ID del técnico debe ser un número entero' })
+  @Min(1, { message: 'El ID del técnico debe ser mayor o igual a 1' })
+  technicianId?: number | null;
 
   @IsOptional()
-  @IsInt()
-  @Min(1)
+  @ValidateIf(o => o.casilleroId !== null && o.casilleroId !== undefined)
+  @IsInt({ message: 'El ID del casillero debe ser un número entero' })
+  @Min(1, { message: 'El ID del casillero debe ser mayor o igual a 1' })
+  casilleroId?: number | null; G
+
+  @IsOptional()
+  @IsInt({ message: 'El ID del cliente debe ser un número entero' })
+  @Min(1, { message: 'El ID del cliente debe ser mayor o igual a 1' })
   clientId?: number;
 
   @IsOptional()
-  @IsInt()
-  @Min(1)
+  @IsInt({ message: 'El ID del recepcionista debe ser un número entero' })
+  @Min(1, { message: 'El ID del recepcionista debe ser mayor o igual a 1' })
   recepcionistaId?: number;
 
   @IsOptional()
-  @IsInt()
-  @Min(1)
+  @IsInt({ message: 'El ID del equipo debe ser un número entero' })
+  @Min(1, { message: 'El ID del equipo debe ser mayor o igual a 1' })
   equipoId?: number;
 
   @IsOptional()
-  @IsInt()
-  @Min(1)
+  @IsInt({ message: 'El ID del estado de orden debe ser un número entero' })
+  @Min(1, { message: 'El ID del estado de orden debe ser mayor o igual a 1' })
   estadoOrdenId?: number;
+
+  @IsOptional()
+  @IsInt({ message: 'El ID del usuario debe ser un número entero' })
+  @Min(1, { message: 'El ID del usuario debe ser mayor o igual a 1' })
+  userId?: number; // Nuevo campo para el usuario que realiza la modificación
 }

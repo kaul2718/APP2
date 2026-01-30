@@ -6,7 +6,7 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { Role } from '../common/enums/rol.enum';
 import { EstadoOrden } from './entities/estado-orden.entity';
 
-@Auth(Role.ADMIN)
+@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
 @Controller('estados-orden')
 export class EstadoOrdenController {
   constructor(private readonly estadoOrdenService: EstadoOrdenService) { }

@@ -87,8 +87,11 @@ export class Order {
     @OneToOne(() => Casillero, (casillero) => casillero.order, {
         cascade: true,
     })
+    @JoinColumn({ name: 'casilleroId' })   // Añades esto
     casillero: Casillero;
 
+    @Column({ nullable: true })   // Añades esto
+    casilleroId: number;
 
     //RELACION HACIA EVIDENCIA TECNICA
     @OneToMany(() => EvidenciaTecnica, (evidencia) => evidencia.orden, {
@@ -107,7 +110,6 @@ export class Order {
     //RELACION CON HISTORIAL DE ESTADOS
 
     @OneToMany(() => HistorialEstadoOrden, (historial) => historial.orden, {
-        cascade: true,
     })
     historialEstados: HistorialEstadoOrden[];
 

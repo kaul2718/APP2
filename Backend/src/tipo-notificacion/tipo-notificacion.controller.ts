@@ -6,7 +6,7 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { Role } from '../common/enums/rol.enum';
 import { TipoNotificacion } from './entities/tipo-notificacion.entity';
 
-@Auth(Role.ADMIN)
+@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
 @Controller('tipos-notificacion')
 export class TipoNotificacionController {
   constructor(private readonly tipoNotificacionService: TipoNotificacionService) {}

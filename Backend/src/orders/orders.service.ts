@@ -9,10 +9,10 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { ActividadTecnica } from 'src/actividad-tecnica/entities/actividad-tecnica.entity';
 import { Presupuesto } from 'src/presupuesto/entities/presupuesto.entity';
-import { DetalleRepuestos } from 'src/detalle-repuestos/entities/detalle-repuesto.entity';
 import { Casillero } from 'src/casillero/entities/casillero.entity';
 import { EvidenciaTecnica } from 'src/evidencia-tecnica/entities/evidencia-tecnica.entity';
 import { HistorialEstadoOrden } from 'src/historial-estado-orden/entities/historial-estado-orden.entity';
+import { EstadoCasillero } from 'src/common/enums/estadoCasillero.enum';
 
 @Injectable()
 export class OrderService {
@@ -29,8 +29,6 @@ export class OrderService {
     private readonly actividadTecnicaRepository: Repository<ActividadTecnica>,
     @InjectRepository(Presupuesto)
     private readonly presupuestoRepository: Repository<Presupuesto>,
-    @InjectRepository(DetalleRepuestos)
-    private readonly detalleRepuestosRepository: Repository<DetalleRepuestos>,
     @InjectRepository(Casillero)
     private readonly casilleroRepository: Repository<Casillero>,
     @InjectRepository(EvidenciaTecnica)
@@ -180,7 +178,6 @@ export class OrderService {
         'equipo',
         'actividades',
         'presupuesto',
-        'detallesRepuestos',
         'casillero',
         'evidencias',
         'estadoOrden',
@@ -203,7 +200,6 @@ export class OrderService {
         'equipo',
         'actividades',
         'presupuesto',
-        'detallesRepuestos',
         'casillero',
         'evidencias',
         'estadoOrden',
@@ -218,19 +214,67 @@ export class OrderService {
     return orden;
   }
 
-  async update(id: number, updateDto: UpdateOrderDto): Promise<Order> {
+  async update(id: number, updateDto: UpdateOrderDto, userId?: number): Promise<Order> {
     const orden = await this.findOne(id, true);
-
-    // Registrar cambios importantes en el historial
     const cambiosHistorial: string[] = [];
 
-    if (updateDto.clientId && updateDto.clientId !== orden.client.id) {
+    // Validar usuario de cambio si viene
+    let usuarioCambio: User | null = null;
+    if (updateDto.userId) {
+      usuarioCambio = await this.userRepository.findOneBy({ id: updateDto.userId });
+      if (!usuarioCambio) {
+        throw new NotFoundException(`Usuario con ID ${updateDto.userId} no encontrado`);
+      }
+    }
+
+    // Manejo del casillero (igual que antes)
+    if (updateDto.casilleroId !== undefined) {
+      const nuevoCasillero = await this.casilleroRepository.findOne({
+        where: { id: updateDto.casilleroId },
+        relations: ['order'],
+      });
+
+      if (!nuevoCasillero) {
+        throw new NotFoundException(`Casillero con ID ${updateDto.casilleroId} no encontrado`);
+      }
+
+      if (nuevoCasillero.order && nuevoCasillero.order.id !== id) {
+        throw new BadRequestException(`El casillero ${nuevoCasillero.codigo} ya está asignado a otra orden`);
+      }
+
+      // Liberar casillero actual si existe y es distinto
+      if (orden.casilleroId && orden.casilleroId !== updateDto.casilleroId) {
+        const casilleroActual = await this.casilleroRepository.findOneBy({ id: orden.casilleroId });
+        if (casilleroActual) {
+          casilleroActual.situacion = EstadoCasillero.DISPONIBLE;
+          casilleroActual.order = null;
+          await this.casilleroRepository.save(casilleroActual);
+          cambiosHistorial.push(`Casillero liberado: ${casilleroActual.codigo}`);
+        }
+      }
+
+      // Asignar nuevo casillero
+      if (!nuevoCasillero.order || nuevoCasillero.order.id === id) {
+        nuevoCasillero.situacion = EstadoCasillero.OCUPADO;
+        nuevoCasillero.order = orden;
+        await this.casilleroRepository.save(nuevoCasillero);
+
+        // Aquí es lo importante:
+        orden.casillero = nuevoCasillero;
+        orden.casilleroId = nuevoCasillero.id;
+
+        cambiosHistorial.push(`Casillero asignado: ${nuevoCasillero.codigo}`);
+      }
+    }
+
+    // Manejo cliente, equipo, técnico ...
+    if (updateDto.clientId && updateDto.clientId !== orden.client?.id) {
       const client = await this.validateUser(updateDto.clientId, 'Cliente');
       orden.client = client;
       cambiosHistorial.push(`Cliente cambiado a ${client.nombre}`);
     }
 
-    if (updateDto.equipoId && updateDto.equipoId !== orden.equipo.id) {
+    if (updateDto.equipoId && updateDto.equipoId !== orden.equipo?.id) {
       const equipo = await this.validateEquipo(updateDto.equipoId);
       orden.equipo = equipo;
       cambiosHistorial.push(`Equipo cambiado a ${equipo.numeroSerie}`);
@@ -245,30 +289,36 @@ export class OrderService {
       } else {
         const technician = await this.validateUser(updateDto.technicianId, 'Técnico');
         orden.technician = technician;
-
         if (!oldTech || technician.id !== orden.technician?.id) {
           cambiosHistorial.push(`Técnico cambiado a ${technician.nombre}`);
         }
       }
     }
 
-    if (updateDto.estadoOrdenId !== undefined &&
-      updateDto.estadoOrdenId !== orden.estadoOrden?.id) {
+    // Manejo del estado de la orden + historial
+    if (updateDto.estadoOrdenId !== undefined && updateDto.estadoOrdenId !== orden.estadoOrden?.id) {
       const estadoOrden = updateDto.estadoOrdenId
         ? await this.validateEstadoOrden(updateDto.estadoOrdenId)
         : await this.getDefaultEstadoOrden();
 
-      const historial = new HistorialEstadoOrden();
-      historial.orden = orden;
-      historial.estadoOrden = estadoOrden;
-      historial.fechaCambio = new Date();
-      historial.observaciones = 'Estado cambiado desde actualización';
+      if (!usuarioCambio) {
+        throw new BadRequestException('Se requiere un usuario válido para cambiar el estado');
+      }
 
-      await this.historialEstadoOrdenRepository.save(historial);
+      const historialEstado = new HistorialEstadoOrden();
+      historialEstado.orden = { id: orden.id } as Order;  // **solo ID, evitar problemas**
+      historialEstado.estadoOrden = estadoOrden;
+      historialEstado.usuario = usuarioCambio;
+      historialEstado.fechaCambio = new Date();
+      historialEstado.observaciones = 'Estado cambiado desde actualización';
+
+      await this.historialEstadoOrdenRepository.save(historialEstado);
+
       orden.estadoOrden = estadoOrden;
+      cambiosHistorial.push(`Estado cambiado a: ${estadoOrden.nombre}`);
     }
 
-    // Validar y actualizar campos simples
+    // Campos simples
     if (updateDto.problemaReportado !== undefined) {
       orden.problemaReportado = updateDto.problemaReportado;
     }
@@ -277,21 +327,50 @@ export class OrderService {
       orden.fechaPrometidaEntrega = updateDto.fechaPrometidaEntrega;
     }
 
-    const ordenActualizada = await this.orderRepository.save(orden);
+    if (updateDto.accesorios !== undefined) {
+      orden.accesorios = updateDto.accesorios;
+      cambiosHistorial.push('Accesorios actualizados');
+    }
 
-    // Registrar otros cambios en el historial si hay
+    // Validación coherencia estado y casillero
+    if (orden.estadoOrden && orden.estadoOrden.nombre.toLowerCase().includes('almacén') && !orden.casillero) {
+      throw new BadRequestException('Para estados de almacén se requiere asignar un casillero');
+    }
+
+    // *** Antes de guardar orden, elimina historialEstados para no propagar ***
+    delete (orden as any).historialEstados;
+
+    // *** Guarda SOLO la orden (sin relaciones) con update parcial ***
+    await this.orderRepository.update(orden.id, {
+      problemaReportado: orden.problemaReportado,
+      fechaPrometidaEntrega: orden.fechaPrometidaEntrega,
+      accesorios: orden.accesorios,
+      estadoOrden: orden.estadoOrden,
+      casillero: orden.casillero,
+      client: orden.client,
+      equipo: orden.equipo,
+      technician: orden.technician,
+      // etc. solo campos simples o FK
+    });
+
+    // Registrar cambios adicionales en historial si los hay
     if (cambiosHistorial.length > 0) {
       const historial = new HistorialEstadoOrden();
-      historial.orden = orden;
+      historial.orden = { id: orden.id } as Order;
       historial.estadoOrden = orden.estadoOrden;
+      historial.usuario = usuarioCambio!;
       historial.fechaCambio = new Date();
       historial.observaciones = cambiosHistorial.join(', ');
 
       await this.historialEstadoOrdenRepository.save(historial);
     }
 
-    return ordenActualizada;
+    // Finalmente devuelve la orden actualizada
+    return this.findOne(id, true);
   }
+
+
+
 
   async remove(id: number): Promise<{ message: string }> {
     const orden = await this.findOne(id);
@@ -502,5 +581,29 @@ export class OrderService {
     // Actualizar el estado actual
     orden.estadoOrden = nuevoEstado;
     return this.orderRepository.save(orden);
+  }
+
+  // order.service.ts
+  async findOrdersByClient(clientId: number): Promise<Order[]> {
+    return this.orderRepository.find({
+      where: {
+        client: { id: clientId }, // Asegúrate que 'id' sea el nombre correcto
+        estado: true
+      },
+      relations: ['client', 'technician', 'equipo', 'estadoOrden'],
+      order: { createdAt: 'DESC' }
+    });
+  }
+
+  async findOrdersByTechnician(technicianId: number): Promise<Order[]> {
+    return this.orderRepository.createQueryBuilder('order')
+      .leftJoinAndSelect('order.client', 'client')
+      .leftJoinAndSelect('order.technician', 'technician')
+      .leftJoinAndSelect('order.equipo', 'equipo')
+      .leftJoinAndSelect('order.estadoOrden', 'estadoOrden')
+      .where('technician.id = :technicianId', { technicianId })
+      .andWhere('order.estado = :estado', { estado: true })
+      .orderBy('order.createdAt', 'DESC')
+      .getMany();
   }
 }

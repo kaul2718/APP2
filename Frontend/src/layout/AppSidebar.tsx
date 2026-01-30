@@ -4,21 +4,33 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
-import { ChevronDownIcon, HorizontaLDots, } from "../icons/index";
+import { ChevronDownIcon, HorizontaLDots } from "../icons/index";
 import SidebarWidget from "./SidebarWidget";
 import { NavItem, navItems } from "@/data/sidebar/navItems";
-
+import { useUserRole } from "@/data/sidebar/navItems";
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
+  const role = useUserRole();
+
+  // Filtrar los items de navegación según el rol del usuario
+  const filteredNavItems = React.useMemo(() => {
+    if (!role) return [];
+    return navItems
+      .filter(item => item.roles.includes(role))
+      .map(item => ({
+        ...item,
+        subItems: item.subItems?.filter(subItem => subItem.roles.includes(role)) || []
+      }));
+  }, [role]);
 
   const renderMenuItems = (
-    navItems: NavItem[],
+    items: NavItem[],
     menuType: "main" | "others"
   ) => (
     <ul className="flex flex-col gap-4">
-      {navItems.map((nav, index) => (
+      {items.map((nav, index) => (
         <li key={nav.name}>
           {nav.subItems ? (
             <button
@@ -139,7 +151,6 @@ const AppSidebar: React.FC = () => {
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // const isActive = (path: string) => path === pathname;
   const isActive = useCallback((path: string) => path === pathname, [pathname]);
 
   useEffect(() => {
@@ -168,6 +179,8 @@ const AppSidebar: React.FC = () => {
     });
   };
 
+  if (!role) return null; // No mostrar sidebar si no hay rol
+
   return (
     <aside
       className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
@@ -191,22 +204,22 @@ const AppSidebar: React.FC = () => {
             <>
               <Image
                 className="dark:hidden"
-                src="/images/logo/logohdc.svg"
+                src="/images/logo/logo.svg"
                 alt="Logo"
-                width={40}
+                width={230}
                 height={40}
               />
               <Image
                 className="hidden dark:block"
-                src="/images/logo/logohdc.svg"
+                src="/images/logo/logo.svg"
                 alt="Logo"
-                width={40}
+                width={230}
                 height={40}
               />
             </>
           ) : (
             <Image
-              src="/images/logo/logohdc.svg"
+              src="/images/logo/logo-icon.svg"
               alt="Logo"
               width={32}
               height={32}
@@ -230,7 +243,7 @@ const AppSidebar: React.FC = () => {
                   <HorizontaLDots />
                 )}
               </h2>
-              {renderMenuItems(navItems, "main")}
+              {renderMenuItems(filteredNavItems, "main")}
             </div>
           </div>
         </nav>

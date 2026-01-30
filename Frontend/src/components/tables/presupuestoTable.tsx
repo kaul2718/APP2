@@ -7,7 +7,7 @@ import PresupuestoDetailsModal from "../modals/PresupuestoDetailsModal";
 import PresupuestoEditModal from "../modals/PresupuestoEditModal";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
-import { usePresupuesto } from "@/hooks/usePresupuesto";
+import { usePresupuesto, Presupuesto, ResumenPresupuesto } from "@/hooks/usePresupuesto";
 import { DocumentTextIcon, HashtagIcon, CurrencyDollarIcon, UserIcon, CalendarIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 
@@ -22,6 +22,7 @@ export default function PresupuestoTable() {
         fetchPresupuestos,
         deletePresupuesto,
         restorePresupuesto,
+        updatePresupuesto, // Asegúrate de incluir esto en la desestructuración
         setSearchTerm,
         getResumenPresupuesto
     } = usePresupuesto();
@@ -29,13 +30,13 @@ export default function PresupuestoTable() {
     const { data: session } = useSession();
     const router = useRouter();
 
-    const [selectedPresupuesto, setSelectedPresupuesto] = useState<any>(null);
+    const [selectedPresupuesto, setSelectedPresupuesto] = useState<Presupuesto | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [resumen, setResumen] = useState<any>(null);
+    const [resumen, setResumen] = useState<ResumenPresupuesto | null>(null);
 
-    const handleViewClick = async (presupuesto: any) => {
+    const handleViewClick = async (presupuesto: Presupuesto) => {
         try {
             const resumenData = await getResumenPresupuesto(presupuesto.id);
             setResumen(resumenData);
@@ -43,15 +44,16 @@ export default function PresupuestoTable() {
             setIsModalOpen(true);
         } catch (error) {
             toast.error("Error al cargar el resumen del presupuesto");
+            console.error(error);
         }
     };
 
-    const handleEditClick = (presupuesto: any) => {
+    const handleEditClick = (presupuesto: Presupuesto) => {
         setSelectedPresupuesto(presupuesto);
         setIsEditModalOpen(true);
     };
 
-    const handleDeleteClick = (presupuesto: any) => {
+    const handleDeleteClick = (presupuesto: Presupuesto) => {
         setSelectedPresupuesto(presupuesto);
         setIsDeleteModalOpen(true);
     };
@@ -62,8 +64,22 @@ export default function PresupuestoTable() {
         setResumen(null);
     };
 
-    const handleSavePresupuesto = (presupuestoActualizado: any) => {
-        fetchPresupuestos(currentPage, 10, searchTerm);
+    const handleSavePresupuesto = async (presupuestoActualizado: Presupuesto) => {
+        try {
+            await updatePresupuesto(presupuestoActualizado.id, {
+                descripcion: presupuestoActualizado.descripcion || undefined,
+                estadoId: presupuestoActualizado.estadoId,
+                ordenId: presupuestoActualizado.ordenId
+            });
+
+            // Refrescar la lista para asegurar consistencia
+            fetchPresupuestos(currentPage, 10, searchTerm);
+        } catch (error) {
+            console.error("Error al actualizar presupuesto:", error);
+            toast.error("No se pudo actualizar el presupuesto");
+        }
+        console.log("Presupuesto recibido para actualizar:", presupuestoActualizado);
+
     };
 
     const handleDeleteConfirm = async () => {
@@ -71,10 +87,14 @@ export default function PresupuestoTable() {
 
         try {
             await deletePresupuesto(selectedPresupuesto.id);
-            toast.success("Presupuesto eliminado correctamente");
-            fetchPresupuestos(currentPage, 10, searchTerm);
+            //toast.success("Presupuesto eliminado correctamente");
+            fetchPresupuestos(
+                Number(currentPage),
+                10,
+                searchTerm
+            );
         } catch (error) {
-            console.error("Error al eliminar presupuesto:", error);
+            //console.error("Error al eliminar presupuesto:", error);
             toast.error("Error al eliminar presupuesto");
         } finally {
             setIsDeleteModalOpen(false);
@@ -83,14 +103,18 @@ export default function PresupuestoTable() {
     };
 
     const handleRestoreConfirm = async () => {
-        if (!selectedPresupuesto) return;
+        if (!selectedPresupuesto?.deletedAt) return;
 
         try {
             await restorePresupuesto(selectedPresupuesto.id);
             toast.success("Presupuesto restaurado correctamente");
-            fetchPresupuestos(currentPage, 10, searchTerm);
+            fetchPresupuestos(
+                Number(currentPage),
+                10,
+                searchTerm
+            );
         } catch (error) {
-            console.error("Error al restaurar presupuesto:", error);
+            //console.error("Error al restaurar presupuesto:", error);
             toast.error("Error al restaurar presupuesto");
         } finally {
             setIsDeleteModalOpen(false);
@@ -116,6 +140,33 @@ export default function PresupuestoTable() {
         };
         return new Date(dateString).toLocaleDateString('es-AR', options);
     };
+
+    const calculateTotal = (presupuesto: Presupuesto) => {
+        // Verificación robusta de datos
+        const detallesRepuestos = Array.isArray(presupuesto.detallesRepuestos) ?
+            presupuesto.detallesRepuestos : [];
+        const detallesManoObra = Array.isArray(presupuesto.detallesManoObra) ?
+            presupuesto.detallesManoObra : [];
+
+        const totalRepuestos = detallesRepuestos
+            .filter(detalle => detalle?.estado !== false)
+            .reduce((sum, detalle) => {
+                const subtotal = Number(detalle?.subtotal) ||
+                    (Number(detalle?.precioUnitario) || 0) * (Number(detalle?.cantidad) || 0);
+                return sum + subtotal;
+            }, 0);
+
+        const totalManoObra = detallesManoObra
+            .filter(detalle => detalle?.estado !== false)
+            .reduce((sum, detalle) => {
+                const costo = Number(detalle?.costoTotal) ||
+                    (Number(detalle?.costoUnitario) || 0) * (Number(detalle?.cantidad) || 0);
+                return sum + costo;
+            }, 0);
+
+        return totalRepuestos + totalManoObra;
+    };
+
 
     return (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -198,9 +249,6 @@ export default function PresupuestoTable() {
                                     Total
                                 </TableCell>
                                 <TableCell isHeader className="px-5 py-3 font-semibold text-gray-700 text-start text-sm dark:text-gray-300">
-                                    Estado
-                                </TableCell>
-                                <TableCell isHeader className="px-5 py-3 font-semibold text-gray-700 text-start text-sm dark:text-gray-300">
                                     Acciones
                                 </TableCell>
                             </TableRow>
@@ -272,22 +320,9 @@ export default function PresupuestoTable() {
                                             </TableCell>
 
                                             <TableCell className="px-5 py-4 sm:px-6 text-start">
-                                                <div className="flex items-center gap-2">
-                                                    <CurrencyDollarIcon className="w-4 h-4 text-gray-400" />
-                                                    <span className="font-medium">
-                                                        {formatCurrency(
-                                                            (presupuesto.detallesManoObra?.reduce((sum, d) => sum + Number(d.costoTotal), 0) || 0) +
-                                                            (presupuesto.detallesRepuestos?.reduce((sum, d) => sum + Number(d.precioUnitario) * d.cantidad, 0) || 0)
-                                                        )}
-                                                    </span>
-
-                                                </div>
-                                            </TableCell>
-
-                                            <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                                                <Badge size="sm" color={estaEliminado ? "error" : "success"}>
-                                                    {estaEliminado ? "Eliminado" : "Activo"}
-                                                </Badge>
+                                                <span className="font-medium">
+                                                    {formatCurrency(calculateTotal(presupuesto))}
+                                                </span>
                                             </TableCell>
 
                                             <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
@@ -328,7 +363,7 @@ export default function PresupuestoTable() {
                                                                 stroke="currentColor"
                                                                 strokeWidth={2}
                                                             >
-                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536l-12.5 12.5H4v-4.5l12.5-12.5z" />
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                                             </svg>
                                                         </button>
                                                     )}
@@ -337,7 +372,7 @@ export default function PresupuestoTable() {
                                                     {estaEliminado ? (
                                                         <button
                                                             className="text-green-500 hover:text-green-600"
-                                                            onClick={() => handleRestoreConfirm(presupuesto)}
+                                                            onClick={() => handleRestoreConfirm()}
                                                             title="Restaurar"
                                                             aria-label="Restaurar presupuesto"
                                                         >

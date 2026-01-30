@@ -5,9 +5,13 @@ import { Modal } from '@/components/ui/modal';
 import { Order } from '@/interfaces/order';
 import { useUsuario } from '@/hooks/useUsuario';
 import { useEstadoOrden } from '@/hooks/useEstadoOrden';
+import { useCasillero } from '@/hooks/useCasillero';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
 import { Role } from '@/types/role';
+import { useSession } from 'next-auth/react';
+import Label from '../form/Label';
+import { CalendarIcon } from '@heroicons/react/24/outline';
 
 interface Props {
   isOpen: boolean;
@@ -19,19 +23,24 @@ interface Props {
     problemaReportado?: string;
     fechaPrometidaEntrega?: string | null;
     accesorios?: string[];
+    casilleroId?: number | null;
   }) => Promise<boolean>;
 }
 
 export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props) {
+  const { data: session } = useSession();
+  const token = session?.accessToken || null;
   const { usuarios, loading: loadingUsuarios } = useUsuario();
   const { estadosOrden, loading: loadingEstados } = useEstadoOrden();
+  const { casilleros, fetchAvailableCasilleros, loading: loadingCasilleros } = useCasillero();
 
   const [formData, setFormData] = useState({
     technicianId: '',
     estadoOrdenId: '',
     problemaReportado: '',
     fechaPrometidaEntrega: '',
-    accesorios: ''
+    accesorios: '',
+    casilleroId: ''
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,11 +54,18 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
         fechaPrometidaEntrega: order.fechaPrometidaEntrega
           ? format(new Date(order.fechaPrometidaEntrega), 'yyyy-MM-dd')
           : '',
-        accesorios: order.accesorios?.join(', ') || ''
+        accesorios: order.accesorios?.join(', ') || '',
+        casilleroId: order.casillero?.id?.toString() || ''
       });
-    }
-  }, [order]);
 
+      // Cargar casilleros disponibles al abrir el modal
+      if (isOpen) {
+        fetchAvailableCasilleros();
+      }
+    }
+  }, [order, isOpen]);
+
+  
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -63,6 +79,7 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
     setIsSubmitting(true);
 
     try {
+
       const updatedData = {
         estadoOrdenId: formData.estadoOrdenId ? parseInt(formData.estadoOrdenId) : undefined,
         problemaReportado: formData.problemaReportado,
@@ -70,13 +87,16 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
         accesorios: formData.accesorios
           ? formData.accesorios.split(',').map(item => item.trim()).filter(item => item)
           : undefined,
-        technicianId: formData.technicianId ? parseInt(formData.technicianId) : undefined
+        technicianId: formData.technicianId ? parseInt(formData.technicianId) : undefined,
+        casilleroId: formData.casilleroId ? parseInt(formData.casilleroId) : undefined,
       };
 
-      await onSave(updatedData);
-      toast.success("Orden actualizada correctamente");
-      onClose();
-    } catch (error) {
+      const success = await onSave(updatedData);
+      if (success) {
+        toast.success("Orden actualizada correctamente");
+        onClose();
+      }
+    } catch (error: any) {
       toast.error(error.message || "Error al actualizar orden");
     } finally {
       setIsSubmitting(false);
@@ -91,6 +111,15 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
   );
 
   const estadosActivos = estadosOrden.filter(estado => estado.estado);
+
+  // Filtrar casilleros disponibles o asignados a esta orden
+  const casillerosDisponibles = React.useMemo(() =>
+    casilleros.filter(c =>
+      c.situacion === 'Disponible' ||
+      (c.order && c.order.id === order.id)
+    ),
+    [casilleros, order]
+  );
 
   return (
     <Modal
@@ -132,11 +161,39 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
             onChange={handleChange}
             className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             disabled={loadingEstados}
+            required
           >
             <option value="">Seleccione un estado</option>
             {estadosActivos.map(estado => (
               <option key={estado.id} value={estado.id}>
                 {estado.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Casillero - Siempre visible */}
+        <div>
+          <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+            Asignar Casillero
+          </label>
+          <select
+            name="casilleroId"
+            value={formData.casilleroId}
+            onChange={handleChange}
+            className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            disabled={loadingCasilleros}
+          >
+            <option value="">Seleccione un casillero</option>
+            {casillerosDisponibles.map(casillero => (
+              <option
+                key={casillero.id}
+                value={casillero.id}
+                disabled={casillero.situacion === 'Ocupado' && casillero.order?.id !== order.id}
+              >
+                {casillero.codigo} - {casillero.descripcion}
+                {casillero.situacion === 'Ocupado' && casillero.order?.id === order.id && ' (Asignado)'}
+                {casillero.situacion === 'Ocupado' && casillero.order?.id !== order.id && ' (Ocupado)'}
               </option>
             ))}
           </select>
@@ -157,18 +214,20 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
         </div>
 
         {/* Fecha prometida de entrega */}
-        <div>
-          <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
-            Fecha Prometida de Entrega
-          </label>
-          <input
-            type="date"
-            name="fechaPrometidaEntrega"
-            value={formData.fechaPrometidaEntrega}
-            onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          />
+        <div className="mb-4">
+          <Label className="mb-1 block">Fecha Prometida de Entrega</Label>
+          <div className="relative">
+            <CalendarIcon className="w-5 h-5 text-gray-800 dark:text-gray-200 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+            <input
+              type="datetime-local"
+              name="fechaPrometidaEntrega"
+              value={formData.fechaPrometidaEntrega}
+              onChange={(e) => handleChange(e)}
+              className="w-full pl-10 p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-black dark:text-white"
+            />
+          </div>
         </div>
+
 
         {/* Accesorios */}
         <div>

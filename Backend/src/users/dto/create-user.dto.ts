@@ -26,9 +26,10 @@ export class CreateUserDto {
   @IsNotEmpty({ message: 'La ciudad es requerida' })
   ciudad: string;
 
+  @IsOptional ()
   @IsNotEmpty({ message: 'La contraseña es requerida' })
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres.' })
-  password: string;
+  password?: string;
 
   @IsOptional()
   @IsEnum(Role, { message: 'El rol proporcionado no es válido' })

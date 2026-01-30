@@ -1,16 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  ParseIntPipe,
-  Query,
-  UseInterceptors,
-  ClassSerializerInterceptor
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, UseInterceptors, ClassSerializerInterceptor } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -18,19 +6,22 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { Role } from '../common/enums/rol.enum';
 import { User } from './entities/user.entity';
 import { UpdatePasswordDto } from './dto/update-password.dto';
+import { Rol } from 'src/rol/entities/rol.entity';
+
+@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
 
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
-  @Auth(Role.ADMIN)
+  @Auth(Role.ADMIN, Role.RECEP, Role.TECH)
   @Post()
   create(@Body() dto: CreateUserDto): Promise<User> {
     return this.usersService.create(dto);
   }
 
-  @Auth(Role.ADMIN, Role.RECEP)
+  @Auth(Role.ADMIN, Role.RECEP, Role.TECH)
   @Get('all')
   async findAll(
     @Query('page') page: number = 1,
@@ -53,7 +44,7 @@ export class UsersController {
     };
   }
 
-  @Auth(Role.ADMIN, Role.RECEP, Role.TECH)
+  @Auth(Role.ADMIN, Role.RECEP, Role.TECH, Role.CLIENT)
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -62,7 +53,7 @@ export class UsersController {
     return this.usersService.findOne(id, includeInactive);
   }
 
-  @Auth(Role.ADMIN)
+  @Auth(Role.ADMIN, Role.RECEP, Role.TECH, Role.CLIENT)
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -83,18 +74,20 @@ export class UsersController {
     return this.usersService.restore(id);
   }
 
-  @Auth(Role.ADMIN)
+  @Auth(Role.ADMIN, Role.RECEP, Role.TECH)
   @Patch(':id/toggle-status')
   async toggleStatus(@Param('id', ParseIntPipe) id: number): Promise<User> {
     return this.usersService.toggleStatus(id);
   }
 
-  @Auth(Role.ADMIN)
+  @Auth(Role.ADMIN, Role.RECEP, Role.TECH)
   @Get('count/:role')
   async countByRole(@Param('role') role: Role): Promise<number> {
     return this.usersService.countByRole(role);
   }
-  @Auth()
+
+
+  @Auth(Role.ADMIN, Role.RECEP, Role.TECH, Role.CLIENT)
   @Patch(':id/password')
   async updatePassword(
     @Param('id', ParseIntPipe) id: number,

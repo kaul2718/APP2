@@ -6,16 +6,17 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { Role } from '../common/enums/rol.enum';
 import { ActividadTecnica } from './entities/actividad-tecnica.entity';
 
-@Auth(Role.ADMIN, Role.TECH) // Ajusta los roles según necesites
 @Controller('actividades-tecnicas')
 export class ActividadTecnicaController {
   constructor(private readonly actividadService: ActividadTecnicaService) { }
 
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Post()
   create(@Body() dto: CreateActividadTecnicaDto): Promise<ActividadTecnica> {
     return this.actividadService.create(dto);
   }
 
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Get('all')
   async findAll(
     @Query('page') page: number = 1,
@@ -38,6 +39,7 @@ export class ActividadTecnicaController {
     };
   }
 
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Get('por-orden/:ordenId')
   findByOrdenId(
     @Param('ordenId', ParseIntPipe) ordenId: number,
@@ -45,6 +47,7 @@ export class ActividadTecnicaController {
     return this.actividadService.findByOrdenId(ordenId);
   }
 
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -52,6 +55,7 @@ export class ActividadTecnicaController {
     return this.actividadService.findOne(id);
   }
 
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -60,6 +64,7 @@ export class ActividadTecnicaController {
     return this.actividadService.update(id, dto);
   }
 
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
     return this.actividadService.remove(id);
@@ -70,6 +75,7 @@ export class ActividadTecnicaController {
     return this.actividadService.restore(id);
   }
 
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Patch(':id/toggle-estado')
   async toggleEstado(@Param('id', ParseIntPipe) id: number): Promise<ActividadTecnica> {
     return this.actividadService.toggleStatus(id);

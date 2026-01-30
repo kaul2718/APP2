@@ -1,4 +1,4 @@
-import {Controller,Post,Get,Param,Body, ParseIntPipe,UseGuards,} from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, ParseIntPipe, UseGuards, } from '@nestjs/common';
 import { HistorialEstadoOrdenService } from './historial-estado-orden.service';
 import { CreateHistorialEstadoOrdenDto } from './dto/create-historial-estado-orden.dto';
 import { AuthGuard } from 'src/auth/guard/auth.guard';
@@ -6,10 +6,11 @@ import { RolesGuard } from 'src/auth/guard/roles.guard';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { Role } from 'src/common/enums/rol.enum';
 
+@Auth(Role.TECH, Role.ADMIN, Role.RECEP, Role.CLIENT)
 @Controller('historial-estado-orden')
 @UseGuards(AuthGuard, RolesGuard)
 export class HistorialEstadoOrdenController {
-  constructor(private readonly service: HistorialEstadoOrdenService) {}
+  constructor(private readonly service: HistorialEstadoOrdenService) { }
 
   @Post()
   @Auth(Role.ADMIN, Role.TECH)

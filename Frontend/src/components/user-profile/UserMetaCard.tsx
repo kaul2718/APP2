@@ -154,7 +154,9 @@ export default function UserMetaCard() {
             </div>
             <div className="order-3 xl:order-2">
               <h4 className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
-                {datosEditables?.nombre || datosUsuario.nombre}  {datosEditables?.apellido || datosUsuario.apellido}
+                {datosEditables?.nombre || datosUsuario?.nombre || 'Nombre no disponible'}
+                {' '} {/* Espacio entre nombre y apellido */}
+                {datosEditables?.apellido || datosUsuario?.apellido || 'Apellido no disponible'}
 
               </h4>
               <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">

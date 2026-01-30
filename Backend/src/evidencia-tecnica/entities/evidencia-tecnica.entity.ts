@@ -19,17 +19,20 @@ export class EvidenciaTecnica {
     @JoinColumn({ name: 'subidoPorId' })
     subidoPor: User;
 
-    @Column({ type: 'text' })
-    urlImagen: string;
+    @Column()
+    subidoPorId: number;
+
+    @Column('text')
+    archivoUrl: string; // Aquí guardas la URL de la imagen/video (puede ser base64 o path en servidor)
+
+    @Column('varchar', { length: 50 })
+    tipoArchivo: 'imagen' | 'video'; // Simple clasificación
 
     @Column({ type: 'text', nullable: true })
     descripcion: string;
 
     @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     fechaSubida: Date;
-
-    @Column({ default: false })
-    isDeleted: boolean;
 
     @DeleteDateColumn({ nullable: true })
     deletedAt?: Date;

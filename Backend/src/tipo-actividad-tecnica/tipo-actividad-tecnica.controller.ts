@@ -6,17 +6,18 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { Role } from '../common/enums/rol.enum';
 import { TipoActividadTecnica } from './entities/tipo-actividad-tecnica.entity';
 
-@Auth(Role.ADMIN)
+@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
 @Controller('tipos-actividad-tecnica')
 export class TipoActividadTecnicaController {
   constructor(
     private readonly tipoActividadService: TipoActividadTecnicaService
-  ) {}
+  ) { }
 
   @Post()
   create(@Body() dto: CreateTipoActividadTecnicaDto): Promise<TipoActividadTecnica> {
     return this.tipoActividadService.create(dto);
   }
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT) // Ajusta los roles según necesites
 
   @Get('all')
   async findAll(
@@ -39,6 +40,8 @@ export class TipoActividadTecnicaController {
       currentPage: page,
     };
   }
+
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT) // Ajusta los roles según necesites
 
   @Get(':id')
   findOne(
@@ -66,6 +69,7 @@ export class TipoActividadTecnicaController {
     return this.tipoActividadService.restore(id);
   }
 
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT) // Ajusta los roles según necesites
   @Patch(':id/estado')
   async cambiarEstado(
     @Param('id', ParseIntPipe) id: number,
@@ -74,11 +78,13 @@ export class TipoActividadTecnicaController {
     return this.tipoActividadService.update(id, { estado });
   }
 
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT) // Ajusta los roles según necesites
   @Patch(':id/toggle-estado')
   async toggleEstado(@Param('id', ParseIntPipe) id: number): Promise<TipoActividadTecnica> {
     return this.tipoActividadService.toggleStatus(id);
   }
 
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT) // Ajusta los roles según necesites
   @Get()
   async findAllSimple(@Query('includeInactive') includeInactive?: boolean): Promise<TipoActividadTecnica[]> {
     return this.tipoActividadService.findAll(includeInactive);

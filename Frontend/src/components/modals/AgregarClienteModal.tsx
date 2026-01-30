@@ -8,7 +8,7 @@ import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { useRouter } from 'next/navigation';
-import { UserIcon, IdentificationIcon, EnvelopeIcon, PhoneIcon, HomeIcon, MapIcon, LockClosedIcon } from "@heroicons/react/24/outline";
+import { UserIcon, IdentificationIcon, EnvelopeIcon, PhoneIcon, HomeIcon, MapIcon } from "@heroicons/react/24/outline";
 import { Role } from "@/types/role";
 
 interface FormData {
@@ -19,15 +19,13 @@ interface FormData {
     telefono: string;
     direccion: string;
     ciudad: string;
-    password: string;
-    confirmPassword: string;
     role: Role;
 }
 
 interface Props {
     isOpen: boolean;
     onClose: () => void;
-    onSuccess?: (id: number) => void; // Añade el parámetro id
+    onSuccess?: (id: number) => void;
 }
 
 export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Props) {
@@ -41,8 +39,6 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
         telefono: "",
         direccion: "",
         ciudad: "",
-        password: "",
-        confirmPassword: "",
         role: Role.CLIENT
     });
     const [errors, setErrors] = React.useState<Partial<FormData>>({});
@@ -90,18 +86,30 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
             newErrors.ciudad = "La ciudad es requerida";
         }
 
-        if (!formData.password) {
-            newErrors.password = "La contraseña es requerida";
-        } else if (formData.password.length < 8) {
-            newErrors.password = "La contraseña debe tener al menos 8 caracteres";
-        }
-
-        if (formData.password !== formData.confirmPassword) {
-            newErrors.confirmPassword = "Las contraseñas no coinciden";
-        }
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
+    };
+
+    const enviarCorreoInvitacion = async (email: string) => {
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/enviar-invitacion`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${session?.accessToken}`,
+                },
+                body: JSON.stringify({ correo: email }),
+            });
+
+            if (!res.ok) {
+                throw new Error('Error al enviar invitación');
+            }
+
+            return await res.json();
+        } catch (error) {
+            console.error("Error enviando invitación:", error);
+            throw error;
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -120,40 +128,27 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
         }
 
         try {
-            if (!process.env.NEXT_PUBLIC_BACKEND_URL) {
-                throw new Error("Configuración de backend no disponible");
-            }
-
-            const endpoint = `${process.env.NEXT_PUBLIC_BACKEND_URL}/users`;
-            const payload = {
-                cedula: formData.cedula,
-                nombre: formData.nombre,
-                apellido: formData.apellido,
-                correo: formData.correo,
-                telefono: formData.telefono,
-                direccion: formData.direccion,
-                ciudad: formData.ciudad,
-                password: formData.password,
-                role: formData.role
-            };
-
-            const res = await fetch(endpoint, {
+            // 1. Registrar usuario sin contraseña
+            const registroResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/users`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${session.accessToken}`,
                 },
-                body: JSON.stringify(payload),
+                body: JSON.stringify({
+                    ...formData,
+                    password: null // Siempre null porque será por invitación
+                }),
             });
 
-            if (!res.ok) {
+            if (!registroResponse.ok) {
                 let errorMessage = "Error al registrar usuario";
                 try {
-                    const errorData = await res.json();
+                    const errorData = await registroResponse.json();
                     errorMessage = errorData.message || errorMessage;
-                    if (res.status === 401) {
+                    if (registroResponse.status === 401) {
                         errorMessage = "No autorizado. Token inválido o expirado";
-                    } else if (res.status === 409) {
+                    } else if (registroResponse.status === 409) {
                         errorMessage = errorData.message || "El usuario ya existe";
                     }
                 } catch (parseError) {
@@ -162,12 +157,12 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
                 throw new Error(errorMessage);
             }
 
-            const nuevoUsuario = await res.json();
-            if (!nuevoUsuario?.id) {
-                throw new Error("Respuesta inválida del servidor");
-            }
+            const nuevoUsuario = await registroResponse.json();
 
-            toast.success("Usuario registrado con éxito ✅");
+            // 2. Enviar invitación por correo
+            await enviarCorreoInvitacion(formData.correo);
+
+            toast.success("Cliente registrado e invitación enviada con éxito ✅");
 
             // Reset form
             setFormData({
@@ -178,18 +173,11 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
                 telefono: "",
                 direccion: "",
                 ciudad: "",
-                password: "",
-                confirmPassword: "",
                 role: Role.CLIENT
             });
 
             onClose();
-
-            // Pasar el ID del nuevo usuario a onSuccess
             if (onSuccess) onSuccess(nuevoUsuario.id);
-
-            // Eliminar la redirección
-            // await router.push('/ver-usuario');
 
         } catch (error) {
             if (error instanceof Error) {
@@ -209,7 +197,7 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
                     Registrar nuevo cliente
                 </h4>
                 <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-                    Complete todos los campos requeridos para registrar un nuevo cliente.
+                    Complete los datos del cliente. Se enviará automáticamente un correo para que establezca su contraseña.
                 </p>
 
                 <form onSubmit={handleSubmit} className="flex flex-col">
@@ -323,56 +311,26 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
                                 {errors.ciudad && <p className="text-sm text-red-500 mt-1">{errors.ciudad}</p>}
                             </div>
 
-                            {/* Rol */}
-                            <div>
-                                <Label>Rol</Label>
-                                <div className="relative">
-                                    <UserIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                    <select
-                                        value={formData.role}
-                                        onChange={(e) => handleChange("role", e.target.value as Role)}
-                                        className="pl-10 pr-4 py-2 w-full rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        {Object.values(Role).map((role) => (
-                                            <option key={role} value={role}>
-                                                {role.charAt(0).toUpperCase() + role.slice(1).toLowerCase()}
-                                            </option>
-                                        ))}
-                                    </select>
+                            {/* Rol (opcional si siempre será CLIENTE) */}
+                            {formData.role !== Role.CLIENT && (
+                                <div>
+                                    <Label>Rol</Label>
+                                    <div className="relative">
+                                        <UserIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                                        <select
+                                            value={formData.role}
+                                            onChange={(e) => handleChange("role", e.target.value as Role)}
+                                            className="pl-10 pr-4 py-2 w-full rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            {Object.values(Role).map((role) => (
+                                                <option key={role} value={role}>
+                                                    {role.charAt(0).toUpperCase() + role.slice(1).toLowerCase()}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
-                            </div>
-
-                            {/* Contraseña */}
-                            <div>
-                                <Label>Contraseña *</Label>
-                                <div className="relative">
-                                    <LockClosedIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                    <Input
-                                        type="password"
-                                        value={formData.password}
-                                        onChange={(e) => handleChange("password", e.target.value)}
-                                        placeholder="Mínimo 8 caracteres"
-                                        className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-                                    />
-                                </div>
-                                {errors.password && <p className="text-sm text-red-500 mt-1">{errors.password}</p>}
-                            </div>
-
-                            {/* Confirmar Contraseña */}
-                            <div>
-                                <Label>Confirmar Contraseña *</Label>
-                                <div className="relative">
-                                    <LockClosedIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                    <Input
-                                        type="password"
-                                        value={formData.confirmPassword}
-                                        onChange={(e) => handleChange("confirmPassword", e.target.value)}
-                                        placeholder="Confirma tu contraseña"
-                                        className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-                                    />
-                                </div>
-                                {errors.confirmPassword && <p className="text-sm text-red-500 mt-1">{errors.confirmPassword}</p>}
-                            </div>
+                            )}
                         </div>
                     </div>
 

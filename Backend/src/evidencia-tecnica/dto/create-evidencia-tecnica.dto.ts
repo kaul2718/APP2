@@ -10,11 +10,15 @@ export class CreateEvidenciaTecnicaDto {
   subidoPorId: number;
 
   @IsString()
+  @IsOptional()
   @IsUrl()
-  @IsNotEmpty()
-  urlImagen: string;
+  archivoUrl?: string;
 
   @IsString()
   @IsOptional()
   descripcion?: string;
+
+  @IsString()
+  @IsOptional()
+  tipoArchivo?: 'imagen' | 'video';
 }

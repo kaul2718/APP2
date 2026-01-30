@@ -6,7 +6,7 @@ import { Marca } from './entities/marca.entity';
 import { Auth } from '../auth/decorators/auth.decorator';
 import { Role } from '../common/enums/rol.enum';
 
-@Auth(Role.ADMIN)
+@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
 @Controller('marcas')
 export class MarcaController {
   constructor(private readonly marcaService: MarcaService) {}

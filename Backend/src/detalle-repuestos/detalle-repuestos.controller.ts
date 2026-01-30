@@ -6,7 +6,7 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { Role } from '../common/enums/rol.enum';
 import { DetalleRepuestos } from './entities/detalle-repuesto.entity';
 
-@Auth(Role.ADMIN)
+@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
 @Controller('detalles-repuestos')
 export class DetalleRepuestosController {
   constructor(private readonly detalleService: DetalleRepuestosService) { }
@@ -16,6 +16,7 @@ export class DetalleRepuestosController {
     return this.detalleService.create(dto);
   }
 
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
   @Get('all')
   async findAll(
     @Query('page') page: number = 1,
@@ -38,6 +39,7 @@ export class DetalleRepuestosController {
     };
   }
 
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
   @Get('by-presupuesto/:presupuestoId')
   async findByPresupuesto(
     @Param('presupuestoId', ParseIntPipe) presupuestoId: number,
@@ -47,6 +49,7 @@ export class DetalleRepuestosController {
     return detalles.filter(d => d.presupuestoId === presupuestoId);
   }
 
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -54,7 +57,7 @@ export class DetalleRepuestosController {
   ): Promise<DetalleRepuestos> {
     return this.detalleService.findOne(id, includeInactive);
   }
-
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
   @Patch(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -79,7 +82,7 @@ export class DetalleRepuestosController {
     await this.detalleService.restore(id);
     return this.detalleService.findOne(id); // devuelve restaurado
   }
-
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
   @Patch(':id/estado')
   async cambiarEstado(
     @Param('id', ParseIntPipe) id: number,
@@ -87,12 +90,13 @@ export class DetalleRepuestosController {
   ): Promise<DetalleRepuestos> {
     return this.detalleService.update(id, { estado });
   }
-
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
   @Patch(':id/toggle-estado')
   async toggleEstado(@Param('id', ParseIntPipe) id: number): Promise<DetalleRepuestos> {
     return this.detalleService.toggleStatus(id);
   }
-
+  
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
   @Get('by-presupuesto/:presupuestoId/total')
   async calcularTotalRepuestos(
     @Param('presupuestoId', ParseIntPipe) presupuestoId: number,

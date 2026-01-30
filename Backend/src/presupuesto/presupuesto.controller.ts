@@ -1,87 +1,112 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, BadRequestException, ParseIntPipe, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, NotFoundException, HttpException, HttpStatus } from '@nestjs/common';
 import { PresupuestoService } from './presupuesto.service';
 import { CreatePresupuestoDto } from './dto/create-presupuesto.dto';
 import { UpdatePresupuestoDto } from './dto/update-presupuesto.dto';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { Role } from 'src/common/enums/rol.enum';
 
-@Auth(Role.ADMIN)
+@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
 @Controller('presupuestos')
 export class PresupuestoController {
   constructor(private readonly presupuestoService: PresupuestoService) { }
 
-  @Auth(Role.TECH)
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Post()
-  async crearPresupuesto(@Body() createDto: CreatePresupuestoDto) {
-    try {
-      return await this.presupuestoService.create(createDto);
-    } catch (error) {
-      throw new BadRequestException(error.message);
-    }
+  create(@Body() dto: CreatePresupuestoDto) {
+    return this.presupuestoService.create(dto);
   }
 
-  @Auth(Role.TECH)
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+  @Get('all')
+  async findAllPaginated(
+    @Query('page') page: string,
+    @Query('limit') limit: string,
+    @Query('search') search?: string,
+    @Query('includeDeleted') includeDeleted?: string,
+  ) {
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 10;
+    const includeDeletedBool = includeDeleted === 'true';
+
+    const result = await this.presupuestoService.findAllPaginated(
+      pageNum,
+      limitNum,
+      search,
+      includeDeletedBool,
+    );
+
+    return {
+      items: result.data,
+      totalItems: result.total,
+      totalPages: Math.ceil(result.total / limitNum),
+      currentPage: pageNum,
+    };
+  }
+
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Get()
-  async obtenerTodos() {
-    try {
-      return await this.presupuestoService.findAll();
-    } catch (error) {
-      throw new BadRequestException('Error al obtener los presupuestos');
+  async findAllSimple(
+    @Query('includeDeleted') includeDeleted?: boolean,
+    @Query('ordenId') ordenId?: number // Nuevo parámetro opcional
+  ) {
+    // Si se proporciona ordenId, buscar por orden
+    if (ordenId) {
+      return this.presupuestoService.findByOrderId(ordenId);
     }
+    return this.presupuestoService.findAll(includeDeleted);
   }
 
   @Auth(Role.TECH)
   @Get(':id')
-  async obtenerUno(@Param('id', ParseIntPipe) id: number) {
-    try {
-      return await this.presupuestoService.findOne(id);
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new BadRequestException('Error al obtener el presupuesto');
-    }
-  }
-
-  @Auth(Role.TECH)
-  @Patch(':id')
-  async actualizarPresupuesto(
+  findOne(
     @Param('id', ParseIntPipe) id: number,
-    @Body() updateDto: UpdatePresupuestoDto
+    @Query('includeDeleted') includeDeleted?: boolean,
   ) {
-    try {
-      return await this.presupuestoService.update(id, updateDto);
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new BadRequestException('Error al actualizar el presupuesto');
-    }
+    return this.presupuestoService.findOne(id, includeDeleted);
   }
 
-  @Auth(Role.TECH)
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+  @Patch(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePresupuestoDto,
+  ) {
+    return this.presupuestoService.update(id, dto);
+  }
+
+  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
   @Delete(':id')
-  async eliminarPresupuesto(@Param('id', ParseIntPipe) id: number) {
+  async remove(@Param('id', ParseIntPipe) id: number) {
     try {
-      return await this.presupuestoService.remove(id);
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
+      const result = await this.presupuestoService.remove(id);
+
+      if (!result) {
+        throw new NotFoundException(`Presupuesto con ID ${id} no encontrado`);
       }
-      throw new BadRequestException('Error al eliminar el presupuesto');
+
+      return {
+        success: true,
+        message: 'Presupuesto eliminado correctamente',
+        deletedId: id
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.response || 'Error al eliminar presupuesto',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR
+      );
     }
   }
 
   @Auth(Role.TECH)
+  @Patch(':id/restore')
+  async restore(@Param('id', ParseIntPipe) id: number) {
+    await this.presupuestoService.restore(id);
+    return this.presupuestoService.findOne(id);
+  }
+
+  @Auth(Role.CLIENT)
   @Get(':id/resumen')
-  async obtenerResumen(@Param('id', ParseIntPipe) id: number) {
-    try {
-      return await this.presupuestoService.getResumenPresupuesto(id);
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new BadRequestException('Error al generar el resumen del presupuesto');
-    }
+  getResumen(@Param('id', ParseIntPipe) id: number) {
+    return this.presupuestoService.getResumenPresupuesto(id);
   }
 }

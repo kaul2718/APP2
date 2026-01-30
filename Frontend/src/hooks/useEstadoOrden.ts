@@ -36,7 +36,7 @@ export function useEstadoOrden() {
 
   const fetchEstadosOrden = async (
     page: number = 1,
-    limit: number = 10,
+    limit: number = 20,
     search: string = "",
     includeInactive: boolean = false
   ) => {
@@ -229,7 +229,7 @@ export function useEstadoOrden() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetchEstadosOrden(1, 10, searchTerm, showInactive);
+      fetchEstadosOrden(1, 20, searchTerm, showInactive);
     }
   }, [status, session, searchTerm, showInactive]);
 

@@ -1,4 +1,4 @@
-import {Controller,Get,Post,Body,Patch,Param,Delete,ParseIntPipe,Query,} from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, } from '@nestjs/common';
 import { TipoEspecificacionService } from './tipo-especificacion.service';
 import { CreateTipoEspecificacionDto } from './dto/create-tipo-especificacion.dto';
 import { UpdateTipoEspecificacionDto } from './dto/update-tipo-especificacion.dto';
@@ -6,10 +6,10 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { Role } from '../common/enums/rol.enum';
 import { TipoEspecificacion } from './entities/tipo-especificacion.entity';
 
+@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
 @Controller('tipo-especificacion')
-@Auth() // Todos los endpoints requieren autenticación por defecto
 export class TipoEspecificacionController {
-  constructor(private readonly service: TipoEspecificacionService) {}
+  constructor(private readonly service: TipoEspecificacionService) { }
 
   @Post()
   @Auth(Role.ADMIN)
