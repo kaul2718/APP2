@@ -18,6 +18,16 @@ import ActividadesPorOrdenModal from "../modals/ActividadesPorOrdenModal";
 import AgregarEvidenciaTecnicaModal from "@/components/modals/AgregarEvidenciaTecnicaModal";
 import { getEstadoColor } from "@/utils/badge-utils";
 
+interface UpdateOrderData {
+    technicianId?: number | null;
+    estadoOrdenId?: number | null;
+    problemaReportado?: string;
+    fechaPrometidaEntrega?: string | null;
+    accesorios?: string[];
+    casilleroId?: number | null;
+    userId?: number;
+}
+
 export default function OrdenTable() {
     const {
         orders,
@@ -120,7 +130,7 @@ export default function OrdenTable() {
     };
 
     // Función para guardar los cambios
-    const handleSaveOrder = async (updatedData) => {
+    const handleSaveOrder = async (updatedData: UpdateOrderData) => {
         try {
             if (!selectedOrder) return false;
 
@@ -131,14 +141,14 @@ export default function OrdenTable() {
                 fechaPrometidaEntrega: updatedData.fechaPrometidaEntrega,
                 accesorios: updatedData.accesorios,
                 casilleroId: updatedData.casilleroId,
-                userId: updatedData.userId // Asegúrate de que esto se pasa
+                userId: updatedData.userId
             });
 
             await fetchOrders();
             return true;
         } catch (error) {
             //console.error("Error saving order:", error);
-            toast.error(error.message || "Error al guardar cambios");
+            toast.error(error instanceof Error ? error.message : "Error al guardar cambios");
             return false;
         }
     };
@@ -370,7 +380,7 @@ export default function OrdenTable() {
                                             </TableCell>
                                             <TableCell className="px-5 py-4 sm:px-6 text-start">
                                                 <span className="text-gray-500 dark:text-gray-400">
-                                                    {order.equipo.numeroSerie}
+                                                    {order.equipo?.numeroSerie || "N/A"}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
@@ -536,7 +546,7 @@ export default function OrdenTable() {
                                                     </button>
 
                                                     {/* Eliminar (solo admin) */}
-                                                    {session?.user.role === 'ADMIN' && (
+                                                    {session?.user.role === 'admin' && (
                                                         <button
                                                             className="text-red-600 hover:text-red-700"
                                                             onClick={() => handleDeleteOrder(order)}
@@ -566,7 +576,7 @@ export default function OrdenTable() {
                 </div>
 
                 {/* Pagination */}
-                {totalPages > 1 && (
+                {orders.length > 0 && (
                     <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-gray-100 dark:border-white/[0.05]">
                         <div className="mb-4 sm:mb-0">
                             <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -582,10 +592,10 @@ export default function OrdenTable() {
                             >
                                 Anterior
                             </button>
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                            {totalPages > 1 && Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                                 <button
                                     key={page}
-                                    onClick={() => fetchOrders(currentPage - 1, 10, searchTerm, showInactive, estadoOrdenId)}
+                                    onClick={() => fetchOrders(page, 10, searchTerm, showInactive, estadoOrdenId)}
                                     className={`px-3 py-1 border rounded-md text-sm font-medium ${currentPage === page
                                         ? "bg-blue-500 text-white border-blue-500"
                                         : "border-gray-300 text-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"

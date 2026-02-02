@@ -37,33 +37,33 @@ export default function SignUpForm() {
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
                 <Label>Cédula*</Label>
-                <Input type="text" name="cedula" value={formData.cedula} onChange={handleChange} />
+                <Input type="text" name="cedula" value={formData.cedula} onChange={handleChange} autoComplete="off" />
               </div>
               <div>
                 <Label>Nombre*</Label>
-                <Input type="text" name="nombre" value={formData.nombre} onChange={handleChange} />
+                <Input type="text" name="nombre" value={formData.nombre} onChange={handleChange} autoComplete="given-name" />
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
                 <Label>Teléfono*</Label>
-                <Input type="text" name="telefono" value={formData.telefono} onChange={handleChange} />
+                <Input type="text" name="telefono" value={formData.telefono} onChange={handleChange} autoComplete="tel" />
               </div>
               <div>
                 <Label>Ciudad*</Label>
-                <Input type="text" name="ciudad" value={formData.ciudad} onChange={handleChange} />
+                <Input type="text" name="ciudad" value={formData.ciudad} onChange={handleChange} autoComplete="address-level2" />
               </div>
             </div>
 
             <div>
               <Label>Dirección*</Label>
-              <Input type="text" name="direccion" value={formData.direccion} onChange={handleChange} />
+              <Input type="text" name="direccion" value={formData.direccion} onChange={handleChange} autoComplete="street-address" />
             </div>
 
             <div>
               <Label>Correo electrónico*</Label>
-              <Input type="email" name="correo" value={formData.correo} onChange={handleChange} />
+              <Input type="email" name="correo" value={formData.correo} onChange={handleChange} autoComplete="email" />
             </div>
 
             <div>
@@ -75,6 +75,7 @@ export default function SignUpForm() {
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="Mínimo 8 caracteres"
+                  autoComplete="new-password"
                 />
                 <span
                   onClick={() => setShowPassword(!showPassword)}
@@ -97,6 +98,7 @@ export default function SignUpForm() {
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
+                  autoComplete="new-password"
                   placeholder="Repite la contraseña"
                 />
                 <span

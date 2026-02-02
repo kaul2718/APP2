@@ -90,6 +90,8 @@ const AppHeader: React.FC = () => {
               className="dark:hidden"
               src="./images/logo/logo.svg"
               alt="Logo"
+              style={{ width: '100%', height: 'auto' }}
+              priority
             />
             <Image
               width={190}
@@ -97,6 +99,8 @@ const AppHeader: React.FC = () => {
               className="hidden dark:block"
               src="./images/logo/logo.svg"
               alt="Logo"
+              style={{ width: '100%', height: 'auto' }}
+              priority
             />
           </Link>
 

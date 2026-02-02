@@ -4,9 +4,9 @@ import { CreateMarcaDto } from './dto/create-marca.dto';
 import { UpdateMarcaDto } from './dto/update-marca.dto';
 import { Marca } from './entities/marca.entity';
 import { Auth } from '../auth/decorators/auth.decorator';
-import { Role } from '../common/enums/rol.enum';
 
-@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+
+@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 @Controller('marcas')
 export class MarcaController {
   constructor(private readonly marcaService: MarcaService) {}

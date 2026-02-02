@@ -3,10 +3,10 @@ import { DetalleManoObraService } from './detalle-mano-obra.service';
 import { CreateDetalleManoObraDto } from './dto/create-detalle-mano-obra.dto';
 import { UpdateDetalleManoObraDto } from './dto/update-detalle-mano-obra.dto';
 import { Auth } from '../auth/decorators/auth.decorator';
-import { Role } from '../common/enums/rol.enum';
+
 import { DetalleManoObra } from './entities/detalle-mano-obra.entity';
 
-@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 @Controller('detalles-mano-obra')
 export class DetalleManoObraController {
   constructor(private readonly detalleService: DetalleManoObraService) { }
@@ -15,7 +15,7 @@ export class DetalleManoObraController {
   create(@Body() dto: CreateDetalleManoObraDto): Promise<DetalleManoObra> {
     return this.detalleService.create(dto);
   }
-  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
+  @Auth('admin', 'tech', 'recep', 'client')
   @Get('all')
   async findAll(
     @Query('page') page: number = 1,
@@ -37,7 +37,7 @@ export class DetalleManoObraController {
       currentPage: page,
     };
   }
-  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
+  @Auth('admin', 'tech', 'recep', 'client')
   @Get('by-presupuesto/:presupuestoId')
   async findByPresupuesto(
     @Param('presupuestoId', ParseIntPipe) presupuestoId: number,
@@ -46,7 +46,7 @@ export class DetalleManoObraController {
     const detalles = await this.detalleService.findAll(includeInactive);
     return detalles.filter(d => d.presupuestoId === presupuestoId);
   }
-  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
+  @Auth('admin', 'tech', 'recep', 'client')
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -54,7 +54,7 @@ export class DetalleManoObraController {
   ): Promise<DetalleManoObra> {
     return this.detalleService.findOne(id, includeInactive);
   }
-  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
+  @Auth('admin', 'tech', 'recep', 'client')
   @Patch(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -81,7 +81,7 @@ export class DetalleManoObraController {
     await this.detalleService.restore(id);
     return this.detalleService.findOne(id); // devuelve restaurado
   }
-  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
+  @Auth('admin', 'tech', 'recep', 'client')
   @Patch(':id/estado')
   async cambiarEstado(
     @Param('id', ParseIntPipe) id: number,
@@ -89,12 +89,12 @@ export class DetalleManoObraController {
   ): Promise<DetalleManoObra> {
     return this.detalleService.update(id, { estado });
   }
-  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
+  @Auth('admin', 'tech', 'recep', 'client')
   @Patch(':id/toggle-estado')
   async toggleEstado(@Param('id', ParseIntPipe) id: number): Promise<DetalleManoObra> {
     return this.detalleService.toggleStatus(id);
   }
-  @Auth(Role.ADMIN, Role.TECH, Role.RECEP, Role.CLIENT)
+  @Auth('admin', 'tech', 'recep', 'client')
   @Get('by-presupuesto/:presupuestoId/total')
   async calcularTotalManoObra(
     @Param('presupuestoId', ParseIntPipe) presupuestoId: number,

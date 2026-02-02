@@ -4,6 +4,7 @@ import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
+import { GuardsModule } from './auth/guards.module';
 import { OrdersModule } from './orders/orders.module';
 import { ActividadTecnicaModule } from './actividad-tecnica/actividad-tecnica.module';
 import { PresupuestoModule } from './presupuesto/presupuesto.module';
@@ -12,7 +13,6 @@ import { RepuestosModule } from './repuestos/repuestos.module';
 import { DetalleRepuestosModule } from './detalle-repuestos/detalle-repuestos.module';
 import { EquipoModule } from './equipo/equipo.module';
 import { ConfigModule } from '@nestjs/config';
-import { rejects } from 'assert';
 import { RolModule } from './rol/rol.module';
 import { UsuarioRolModule } from './usuario-rol/usuario-rol.module';
 import { EstadoOrdenModule } from './estado-orden/estado-orden.module';
@@ -32,6 +32,9 @@ import { TipoEspecificacionModule } from './tipo-especificacion/tipo-especificac
 import { InventarioModule } from './inventario/inventario.module';
 import { NotificacionModule } from './notificacion/notificacion.module';
 import { TipoNotificacionModule } from './tipo-notificacion/tipo-notificacion.module';
+import { PermissionsModule } from './permissions/permissions.module';
+import { RolePermissionModule } from './role-permission/role-permission.module';
+import { SeederModule } from './seeder/seeder.module';
 
 @Module({
   imports: [
@@ -39,6 +42,8 @@ import { TipoNotificacionModule } from './tipo-notificacion/tipo-notificacion.mo
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+
+    GuardsModule,
 
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -86,6 +91,9 @@ import { TipoNotificacionModule } from './tipo-notificacion/tipo-notificacion.mo
     InventarioModule,
     NotificacionModule,
     TipoNotificacionModule,
+    PermissionsModule,
+    RolePermissionModule,
+    SeederModule,
   ],
   controllers: [AppController],
   providers: [AppService],

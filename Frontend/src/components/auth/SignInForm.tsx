@@ -49,6 +49,7 @@ export default function SignInForm() {
                     placeholder="info@gmail.com"
                     value={correo}
                     onChange={handleCorreoChange}
+                    autoComplete="email"
                   />
                 </div>
                 <div>
@@ -61,6 +62,7 @@ export default function SignInForm() {
                       placeholder="Enter your password"
                       value={password}
                       onChange={handlePasswordChange}
+                      autoComplete="current-password"
                     />
                     <span
                       onClick={toggleShowPassword}

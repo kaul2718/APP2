@@ -43,6 +43,30 @@ export class OrderService {
       throw new BadRequestException('Datos incompletos para crear la orden');
     }
 
+    // Validar tipos de datos numéricos
+    if (createDto.clientId <= 0 || createDto.equipoId <= 0) {
+      throw new BadRequestException('clientId y equipoId deben ser números positivos');
+    }
+
+    // Validar y trim de strings
+    const problemaReportado = createDto.problemaReportado.trim();
+    if (problemaReportado.length === 0) {
+      throw new BadRequestException('problemaReportado no puede estar vacío');
+    }
+
+    // Validar fechaPrometidaEntrega no esté en el pasado
+    if (createDto.fechaPrometidaEntrega) {
+      const fechaPromesa = new Date(createDto.fechaPrometidaEntrega);
+      if (fechaPromesa < new Date()) {
+        throw new BadRequestException('fechaPrometidaEntrega no puede estar en el pasado');
+      }
+    }
+
+    // Validar accesorios si se proporcionan
+    if (createDto.accesorios && createDto.accesorios.length === 0) {
+      throw new BadRequestException('accesorios no puede ser un array vacío, omítelo si no hay');
+    }
+
     // Generar número de orden (versión corregida)
     const workOrderNumber = await this.generateOrderNumber();
 
@@ -65,7 +89,7 @@ export class OrderService {
       : await this.estadoOrdenRepository.findOneBy({ nombre: 'Ingresado / Recepcionado' });
 
     if (!estadoOrden) {
-      throw new Error('No se pudo determinar el estado de la orden');
+      throw new BadRequestException('No se pudo determinar el estado de la orden');
     }
 
     // Crear y guardar la orden
@@ -76,7 +100,7 @@ export class OrderService {
       equipo,
       technician,
       recepcionista,
-      problemaReportado: createDto.problemaReportado,
+      problemaReportado,
       accesorios: createDto.accesorios || [],
       fechaPrometidaEntrega: createDto.fechaPrometidaEntrega || null,
       estadoOrden
@@ -122,16 +146,32 @@ export class OrderService {
   }
 
   private async validateUser(id: number, role: string): Promise<User> {
-    const user = await this.userRepository.findOneBy({ id });
+    // Validar que ID sea válido
+    if (!id || id <= 0) {
+      throw new BadRequestException(`ID de ${role} debe ser un número positivo`);
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id },
+    });
 
     if (!user) {
       throw new NotFoundException(`${role} con ID ${id} no encontrado`);
+    }
+
+    if (user.deletedAt) {
+      throw new BadRequestException(`${role} con ID ${id} ha sido eliminado`);
     }
 
     return user;
   }
 
   private async validateEquipo(id: number): Promise<Equipo> {
+    // Validar que ID sea válido
+    if (!id || id <= 0) {
+      throw new BadRequestException(`ID de Equipo debe ser un número positivo`);
+    }
+
     const equipo = await this.equipoRepository.findOne({
       where: { id },
       relations: ['tipoEquipo', 'marca', 'modelo']
@@ -145,6 +185,10 @@ export class OrderService {
   }
 
   private async validateEstadoOrden(id: number): Promise<EstadoOrden> {
+    if (!id || id <= 0) {
+      throw new BadRequestException(`ID de estado debe ser un número positivo`);
+    }
+
     const estado = await this.estadoOrdenRepository.findOne({ where: { id } });
     if (!estado) {
       throw new NotFoundException(`Estado de orden con ID ${id} no encontrado`);
@@ -168,20 +212,14 @@ export class OrderService {
   }
 
   async findAll(includeInactive = false): Promise<Order[]> {
+    // Optimizado: solo cargar relaciones esenciales
     return this.orderRepository.find({
       where: includeInactive ? {} : { estado: true },
       withDeleted: includeInactive,
       relations: [
         'client',
         'technician',
-        'recepcionista',
-        'equipo',
-        'actividades',
-        'presupuesto',
-        'casillero',
-        'evidencias',
         'estadoOrden',
-        'historialEstados',
       ],
       order: {
         createdAt: 'DESC',
@@ -190,6 +228,10 @@ export class OrderService {
   }
 
   async findOne(id: number, includeInactive = false): Promise<Order> {
+    if (!id || id <= 0) {
+      throw new BadRequestException(`ID de orden debe ser un número positivo`);
+    }
+
     const orden = await this.orderRepository.findOne({
       where: { id },
       withDeleted: includeInactive,
@@ -198,12 +240,7 @@ export class OrderService {
         'technician',
         'recepcionista',
         'equipo',
-        'actividades',
-        'presupuesto',
-        'casillero',
-        'evidencias',
         'estadoOrden',
-        'historialEstados',
       ],
     });
 
@@ -215,6 +252,11 @@ export class OrderService {
   }
 
   async update(id: number, updateDto: UpdateOrderDto, userId?: number): Promise<Order> {
+    // Validar ID
+    if (!id || id <= 0) {
+      throw new BadRequestException(`ID de orden debe ser un número positivo`);
+    }
+
     const orden = await this.findOne(id, true);
     const cambiosHistorial: string[] = [];
 
@@ -227,54 +269,83 @@ export class OrderService {
       }
     }
 
+    // Validar y actualizar problema reportado
+    if (updateDto.problemaReportado !== undefined) {
+      const problemaReportado = updateDto.problemaReportado.trim();
+      if (problemaReportado.length === 0) {
+        throw new BadRequestException('problemaReportado no puede estar vacío');
+      }
+      orden.problemaReportado = problemaReportado;
+    }
+
+    // Validar fecha prometida entrega
+    if (updateDto.fechaPrometidaEntrega !== undefined) {
+      if (updateDto.fechaPrometidaEntrega) {
+        const fechaPromesa = new Date(updateDto.fechaPrometidaEntrega);
+        if (fechaPromesa < new Date()) {
+          throw new BadRequestException('fechaPrometidaEntrega no puede estar en el pasado');
+        }
+        orden.fechaPrometidaEntrega = fechaPromesa;
+      } else {
+        orden.fechaPrometidaEntrega = null;
+      }
+    }
+
     // Manejo del casillero (igual que antes)
     if (updateDto.casilleroId !== undefined) {
-      const nuevoCasillero = await this.casilleroRepository.findOne({
-        where: { id: updateDto.casilleroId },
-        relations: ['order'],
-      });
+      if (updateDto.casilleroId && updateDto.casilleroId > 0) {
+        const nuevoCasillero = await this.casilleroRepository.findOne({
+          where: { id: updateDto.casilleroId },
+          relations: ['order'],
+        });
 
-      if (!nuevoCasillero) {
-        throw new NotFoundException(`Casillero con ID ${updateDto.casilleroId} no encontrado`);
-      }
-
-      if (nuevoCasillero.order && nuevoCasillero.order.id !== id) {
-        throw new BadRequestException(`El casillero ${nuevoCasillero.codigo} ya está asignado a otra orden`);
-      }
-
-      // Liberar casillero actual si existe y es distinto
-      if (orden.casilleroId && orden.casilleroId !== updateDto.casilleroId) {
-        const casilleroActual = await this.casilleroRepository.findOneBy({ id: orden.casilleroId });
-        if (casilleroActual) {
-          casilleroActual.situacion = EstadoCasillero.DISPONIBLE;
-          casilleroActual.order = null;
-          await this.casilleroRepository.save(casilleroActual);
-          cambiosHistorial.push(`Casillero liberado: ${casilleroActual.codigo}`);
+        if (!nuevoCasillero) {
+          throw new NotFoundException(`Casillero con ID ${updateDto.casilleroId} no encontrado`);
         }
-      }
 
-      // Asignar nuevo casillero
-      if (!nuevoCasillero.order || nuevoCasillero.order.id === id) {
-        nuevoCasillero.situacion = EstadoCasillero.OCUPADO;
-        nuevoCasillero.order = orden;
-        await this.casilleroRepository.save(nuevoCasillero);
+        if (nuevoCasillero.order && nuevoCasillero.order.id !== id) {
+          throw new BadRequestException(`El casillero ${nuevoCasillero.codigo} ya está asignado a otra orden`);
+        }
 
-        // Aquí es lo importante:
-        orden.casillero = nuevoCasillero;
-        orden.casilleroId = nuevoCasillero.id;
+        // Liberar casillero actual si existe y es distinto
+        if (orden.casilleroId && orden.casilleroId !== updateDto.casilleroId) {
+          const casilleroActual = await this.casilleroRepository.findOneBy({ id: orden.casilleroId });
+          if (casilleroActual) {
+            casilleroActual.situacion = EstadoCasillero.DISPONIBLE;
+            casilleroActual.order = null;
+            await this.casilleroRepository.save(casilleroActual);
+            cambiosHistorial.push(`Casillero liberado: ${casilleroActual.codigo}`);
+          }
+        }
 
-        cambiosHistorial.push(`Casillero asignado: ${nuevoCasillero.codigo}`);
+        // Asignar nuevo casillero
+        if (!nuevoCasillero.order || nuevoCasillero.order.id === id) {
+          nuevoCasillero.situacion = EstadoCasillero.OCUPADO;
+          nuevoCasillero.order = orden;
+          await this.casilleroRepository.save(nuevoCasillero);
+
+          orden.casillero = nuevoCasillero;
+          orden.casilleroId = nuevoCasillero.id;
+
+          cambiosHistorial.push(`Casillero asignado: ${nuevoCasillero.codigo}`);
+        }
       }
     }
 
     // Manejo cliente, equipo, técnico ...
     if (updateDto.clientId && updateDto.clientId !== orden.client?.id) {
+      if (updateDto.clientId <= 0) {
+        throw new BadRequestException('clientId debe ser un número positivo');
+      }
       const client = await this.validateUser(updateDto.clientId, 'Cliente');
       orden.client = client;
       cambiosHistorial.push(`Cliente cambiado a ${client.nombre}`);
     }
 
     if (updateDto.equipoId && updateDto.equipoId !== orden.equipo?.id) {
+      if (updateDto.equipoId <= 0) {
+        throw new BadRequestException('equipoId debe ser un número positivo');
+      }
       const equipo = await this.validateEquipo(updateDto.equipoId);
       orden.equipo = equipo;
       cambiosHistorial.push(`Equipo cambiado a ${equipo.numeroSerie}`);
@@ -286,7 +357,7 @@ export class OrderService {
       if (updateDto.technicianId === null) {
         orden.technician = null;
         cambiosHistorial.push('Técnico removido');
-      } else {
+      } else if (updateDto.technicianId > 0) {
         const technician = await this.validateUser(updateDto.technicianId, 'Técnico');
         orden.technician = technician;
         if (!oldTech || technician.id !== orden.technician?.id) {
@@ -319,15 +390,10 @@ export class OrderService {
     }
 
     // Campos simples
-    if (updateDto.problemaReportado !== undefined) {
-      orden.problemaReportado = updateDto.problemaReportado;
-    }
-
-    if (updateDto.fechaPrometidaEntrega !== undefined) {
-      orden.fechaPrometidaEntrega = updateDto.fechaPrometidaEntrega;
-    }
-
     if (updateDto.accesorios !== undefined) {
+      if (Array.isArray(updateDto.accesorios) && updateDto.accesorios.length === 0) {
+        throw new BadRequestException('accesorios no puede ser un array vacío, usa null para remover');
+      }
       orden.accesorios = updateDto.accesorios;
       cambiosHistorial.push('Accesorios actualizados');
     }
@@ -350,7 +416,6 @@ export class OrderService {
       client: orden.client,
       equipo: orden.equipo,
       technician: orden.technician,
-      // etc. solo campos simples o FK
     });
 
     // Registrar cambios adicionales en historial si los hay
@@ -413,36 +478,52 @@ export class OrderService {
     fechaFin?: Date,
     includeInactive = false,
   ): Promise<{ data: Order[]; total: number }> {
-    const skip = (page - 1) * limit;
+    // Validar page y limit
+    const validatedPage = Math.max(1, parseInt(page.toString()) || 1);
+    const ALLOWED_LIMITS = [10, 25, 50, 100];
+    const validatedLimit = ALLOWED_LIMITS.includes(limit) ? limit : 10;
+
+    // Validar fechas si se proporcionan
+    if (fechaInicio && fechaFin) {
+      const inicio = new Date(fechaInicio);
+      const fin = new Date(fechaFin);
+      if (inicio > fin) {
+        throw new BadRequestException('fechaInicio no puede ser mayor que fechaFin');
+      }
+      // Validar que no sean fechas futuras (opcional según negocio)
+      if (fin > new Date()) {
+        throw new BadRequestException('fechaFin no puede estar en el futuro');
+      }
+    }
+
+    const skip = (validatedPage - 1) * validatedLimit;
 
     const query = this.orderRepository.createQueryBuilder('order')
       .leftJoinAndSelect('order.client', 'client')
       .leftJoinAndSelect('order.technician', 'technician')
-      .leftJoinAndSelect('order.recepcionista', 'recepcionista')
-      .leftJoinAndSelect('order.equipo', 'equipo')
       .leftJoinAndSelect('order.estadoOrden', 'estadoOrden')
+      .leftJoinAndSelect('order.equipo', 'equipo')
       .orderBy('order.createdAt', 'DESC');
 
     // Manejo de la búsqueda corregido
-    if (search) {
+    if (search && search.trim()) {
       query.where(
-        '(order.workOrderNumber ILIKE :search OR ' +
-        'client.nombre ILIKE :search OR ' +
-        'equipo.numeroSerie ILIKE :search)',
-        { search: `%${search}%` }
+        '(LOWER(order.workOrderNumber) LIKE LOWER(:search) OR ' +
+        'LOWER(client.nombre) LIKE LOWER(:search))',
+        { search: `%${search.trim()}%` }
       );
     }
 
     // Filtros adicionales
-    if (estadoOrdenId) {
+    if (estadoOrdenId && estadoOrdenId > 0) {
       query.andWhere('order.estadoOrdenId = :estadoOrdenId', { estadoOrdenId });
     }
 
-    if (technicianId) {
+    if (technicianId && technicianId > 0) {
       query.andWhere('order.technicianId = :technicianId', { technicianId });
     }
 
-    if (clientId) {
+    if (clientId && clientId > 0) {
       query.andWhere('order.clientId = :clientId', { clientId });
     }
 
@@ -462,7 +543,7 @@ export class OrderService {
     // Paginación
     const [data, total] = await query
       .skip(skip)
-      .take(limit)
+      .take(validatedLimit)
       .getManyAndCount();
 
     return { data, total };
@@ -478,6 +559,14 @@ export class OrderService {
   }
 
   async addActividadTecnica(orderId: number, actividadData: Partial<ActividadTecnica>): Promise<ActividadTecnica> {
+    if (!orderId || orderId <= 0) {
+      throw new BadRequestException('orderId debe ser un número positivo');
+    }
+
+    if (!actividadData) {
+      throw new BadRequestException('Datos de actividad técnica requeridos');
+    }
+
     const orden = await this.findOne(orderId);
 
     const actividad = this.actividadTecnicaRepository.create({
@@ -489,6 +578,14 @@ export class OrderService {
   }
 
   async addPresupuesto(orderId: number, presupuestoData: Partial<Presupuesto>): Promise<Presupuesto> {
+    if (!orderId || orderId <= 0) {
+      throw new BadRequestException('orderId debe ser un número positivo');
+    }
+
+    if (!presupuestoData) {
+      throw new BadRequestException('Datos de presupuesto requeridos');
+    }
+
     const orden = await this.findOne(orderId);
 
     // Verificar si ya tiene presupuesto
@@ -509,6 +606,14 @@ export class OrderService {
   }
 
   async assignCasillero(orderId: number, casilleroData: Partial<Casillero>): Promise<Casillero> {
+    if (!orderId || orderId <= 0) {
+      throw new BadRequestException('orderId debe ser un número positivo');
+    }
+
+    if (!casilleroData) {
+      throw new BadRequestException('Datos de casillero requeridos');
+    }
+
     const orden = await this.findOne(orderId);
 
     // Verificar si ya tiene casillero
@@ -529,6 +634,14 @@ export class OrderService {
   }
 
   async addEvidenciaTecnica(orderId: number, evidenciaData: Partial<EvidenciaTecnica>): Promise<EvidenciaTecnica> {
+    if (!orderId || orderId <= 0) {
+      throw new BadRequestException('orderId debe ser un número positivo');
+    }
+
+    if (!evidenciaData) {
+      throw new BadRequestException('Datos de evidencia técnica requeridos');
+    }
+
     const orden = await this.findOne(orderId);
 
     const evidencia = this.evidenciaTecnicaRepository.create({
@@ -544,6 +657,17 @@ export class OrderService {
     estadoOrdenId: number,
     userId: number
   ): Promise<Order> {
+    // Validar IDs
+    if (!orderId || orderId <= 0) {
+      throw new BadRequestException('orderId debe ser un número positivo');
+    }
+    if (!estadoOrdenId || estadoOrdenId <= 0) {
+      throw new BadRequestException('estadoOrdenId debe ser un número positivo');
+    }
+    if (!userId || userId <= 0) {
+      throw new BadRequestException('userId debe ser un número positivo');
+    }
+
     const orden = await this.orderRepository.findOne({
       where: { id: orderId },
       relations: ['estadoOrden']
@@ -569,6 +693,10 @@ export class OrderService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
+    if (usuario.deletedAt) {
+      throw new BadRequestException('El usuario ha sido eliminado');
+    }
+
     // Registrar en el historial
     const historial = new HistorialEstadoOrden();
     historial.orden = orden;
@@ -585,24 +713,51 @@ export class OrderService {
 
   // order.service.ts
   async findOrdersByClient(clientId: number): Promise<Order[]> {
+    if (!clientId || clientId <= 0) {
+      throw new BadRequestException('clientId debe ser un número positivo');
+    }
+
+    // Validar que el cliente existe
+    const client = await this.userRepository.findOne({
+      where: { id: clientId }
+    });
+
+    if (!client) {
+      throw new NotFoundException(`Cliente con ID ${clientId} no encontrado`);
+    }
+
     return this.orderRepository.find({
       where: {
-        client: { id: clientId }, // Asegúrate que 'id' sea el nombre correcto
-        estado: true
+        client: { id: clientId },
+        estado: true,
+        deletedAt: null,
       },
-      relations: ['client', 'technician', 'equipo', 'estadoOrden'],
+      relations: ['client', 'technician', 'estadoOrden'],
       order: { createdAt: 'DESC' }
     });
   }
 
   async findOrdersByTechnician(technicianId: number): Promise<Order[]> {
+    if (!technicianId || technicianId <= 0) {
+      throw new BadRequestException('technicianId debe ser un número positivo');
+    }
+
+    // Validar que el técnico existe
+    const technician = await this.userRepository.findOne({
+      where: { id: technicianId }
+    });
+
+    if (!technician) {
+      throw new NotFoundException(`Técnico con ID ${technicianId} no encontrado`);
+    }
+
     return this.orderRepository.createQueryBuilder('order')
       .leftJoinAndSelect('order.client', 'client')
       .leftJoinAndSelect('order.technician', 'technician')
-      .leftJoinAndSelect('order.equipo', 'equipo')
       .leftJoinAndSelect('order.estadoOrden', 'estadoOrden')
       .where('technician.id = :technicianId', { technicianId })
       .andWhere('order.estado = :estado', { estado: true })
+      .andWhere('order.deletedAt IS NULL')
       .orderBy('order.createdAt', 'DESC')
       .getMany();
   }

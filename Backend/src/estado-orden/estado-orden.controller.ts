@@ -3,10 +3,10 @@ import { EstadoOrdenService } from './estado-orden.service';
 import { CreateEstadoOrdenDto } from './dto/create-estado-orden.dto';
 import { UpdateEstadoOrdenDto } from './dto/update-estado-orden.dto';
 import { Auth } from '../auth/decorators/auth.decorator';
-import { Role } from '../common/enums/rol.enum';
+
 import { EstadoOrden } from './entities/estado-orden.entity';
 
-@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 @Controller('estados-orden')
 export class EstadoOrdenController {
   constructor(private readonly estadoOrdenService: EstadoOrdenService) { }

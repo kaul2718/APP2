@@ -4,20 +4,63 @@ import { Like, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Role } from 'src/common/enums/rol.enum';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
-  findByResetToken(token: string) {
-    throw new Error('Method not implemented.');
-  }
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) { }
 
   async create(createDto: CreateUserDto): Promise<User> {
+    // ✅ Validar campos requeridos
+    if (!createDto.cedula || createDto.cedula.trim() === '') {
+      throw new BadRequestException('La cédula es requerida');
+    }
+    if (!createDto.nombre || createDto.nombre.trim() === '') {
+      throw new BadRequestException('El nombre es requerido');
+    }
+    if (!createDto.apellido || createDto.apellido.trim() === '') {
+      throw new BadRequestException('El apellido es requerido');
+    }
+    if (!createDto.correo || createDto.correo.trim() === '') {
+      throw new BadRequestException('El correo es requerido');
+    }
+    if (!createDto.telefono || createDto.telefono.trim() === '') {
+      throw new BadRequestException('El teléfono es requerido');
+    }
+    if (!createDto.password || createDto.password.trim() === '') {
+      throw new BadRequestException('La contraseña es requerida');
+    }
+
+    // ✅ Validar formato de cédula (10 dígitos)
+    if (!/^\d{10}$/.test(createDto.cedula)) {
+      throw new BadRequestException('La cédula debe tener exactamente 10 dígitos');
+    }
+
+    // ✅ Validar formato de teléfono (10 dígitos)
+    if (!/^\d{10}$/.test(createDto.telefono)) {
+      throw new BadRequestException('El teléfono debe tener exactamente 10 dígitos');
+    }
+
+    // ✅ Validar formato de correo
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(createDto.correo)) {
+      throw new BadRequestException('El correo no es válido');
+    }
+
+    // ✅ Validar fortaleza de contraseña (mínimo 8 caracteres, mayúscula, número)
+    if (createDto.password.length < 8) {
+      throw new BadRequestException('La contraseña debe tener al menos 8 caracteres');
+    }
+    if (!/[A-Z]/.test(createDto.password)) {
+      throw new BadRequestException('La contraseña debe contener al menos una mayúscula');
+    }
+    if (!/\d/.test(createDto.password)) {
+      throw new BadRequestException('La contraseña debe contener al menos un número');
+    }
+
     // Verificar si ya existe un usuario con la misma cédula o correo
     const existeCedula = await this.userRepository.findOne({
       where: { cedula: createDto.cedula },
@@ -38,11 +81,8 @@ export class UsersService {
     }
 
     // Encriptar la contraseña
-    let hashedPassword = null;
-    if (createDto.password) {
-      const salt = await bcrypt.genSalt();
-      hashedPassword = await bcrypt.hash(createDto.password, salt);
-    }
+    const salt = await bcrypt.genSalt();
+    const hashedPassword = await bcrypt.hash(createDto.password, salt);
 
     const nuevoUsuario = this.userRepository.create({
       ...createDto,
@@ -54,10 +94,16 @@ export class UsersService {
   }
 
   async findAll(includeInactive = false): Promise<User[]> {
-    return this.userRepository.find({
+    const data = await this.userRepository.find({
       where: includeInactive ? {} : { estado: true },
       withDeleted: includeInactive,
-      relations: ['clientOrders', 'technicianOrders', 'recepcionistaOrders', 'evidenciasTecnicas'],
+      relations: ['userRoles', 'userRoles.rol'],
+    });
+
+    return data.map(user => {
+      const userObj = user as any;
+      userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'user';
+      return userObj;
     });
   }
 
@@ -65,25 +111,32 @@ export class UsersService {
     const user = await this.userRepository.findOne({
       where: { id },
       withDeleted: includeInactive,
-      relations: ['clientOrders', 'technicianOrders', 'recepcionistaOrders', 'evidenciasTecnicas'],
+      relations: ['userRoles', 'userRoles.rol'],
     });
 
     if (!user || (!includeInactive && !user.estado)) {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    return user;
+    const userObj = user as any;
+    userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'user';
+    return userObj;
   }
 
   async findByEmail(email: string, withPassword = false): Promise<User | undefined> {
+    // ✅ Validar que el email no esté vacío
+    if (!email || email.trim() === '') {
+      throw new BadRequestException('El correo es requerido');
+    }
+
     const options: any = {
-      where: { correo: email },
-      relations: ['clientOrders', 'technicianOrders', 'recepcionistaOrders']
+      where: { correo: email, estado: true },
+      relations: ['userRoles', 'userRoles.rol'],
     };
 
     if (withPassword) {
       options.select = ['id', 'cedula', 'nombre', 'apellido', 'correo', 'telefono',
-        'direccion', 'ciudad', 'password', 'role', 'estado'];
+        'direccion', 'ciudad', 'password', 'estado'];
     }
 
     return this.userRepository.findOne(options);
@@ -92,8 +145,40 @@ export class UsersService {
   async update(id: number, updateDto: UpdateUserDto): Promise<User> {
     const user = await this.findOne(id, true);
 
+    // ✅ Validar campos no estén vacíos si se proporcionan
+    if (updateDto.nombre !== undefined && updateDto.nombre.trim() === '') {
+      throw new BadRequestException('El nombre no puede estar vacío');
+    }
+    if (updateDto.apellido !== undefined && updateDto.apellido.trim() === '') {
+      throw new BadRequestException('El apellido no puede estar vacío');
+    }
+    if (updateDto.telefono !== undefined && updateDto.telefono.trim() === '') {
+      throw new BadRequestException('El teléfono no puede estar vacío');
+    }
+    if (updateDto.correo !== undefined && updateDto.correo.trim() === '') {
+      throw new BadRequestException('El correo no puede estar vacío');
+    }
+
+    // ✅ Validar formato de teléfono
+    if (updateDto.telefono && !/^\d{10}$/.test(updateDto.telefono)) {
+      throw new BadRequestException('El teléfono debe tener exactamente 10 dígitos');
+    }
+
+    // ✅ Validar formato de correo
+    if (updateDto.correo) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(updateDto.correo)) {
+        throw new BadRequestException('El correo no es válido');
+      }
+    }
+
     // Verificar duplicados de cédula
     if (updateDto.cedula && updateDto.cedula !== user.cedula) {
+      // ✅ Validar formato de cédula
+      if (!/^\d{10}$/.test(updateDto.cedula)) {
+        throw new BadRequestException('La cédula debe tener exactamente 10 dígitos');
+      }
+
       const existeCedula = await this.userRepository.findOne({
         where: { cedula: updateDto.cedula },
         withDeleted: true,
@@ -102,7 +187,7 @@ export class UsersService {
       if (existeCedula) {
         throw new BadRequestException('Ya existe un usuario con esta cédula');
       }
-      user.cedula = updateDto.cedula;
+      user.cedula = updateDto.cedula.trim();
     }
 
     // Verificar duplicados de correo
@@ -115,20 +200,30 @@ export class UsersService {
       if (existeCorreo) {
         throw new BadRequestException('Ya existe un usuario con este correo');
       }
-      user.correo = updateDto.correo;
+      user.correo = updateDto.correo.trim();
     }
 
     // Actualizar campos básicos
-    if (updateDto.nombre) user.nombre = updateDto.nombre;
-    if (updateDto.apellido) user.apellido = updateDto.apellido;
-    if (updateDto.telefono) user.telefono = updateDto.telefono;
-    if (updateDto.direccion) user.direccion = updateDto.direccion;
-    if (updateDto.ciudad) user.ciudad = updateDto.ciudad;
-    if (updateDto.role) user.role = updateDto.role;
+    if (updateDto.nombre) user.nombre = updateDto.nombre.trim();
+    if (updateDto.apellido) user.apellido = updateDto.apellido.trim();
+    if (updateDto.telefono) user.telefono = updateDto.telefono.trim();
+    if (updateDto.direccion) user.direccion = updateDto.direccion?.trim();
+    if (updateDto.ciudad) user.ciudad = updateDto.ciudad?.trim();
     if (updateDto.estado !== undefined) user.estado = updateDto.estado;
 
     // Actualizar contraseña si se proporciona
     if (updateDto.password) {
+      // ✅ Validar fortaleza de contraseña
+      if (updateDto.password.length < 8) {
+        throw new BadRequestException('La contraseña debe tener al menos 8 caracteres');
+      }
+      if (!/[A-Z]/.test(updateDto.password)) {
+        throw new BadRequestException('La contraseña debe contener al menos una mayúscula');
+      }
+      if (!/\d/.test(updateDto.password)) {
+        throw new BadRequestException('La contraseña debe contener al menos un número');
+      }
+
       const salt = await bcrypt.genSalt();
       user.password = await bcrypt.hash(updateDto.password, salt);
     }
@@ -175,9 +270,13 @@ export class UsersService {
     const skip = (page - 1) * limit;
 
     const query = this.userRepository.createQueryBuilder('user')
-      .leftJoinAndSelect('user.clientOrders', 'clientOrders')
-      .leftJoinAndSelect('user.technicianOrders', 'technicianOrders')
-      .leftJoinAndSelect('user.recepcionistaOrders', 'recepcionistaOrders');
+      .leftJoinAndSelect('user.userRoles', 'userRoles')
+      .leftJoinAndSelect('userRoles.rol', 'rol');
+
+    // Incluir soft deleted si se solicita
+    if (includeInactive) {
+      query.withDeleted();
+    }
 
     if (search) {
       query.where(
@@ -190,8 +289,7 @@ export class UsersService {
     }
 
     if (!includeInactive) {
-      query.andWhere('user.estado = :estado', { estado: true })
-        .andWhere('user.deletedAt IS NULL');
+      query.andWhere('user.estado = :estado', { estado: true });
     }
 
     query.skip(skip)
@@ -200,7 +298,14 @@ export class UsersService {
 
     const [data, total] = await query.getManyAndCount();
 
-    return { data, total };
+    // Transformar los usuarios para que tengan un campo 'role' mapeado desde userRoles
+    const transformedData = data.map(user => {
+      const userObj = user as any;
+      userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'user';
+      return userObj;
+    });
+
+    return { data: transformedData, total };
   }
 
   async toggleStatus(id: number): Promise<User> {
@@ -232,8 +337,70 @@ export class UsersService {
     await this.userRepository.save(user);
   }
 
-  async countByRole(role: Role): Promise<number> {
-    return this.userRepository.count({ where: { role } });
+  /**
+   * Obtener reporte completo del usuario con todas sus relaciones
+   * @param id ID del usuario
+   * @returns Datos completos del usuario para reportes
+   */
+  async getUserReport(id: number): Promise<any> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: [
+        'clientOrders',
+        'technicianOrders',
+        'recepcionistaOrders',
+        'evidenciasTecnicas',
+        'userRoles',
+        'userRoles.rol',
+      ],
+    });
+
+    if (!user || !user.estado) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    return {
+      usuario: {
+        id: user.id,
+        cedula: user.cedula,
+        nombre: user.nombre,
+        apellido: user.apellido,
+        correo: user.correo,
+        telefono: user.telefono,
+        direccion: user.direccion,
+        ciudad: user.ciudad,
+      },
+      roles: user.userRoles?.map(ur => ({ id: ur.id, rol: ur.rol })) || [],
+      actividad: {
+        ordenesComo_cliente: user.clientOrders?.length || 0,
+        ordenesComo_tecnico: user.technicianOrders?.length || 0,
+        ordenesComo_recepcionista: user.recepcionistaOrders?.length || 0,
+        evidencias_tecnicas: user.evidenciasTecnicas?.length || 0,
+      },
+      detalles: {
+        clientOrders: user.clientOrders || [],
+        technicianOrders: user.technicianOrders || [],
+        recepcionistaOrders: user.recepcionistaOrders || [],
+        evidenciasTecnicas: user.evidenciasTecnicas || [],
+      },
+    };
+  }
+
+  /**
+   * Contar usuarios con un rol específico
+   * @param roleSlug Slug del rol (ej: 'admin', 'tech')
+   * @returns Cantidad de usuarios con ese rol
+   */
+  async countByRole(roleSlug: string): Promise<number> {
+    const count = await this.userRepository
+      .createQueryBuilder('user')
+      .innerJoin('user.userRoles', 'userRole')
+      .innerJoin('userRole.rol', 'rol')
+      .where('rol.slug = :slug', { slug: roleSlug })
+      .andWhere('user.estado = :estado', { estado: true })
+      .andWhere('user.deletedAt IS NULL')
+      .getCount();
+    return count;
   }
 
   async updatePassword(id: number, currentPassword: string, newPassword: string): Promise<User> {

@@ -16,9 +16,9 @@ import { CreateNotificacionDto } from './dto/create-notificacion.dto';
 import { UpdateNotificacionDto } from './dto/update-notificacion.dto';
 import { Notificacion } from './entities/notificacion.entity';
 import { Auth } from 'src/auth/decorators/auth.decorator';
-import { Role } from 'src/common/enums/rol.enum';
 
-@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+
+@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 @Controller('notificaciones')
 export class NotificacionController {
   constructor(private readonly notificacionService: NotificacionService) { }

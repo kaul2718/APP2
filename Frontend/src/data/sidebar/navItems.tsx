@@ -33,317 +33,317 @@ export const navItems: NavItem[] = [
   {
     icon: <Squares2X2Icon className="w-5 h-5" />,
     name: "Dashboard",
-    roles: ["Administrador", "Técnico"],
+    roles: ["admin", "tech"],
     subItems: [
       {
         name: "Ecommerce",
         path: "/",
         pro: false,
-        roles: ["Administrador", "Técnico", "Cliente"]
+        roles: ["admin", "tech", "client"]
       }
     ],
   },
   {
     icon: <UserCircleIcon className="w-5 h-5" />,
     name: "Clientes",
-    roles: ["Administrador"],
+    roles: ["admin"],
     subItems: [
       {
         name: "Nuevo Usuario",
         path: "/ingresar-usuario",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Usuarios",
         path: "/ver-usuario",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
     ],
   },
   {
     icon: <ClipboardDocumentListIcon className="w-5 h-5" />,
     name: "Orden de Servicio",
-    roles: ["Administrador", "Técnico", "Cliente"],
+    roles: ["admin", "tech", "client"],
     subItems: [
       {
         name: "Nueva Orden de Servicio",
         path: "/ingresar-orden",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
       {
         name: "Ver Ordenes de Servicio",
         path: "/ver-orden",
-        roles: ["Administrador", "Técnico", "Cliente"]
+        roles: ["admin", "tech", "client"]
       },
     ],
   },
   {
     icon: <ClipboardDocumentListIcon className="w-5 h-5" />,
     name: "Actividad Técnica",
-    roles: ["Administrador", "Técnico"],
+    roles: ["admin", "tech"],
     subItems: [
       {
         name: "Nueva Actividad Técnica",
         path: "/ingresar-actividad-tecnica",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
       {
         name: "Ver Actividades Técnicas",
         path: "/ver-actividad-tecnica",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
     ],
   },
   {
     icon: <ComputerDesktopIcon className="w-5 h-5" />,
     name: "Equipos",
-    roles: ["Administrador", "Técnico"],
+    roles: ["admin", "tech"],
     subItems: [
       {
         name: "Nueva Marca",
         path: "/ingresar-marca",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Marcas",
         path: "/ver-marca",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
       {
         name: "Nuevo Tipo Equipo",
         path: "/ingresar-tipo-equipo",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Tipo Equipo",
         path: "/ver-tipo-equipo",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
       {
         name: "Nuevo Modelo",
         path: "/ingresar-modelo",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Modelos",
         path: "/ver-modelo",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
       {
         name: "Nuevo Equipo",
         path: "/ingresar-equipo",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
       {
         name: "Ver Equipos",
         path: "/ver-equipo",
-        roles: ["Administrador", "Técnico", "Cliente"]
+        roles: ["admin", "tech", "client"]
       },
     ],
   },
   {
     icon: <RectangleGroupIcon className="w-5 h-5" />,
     name: "Casilleros",
-    roles: ["Administrador"],
+    roles: ["admin"],
     subItems: [
       {
         name: "Ingresar Casillero",
         path: "/ingresar-casillero",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Casilleros",
         path: "/ver-casillero",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
     ],
   },
   {
     icon: <DocumentTextIcon className="w-5 h-5" />,
     name: "Estados Orden Servicio",
-    roles: ["Administrador"],
+    roles: ["admin"],
     subItems: [
       {
         name: "Ingresar Estado Orden",
         path: "/ingresar-estado-orden",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Estados Orden",
         path: "/ver-estado-orden",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
     ],
   },
   {
     icon: <ClipboardIcon className="w-5 h-5" />,
     name: "Tipo Actividad Tecnica",
-    roles: ["Administrador"],
+    roles: ["admin"],
     subItems: [
       {
         name: "Ingresar Tipo Actividad Tecnica",
         path: "/ingresar-tipo-actividad-tecnica",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Tipos Actividad Tecnica",
         path: "/ver-tipo-actividad-tecnica",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
     ],
   },
   {
     icon: <DocumentTextIcon className="w-5 h-5" />,
     name: "Presupuestos",
-    roles: ["Administrador", "Técnico"],
+    roles: ["admin", "tech"],
     subItems: [
       {
         name: "Ingresar Presupuesto",
         path: "/ingresar-presupuesto",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
       {
         name: "Ver Presupuestos",
         path: "/ver-presupuesto",
-        roles: ["Administrador", "Técnico", "Cliente"]
+        roles: ["admin", "tech", "client"]
       },
       {
         name: "Ingresar Detalle Mano de Obra",
         path: "/ingresar-detalle-mano-obra",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
       {
         name: "Ver Mano de Obra",
         path: "/ver-detalle-mano-obra",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
       {
         name: "Ingresar Detalle Repuesto",
         path: "/ingresar-detalle-repuesto",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
       {
         name: "Ver Detalle Repuesto",
         path: "/ver-detalle-repuesto",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
     ],
   },
   {
     icon: <DocumentTextIcon className="w-5 h-5" />,
     name: "Estado Presupuesto",
-    roles: ["Administrador"],
+    roles: ["admin"],
     subItems: [
       {
         name: "Ingresar Estado Presupuesto",
         path: "/ingresar-estado-presupuesto",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Estados Presupuestos",
         path: "/ver-estado-presupuesto",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
     ],
   },
   {
     icon: <WrenchScrewdriverIcon className="w-5 h-5" />,
     name: "Tipo Mano Obra",
-    roles: ["Administrador"],
+    roles: ["admin"],
     subItems: [
       {
         name: "Ingresar Tipo Mano Obra",
         path: "/ingresar-tipo-mano-obra",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Tipos de Mano Obra",
         path: "/ver-tipo-mano-obra",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
     ],
   },
   {
     icon: <ArchiveBoxIcon className="w-5 h-5" />,
     name: "Inventario / Partes",
-    roles: ["Administrador", "Técnico"],
+    roles: ["admin", "tech"],
     subItems: [
       {
         name: "Ingresar Inventario",
         path: "/ingresar-inventario",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Inventario",
         path: "/ver-inventario",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
       {
         name: "Ingresar Categoria",
         path: "/ingresar-categoria",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Categorias",
         path: "/ver-categoria",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
       {
         name: "Ingresar Tipo Especificación",
         path: "/ingresar-tipo-especificacion",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Tipo Especificación",
         path: "/ver-tipo-especificacion",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
       {
         name: "Ingresar Especificación Parte",
         path: "/ingresar-especificacion-parte",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Especificación Parte",
         path: "/ver-especificacion-parte",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
       {
         name: "Ingresar Parte",
         path: "/ingresar-parte",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Partes",
         path: "/ver-parte",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
       {
         name: "Ingresar Repuesto",
         path: "/ingresar-repuesto",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Repuestos",
         path: "/ver-repuesto",
-        roles: ["Administrador", "Técnico"]
+        roles: ["admin", "tech"]
       },
     ],
   },
   {
     icon: <BellAlertIcon className="w-5 h-5" />,
     name: "Tipo Notificación",
-    roles: ["Administrador"],
+    roles: ["admin"],
     subItems: [
       {
         name: "Ingresar Tipo Notificación",
         path: "/ingresar-tipo-notificacion",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
       {
         name: "Ver Tipos de Notificación",
         path: "/ver-tipo-notificacion",
-        roles: ["Administrador"]
+        roles: ["admin"]
       },
     ],
   },

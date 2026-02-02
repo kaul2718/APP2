@@ -1,32 +1,41 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Observable } from 'rxjs';
-import { Role } from '../../common/enums/rol.enum';
 import { ROLES_KEY } from '../../decorators/roles.decorator';
+import { ValidRole, VALID_ROLES, RoleHelper } from '../../common/helpers/role.helper';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) { }
+  constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const roles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredRoles = this.reflector.getAllAndOverride<ValidRole[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
-    if (!roles) {
-      return true; // Si no hay roles especificados, permite el acceso
+    // Si no hay roles especificados, permite el acceso
+    if (!requiredRoles || requiredRoles.length === 0) {
+      return true;
     }
 
     const { user } = context.switchToHttp().getRequest();
-    //console.log(user.role); // Verifica el rol del usuario
 
-    if (user.role === Role.ADMIN) {
-      return true; // Si el usuario es admin, tiene acceso
+    if (!user) {
+      return false;
     }
 
-    // Verifica si el rol del usuario está dentro de los roles permitidos
-    return roles.includes(user.role);
+    // Los roles del usuario vienen de la BD via UserRole
+    const userRoles: ValidRole[] = (user.userRoles || []).map(
+      (ur: any) => ur.rol?.slug,
+    );
+
+    // Si el usuario es admin, tiene acceso a todo
+    if (userRoles.includes(VALID_ROLES.ADMIN)) {
+      return true;
+    }
+
+    // Verificar si el usuario tiene al menos uno de los roles requeridos
+    return userRoles.some((role) => requiredRoles.includes(role));
   }
 }
 

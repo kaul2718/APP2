@@ -3,10 +3,10 @@ import { ParteService } from './parte.service';
 import { CreateParteDto } from './dto/create-parte.dto';
 import { UpdateParteDto } from './dto/update-parte.dto';
 import { Auth } from '../auth/decorators/auth.decorator';
-import { Role } from '../common/enums/rol.enum';
+
 import { Parte } from './entities/parte.entity';
 
-@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 @Controller('partes')
 export class ParteController {
   constructor(private readonly parteService: ParteService) { }

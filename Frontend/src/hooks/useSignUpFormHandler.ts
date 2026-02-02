@@ -83,7 +83,7 @@ export function useSignUpFormHandler() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!validate()) return;
-    await registerUser({ ...formData, role: "Cliente" });
+    await registerUser({ ...formData, role: "client" });
   };
 
   return {

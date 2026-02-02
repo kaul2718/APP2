@@ -1,0 +1,426 @@
+```
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                   🔐 SISTEMA DE ROLES Y PERMISOS                              ║
+║                        IMPLEMENTACIÓN COMPLETA                                 ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+📁 ESTRUCTURA DE CARPETAS CREADAS/MODIFICADAS
+═══════════════════════════════════════════════════════════════════════════════
+
+Backend/
+├── src/
+│   ├── permissions/                          ✨ NUEVO
+│   │   ├── entities/
+│   │   │   └── permission.entity.ts           • Entidad de permisos
+│   │   ├── dto/
+│   │   │   ├── create-permission.dto.ts
+│   │   │   └── update-permission.dto.ts
+│   │   ├── permissions.controller.ts          • Rutas CRUD
+│   │   ├── permissions.service.ts             • Lógica de permisos
+│   │   └── permissions.module.ts              • Módulo
+│   │
+│   ├── role-permission/                       ✨ NUEVO
+│   │   ├── entities/
+│   │   │   └── role-permission.entity.ts      • Tabla de unión
+│   │   └── role-permission.module.ts
+│   │
+│   ├── user-role/                             ♻️  MEJORADO
+│   │   └── entities/
+│   │       └── user-role.entity.ts            • Tabla de unión
+│   │
+│   ├── rol/                                   ♻️  MEJORADO
+│   │   ├── entities/
+│   │   │   └── rol.entity.ts                  • Entidad mejorada
+│   │   ├── dto/
+│   │   │   ├── create-rol.dto.ts              • DTO mejorado
+│   │   │   └── update-rol.dto.ts
+│   │   ├── rol.controller.ts                  • Controlador mejorado
+│   │   ├── rol.service.ts                     • Servicio mejorado
+│   │   └── rol.module.ts                      • Módulo mejorado
+│   │
+│   ├── usuario-rol/                           ♻️  MEJORADO
+│   │   ├── dto/
+│   │   │   ├── create-usuario-rol.dto.ts      • DTO mejorado
+│   │   │   └── update-usuario-rol.dto.ts
+│   │   ├── usuario-rol.controller.ts          • Controlador mejorado
+│   │   ├── usuario-rol.service.ts             • Servicio mejorado
+│   │   └── usuario-rol.module.ts              • Módulo mejorado
+│   │
+│   ├── seeder/                                ✨ NUEVO
+│   │   ├── seeder.service.ts                  • Carga datos iniciales
+│   │   ├── seeder.command.ts                  • Comando CLI
+│   │   └── seeder.module.ts
+│   │
+│   ├── decorators/
+│   │   ├── roles.decorator.ts                 • Existing - por rol
+│   │   └── permissions.decorator.ts           ✨ NUEVO - por permiso
+│   │
+│   ├── auth/guard/
+│   │   ├── auth.guard.ts                      • Existing - JWT
+│   │   ├── roles.guard.ts                     • Existing - roles
+│   │   └── permissions.guard.ts               ✨ NUEVO - permisos
+│   │
+│   ├── users/entities/
+│   │   └── user.entity.ts                     ♻️  MEJORADO (userRoles)
+│   │
+│   ├── app.module.ts                          ♻️  MEJORADO (módulos)
+│   │
+│   ├── ROLES_PERMISSIONS_README.md            📖 DOCUMENTACIÓN COMPLETA
+│   └── EJEMPLOS_ROLES_PERMISOS.ts             📚 EJEMPLOS DE USO
+│
+└── ROLES_PERMISOS_IMPLEMENTACION.md            📋 RESUMEN
+
+
+═══════════════════════════════════════════════════════════════════════════════
+📊 DIAGRAMA DE RELACIONES EN BD
+═══════════════════════════════════════════════════════════════════════════════
+
+                    ┌──────────────────┐
+                    │    Permission    │
+                    ├──────────────────┤
+                    │ id (PK)          │
+                    │ nombre           │
+                    │ slug (UNIQUE)    │
+                    │ descripcion      │
+                    │ created_at       │
+                    │ updated_at       │
+                    └────────▲─────────┘
+                             │ 1:N
+                             │
+                    ┌────────┴─────────┐
+                    │ RolePermission   │
+                    ├────────┬─────────┤
+                    │ id (PK)        │
+                    │ role_id (FK)   │
+                    │ permission_id(FK)│
+                    │ created_at       │
+                    │ updated_at       │
+                    └────────┬─────────┘
+                             │ N:1
+                             │
+                    ┌────────▼─────────┐
+                    │       Rol        │
+                    ├──────────────────┤
+                    │ id (PK)          │
+                    │ nombre           │
+                    │ slug (UNIQUE)    │
+                    │ descripcion      │
+                    │ activo           │
+                    │ created_at       │
+                    │ updated_at       │
+                    └────────▲─────────┘
+                             │ 1:N
+                             │
+                    ┌────────┴─────────┐
+                    │    UserRole      │
+                    ├────────┬─────────┤
+                    │ id (PK)        │
+                    │ user_id (FK)   │
+                    │ role_id (FK)   │
+                    │ created_at       │
+                    │ updated_at       │
+                    └────────┬─────────┘
+                             │ N:1
+                             │
+                    ┌────────▼─────────┐
+                    │       User       │
+                    ├──────────────────┤
+                    │ id (PK)          │
+                    │ cedula           │
+                    │ nombre           │
+                    │ correo           │
+                    │ password         │
+                    │ role (ENUM)      │ ← LEGACY
+                    │ estado           │
+                    │ created_at       │
+                    │ updated_at       │
+                    └──────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🔄 FLUJO DE AUTENTICACIÓN Y AUTORIZACIÓN
+═══════════════════════════════════════════════════════════════════════════════
+
+CLIENTE
+   │
+   ├─ Envia credenciales (correo + contraseña)
+   │
+   ├─ AuthService genera JWT con:
+   │  ├─ sub: userId
+   │  ├─ correo: email
+   │  └─ role: role (LEGACY)
+   │
+   └─ Bearer Token guardado en cliente
+   
+ACCESO A RUTA PROTEGIDA
+   │
+   ├─ @UseGuards(AuthGuard)
+   │  └─ ✓ Verifica JWT válido
+   │     └─ Extrae user del token
+   │
+   ├─ @UseGuards(RolesGuard) - Opcional
+   │  └─ ✓ Verifica @Roles(Role.ADMIN)
+   │     └─ Compara user.role
+   │
+   ├─ @UseGuards(PermissionsGuard) - Opcional
+   │  └─ ✓ Verifica @RequirePermissions('orders.create')
+   │     ├─ Obtiene roles del usuario (UserRole)
+   │     ├─ Obtiene permisos del rol (RolePermission)
+   │     └─ Valida si tiene permiso requerido
+   │
+   └─ ✓ Acceso permitido → Ejecuta handler
+      ✗ Acceso denegado → 403 Forbidden
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🎯 FLUJO DE SETUP INICIAL
+═══════════════════════════════════════════════════════════════════════════════
+
+1️⃣ EJECUTAR SEEDER
+   $ npm run seed:run
+   
+   Crea automáticamente:
+   ✓ 5 roles predefinidos (Admin, Técnico, Recepcionista, Cliente, User)
+   ✓ 20+ permisos granulares (orders.*, users.*, roles.*, etc)
+   ✓ Relaciones rol-permiso
+
+2️⃣ CREAR USUARIO (vía Auth)
+   POST /api/v1/auth/register
+   {
+     "cedula": "1234567890",
+     "nombre": "Juan",
+     "correo": "juan@tech.com",
+     "password": "Seguro123!",
+     "telefono": "0987654321",
+     "ciudad": "Quito",
+     "role": "Cliente"
+   }
+
+3️⃣ ASIGNAR ROL AL USUARIO
+   POST /api/v1/user-roles/1/assign/2
+   (Usuario 1, Rol 2 = Técnico)
+
+4️⃣ USUARIO LOGEA
+   POST /api/v1/auth/login
+   {
+     "correo": "juan@tech.com",
+     "password": "Seguro123!"
+   }
+   
+   Response:
+   {
+     "token": "eyJhbGc..."
+   }
+
+5️⃣ USAR TOKEN EN SOLICITUDES
+   GET /api/v1/orders
+   Headers:
+   Authorization: Bearer eyJhbGc...
+   
+   Guard verifica:
+   ✓ JWT válido
+   ✓ Usuario tiene rol Técnico
+   ✓ Rol Técnico tiene permiso 'orders.view'
+   ✓ Acceso concedido
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🛡️  GUARDS Y DECORATORS DISPONIBLES
+═══════════════════════════════════════════════════════════════════════════════
+
+GUARDS (Validadores):
+─────────────────────
+✓ AuthGuard             → Verifica JWT válido
+✓ RolesGuard           → Verifica rol del usuario
+✓ PermissionsGuard     → Verifica permisos específicos
+
+DECORATORS (Configuradores):
+──────────────────────────
+✓ @Roles(Role.ADMIN)   → Restringe por rol
+✓ @RequirePermissions  → Restringe por permiso
+✓ @GetUser()           → Inyecta usuario actual
+
+COMBINACIONES:
+─────────────
+// Solo lectura (rol)
+@UseGuards(AuthGuard, RolesGuard)
+@Roles(Role.ADMIN)
+
+// Lectura + escritura (permiso)
+@UseGuards(AuthGuard, PermissionsGuard)
+@RequirePermissions('orders.create')
+
+// Máxima seguridad (rol + permiso)
+@UseGuards(AuthGuard, RolesGuard, PermissionsGuard)
+@Roles(Role.ADMIN, Role.TECH)
+@RequirePermissions('orders.update')
+
+
+═══════════════════════════════════════════════════════════════════════════════
+📈 ROLES PREDEFINIDOS Y PERMISOS
+═══════════════════════════════════════════════════════════════════════════════
+
+👑 ADMINISTRADOR (admin)
+└─ Permisos: Todos excepto limitaciones especiales
+   ├─ orders.*      (view, create, update, delete)
+   ├─ users.*       (view, create, update, delete)
+   ├─ presupuestos.* (view, create, update, delete, approve)
+   ├─ inventario.*  (view, manage)
+   ├─ roles.manage
+   ├─ permissions.manage
+   ├─ reportes.*    (view, export)
+   └─ notificaciones.* (send, view)
+
+🔧 TÉCNICO (tech)
+└─ Permisos: Ejecución de órdenes técnicas
+   ├─ orders.view
+   ├─ orders.update
+   ├─ presupuestos.view
+   ├─ inventario.view
+   └─ notificaciones.view
+
+📞 RECEPCIONISTA (recep)
+└─ Permisos: Gestión de entrada y clientes
+   ├─ orders.view
+   ├─ orders.create
+   ├─ users.view
+   ├─ presupuestos.view
+   ├─ notificaciones.send
+   └─ notificaciones.view
+
+👤 CLIENTE (client)
+└─ Permisos: Acceso limitado
+   ├─ orders.view
+   ├─ presupuestos.view
+   └─ notificaciones.view
+
+👥 USER (user)
+└─ Permisos: Usuario genérico
+   └─ notificaciones.view
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🔗 ENDPOINTS PRINCIPALES
+═══════════════════════════════════════════════════════════════════════════════
+
+PERMISOS (permissions):
+GET    /api/v1/permissions               Listar
+POST   /api/v1/permissions               Crear
+GET    /api/v1/permissions/:id           Obtener
+PATCH  /api/v1/permissions/:id           Actualizar
+DELETE /api/v1/permissions/:id           Eliminar
+
+ROLES (roles):
+GET    /api/v1/roles                     Listar
+POST   /api/v1/roles                     Crear (con permisos)
+GET    /api/v1/roles/:id                 Obtener
+PATCH  /api/v1/roles/:id                 Actualizar
+DELETE /api/v1/roles/:id                 Eliminar
+GET    /api/v1/roles/:roleId/permissions Obtener permisos
+POST   /api/v1/roles/:roleId/permissions/:permissionId  Asignar
+
+USUARIOS-ROLES (user-roles):
+GET    /api/v1/user-roles                Listar
+POST   /api/v1/user-roles                Crear
+GET    /api/v1/user-roles/:id            Obtener
+GET    /api/v1/user-roles/user/:userId   Obtener roles del usuario
+DELETE /api/v1/user-roles/:id            Eliminar
+POST   /api/v1/user-roles/:userId/assign/:roleId      Asignar
+DELETE /api/v1/user-roles/:userId/remove/:roleId      Remover
+
+
+═══════════════════════════════════════════════════════════════════════════════
+✅ CHECKLIST DE IMPLEMENTACIÓN
+═══════════════════════════════════════════════════════════════════════════════
+
+Sistema de Roles y Permisos:
+  ✅ Entidades (Permission, Rol, RolePermission, UserRole)
+  ✅ Servicios (PermissionsService, RolService, UsuarioRolService)
+  ✅ Controladores (PermissionsController, RolController, UsuarioRolController)
+  ✅ Módulos (PermissionsModule, RolModule, UsuarioRolModule, RolePermissionModule)
+  ✅ Guards (AuthGuard, RolesGuard, PermissionsGuard)
+  ✅ Decorators (@Roles, @RequirePermissions)
+  ✅ DTOs con validación
+  ✅ Seeders (roles y permisos predefinidos)
+  ✅ Documentación completa
+  ✅ Ejemplos de uso
+
+Base de Datos:
+  ✅ Tabla permissions
+  ✅ Tabla roles
+  ✅ Tabla role_permissions
+  ✅ Tabla user_roles
+  ✅ user.userRoles relación OneToMany
+
+Seguridad:
+  ✅ Validación JWT
+  ✅ Validación de roles
+  ✅ Validación de permisos granulares
+  ✅ Autorización por capas
+  ✅ Manejo de errores 403
+
+
+═══════════════════════════════════════════════════════════════════════════════
+📚 DOCUMENTACIÓN DISPONIBLE
+═══════════════════════════════════════════════════════════════════════════════
+
+1. src/ROLES_PERMISSIONS_README.md
+   → Documentación técnica completa
+   → API reference detallada
+   → Ejemplos de uso
+
+2. ROLES_PERMISOS_IMPLEMENTACION.md
+   → Resumen ejecutivo
+   → Diagrama de arquitectura
+   → Checklist de implementación
+
+3. src/EJEMPLOS_ROLES_PERMISOS.ts
+   → Ejemplos de código prácticos
+   → Patrones recomendados
+   → Solución a errores comunes
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🚀 PRÓXIMOS PASOS
+═══════════════════════════════════════════════════════════════════════════════
+
+INMEDIATO:
+  1. npm install (si hay nuevas dependencias)
+  2. npm run seed:run (cargar roles y permisos)
+  3. Probar endpoints con Postman/Insomnia
+
+CORTO PLAZO:
+  1. Aplicar @Roles y @RequirePermissions en controladores existentes
+  2. Migrar de Role.ENUM a sistema de roles flexibles
+  3. Crear permisos específicos por módulo
+
+MEDIANO PLAZO:
+  1. Implementar caché de permisos
+  2. Auditoría de cambios en roles
+  3. Interface de admin para gestión visual
+  4. Validaciones adicionales por contexto
+
+
+═══════════════════════════════════════════════════════════════════════════════
+❓ PREGUNTAS FRECUENTES
+═══════════════════════════════════════════════════════════════════════════════
+
+P: ¿Cómo actualizar el JWT con nuevos roles?
+R: El usuario debe volver a logear. El JWT se genera con roles actuales.
+
+P: ¿Puedo tener múltiples roles en un usuario?
+R: ✓ Sí, a través de UserRole. Verifica permisos de todos los roles.
+
+P: ¿Diferencia entre Role.ENUM y roles flexibles?
+R: Role.ENUM es legacy. El sistema nuevo usa roles BD con permisos granulares.
+
+P: ¿Cómo crear un permiso dinámico?
+R: POST /api/v1/permissions con nombre y slug únicos.
+
+P: ¿Rendimiento con muchos permisos?
+R: Usa eager loading (rolePermissions con @Relation).
+
+═══════════════════════════════════════════════════════════════════════════════
+FIN - IMPLEMENTACIÓN COMPLETADA ✅
+═══════════════════════════════════════════════════════════════════════════════
+```

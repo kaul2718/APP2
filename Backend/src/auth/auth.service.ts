@@ -9,7 +9,6 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcryptjs from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
-import { Role } from 'src/common/enums/rol.enum';
 import { EnviarInvitacionDto } from './dto/enviar-invitacion.dto';
 import { GuardarNuevaClaveDto } from './dto/guardar-nueva-clave.dto';
 import { v4 as uuidv4 } from 'uuid';
@@ -33,7 +32,6 @@ export class AuthService {
       telefono,
       direccion,
       ciudad,
-      role,
     } = registerDto;
 
     const existingUser = await this.usersService.findByEmail(correo);
@@ -60,7 +58,6 @@ export class AuthService {
       direccion,
       ciudad,
       password: hashedPassword,
-      role: role || Role.CLIENT,
     });
 
     return {
@@ -68,7 +65,6 @@ export class AuthService {
       nombre: newUser.nombre,
       apellido: newUser.apellido,
       correo: newUser.correo,
-      role: newUser.role,
     };
   }
 
@@ -93,10 +89,14 @@ export class AuthService {
     const payload = {
       sub: user.id,
       correo: user.correo,
-      role: user.role,
     };
 
     const token = await this.jwtService.signAsync(payload);
+
+    // ✅ Obtener el primer rol del usuario (desde userRoles)
+    const userRole = user.userRoles && user.userRoles.length > 0 
+      ? user.userRoles[0].rol.slug 
+      : 'user'; // fallback a 'user' si no tiene roles
 
     return {
       token,
@@ -106,7 +106,10 @@ export class AuthService {
         nombre: user.nombre,
         apellido: user.apellido,
         correo: user.correo,
-        role: user.role,
+        telefono: user.telefono,
+        direccion: user.direccion,
+        ciudad: user.ciudad,
+        role: userRole,
       },
     };
   }

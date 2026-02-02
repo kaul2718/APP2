@@ -13,10 +13,10 @@ import { TipoManoObraService } from './tipo-mano-obra.service';
 import { CreateTipoManoObraDto } from './dto/create-tipo-mano-obra.dto';
 import { UpdateTipoManoObraDto } from './dto/update-tipo-mano-obra.dto';
 import { Auth } from '../auth/decorators/auth.decorator';
-import { Role } from '../common/enums/rol.enum';
+
 import { TipoManoObra } from './entities/tipo-mano-obra.entity';
 
-@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 @Controller('tipos-mano-obra')
 export class TipoManoObraController {
   constructor(private readonly tipoManoObraService: TipoManoObraService) { }

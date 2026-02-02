@@ -7,10 +7,14 @@ import {
 import { JwtService } from "@nestjs/jwt";
 import { Request } from "express";
 import { jwtConstants } from "../constants/jwt.constant";
+import { UsersService } from "../../users/users.service";
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly usersService: UsersService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -24,9 +28,15 @@ export class AuthGuard implements CanActivate {
       const payload = await this.jwtService.verifyAsync(token, {
         secret: jwtConstants.secret,
       });
-      //console.log("✅ Token decodificado:", payload); // Agrega esta línea
 
-      request.user = payload;
+      // Cargar el usuario completo desde BD para obtener sus roles
+      const user = await this.usersService.findOne(payload.sub, false);
+      if (!user) {
+        throw new UnauthorizedException();
+      }
+
+      // Adjuntar el usuario (con userRoles) al request
+      request.user = user;
     } catch {
       throw new UnauthorizedException();
     }

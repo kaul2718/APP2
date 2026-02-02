@@ -18,13 +18,13 @@ import { CreateEvidenciaTecnicaDto } from './dto/create-evidencia-tecnica.dto';
 import { UpdateEvidenciaTecnicaDto } from './dto/update-evidencia-tecnica.dto';
 import { EvidenciaTecnica } from './entities/evidencia-tecnica.entity';
 import { Auth } from '../auth/decorators/auth.decorator';
-import { Role } from '../common/enums/rol.enum';
 
-@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+
+@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 @Controller('evidencias-tecnicas')
 export class EvidenciaTecnicaController {
   constructor(private readonly evidenciaService: EvidenciaTecnicaService) { }
-  @Auth(Role.TECH, Role.ADMIN, Role.RECEP)
+  @Auth('tech', 'admin', 'recep')
   @Post()
   @UseInterceptors(FileInterceptor('archivo'))
   async create(
@@ -60,7 +60,7 @@ export class EvidenciaTecnicaController {
   }
 
 
-  @Auth(Role.TECH, Role.ADMIN, Role.RECEP, Role.CLIENT)
+  @Auth('tech', 'admin', 'recep', 'client')
   @Get()
   async findAll(
     @Query('ordenId') ordenId?: number,
@@ -93,7 +93,7 @@ export class EvidenciaTecnicaController {
     };
   }
 
-  @Auth(Role.TECH, Role.ADMIN, Role.RECEP, Role.CLIENT)
+  @Auth('tech', 'admin', 'recep', 'client')
   @Get(':id')
   async findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -101,7 +101,7 @@ export class EvidenciaTecnicaController {
     return await this.evidenciaService.findOne(id);
   }
 
-  @Auth(Role.TECH, Role.ADMIN, Role.RECEP)
+  @Auth('tech', 'admin', 'recep')
   @Patch(':id')
   @UseInterceptors(FileInterceptor('archivo'))
   async update(
@@ -117,7 +117,7 @@ export class EvidenciaTecnicaController {
     return await this.evidenciaService.update(id, updateDto);
   }
 
-  @Auth(Role.TECH, Role.ADMIN, Role.RECEP)
+  @Auth('tech', 'admin', 'recep')
   @Delete(':id')
   async remove(
     @Param('id', ParseIntPipe) id: number,

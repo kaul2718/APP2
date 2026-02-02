@@ -123,6 +123,7 @@ export default function EstablecerPassword() {
                                             placeholder="Mínimo 8 caracteres"
                                             value={formData.password}
                                             onChange={(e) => handleChange("password", e.target.value)}
+                                            autoComplete="new-password"
                                         />
                                         <span
                                             onClick={toggleShowPassword}
@@ -147,6 +148,7 @@ export default function EstablecerPassword() {
                                             placeholder="Confirma tu contraseña"
                                             value={formData.confirmPassword}
                                             onChange={(e) => handleChange("confirmPassword", e.target.value)}
+                                            autoComplete="new-password"
                                         />
                                         <span
                                             onClick={toggleShowConfirmPassword}

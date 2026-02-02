@@ -3,10 +3,10 @@ import { RepuestosService } from './repuestos.service';
 import { CreateRepuestoDto } from './dto/create-repuesto.dto';
 import { UpdateRepuestoDto } from './dto/update-repuesto.dto';
 import { Auth } from '../auth/decorators/auth.decorator';
-import { Role } from '../common/enums/rol.enum';
+
 import { Repuesto } from './entities/repuesto.entity';
 
-@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 @Controller('repuestos')
 export class RepuestosController {
   constructor(private readonly repuestosService: RepuestosService) { }

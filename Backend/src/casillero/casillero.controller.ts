@@ -3,11 +3,11 @@ import { CasilleroService } from './casillero.service';
 import { CreateCasilleroDto } from './dto/create-casillero.dto';
 import { UpdateCasilleroDto } from './dto/update-casillero.dto';
 import { Auth } from '../auth/decorators/auth.decorator';
-import { Role } from '../common/enums/rol.enum';
+
 import { Casillero } from './entities/casillero.entity';
 import { EstadoCasillero } from 'src/common/enums/estadoCasillero.enum';
 
-@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 @Controller('casilleros')
 export class CasilleroController {
   constructor(private readonly casilleroService: CasilleroService) {}

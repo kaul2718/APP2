@@ -1,5 +1,4 @@
-import { IsString, IsNotEmpty, IsEmail, Matches, Length, IsOptional } from 'class-validator';
-import { Role } from '../../common/enums/rol.enum';
+import { IsString, IsNotEmpty, IsEmail, Matches, Length, IsOptional, IsArray } from 'class-validator';
 import { IsCedulaEcuatoriana } from '../../decorators/is-cedula-ecuatoriana.decorator';
 import { Transform } from 'class-transformer';
 
@@ -43,6 +42,13 @@ export class RegisterDto {
   @Length(8, 20, { message: 'La contraseña debe tener entre 6 y 20 caracteres.' })
   password?: string;
 
-  @IsString()
-  role: Role;
+  /**
+   * Array de slugs de roles a asignar
+   * Ej: ['client', 'tech']
+   * Opcional - si no se proporciona, se asigna 'user' por defecto
+   */
+  @IsOptional()
+  @IsArray({ message: 'Los roles deben ser un array' })
+  @IsString({ each: true, message: 'Cada rol debe ser un string' })
+  roleIds?: string[];
 }

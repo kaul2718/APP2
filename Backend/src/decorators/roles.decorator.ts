@@ -1,5 +1,11 @@
 import { SetMetadata } from '@nestjs/common';
-import { Role } from '../common/enums/rol.enum';
+import { ValidRole } from '../common/helpers/role.helper';
 
-export const ROLES_KEY = "roles";
-export const Roles = (role:Role) => SetMetadata(ROLES_KEY, role);
+export const ROLES_KEY = 'roles';
+
+/**
+ * Decorador para restricción de roles
+ * Uso: @Roles('admin', 'tech')
+ */
+export const Roles = (...roles: ValidRole[]) =>
+  SetMetadata(ROLES_KEY, roles);

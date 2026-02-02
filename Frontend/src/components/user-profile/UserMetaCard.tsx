@@ -208,7 +208,12 @@ export default function UserMetaCard() {
         </div>
       </div>
 
-      <Modal isOpen={isOpen} onClose={handleCancel} className="max-w-[700px] m-4">
+      <Modal 
+        isOpen={isOpen} 
+        onClose={handleCancel} 
+        className="max-w-[700px] m-4"
+        title={activeTab === 'profile' ? 'Editar información personal' : 'Cambiar contraseña'}
+      >
         <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
           <div className="px-2 pr-14">
             <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
@@ -363,6 +368,7 @@ export default function UserMetaCard() {
                         onChange={handleChangePassword}
                         required
                         disabled={cargando}
+                        autoComplete="current-password"
                       />
                     </div>
 
@@ -375,6 +381,7 @@ export default function UserMetaCard() {
                         onChange={handleChangePassword}
                         required
                         disabled={cargando}
+                        autoComplete="new-password"
                       />
                       <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         La contraseña debe tener al menos 6 caracteres
@@ -390,6 +397,7 @@ export default function UserMetaCard() {
                         onChange={handleChangePassword}
                         required
                         disabled={cargando}
+                        autoComplete="new-password"
                       />
                     </div>
                   </div>

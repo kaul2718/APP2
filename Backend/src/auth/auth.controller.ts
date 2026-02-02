@@ -6,6 +6,7 @@ import { UserActiveInterface } from 'src/common/interfaces/user-active.interface
 import { ActiveUser } from 'src/common/decorators/active-user.decorator';
 import { EnviarInvitacionDto } from './dto/enviar-invitacion.dto';
 import { GuardarNuevaClaveDto } from './dto/guardar-nueva-clave.dto';
+import { AuthGuard } from './guard/auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -23,6 +24,7 @@ export class AuthController {
     }
 
     @Get('profile')
+    @UseGuards(AuthGuard)
     profile(@ActiveUser() user: UserActiveInterface) {
         return this.authService.profile(user);
     }

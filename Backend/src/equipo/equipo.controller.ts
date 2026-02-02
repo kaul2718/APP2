@@ -15,10 +15,10 @@ import { CreateEquipoDto } from './dto/create-equipo.dto';
 import { UpdateEquipoDto } from './dto/update-equipo.dto';
 import { Equipo } from './entities/equipo.entity';
 import { Auth } from '../auth/decorators/auth.decorator';
-import { Role } from '../common/enums/rol.enum';
+
 import { TrimPipe } from '../common/pipes/trim.pipe';
 
-@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 @Controller('equipos')
 export class EquipoController {
   constructor(private readonly equipoService: EquipoService) { }

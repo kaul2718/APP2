@@ -36,7 +36,7 @@ export interface EstadoOrdenBasic {
 
 export interface Order {
   id: number;
-  workOrderNumber?: string;
+  workOrderNumber: string;
   estado: boolean;
   client: UserBasic;
   technician?: UserBasic;
@@ -79,10 +79,9 @@ export function useOrders() {
   const [fechaInicio, setFechaInicio] = useState<string | undefined>();
   const [fechaFin, setFechaFin] = useState<string | undefined>();
 
-
   const fetchOrders = async (
     page: number = 1,
-    limit: number = 1000,
+    limit: number = 100,
     search: string = "",
     includeInactive: boolean = false,
     estadoId?: number,
@@ -102,10 +101,10 @@ export function useOrders() {
       let endpoint = 'orders';
       let isRoleSpecificEndpoint = false;
 
-      if (session.user.role === 'TECH') {
+      if (session.user.role === 'tech') {
         endpoint = 'tecnico/mis-ordenes';
         isRoleSpecificEndpoint = true;
-      } else if (session.user.role === 'CLIENT') {
+      } else if (session.user.role === 'client') {
         endpoint = 'cliente/mis-ordenes';
         isRoleSpecificEndpoint = true;
       }
@@ -249,6 +248,7 @@ export function useOrders() {
     fechaPrometidaEntrega?: string | null;
     accesorios?: string[];
     casilleroId?: number | null;
+    userId?: number;
   }) => {
     try {
       if (!session?.accessToken || !session.user?.id) {
@@ -411,7 +411,7 @@ export function useOrders() {
     if (status === "authenticated") {
       fetchOrders(
         1,
-        1000,
+        100,
         searchTerm,
         showInactive,
         estadoOrdenId,

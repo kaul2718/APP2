@@ -4,10 +4,10 @@ import { EspecificacionParteService } from './especificacion-parte.service';
 import { CreateEspecificacionParteDto } from './dto/create-especificacion-parte.dto';
 import { UpdateEspecificacionParteDto } from './dto/update-especificacion-parte.dto';
 import { Auth } from '../auth/decorators/auth.decorator';
-import { Role } from '../common/enums/rol.enum';
+
 import { EspecificacionParte } from './entities/especificacion-parte.entity';
 
-@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 @Controller('especificaciones-parte')
 export class EspecificacionParteController {
   constructor(

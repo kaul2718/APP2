@@ -1,5 +1,4 @@
-import { IsEmail, IsBoolean, IsEnum, IsNotEmpty, IsOptional, Matches, MinLength } from 'class-validator';
-import { Role } from '../../common/enums/rol.enum';
+import { IsEmail, IsBoolean, IsNotEmpty, IsOptional, Matches, MinLength, IsArray, IsString } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateUserDto } from './create-user.dto';
 
@@ -33,8 +32,9 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   password?: string;
 
   @IsOptional()
-  @IsEnum(Role, { message: 'El rol proporcionado no es válido' })
-  role?: Role;
+  @IsArray({ message: 'Los roles deben ser un array' })
+  @IsString({ each: true, message: 'Cada rol debe ser un string' })
+  roleIds?: string[];
 
   @IsOptional()
   @IsBoolean()

@@ -1,5 +1,4 @@
-import { IsEmail, IsBoolean, IsEnum, IsNotEmpty, IsOptional, Matches, MinLength } from 'class-validator';
-import { Role } from '../../common/enums/rol.enum';
+import { IsEmail, IsBoolean, IsNotEmpty, IsOptional, Matches, MinLength, IsArray, IsString } from 'class-validator';
 
 export class CreateUserDto {
   @IsNotEmpty({ message: 'La cédula es requerida' })
@@ -26,14 +25,20 @@ export class CreateUserDto {
   @IsNotEmpty({ message: 'La ciudad es requerida' })
   ciudad: string;
 
-  @IsOptional ()
+  @IsOptional()
   @IsNotEmpty({ message: 'La contraseña es requerida' })
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres.' })
   password?: string;
 
+  /**
+   * Array de slugs de roles a asignar al usuario
+   * Ej: ['client', 'tech']
+   * Los roles se asignan via UserRole después de crear el usuario
+   */
   @IsOptional()
-  @IsEnum(Role, { message: 'El rol proporcionado no es válido' })
-  role?: Role;
+  @IsArray({ message: 'Los roles deben ser un array' })
+  @IsString({ each: true, message: 'Cada rol debe ser un string' })
+  roleIds?: string[];
 
   @IsOptional()
   @IsBoolean()

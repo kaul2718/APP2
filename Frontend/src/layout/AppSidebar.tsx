@@ -199,7 +199,7 @@ const AppSidebar: React.FC = () => {
         className={`py-8 flex  ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
           }`}
       >
-        <Link href="/">
+        <Link href="/" className="hidden md:block">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
               <Image
@@ -208,6 +208,8 @@ const AppSidebar: React.FC = () => {
                 alt="Logo"
                 width={230}
                 height={40}
+                style={{ width: '100%', height: 'auto' }}
+                priority
               />
               <Image
                 className="hidden dark:block"
@@ -215,6 +217,8 @@ const AppSidebar: React.FC = () => {
                 alt="Logo"
                 width={230}
                 height={40}
+                style={{ width: '100%', height: 'auto' }}
+                priority
               />
             </>
           ) : (
@@ -223,6 +227,8 @@ const AppSidebar: React.FC = () => {
               alt="Logo"
               width={32}
               height={32}
+              style={{ width: '100%', height: 'auto' }}
+              priority
             />
           )}
         </Link>

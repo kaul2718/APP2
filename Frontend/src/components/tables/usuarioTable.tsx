@@ -160,7 +160,7 @@ export default function UsuarioTable() {
                       {cliente.correo}
                     </TableCell>
                     <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                      <Badge size="sm" color={cliente.role === 'ADMIN' ? 'primary' : 'secondary'}>
+                      <Badge size="sm" color={cliente.role === 'admin' ? 'primary' : 'info'}>
                         {cliente.role}
                       </Badge>
                     </TableCell>

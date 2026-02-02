@@ -3,11 +3,11 @@ import { ModeloService } from './modelo.service';
 import { CreateModeloDto } from './dto/create-modelo.dto';
 import { UpdateModeloDto } from './dto/update-modelo.dto';
 import { Auth } from 'src/auth/decorators/auth.decorator';
-import { Role } from 'src/common/enums/rol.enum';
+
 import { Modelo } from './entities/modelo.entity';
 
 
-@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 @Controller('modelos')
 export class ModeloController {
   constructor(private readonly modeloService: ModeloService) {}

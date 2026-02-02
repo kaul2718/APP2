@@ -4,28 +4,28 @@ import { CreateHistorialEstadoOrdenDto } from './dto/create-historial-estado-ord
 import { AuthGuard } from 'src/auth/guard/auth.guard';
 import { RolesGuard } from 'src/auth/guard/roles.guard';
 import { Auth } from 'src/auth/decorators/auth.decorator';
-import { Role } from 'src/common/enums/rol.enum';
 
-@Auth(Role.TECH, Role.ADMIN, Role.RECEP, Role.CLIENT)
+
+@Auth('tech', 'admin', 'recep', 'client')
 @Controller('historial-estado-orden')
 @UseGuards(AuthGuard, RolesGuard)
 export class HistorialEstadoOrdenController {
   constructor(private readonly service: HistorialEstadoOrdenService) { }
 
   @Post()
-  @Auth(Role.ADMIN, Role.TECH)
+  @Auth('admin', 'tech')
   create(@Body() dto: CreateHistorialEstadoOrdenDto) {
     return this.service.create(dto);
   }
 
   @Get()
-  @Auth(Role.ADMIN, Role.TECH)
+  @Auth('admin', 'tech')
   findAll() {
     return this.service.findAll();
   }
 
   @Get('orden/:ordenId')
-  @Auth(Role.ADMIN, Role.TECH)
+  @Auth('admin', 'tech')
   findByOrden(@Param('ordenId', ParseIntPipe) ordenId: number) {
     return this.service.findByOrden(ordenId);
   }

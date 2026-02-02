@@ -3,20 +3,20 @@ import { PresupuestoService } from './presupuesto.service';
 import { CreatePresupuestoDto } from './dto/create-presupuesto.dto';
 import { UpdatePresupuestoDto } from './dto/update-presupuesto.dto';
 import { Auth } from 'src/auth/decorators/auth.decorator';
-import { Role } from 'src/common/enums/rol.enum';
 
-@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+
+@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 @Controller('presupuestos')
 export class PresupuestoController {
   constructor(private readonly presupuestoService: PresupuestoService) { }
 
-  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+  @Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
   @Post()
   create(@Body() dto: CreatePresupuestoDto) {
     return this.presupuestoService.create(dto);
   }
 
-  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+  @Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
   @Get('all')
   async findAllPaginated(
     @Query('page') page: string,
@@ -43,7 +43,7 @@ export class PresupuestoController {
     };
   }
 
-  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+  @Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
   @Get()
   async findAllSimple(
     @Query('includeDeleted') includeDeleted?: boolean,
@@ -56,7 +56,7 @@ export class PresupuestoController {
     return this.presupuestoService.findAll(includeDeleted);
   }
 
-  @Auth(Role.TECH)
+  @Auth('tech')
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -65,7 +65,7 @@ export class PresupuestoController {
     return this.presupuestoService.findOne(id, includeDeleted);
   }
 
-  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+  @Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -74,7 +74,7 @@ export class PresupuestoController {
     return this.presupuestoService.update(id, dto);
   }
 
-  @Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+  @Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
   @Delete(':id')
   async remove(@Param('id', ParseIntPipe) id: number) {
     try {
@@ -97,14 +97,14 @@ export class PresupuestoController {
     }
   }
 
-  @Auth(Role.TECH)
+  @Auth('tech')
   @Patch(':id/restore')
   async restore(@Param('id', ParseIntPipe) id: number) {
     await this.presupuestoService.restore(id);
     return this.presupuestoService.findOne(id);
   }
 
-  @Auth(Role.CLIENT)
+  @Auth('client')
   @Get(':id/resumen')
   getResumen(@Param('id', ParseIntPipe) id: number) {
     return this.presupuestoService.getResumenPresupuesto(id);

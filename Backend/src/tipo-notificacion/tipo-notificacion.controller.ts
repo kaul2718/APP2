@@ -3,10 +3,10 @@ import { TipoNotificacionService } from './tipo-notificacion.service';
 import { CreateTipoNotificacionDto } from './dto/create-tipo-notificacion.dto';
 import { UpdateTipoNotificacionDto } from './dto/update-tipo-notificacion.dto';
 import { Auth } from '../auth/decorators/auth.decorator';
-import { Role } from '../common/enums/rol.enum';
+
 import { TipoNotificacion } from './entities/tipo-notificacion.entity';
 
-@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 @Controller('tipos-notificacion')
 export class TipoNotificacionController {
   constructor(private readonly tipoNotificacionService: TipoNotificacionService) {}

@@ -4,9 +4,9 @@ import { CreateTipoEquipoDto } from './dto/create-tipo-equipo.dto';
 import { UpdateTipoEquipoDto } from './dto/update-tipo-equipo.dto';
 import { TipoEquipo } from './entities/tipo-equipo.entity';
 import { Auth } from 'src/auth/decorators/auth.decorator';
-import { Role } from 'src/common/enums/rol.enum';
 
-@Auth(Role.ADMIN, Role.TECH, Role.RECEP) // Ajusta los roles según necesites
+
+@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 @Controller('tipos-equipo')
 export class TipoEquipoController {
   constructor(private readonly tipoEquipoService: TipoEquipoService) { }
