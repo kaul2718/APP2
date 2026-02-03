@@ -5,12 +5,18 @@ import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcrypt';
+import { BrevoService } from 'src/auth/brevo.service';
+import { JwtService } from '@nestjs/jwt';
+import { UsuarioRolService } from 'src/usuario-rol/usuario-rol.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly brevoService: BrevoService,
+    private readonly jwtService: JwtService,
+    private readonly usuarioRolService: UsuarioRolService,
   ) { }
 
   async create(createDto: CreateUserDto): Promise<User> {
@@ -30,8 +36,10 @@ export class UsersService {
     if (!createDto.telefono || createDto.telefono.trim() === '') {
       throw new BadRequestException('El teléfono es requerido');
     }
-    if (!createDto.password || createDto.password.trim() === '') {
-      throw new BadRequestException('La contraseña es requerida');
+
+    // ✅ La contraseña es OPCIONAL - si no se proporciona, enviar invitación por correo
+    if (createDto.password && createDto.password.trim() === '') {
+      createDto.password = undefined; // Convertir string vacío a undefined
     }
 
     // ✅ Validar formato de cédula (10 dígitos)
@@ -50,15 +58,17 @@ export class UsersService {
       throw new BadRequestException('El correo no es válido');
     }
 
-    // ✅ Validar fortaleza de contraseña (mínimo 8 caracteres, mayúscula, número)
-    if (createDto.password.length < 8) {
-      throw new BadRequestException('La contraseña debe tener al menos 8 caracteres');
-    }
-    if (!/[A-Z]/.test(createDto.password)) {
-      throw new BadRequestException('La contraseña debe contener al menos una mayúscula');
-    }
-    if (!/\d/.test(createDto.password)) {
-      throw new BadRequestException('La contraseña debe contener al menos un número');
+    // ✅ Validar fortaleza de contraseña SOLO SI se proporciona
+    if (createDto.password) {
+      if (createDto.password.length < 8) {
+        throw new BadRequestException('La contraseña debe tener al menos 8 caracteres');
+      }
+      if (!/[A-Z]/.test(createDto.password)) {
+        throw new BadRequestException('La contraseña debe contener al menos una mayúscula');
+      }
+      if (!/\d/.test(createDto.password)) {
+        throw new BadRequestException('La contraseña debe contener al menos un número');
+      }
     }
 
     // Verificar si ya existe un usuario con la misma cédula o correo
@@ -80,9 +90,12 @@ export class UsersService {
       throw new BadRequestException('Ya existe un usuario con este correo');
     }
 
-    // Encriptar la contraseña
-    const salt = await bcrypt.genSalt();
-    const hashedPassword = await bcrypt.hash(createDto.password, salt);
+    // Encriptar la contraseña si se proporciona, sino dejarla null
+    let hashedPassword: string | null = null;
+    if (createDto.password) {
+      const salt = await bcrypt.genSalt();
+      hashedPassword = await bcrypt.hash(createDto.password, salt);
+    }
 
     const nuevoUsuario = this.userRepository.create({
       ...createDto,
@@ -90,7 +103,57 @@ export class UsersService {
       estado: createDto.estado !== undefined ? createDto.estado : true,
     });
 
-    return this.userRepository.save(nuevoUsuario);
+    const usuarioGuardado = await this.userRepository.save(nuevoUsuario);
+
+    // ✅ ASIGNAR ROLES al nuevo usuario
+    if (createDto.roleIds && createDto.roleIds.length > 0) {
+      for (const roleId of createDto.roleIds) {
+        try {
+          const numericRoleId = Number(roleId);
+          if (!isNaN(numericRoleId)) {
+            await this.usuarioRolService.assignRoleToUser(usuarioGuardado.id, numericRoleId);
+          }
+        } catch (error) {
+          throw error;
+        }
+      }
+    }
+
+    // Si no hay contraseña, enviar invitación por correo
+    if (!createDto.password) {
+      const token = this.jwtService.sign(
+        { id: usuarioGuardado.id, email: usuarioGuardado.correo },
+        { expiresIn: '7d' }
+      );
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      const enlaceInvitacion = `${frontendUrl}/crear-contraseña?token=${token}`;
+      
+      try {
+        await this.brevoService.enviarInvitacion(
+          usuarioGuardado.nombre,
+          usuarioGuardado.correo,
+          enlaceInvitacion
+        );
+      } catch (error) {
+        // No bloquear la creación del usuario si falla el email
+        console.error('Advertencia: No se pudo enviar el correo de invitación:', error);
+        // El usuario fue creado exitosamente, solo falta enviar el email
+      }
+    }
+
+    // ✅ Recargar el usuario con sus relaciones de roles
+    const usuarioConRoles = await this.userRepository.findOne({
+      where: { id: usuarioGuardado.id },
+      relations: ['userRoles', 'userRoles.rol'],
+    });
+
+    // ✅ Mapear roles para respuesta
+    const usuarioObj = usuarioConRoles as any;
+    usuarioObj.role = usuarioConRoles?.userRoles?.length > 0 
+      ? usuarioConRoles.userRoles[0].rol.slug 
+      : 'user';
+    
+    return usuarioConRoles;
   }
 
   async findAll(includeInactive = false): Promise<User[]> {
@@ -144,6 +207,10 @@ export class UsersService {
 
   async update(id: number, updateDto: UpdateUserDto): Promise<User> {
     const user = await this.findOne(id, true);
+
+    console.log('🔍 UPDATE - ID:', id);
+    console.log('🔍 UPDATE - DTO recibido:', JSON.stringify(updateDto, null, 2));
+    console.log('🔍 UPDATE - roleIds:', updateDto.roleIds);
 
     // ✅ Validar campos no estén vacíos si se proporcionan
     if (updateDto.nombre !== undefined && updateDto.nombre.trim() === '') {
@@ -228,7 +295,43 @@ export class UsersService {
       user.password = await bcrypt.hash(updateDto.password, salt);
     }
 
-    return this.userRepository.save(user);
+    // Guardar los cambios del usuario
+    const usuarioActualizado = await this.userRepository.save(user);
+
+    // Actualizar roles si se proporciona roleIds
+    if (updateDto.roleIds && Array.isArray(updateDto.roleIds) && updateDto.roleIds.length > 0) {
+      console.log('✅ Procesando roleIds:', updateDto.roleIds);
+      console.log('✅ Tipos de roleIds:', updateDto.roleIds.map(r => typeof r));
+      
+      // Obtener roles actuales del usuario
+      const rolesActuales = await this.usuarioRolService.findByUserId(user.id);
+      console.log('📋 Roles actuales del usuario:', rolesActuales.map(r => r.roleId));
+      
+      // Eliminar roles existentes
+      for (const userRole of rolesActuales) {
+        console.log(`🗑️  Eliminando rol ID: ${userRole.roleId}`);
+        await this.usuarioRolService.removeRoleFromUser(user.id, userRole.roleId);
+      }
+      
+      // Asignar nuevos roles
+      for (const roleId of updateDto.roleIds) {
+        const roleIdNum = Number(roleId);
+        console.log(`➕ Asignando rol ID: ${roleIdNum} (type: ${typeof roleIdNum})`);
+        if (!isNaN(roleIdNum)) {
+          try {
+            await this.usuarioRolService.assignRoleToUser(user.id, roleIdNum);
+            console.log(`✅ Rol ${roleIdNum} asignado exitosamente`);
+          } catch (error) {
+            console.error(`❌ Error asignando rol ${roleIdNum}:`, error);
+            throw error;
+          }
+        }
+      }
+    } else {
+      console.log('⏭️  No hay roleIds para procesar');
+    }
+
+    return usuarioActualizado;
   }
 
   async remove(id: number): Promise<{ message: string }> {

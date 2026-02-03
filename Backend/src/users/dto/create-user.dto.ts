@@ -1,4 +1,4 @@
-import { IsEmail, IsBoolean, IsNotEmpty, IsOptional, Matches, MinLength, IsArray, IsString } from 'class-validator';
+import { IsEmail, IsBoolean, IsNotEmpty, IsOptional, Matches, MinLength, IsArray, IsNumber } from 'class-validator';
 
 export class CreateUserDto {
   @IsNotEmpty({ message: 'La cédula es requerida' })
@@ -31,14 +31,14 @@ export class CreateUserDto {
   password?: string;
 
   /**
-   * Array de slugs de roles a asignar al usuario
-   * Ej: ['client', 'tech']
+   * Array de IDs de roles a asignar al usuario
+   * Ej: [1, 2]
    * Los roles se asignan via UserRole después de crear el usuario
    */
   @IsOptional()
   @IsArray({ message: 'Los roles deben ser un array' })
-  @IsString({ each: true, message: 'Cada rol debe ser un string' })
-  roleIds?: string[];
+  @IsNumber({}, { each: true, message: 'Cada rol debe ser un número (ID)' })
+  roleIds?: number[];
 
   @IsOptional()
   @IsBoolean()

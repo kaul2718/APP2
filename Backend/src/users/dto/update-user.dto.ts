@@ -1,4 +1,4 @@
-import { IsEmail, IsBoolean, IsNotEmpty, IsOptional, Matches, MinLength, IsArray, IsString } from 'class-validator';
+import { IsEmail, IsBoolean, IsNotEmpty, IsOptional, Matches, MinLength, IsArray, IsNumber } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateUserDto } from './create-user.dto';
 
@@ -33,8 +33,8 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
 
   @IsOptional()
   @IsArray({ message: 'Los roles deben ser un array' })
-  @IsString({ each: true, message: 'Cada rol debe ser un string' })
-  roleIds?: string[];
+  @IsNumber({}, { each: true, message: 'Cada rol debe ser un número (ID)' })
+  roleIds?: number[];
 
   @IsOptional()
   @IsBoolean()

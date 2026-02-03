@@ -147,9 +147,15 @@ export class BrevoService {
     private handleError(error: AxiosError): void {
         const errorData = error.response?.data || error.message;
         this.logger.error('❌ Error al enviar correo con Brevo:', errorData);
+        this.logger.error('Status:', error.response?.status);
+        this.logger.error('Headers:', error.response?.headers);
+
+        const detailMessage = typeof errorData === 'object' && errorData !== null 
+            ? JSON.stringify(errorData) 
+            : String(errorData);
 
         throw new InternalServerErrorException(
-            'No se pudo enviar el correo de invitación'
+            `No se pudo enviar el correo de invitación. Detalles: ${detailMessage}`
         );
     }
 

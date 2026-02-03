@@ -3,12 +3,13 @@
 import React, { useState } from "react";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "../ui/table";
 import Badge from "../ui/badge/Badge";
+import Pagination from "../ui/pagination/Pagination";
 import UsuarioDetailsModal from "../modals/UsuarioDetailsModal";
 import UsuarioEditModal from "../modals/UsuarioEditModal";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { Usuario, useUsuario } from "@/hooks/useUsuario";
-import { Role } from "@/types/role";
+import { useRoles } from "@/hooks/useRoles";
 
 export default function UsuarioNuevoTable() {
   const {
@@ -25,6 +26,7 @@ export default function UsuarioNuevoTable() {
     setShowInactive,
   } = useUsuario();
 
+  const { roles } = useRoles();
   const { data: session } = useSession();
   const token = session?.accessToken || "";
 
@@ -75,10 +77,6 @@ export default function UsuarioNuevoTable() {
       console.error(`Error al ${accion} usuario:`, error);
       toast.error(`Error al ${accion} usuario`);
     }
-  };
-
-  const formatRoleName = (role: Role): string => {
-    return role.charAt(0) + role.slice(1).toLowerCase();
   };
 
   return (
@@ -160,7 +158,7 @@ export default function UsuarioNuevoTable() {
                 <TableCell isHeader className="px-5 py-3 font-semibold text-gray-700 text-start text-sm dark:text-gray-300">
                   Nombre
                 </TableCell>
-                
+
                 <TableCell isHeader className="px-5 py-3 font-semibold text-gray-700 text-start text-sm dark:text-gray-300">
                   Cédula
                 </TableCell>
@@ -217,7 +215,7 @@ export default function UsuarioNuevoTable() {
                         {usuario.correo}
                       </TableCell>
                       <TableCell className="px-5 py-4 sm:px-6 text-start text-gray-500 dark:text-gray-400">
-                        {formatRoleName(usuario.role)}
+                        {roles.find(r => r.slug === usuario.role)?.nombre || usuario.role}
                       </TableCell>
                       <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                         <Badge size="sm" color={estaActivo ? "success" : "error"}>
@@ -307,46 +305,11 @@ export default function UsuarioNuevoTable() {
         </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-gray-100 dark:border-white/[0.05]">
-            <div className="mb-4 sm:mb-0">
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                Página {currentPage} de {totalPages}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => fetchUsuarios(currentPage - 1, 10, searchTerm, showInactive)}
-                disabled={currentPage === 1}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
-                aria-label="Página anterior"
-              >
-                Anterior
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  onClick={() => fetchUsuarios(page, 10, searchTerm, showInactive)}
-                  className={`px-3 py-1 border rounded-md text-sm font-medium ${currentPage === page
-                    ? "bg-blue-500 text-white border-blue-500"
-                    : "border-gray-300 text-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-                    }`}
-                  aria-label={`Ir a página ${page}`}
-                >
-                  {page}
-                </button>
-              ))}
-              <button
-                onClick={() => fetchUsuarios(currentPage + 1, 10, searchTerm, showInactive)}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
-                aria-label="Página siguiente"
-              >
-                Siguiente
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={(page) => fetchUsuarios(page, 10, searchTerm, showInactive)}
+        />
 
         {/* Modals */}
         <UsuarioDetailsModal
