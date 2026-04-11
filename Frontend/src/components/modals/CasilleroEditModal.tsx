@@ -1,10 +1,9 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { Casillero } from "@/hooks/useCasillero";
@@ -43,8 +42,7 @@ export default function CasilleroEditModal({ isOpen, onClose, casillero, onSave 
         onClose();
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async () => {
         if (!editando || !token) return;
 
         // Validar que no se desactive un casillero ocupado
@@ -65,9 +63,6 @@ export default function CasilleroEditModal({ isOpen, onClose, casillero, onSave 
             }
 
             if (Object.keys(cambios).length > 0) {
-                // Agregar logs para depuración
-                console.log("Enviando cambios:", cambios);
-
                 const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/casilleros/${editando.id}`, {
                     method: "PATCH",
                     headers: {
@@ -83,9 +78,8 @@ export default function CasilleroEditModal({ isOpen, onClose, casillero, onSave 
                     try {
                         const errorData = await response.json();
                         errorMessage = errorData.message || errorMessage;
-                        console.error("Detalles del error:", errorData);
-                    } catch (e) {
-                        console.error("No se pudo parsear la respuesta de error:", e);
+                    } catch {
+                        // Si no se puede parsear el body de error, se mantiene el mensaje por status.
                     }
                     throw new Error(errorMessage);
                 }
@@ -120,7 +114,14 @@ export default function CasilleroEditModal({ isOpen, onClose, casillero, onSave 
     if (!editando) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={handleCancel} className="max-w-[700px] m-4" title="Editar Casillero">
+        <CrudModal
+            isOpen={isOpen}
+            onClose={handleCancel}
+            title="Editar Casillero"
+            onSubmit={handleSubmit}
+            loading={cargando}
+            mode="edit"
+        >
             <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-10">
                 <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
                     Editar información del casillero
@@ -129,7 +130,13 @@ export default function CasilleroEditModal({ isOpen, onClose, casillero, onSave 
                     Puedes modificar los datos del casillero. Los cambios se guardarán al presionar "Guardar cambios".
                 </p>
 
-                <form onSubmit={handleSubmit} className="flex flex-col">
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        void handleSubmit();
+                    }}
+                    className="flex flex-col"
+                >
                     <div className="custom-scrollbar h-[400px] overflow-y-auto">
                         <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                             <div>
@@ -224,17 +231,8 @@ export default function CasilleroEditModal({ isOpen, onClose, casillero, onSave 
                             </div>
                         </div>
                     </div>
-
-                    <div className="flex justify-end gap-4 mt-6">
-                        <Button type="button" variant="outline" onClick={handleCancel} disabled={cargando}>
-                            Cancelar
-                        </Button>
-                        <Button type="submit" disabled={cargando} loading={cargando}>
-                            Guardar Cambios
-                        </Button>
-                    </div>
                 </form>
             </div>
-        </Modal>
+        </CrudModal>
     );
 }

@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
-import { useDetalleRepuesto, DetalleRepuesto, Repuesto } from "./useDetalleRepuesto";
+import { useDetallePresupuestoItem, DetallePresupuestoItem } from "./useDetallePresupuestoItem";
 import { useDetalleManoObra, DetalleManoObra, TipoManoObra } from "./useDetalleManoObra";
 import { useEstadoPresupuesto } from "./useEstadoPresupuesto";
+import { apiRequest } from "@/lib/api";
 
 export interface Presupuesto {
     id: number;
@@ -15,7 +16,7 @@ export interface Presupuesto {
     fechaEmision: string;
     estado?: EstadoPresupuesto | null; // Permitir null
     orden?: Order | null; // Añadir | null aquí
-    detallesRepuestos?: DetalleRepuesto[];
+    detallesPresupuestoItems?: DetallePresupuestoItem[];
     detallesManoObra?: DetalleManoObra[];
 }
 
@@ -51,14 +52,14 @@ export interface ResumenPresupuesto {
         costoUnitario: number;
         costoTotal: number;
     }>;
-    detalleRepuestos: Array<{
+    detalleItems: Array<{
         nombre: string;
         cantidad: number;
         precioUnitario: number;
         subtotal: number;
     }>;
     costoManoObra: number;
-    costoRepuestos: number;
+    costoItems: number;
     costoTotal: number;
 }
 
@@ -76,11 +77,10 @@ export function usePresupuesto() {
     const { estados } = useEstadoPresupuesto(); // <-- Añadir esta línea
 
     // Usamos los hooks de detalles
-    // Usamos los hooks de detalles
     const {
-        fetchDetallesByPresupuesto: fetchRepuestosByPresupuesto,
-        calculateTotalByPresupuesto: calculateTotalRepuestos
-    } = useDetalleRepuesto();
+        fetchDetallesByPresupuesto: fetchItemsByPresupuesto,
+        calculateTotalByPresupuesto: calculateTotalItems
+    } = useDetallePresupuestoItem();
 
     const {
         fetchDetallesByPresupuesto: fetchManoObraByPresupuesto,
@@ -132,8 +132,8 @@ export function usePresupuesto() {
             const presupuestosConDetalles = await Promise.all(
                 data.items.map(async (presupuesto) => {
                     try {
-                        const [detallesRepuestos, detallesManoObra] = await Promise.all([
-                            fetchRepuestosByPresupuesto(presupuesto.id, includeInactive)
+                        const [detallesPresupuestoItems, detallesManoObra] = await Promise.all([
+                            fetchItemsByPresupuesto(presupuesto.id, includeInactive)
                                 .then(res => res || [])
                                 .catch(() => []),
                             fetchManoObraByPresupuesto(presupuesto.id, includeInactive)
@@ -143,14 +143,14 @@ export function usePresupuesto() {
 
                         return {
                             ...presupuesto,
-                            detallesRepuestos: Array.isArray(detallesRepuestos) ? detallesRepuestos : [],
+                            detallesPresupuestoItems: Array.isArray(detallesPresupuestoItems) ? detallesPresupuestoItems : [],
                             detallesManoObra: Array.isArray(detallesManoObra) ? detallesManoObra : []
                         };
                     } catch (error) {
                         //console.error(`Error cargando detalles para presupuesto ${presupuesto.id}:`, error);
                         return {
                             ...presupuesto,
-                            detallesRepuestos: [],
+                            detallesPresupuestoItems: [],
                             detallesManoObra: []
                         };
                     }
@@ -176,24 +176,13 @@ export function usePresupuesto() {
 
             if (!session?.accessToken) throw new Error("Token de sesión no disponible");
 
-            const response = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/presupuestos/${id}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${session.accessToken}`,
-                    },
-                }
-            );
-
-            if (!response.ok) throw new Error(`Error: ${response.status}`);
-
-            const data: Presupuesto = await response.json();
+            const data = await apiRequest<Presupuesto>(`/presupuestos/${id}`, {}, session);
             setPresupuesto(data);
 
             if (includeDetails) {
                 try {
-                    const [detallesRepuestos, detallesManoObra] = await Promise.all([
-                        fetchRepuestosByPresupuesto(id).then(res => res || []),
+                    const [detallesPresupuestoItems, detallesManoObra] = await Promise.all([
+                        fetchItemsByPresupuesto(id).then(res => res || []),
                         fetchManoObraByPresupuesto(id).then(res => res || [])
                     ]);
 
@@ -201,7 +190,7 @@ export function usePresupuesto() {
                         if (!prev) return null;
                         return {
                             ...prev,
-                            detallesRepuestos,
+                            detallesPresupuestoItems,
                             detallesManoObra
                         };
                     });
@@ -227,21 +216,14 @@ export function usePresupuesto() {
         descripcion?: string;
     }) => {
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/presupuestos`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${session?.accessToken}`,
+            const newPresupuesto = await apiRequest<Presupuesto>(
+                '/presupuestos',
+                {
+                    method: 'POST',
+                    body: JSON.stringify(presupuestoData),
                 },
-                body: JSON.stringify(presupuestoData),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `Error: ${response.status}`);
-            }
-
-            const newPresupuesto = await response.json();
+                session,
+            );
             //toast.success("Presupuesto creado exitosamente");
             return newPresupuesto;
         } catch (error) {
@@ -270,21 +252,14 @@ export function usePresupuesto() {
                 }
             }
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/presupuestos/${id}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${session.accessToken}`,
+            const updatedPresupuesto = await apiRequest<Presupuesto>(
+                `/presupuestos/${id}`,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify(presupuestoData),
                 },
-                body: JSON.stringify(presupuestoData),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `Error: ${response.status}`);
-            }
-
-            const updatedPresupuesto = await response.json();
+                session,
+            );
 
             // Asegurar que el estado viene completo
             if (presupuestoData.estadoId && estados) {
@@ -311,25 +286,15 @@ export function usePresupuesto() {
 
     const deletePresupuesto = async (id: number) => {
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/presupuestos/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    Authorization: `Bearer ${session?.accessToken}`,
+            await apiRequest<void>(
+                `/presupuestos/${id}`,
+                {
+                    method: 'DELETE',
                 },
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => null);
-                const errorMessage = errorData?.message || `Error ${response.status}: ${response.statusText}`;
-                throw new Error(errorMessage);
-            }
-
-            // Verificar si la respuesta tiene contenido
-            const text = await response.text();
-            const data = text ? JSON.parse(text) : { success: true };
-
+                session,
+            );
             toast.success("Presupuesto eliminado exitosamente");
-            return data;
+            return { success: true };
         } catch (error) {
             //console.error("Error al eliminar presupuesto:", error);
             toast.error(error instanceof Error ? error.message : "Error al eliminar presupuesto");
@@ -339,19 +304,13 @@ export function usePresupuesto() {
 
     const restorePresupuesto = async (id: number) => {
         try {
-            const response = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/presupuestos/${id}/restore`,
+            await apiRequest<void>(
+                `/presupuestos/${id}/restore`,
                 {
                     method: 'PATCH',
-                    headers: {
-                        Authorization: `Bearer ${session?.accessToken}`,
-                    },
-                }
+                },
+                session,
             );
-
-            if (!response.ok) {
-                throw new Error(`Error: ${response.status}`);
-            }
 
             toast.success("Presupuesto restaurado exitosamente");
             return true;
@@ -366,24 +325,7 @@ export function usePresupuesto() {
         try {
             setLoading(true);
 
-            if (!session?.accessToken) {
-                throw new Error("Token de sesión no disponible");
-            }
-
-            const response = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/presupuestos/${id}/resumen`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${session.accessToken}`,
-                    },
-                }
-            );
-
-            if (!response.ok) {
-                throw new Error(`Error: ${response.status}`);
-            }
-
-            const data: ResumenPresupuesto = await response.json();
+            const data = await apiRequest<ResumenPresupuesto>(`/presupuestos/${id}/resumen`, {}, session);
             return data;
         } catch (error) {
             //console.error("Error al obtener resumen de presupuesto:", error);
@@ -397,14 +339,14 @@ export function usePresupuesto() {
     const calculateTotalPresupuesto = async (id: number) => {
         try {
             // Iniciar ambas solicitudes en paralelo
-            const [repuestosResponse, manoObraResponse] = await Promise.allSettled([
-                calculateTotalRepuestos(id),
+            const [itemsResponse, manoObraResponse] = await Promise.allSettled([
+                calculateTotalItems(id),
                 getResumenManoObra(id)
             ]);
 
-            // Manejar respuesta de repuestos
-            const totalRepuestos = repuestosResponse.status === 'fulfilled'
-                ? repuestosResponse.value?.total || 0
+            // Manejar respuesta de ítems
+            const totalItems = itemsResponse.status === 'fulfilled'
+                ? itemsResponse.value?.totalItems || 0
                 : 0;
 
             // Manejar respuesta de mano de obra
@@ -413,20 +355,13 @@ export function usePresupuesto() {
                 : 0;
 
             // Calcular total general
-            const totalGeneral = totalRepuestos + totalManoObra;
-
-            // Log para depuración (opcional)
-            console.log(`Cálculos para presupuesto ${id}:`, {
-                repuestos: totalRepuestos,
-                manoObra: totalManoObra,
-                total: totalGeneral
-            });
+            const totalGeneral = totalItems + totalManoObra;
 
             return {
-                totalRepuestos,
+                totalItems,
                 totalManoObra,
                 total: totalGeneral,
-                success: repuestosResponse.status === 'fulfilled' &&
+                success: itemsResponse.status === 'fulfilled' &&
                     manoObraResponse.status === 'fulfilled'
             };
         } catch (error) {
@@ -434,7 +369,7 @@ export function usePresupuesto() {
 
             // Retornar valores por defecto en caso de error
             return {
-                totalRepuestos: 0,
+                totalItems: 0,
                 totalManoObra: 0,
                 total: 0,
                 success: false,
@@ -451,18 +386,11 @@ export function usePresupuesto() {
             if (!session?.accessToken) throw new Error("Token de sesión no disponible");
 
             // Primero obtenemos el presupuesto asociado a la orden
-            const presupuestoResponse = await fetch(
-                `${process.env.NEXT_PUBLIC_BACKEND_URL}/presupuestos?ordenId=${orderId}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${session.accessToken}`,
-                    },
-                }
+            const presupuestos = await apiRequest<Presupuesto[]>(
+                `/presupuestos?ordenId=${orderId}`,
+                {},
+                session,
             );
-
-            if (!presupuestoResponse.ok) throw new Error(`Error: ${presupuestoResponse.status}`);
-
-            const presupuestos: Presupuesto[] = await presupuestoResponse.json();
             const presupuesto = presupuestos[0]; // Asumimos que solo hay un presupuesto activo por orden
 
             if (!presupuesto) {

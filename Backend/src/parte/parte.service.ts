@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Like, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Parte } from './entities/parte.entity';
 import { Categoria } from '../categoria/entities/categoria.entity';
 import { Marca } from '../marca/entities/marca.entity';
@@ -17,6 +17,17 @@ export class ParteService {
     @InjectRepository(Marca)
     private readonly marcaRepository: Repository<Marca>,
   ) { }
+
+  private buildCodigoInterno(parte: Pick<Parte, 'id' | 'nombre' | 'modelo'>): string {
+    const base = (parte.modelo || parte.nombre || 'ITEM')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 18);
+
+    return `${base || 'ITEM'}-${parte.id}`;
+  }
+
 
   async create(createDto: CreateParteDto): Promise<Parte> {
     // Verificar si ya existe una parte con el mismo modelo o nombre
@@ -57,19 +68,28 @@ export class ParteService {
       nombre: createDto.nombre,
       modelo: createDto.modelo,
       descripcion: createDto.descripcion,
+      codigoInterno: createDto.codigoInterno?.trim() || null,
+      precioReferencia: Number(createDto.precioReferencia ?? 0),
       categoria,
       marca,
-      estado: true, // Por defecto se crea como activo
+      estado: createDto.estado ?? true,
     });
 
-    return this.parteRepository.save(nuevo);
+    const parteGuardada = await this.parteRepository.save(nuevo);
+
+    if (!parteGuardada.codigoInterno?.trim()) {
+      parteGuardada.codigoInterno = this.buildCodigoInterno(parteGuardada);
+      await this.parteRepository.save(parteGuardada);
+    }
+
+    return this.findOne(parteGuardada.id, true);
   }
 
   findAll(includeInactive = false): Promise<Parte[]> {
     return this.parteRepository.find({
       where: includeInactive ? {} : { estado: true },
       withDeleted: includeInactive,
-      relations: ['categoria', 'marca', 'especificaciones', 'inventarios'],
+      relations: ['categoria', 'marca', 'inventarios'],
     });
   }
 
@@ -77,7 +97,7 @@ export class ParteService {
     const parte = await this.parteRepository.findOne({
       where: { id },
       withDeleted: includeInactive,
-      relations: ['categoria', 'marca', 'especificaciones', 'inventarios'],
+      relations: ['categoria', 'marca', 'inventarios'],
     });
 
     if (!parte || (!includeInactive && !parte.estado)) {
@@ -142,11 +162,26 @@ export class ParteService {
       parte.descripcion = updateDto.descripcion;
     }
 
+    if (updateDto.codigoInterno !== undefined) {
+      parte.codigoInterno = updateDto.codigoInterno?.trim() || null;
+    }
+
+    if (updateDto.precioReferencia !== undefined) {
+      parte.precioReferencia = Number(updateDto.precioReferencia ?? 0);
+    }
+
     if (updateDto.estado !== undefined) {
       parte.estado = updateDto.estado;
     }
 
-    return this.parteRepository.save(parte);
+    await this.parteRepository.save(parte);
+
+    if (!parte.codigoInterno?.trim()) {
+      parte.codigoInterno = this.buildCodigoInterno(parte);
+      await this.parteRepository.save(parte);
+    }
+
+    return this.findOne(id, true);
   }
 
   async remove(id: number): Promise<{ message: string }> {
@@ -190,12 +225,14 @@ export class ParteService {
     const query = this.parteRepository.createQueryBuilder('parte')
       .leftJoinAndSelect('parte.categoria', 'categoria')
       .leftJoinAndSelect('parte.marca', 'marca')
-      .leftJoinAndSelect('parte.especificaciones', 'especificaciones')
       .leftJoinAndSelect('parte.inventarios', 'inventarios');
 
     if (search) {
       query.where(
-        'LOWER(parte.nombre) LIKE LOWER(:search) OR LOWER(parte.modelo) LIKE LOWER(:search) OR LOWER(parte.descripcion) LIKE LOWER(:search)', 
+        `LOWER(parte.nombre) LIKE LOWER(:search)
+         OR LOWER(parte.modelo) LIKE LOWER(:search)
+         OR LOWER(parte.descripcion) LIKE LOWER(:search)
+         OR LOWER(COALESCE(parte.codigoInterno, '')) LIKE LOWER(:search)`,
         { search: `%${search}%` }
       );
     }
@@ -220,6 +257,6 @@ export class ParteService {
     parte.estado = !parte.estado;
     await this.parteRepository.save(parte);
     
-    return parte;
+    return this.findOne(id, true);
   }
 }

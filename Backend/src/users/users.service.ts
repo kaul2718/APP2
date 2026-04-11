@@ -4,7 +4,7 @@ import { Like, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { BrevoService } from 'src/auth/brevo.service';
 import { JwtService } from '@nestjs/jwt';
 import { UsuarioRolService } from 'src/usuario-rol/usuario-rol.service';
@@ -208,10 +208,6 @@ export class UsersService {
   async update(id: number, updateDto: UpdateUserDto): Promise<User> {
     const user = await this.findOne(id, true);
 
-    console.log('🔍 UPDATE - ID:', id);
-    console.log('🔍 UPDATE - DTO recibido:', JSON.stringify(updateDto, null, 2));
-    console.log('🔍 UPDATE - roleIds:', updateDto.roleIds);
-
     // ✅ Validar campos no estén vacíos si se proporcionan
     if (updateDto.nombre !== undefined && updateDto.nombre.trim() === '') {
       throw new BadRequestException('El nombre no puede estar vacío');
@@ -300,35 +296,21 @@ export class UsersService {
 
     // Actualizar roles si se proporciona roleIds
     if (updateDto.roleIds && Array.isArray(updateDto.roleIds) && updateDto.roleIds.length > 0) {
-      console.log('✅ Procesando roleIds:', updateDto.roleIds);
-      console.log('✅ Tipos de roleIds:', updateDto.roleIds.map(r => typeof r));
-      
       // Obtener roles actuales del usuario
       const rolesActuales = await this.usuarioRolService.findByUserId(user.id);
-      console.log('📋 Roles actuales del usuario:', rolesActuales.map(r => r.roleId));
-      
+
       // Eliminar roles existentes
       for (const userRole of rolesActuales) {
-        console.log(`🗑️  Eliminando rol ID: ${userRole.roleId}`);
         await this.usuarioRolService.removeRoleFromUser(user.id, userRole.roleId);
       }
-      
+
       // Asignar nuevos roles
       for (const roleId of updateDto.roleIds) {
         const roleIdNum = Number(roleId);
-        console.log(`➕ Asignando rol ID: ${roleIdNum} (type: ${typeof roleIdNum})`);
         if (!isNaN(roleIdNum)) {
-          try {
-            await this.usuarioRolService.assignRoleToUser(user.id, roleIdNum);
-            console.log(`✅ Rol ${roleIdNum} asignado exitosamente`);
-          } catch (error) {
-            console.error(`❌ Error asignando rol ${roleIdNum}:`, error);
-            throw error;
-          }
+          await this.usuarioRolService.assignRoleToUser(user.id, roleIdNum);
         }
       }
-    } else {
-      console.log('⏭️  No hay roleIds para procesar');
     }
 
     return usuarioActualizado;

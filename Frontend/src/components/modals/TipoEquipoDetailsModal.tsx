@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import { TipoEquipo } from "@/hooks/useTipoEquipo";
 
 interface Props {
@@ -45,11 +45,13 @@ export default function TipoEquipoDetailsModal({ isOpen, onClose, tipoEquipo }: 
   const estaActivo = tipoEquipo.estado;
 
   return (
-    <Modal
+    <CrudModal
       isOpen={isOpen}
       onClose={onClose}
       title="Detalles del Tipo de Equipo"
-      className="max-w-2xl p-6 max-h-[80vh] overflow-y-auto"
+      onSubmit={async () => {}}
+      mode="view"
+      hideActions
     >
       <div className="px-6 py-4 space-y-8 text-sm">
         <section>
@@ -122,6 +124,6 @@ export default function TipoEquipoDetailsModal({ isOpen, onClose, tipoEquipo }: 
           </button>
         </div>
       </div>
-    </Modal>
+    </CrudModal>
   );
 }

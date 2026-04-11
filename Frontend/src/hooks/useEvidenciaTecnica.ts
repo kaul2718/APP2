@@ -57,6 +57,7 @@ export function useEvidenciaTecnica() {
     ) => {
         try {
             setLoading(true);
+            setOrdenIdFilter(ordenId);
 
             if (!session?.accessToken) {
                 throw new Error("No hay sesión activa");
@@ -166,9 +167,7 @@ export function useEvidenciaTecnica() {
                     throw new Error(errorData?.message || `Error ${response.status}`);
                 }
 
-                // Aquí agrego este bloque para ver respuesta cruda
                 const responseText = await response.text();
-                console.log("Respuesta cruda backend en createEvidencia:", responseText);
 
                 let result: ApiResponse;
                 try {
@@ -184,7 +183,7 @@ export function useEvidenciaTecnica() {
                 toast.success(" Evidencia creada exitosamente");
 
                 // Refrescar evidencias sin perder la paginación
-                await fetchEvidencias(ordenIdFilter, currentPage, itemsPerPage);
+                await fetchEvidencias(ordenId, currentPage, itemsPerPage);
 
                 return result.data as EvidenciaTecnica;
             } catch (error) {

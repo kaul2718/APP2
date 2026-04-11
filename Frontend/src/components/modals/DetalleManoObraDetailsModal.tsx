@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import { DetalleManoObra } from "@/hooks/useDetalleManoObra";
 import { CurrencyDollarIcon, UserIcon, HashtagIcon, CalendarIcon, ClockIcon, TrashIcon, CheckIcon, XMarkIcon,  } from "@heroicons/react/24/outline";
 
@@ -62,11 +62,13 @@ export default function DetalleManoObraDetailsModal({ isOpen, onClose, detalle }
     : "No eliminado";
 
   return (
-    <Modal
+    <CrudModal
       isOpen={isOpen}
       onClose={onClose}
       title="Detalles de Mano de Obra"
-      className="max-w-2xl p-6 max-h-[80vh] overflow-y-auto"
+      onSubmit={async () => {}}
+      mode="view"
+      hideActions
     >
       <div className="px-6 py-4 space-y-8 text-sm">
         {/* Sección básica */}
@@ -240,6 +242,6 @@ export default function DetalleManoObraDetailsModal({ isOpen, onClose, detalle }
           </button>
         </div>
       </div>
-    </Modal>
+    </CrudModal>
   );
 }

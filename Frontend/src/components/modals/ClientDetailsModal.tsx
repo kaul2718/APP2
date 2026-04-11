@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import { Cliente } from "@/hooks/useClientes";
 import Badge from "../ui/badge/Badge";
 
@@ -51,11 +51,13 @@ export default function ClientDetailsModal({ isOpen, onClose, cliente }: Props) 
   if (!cliente) return null;
 
   return (
-    <Modal
+    <CrudModal
       isOpen={isOpen}
       onClose={onClose}
       title="Detalles del Cliente"
-      className="max-w-4xl p-6 max-h-[80vh] overflow-y-auto"
+      onSubmit={async () => {}}
+      mode="view"
+      hideActions
     >
       <div className="px-6 py-4 space-y-8 text-sm">
         {/* Información Personal */}
@@ -223,7 +225,7 @@ export default function ClientDetailsModal({ isOpen, onClose, cliente }: Props) 
                 Rol
               </label>
               <div className="w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600">
-                <Badge size="sm" color={cliente.role === 'ADMIN' ? 'primary' : 'secondary'}>
+                <Badge size="sm" color={cliente.role === 'ADMIN' ? 'primary' : 'info'}>
                   {cliente.role}
                 </Badge>
               </div>
@@ -263,6 +265,6 @@ export default function ClientDetailsModal({ isOpen, onClose, cliente }: Props) 
           </button>
         </div>
       </div>
-    </Modal>
+    </CrudModal>
   );
 }

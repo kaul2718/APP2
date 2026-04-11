@@ -62,7 +62,7 @@ export default function IngresarPresupuestoForm() {
 
         // Validación de orden
         if (!formData.ordenId) {
-            newErrors.ordenId = "⚠️ Debe seleccionar una orden";
+            newErrors.ordenId = "Debe seleccionar una orden";
             isValid = false;
             setTimeout(() => {
                 document.getElementById('order-select')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -72,7 +72,7 @@ export default function IngresarPresupuestoForm() {
 
         // Validación de estado
         if (!formData.estadoId) {
-            newErrors.estadoId = "⚠️ Debe seleccionar un estado";
+            newErrors.estadoId = "Debe seleccionar un estado";
             isValid = false;
             if (isValid) {
                 setTimeout(() => {
@@ -84,7 +84,7 @@ export default function IngresarPresupuestoForm() {
 
         // Validación de descripción
         if (!formData.descripcion.trim()) {
-            newErrors.descripcion = "⚠️ La descripción es requerida";
+            newErrors.descripcion = "La descripción es requerida";
             isValid = false;
             if (isValid) {
                 setTimeout(() => {
@@ -133,7 +133,7 @@ export default function IngresarPresupuestoForm() {
                 throw new Error("No se pudo crear el presupuesto. Intente nuevamente.");
             }
 
-            toast.success(`✅ Presupuesto creado exitosamente`, {
+            toast.success(`Presupuesto creado exitosamente`, {
                 position: "top-center",
                 autoClose: 3000,
             });
@@ -152,8 +152,8 @@ export default function IngresarPresupuestoForm() {
             console.error('Error al crear presupuesto:', error);
             toast.error(
                 error instanceof Error
-                    ? `❌ ${error.message}`
-                    : "❌ Error desconocido al crear el presupuesto",
+                    ? `${error.message}`
+                    : "Error desconocido al crear el presupuesto",
                 {
                     position: "top-center",
                     autoClose: 5000,

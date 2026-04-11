@@ -1,17 +1,55 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import { Presupuesto } from "@/hooks/usePresupuesto";
 import { CalendarIcon, CheckIcon, ClockIcon, DocumentTextIcon, HashtagIcon, UserIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { usePresupuesto } from "@/hooks/usePresupuesto";
-import { toast } from "react-toastify";
+
+interface PresupuestoOrderView {
+    workOrderNumber?: string;
+    problemaReportado?: string;
+    client?: {
+        nombre?: string;
+        apellido?: string;
+    };
+    equipo?: {
+        tipoEquipo?: { nombre?: string };
+        marca?: { nombre?: string };
+        modelo?: { nombre?: string };
+    };
+}
+
+interface ResumenCostoDetalle {
+    tipo?: string;
+    nombre?: string;
+    cantidad?: number;
+    costoUnitario?: number;
+    costoTotal?: number;
+    precioUnitario?: number;
+    subtotal?: number;
+}
+
+interface ResumenPresupuestoView {
+    detalleManoObra?: ResumenCostoDetalle[];
+    detalleItems?: ResumenCostoDetalle[];
+    costoManoObra?: number;
+    costoItems?: number;
+    costoTotal?: number;
+}
+
+type PresupuestoView = Presupuesto & {
+    deletedAt?: string | null;
+    createdAt?: string;
+    updatedAt?: string;
+    orden?: PresupuestoOrderView | null;
+};
 
 interface Props {
     isOpen: boolean;
     onClose: () => void;
-    presupuesto: Presupuesto | null;
-    resumen: any | null;
+    presupuesto: PresupuestoView | null;
+    resumen: ResumenPresupuestoView | null;
 }
 
 const Icon = ({ children }: { children: React.ReactNode }) => (
@@ -154,11 +192,13 @@ export default function PresupuestoDetailsModal({
 
 
     return (
-        <Modal
+        <CrudModal
             isOpen={isOpen}
             onClose={onClose}
             title={`Detalles de Presupuesto #${presupuesto.id}`}
-            className="max-w-4xl p-6 max-h-[80vh] overflow-y-auto"
+            onSubmit={async () => {}}
+            mode="view"
+            hideActions
         >
             <div className="px-6 py-4 space-y-6 text-sm">
                 {/* Sección 1: Información Principal */}
@@ -291,7 +331,7 @@ export default function PresupuestoDetailsModal({
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                        {resumen.detalleManoObra?.map((item: any, index: number) => (
+                                        {resumen.detalleManoObra?.map((item, index: number) => (
                                             <tr key={`mano-obra-${index}`}>
                                                 <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{item.tipo}</td>
                                                 <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{item.cantidad}</td>
@@ -312,13 +352,13 @@ export default function PresupuestoDetailsModal({
                             </div>
                         </div>
 
-                        {/* Repuestos */}
+                        {/* Ítems del presupuesto */}
                         <div className="mb-6">
                             <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                                 </svg>
-                                Repuestos
+                                Ítems del presupuesto
                             </h4>
 
                             <div className="overflow-x-auto">
@@ -332,8 +372,8 @@ export default function PresupuestoDetailsModal({
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                        {resumen.detalleRepuestos?.map((item: any, index: number) => (
-                                            <tr key={`repuesto-${index}`}>
+                                        {resumen.detalleItems?.map((item, index: number) => (
+                                            <tr key={`item-${index}`}>
                                                 <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{item.nombre}</td>
                                                 <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{item.cantidad}</td>
                                                 <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{formatCurrency(item.precioUnitario)}</td>
@@ -342,10 +382,10 @@ export default function PresupuestoDetailsModal({
                                         ))}
                                         <tr className="bg-gray-50 dark:bg-gray-700 font-medium">
                                             <td colSpan={3} className="px-4 py-2 text-right text-sm text-gray-700 dark:text-gray-300">
-                                                Total Repuestos:
+                                                Total Ítems:
                                             </td>
                                             <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">
-                                                {formatCurrency(resumen.costoRepuestos)}
+                                                {formatCurrency(resumen.costoItems)}
                                             </td>
                                         </tr>
                                     </tbody>
@@ -455,6 +495,6 @@ export default function PresupuestoDetailsModal({
                     </button>
                 </div>
             </div>
-        </Modal>
+        </CrudModal>
     );
 }

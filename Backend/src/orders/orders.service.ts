@@ -1,6 +1,6 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, Like, Not, IsNull } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Order } from './entities/order.entity';
 import { User } from '../users/entities/user.entity';
 import { Equipo } from 'src/equipo/entities/equipo.entity';
@@ -16,6 +16,8 @@ import { EstadoCasillero } from 'src/common/enums/estadoCasillero.enum';
 
 @Injectable()
 export class OrderService {
+  private readonly logger = new Logger(OrderService.name);
+
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
@@ -139,7 +141,7 @@ export class OrderService {
       return siguienteNumero.toString().padStart(5, '0');
 
     } catch (error) {
-      console.error('Error generando número de orden:', error);
+      this.logger.error('Error generando numero de orden', error instanceof Error ? error.stack : undefined);
       // Fallback: número aleatorio de 5 dígitos
       return Math.floor(10000 + Math.random() * 90000).toString();
     }
@@ -197,9 +199,20 @@ export class OrderService {
   }
 
   private async getDefaultEstadoOrden(): Promise<EstadoOrden> {
-    return this.estadoOrdenRepository.findOne({
+    const pendiente = await this.estadoOrdenRepository.findOne({
       where: { nombre: 'Pendiente' } // O el estado por defecto que uses
-    }) || this.estadoOrdenRepository.findOne({ order: { id: 'ASC' } });
+    });
+
+    if (pendiente) {
+      return pendiente;
+    }
+
+    const fallback = await this.estadoOrdenRepository.findOne({ order: { id: 'ASC' } });
+    if (!fallback) {
+      throw new NotFoundException('No hay estados de orden configurados en la base de datos');
+    }
+
+    return fallback;
   }
 
   private async createHistorial(
@@ -209,22 +222,6 @@ export class OrderService {
   ): Promise<void> {
     const historial = new HistorialEstadoOrden(orden, estado, usuario);
     await this.historialEstadoOrdenRepository.save(historial);
-  }
-
-  async findAll(includeInactive = false): Promise<Order[]> {
-    // Optimizado: solo cargar relaciones esenciales
-    return this.orderRepository.find({
-      where: includeInactive ? {} : { estado: true },
-      withDeleted: includeInactive,
-      relations: [
-        'client',
-        'technician',
-        'estadoOrden',
-      ],
-      order: {
-        createdAt: 'DESC',
-      },
-    });
   }
 
   async findOne(id: number, includeInactive = false): Promise<Order> {
@@ -240,7 +237,22 @@ export class OrderService {
         'technician',
         'recepcionista',
         'equipo',
+        'equipo.tipoEquipo',
+        'equipo.marca',
+        'equipo.modelo',
         'estadoOrden',
+        'actividades',
+        'actividades.tipoActividad',
+        'presupuesto',
+        'presupuesto.estado',
+        'presupuesto.detallesPresupuestoItems',
+        'presupuesto.detallesManoObra',
+        'casillero',
+        'evidencias',
+        'evidencias.subidoPor',
+        'historialEstados',
+        'historialEstados.estadoOrden',
+        'historialEstados.usuario',
       ],
     });
 

@@ -1,10 +1,9 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { EstadoPresupuesto } from "@/hooks/useEstadoPresupuesto";
@@ -43,8 +42,7 @@ export default function EstadoPresupuestoEditModal({ isOpen, onClose, estado, on
         onClose();
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async () => {
         if (!editando || !token) return;
 
         // Validaciones frontend para coincidir con el DTO
@@ -106,7 +104,14 @@ export default function EstadoPresupuestoEditModal({ isOpen, onClose, estado, on
     if (!editando) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={handleCancel} className="max-w-[700px] m-4" title="Editar Estado de Presupuesto">
+        <CrudModal
+            isOpen={isOpen}
+            onClose={handleCancel}
+            title="Editar Estado de Presupuesto"
+            onSubmit={handleSubmit}
+            loading={cargando}
+            mode="edit"
+        >
             <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-10">
                 <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
                     Editar información del estado de presupuesto
@@ -115,7 +120,13 @@ export default function EstadoPresupuestoEditModal({ isOpen, onClose, estado, on
                     Puedes modificar los datos del estado. Los cambios se guardarán al presionar "Guardar cambios".
                 </p>
 
-                <form onSubmit={handleSubmit} className="flex flex-col">
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        void handleSubmit();
+                    }}
+                    className="flex flex-col"
+                >
                     <div className="custom-scrollbar h-[400px] overflow-y-auto">
                         <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                             <div>
@@ -211,17 +222,8 @@ export default function EstadoPresupuestoEditModal({ isOpen, onClose, estado, on
                             </div>
                         </div>
                     </div>
-
-                    <div className="flex justify-end gap-4 mt-6">
-                        <Button type="button" variant="outline" onClick={handleCancel} disabled={cargando}>
-                            Cancelar
-                        </Button>
-                        <Button type="submit" disabled={cargando} loading={cargando}>
-                            Guardar Cambios
-                        </Button>
-                    </div>
                 </form>
             </div>
-        </Modal>
+        </CrudModal>
     );
 }

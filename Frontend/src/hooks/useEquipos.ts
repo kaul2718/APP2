@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
+import { useCrud } from "@/hooks/useCrud";
+import { apiRequest } from "@/lib/api";
 
 export interface Equipo {
   id: number;
@@ -25,11 +27,19 @@ export interface Equipo {
   deletedAt: string | null;
 }
 
-interface PaginatedEquipoResponse {
-  items: Equipo[];
-  totalItems: number;
-  totalPages: number;
-  currentPage: number;
+interface CreateEquipoDto {
+  numeroSerie: string;
+  tipoEquipoId: number;
+  marcaId: number;
+  modeloId: number;
+}
+
+interface UpdateEquipoDto {
+  numeroSerie?: string;
+  tipoEquipoId?: number;
+  marcaId?: number;
+  modeloId?: number;
+  estado?: boolean;
 }
 
 interface UseEquiposReturn {
@@ -59,89 +69,51 @@ interface UseEquiposReturn {
 
 export function useEquipos(): UseEquiposReturn {
   const { data: session, status } = useSession();
-  const [equipos, setEquipos] = useState<Equipo[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [totalItems, setTotalItems] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [showInactive, setShowInactive] = useState<boolean>(false);
+  const {
+    items: equipos,
+    loading,
+    totalPages,
+    totalItems,
+    currentPage,
+    searchTerm,
+    showInactive,
+    fetchItems,
+    createItem,
+    updateItem,
+    toggleItemStatus,
+    deleteItem,
+    restoreItem,
+    setItems: setEquipos,
+    setSearchTerm,
+    setShowInactive,
+  } = useCrud<Equipo, CreateEquipoDto, UpdateEquipoDto>('/equipos', {
+    defaultLimit: 1000,
+    listPath: '/equipos/all',
+    messages: {
+      created: 'Equipo creado exitosamente',
+      updated: 'Equipo actualizado exitosamente',
+      deleted: 'Equipo eliminado exitosamente',
+      restored: 'Equipo restaurado exitosamente',
+      toggled: (enabled) => `Equipo ${enabled ? 'habilitado' : 'deshabilitado'} correctamente`,
+      loadError: 'Error al cargar equipos',
+      createError: 'Error al crear equipo',
+      updateError: 'Error al actualizar equipo',
+      deleteError: 'Error al eliminar equipo',
+      restoreError: 'Error al restaurar equipo',
+      toggleError: 'Error al cambiar estado',
+    },
+  });
 
-  const fetchEquipos = async (
-    page: number = 1,
-    limit: number = 1000,
-    search: string = "",
-    includeInactive: boolean = false
-  ) => {
-    try {
-      setLoading(true);
-
-      if (!session?.accessToken) {
-        throw new Error("No hay sesión activa");
-      }
-
-      let url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/equipos/all?page=${page}&limit=${limit}`;
-
-      if (search) {
-        url += `&search=${encodeURIComponent(search)}`;
-      }
-
-      if (includeInactive) {
-        url += `&includeInactive=true`;
-      }
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const data: PaginatedEquipoResponse = await response.json();
-
-      if (!data.items || !Array.isArray(data.items)) {
-        throw new Error("Formato de respuesta inválido");
-      }
-
-      setEquipos(data.items);
-      setTotalPages(data.totalPages);
-      setTotalItems(data.totalItems);
-      setCurrentPage(data.currentPage);
-    } catch (error) {
-      console.error("Error fetching equipos:", error);
-      toast.error(error instanceof Error ? error.message : "Error al cargar equipos");
-      setEquipos([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchEquipos = fetchItems;
 
   // Nueva función refetch
   const refetch = async () => {
     await fetchEquipos(currentPage, 1000, searchTerm, showInactive);
   };
 
-  const createEquipo = async (equipoData: any): Promise<Equipo> => {
+  const createEquipo = async (equipoData: CreateEquipoDto): Promise<Equipo> => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/equipos`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-        body: JSON.stringify(equipoData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Error: ${response.status}`);
-      }
-
-      const newEquipo = await response.json();
-      toast.success("Equipo creado exitosamente");
+      const newEquipo = await createItem(equipoData);
       
       // Actualizamos la lista de equipos pero no redirigimos
       await refetch();
@@ -154,24 +126,9 @@ export function useEquipos(): UseEquiposReturn {
     }
   };
 
-  const updateEquipo = async (id: number, equipoData: any): Promise<Equipo> => {
+  const updateEquipo = async (id: number, equipoData: UpdateEquipoDto): Promise<Equipo> => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/equipos/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-        body: JSON.stringify(equipoData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Error: ${response.status}`);
-      }
-
-      const updatedEquipo = await response.json();
-      toast.success("Equipo actualizado exitosamente");
+      const updatedEquipo = await updateItem(id, equipoData);
       await refetch();
       return updatedEquipo;
     } catch (error) {
@@ -183,31 +140,16 @@ export function useEquipos(): UseEquiposReturn {
 
   const toggleEstado = async (equipo: Equipo) => {
     try {
-      if (!session?.accessToken) {
-        throw new Error("No hay sesión activa");
-      }
-
       const nuevoEstado = !equipo.estado;
-      const accion = nuevoEstado ? "habilitar" : "deshabilitar";
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/equipos/${equipo.id}/toggle-estado`,
+      await apiRequest(
+        `/equipos/${equipo.id}/toggle-estado`,
         {
           method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${session.accessToken}`,
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify({ estado: nuevoEstado }),
-        }
+        },
+        session,
       );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Error: ${response.status}`);
-      }
-
-      toast.success(`Equipo ${accion}ado correctamente`);
+      toast.success(`Equipo ${nuevoEstado ? 'habilitado' : 'deshabilitado'} correctamente`);
       await refetch();
     } catch (error) {
       console.error(`Error al cambiar estado del equipo:`, error);
@@ -218,19 +160,7 @@ export function useEquipos(): UseEquiposReturn {
 
   const deleteEquipo = async (id: number) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/equipos/${id}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Error: ${response.status}`);
-      }
-
-      toast.success("Equipo eliminado exitosamente");
+      await deleteItem(id);
       await refetch();
       return true;
     } catch (error) {
@@ -242,19 +172,7 @@ export function useEquipos(): UseEquiposReturn {
 
   const restoreEquipo = async (id: number) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/equipos/${id}/restore`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Error: ${response.status}`);
-      }
-
-      toast.success("Equipo restaurado exitosamente");
+      await restoreItem(id);
       await refetch();
       return true;
     } catch (error) {
@@ -268,7 +186,7 @@ export function useEquipos(): UseEquiposReturn {
     if (status === "authenticated") {
       fetchEquipos(1, 1000, searchTerm, showInactive);
     }
-  }, [status, session, searchTerm, showInactive]);
+  }, [status, searchTerm, showInactive]);
 
   return {
     equipos,

@@ -1,10 +1,9 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { useMarcas } from "@/hooks/useMarcas";
@@ -17,6 +16,14 @@ interface Props {
     onClose: () => void;
     equipo: Equipo | null;
     onSave: (updatedEquipo: Equipo) => void;
+}
+
+interface UpdateEquipoPayload {
+    numeroSerie?: string;
+    estado?: boolean;
+    tipoEquipoId?: number;
+    marcaId?: number;
+    modeloId?: number;
 }
 
 export default function EquipoEditModal({ isOpen, onClose, equipo, onSave }: Props) {
@@ -133,13 +140,12 @@ export default function EquipoEditModal({ isOpen, onClose, equipo, onSave }: Pro
         onClose();
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async () => {
         if (!editando || !token) return;
 
         setCargando(true);
         try {
-            const cambios: Partial<Equipo> = {};
+            const cambios: UpdateEquipoPayload = {};
 
             // Solo enviar los campos que han cambiado
             if (editando.numeroSerie !== equipo?.numeroSerie) cambios.numeroSerie = editando.numeroSerie;
@@ -183,7 +189,14 @@ export default function EquipoEditModal({ isOpen, onClose, equipo, onSave }: Pro
     if (!editando) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={handleCancel} className="max-w-[700px] m-4" title="Editar Equipo">
+        <CrudModal
+            isOpen={isOpen}
+            onClose={handleCancel}
+            title="Editar Equipo"
+            onSubmit={handleSubmit}
+            loading={cargando}
+            mode="edit"
+        >
             <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-10">
                 <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
                     Editar información del equipo
@@ -192,7 +205,13 @@ export default function EquipoEditModal({ isOpen, onClose, equipo, onSave }: Pro
                     Puedes modificar los datos del equipo. Los cambios se guardarán al presionar "Guardar cambios".
                 </p>
 
-                <form onSubmit={handleSubmit} className="flex flex-col">
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        void handleSubmit();
+                    }}
+                    className="flex flex-col"
+                >
                     <div className="custom-scrollbar h-[500px] overflow-y-auto">
                         <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                             <div>
@@ -344,17 +363,8 @@ export default function EquipoEditModal({ isOpen, onClose, equipo, onSave }: Pro
                             </div>
                         </div>
                     </div>
-
-                    <div className="flex justify-end gap-4 mt-6">
-                        <Button type="button" variant="outline" onClick={handleCancel} disabled={cargando}>
-                            Cancelar
-                        </Button>
-                        <Button type="submit" disabled={cargando} loading={cargando}>
-                            Guardar Cambios
-                        </Button>
-                    </div>
                 </form>
             </div>
-        </Modal>
+        </CrudModal>
     );
 }

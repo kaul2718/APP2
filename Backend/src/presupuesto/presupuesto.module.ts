@@ -5,12 +5,8 @@ import { PresupuestoService } from './presupuesto.service';
 import { PresupuestoController } from './presupuesto.controller';
 import { Order } from 'src/orders/entities/order.entity';
 import { EstadoPresupuesto } from 'src/estado-presupuesto/entities/estado-presupuesto.entity';
-import { DetalleRepuestos } from 'src/detalle-repuestos/entities/detalle-repuesto.entity';
+import { DetallePresupuestoItem } from 'src/detalle-presupuesto-item/entities/detalle-presupuesto-item.entity';
 import { Inventario } from 'src/inventario/entities/inventario.entity';
-import { Repuesto } from 'src/repuestos/entities/repuesto.entity';
-import { InventarioModule } from 'src/inventario/inventario.module';
-import { TipoNotificacionModule } from 'src/tipo-notificacion/tipo-notificacion.module';
-import { NotificacionModule } from 'src/notificacion/notificacion.module';
 
 @Module({
   imports: [
@@ -18,13 +14,9 @@ import { NotificacionModule } from 'src/notificacion/notificacion.module';
       Presupuesto,
       Order,
       EstadoPresupuesto,
-      DetalleRepuestos,
+      DetallePresupuestoItem,
       Inventario,
-      Repuesto,
     ]),
-    InventarioModule,
-    TipoNotificacionModule,  
-    NotificacionModule,     
   ],
   controllers: [PresupuestoController],
   providers: [PresupuestoService],

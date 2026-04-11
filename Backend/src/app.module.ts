@@ -9,8 +9,7 @@ import { OrdersModule } from './orders/orders.module';
 import { ActividadTecnicaModule } from './actividad-tecnica/actividad-tecnica.module';
 import { PresupuestoModule } from './presupuesto/presupuesto.module';
 import { CasilleroModule } from './casillero/casillero.module';
-import { RepuestosModule } from './repuestos/repuestos.module';
-import { DetalleRepuestosModule } from './detalle-repuestos/detalle-repuestos.module';
+import { DetallePresupuestoItemModule } from './detalle-presupuesto-item/detalle-presupuesto-item.module';
 import { EquipoModule } from './equipo/equipo.module';
 import { ConfigModule } from '@nestjs/config';
 import { RolModule } from './rol/rol.module';
@@ -27,8 +26,6 @@ import { DetalleManoObraModule } from './detalle-mano-obra/detalle-mano-obra.mod
 import { TipoManoObraModule } from './tipo-mano-obra/tipo-mano-obra.module';
 import { ParteModule } from './parte/parte.module';
 import { CategoriaModule } from './categoria/categoria.module';
-import { EspecificacionParteModule } from './especificacion-parte/especificacion-parte.module';
-import { TipoEspecificacionModule } from './tipo-especificacion/tipo-especificacion.module';
 import { InventarioModule } from './inventario/inventario.module';
 import { NotificacionModule } from './notificacion/notificacion.module';
 import { TipoNotificacionModule } from './tipo-notificacion/tipo-notificacion.module';
@@ -53,7 +50,7 @@ import { SeederModule } from './seeder/seeder.module';
       password: process.env.DB_PASSWORD,
       database: process.env.DB_DATABASE,
       autoLoadEntities: true,
-      synchronize: true,
+      synchronize: false,
       ssl: process.env.DB_SSL === 'true',
       extra: {
         ssl:
@@ -69,8 +66,7 @@ import { SeederModule } from './seeder/seeder.module';
     ActividadTecnicaModule,
     PresupuestoModule,
     CasilleroModule,
-    RepuestosModule,
-    DetalleRepuestosModule,
+    DetallePresupuestoItemModule,
     EquipoModule,
     RolModule,
     UsuarioRolModule,
@@ -86,8 +82,6 @@ import { SeederModule } from './seeder/seeder.module';
     TipoManoObraModule,
     ParteModule,
     CategoriaModule,
-    EspecificacionParteModule,
-    TipoEspecificacionModule,
     InventarioModule,
     NotificacionModule,
     TipoNotificacionModule,

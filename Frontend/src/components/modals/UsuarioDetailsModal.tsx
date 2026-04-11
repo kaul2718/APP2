@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import { Usuario } from "@/hooks/useUsuario";
 import { Role } from "@/types/role"; // o con path relativo
 
@@ -58,11 +58,13 @@ export default function UsuarioDetailsModal({ isOpen, onClose, usuario }: Props)
     : "No eliminado";
 
   return (
-    <Modal
+    <CrudModal
       isOpen={isOpen}
       onClose={onClose}
       title="Detalles del Usuario"
-      className="max-w-2xl p-6 max-h-[80vh] overflow-y-auto"
+      onSubmit={async () => {}}
+      mode="view"
+      hideActions
     >
       <div className="px-6 py-4 space-y-8 text-sm">
         {/* Sección básica */}
@@ -365,6 +367,6 @@ export default function UsuarioDetailsModal({ isOpen, onClose, usuario }: Props)
           </button>
         </div>
       </div>
-    </Modal>
+    </CrudModal>
   );
 }

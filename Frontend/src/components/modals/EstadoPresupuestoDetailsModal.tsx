@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import { EstadoPresupuesto } from "@/hooks/useEstadoPresupuesto";
 
 interface Props {
@@ -53,11 +53,13 @@ export default function EstadoPresupuestoDetailsModal({ isOpen, onClose, estado 
     : "No eliminado";
 
   return (
-    <Modal
+    <CrudModal
       isOpen={isOpen}
       onClose={onClose}
       title="Detalles del Estado de Presupuesto"
-      className="max-w-2xl p-6 max-h-[80vh] overflow-y-auto"
+      onSubmit={async () => {}}
+      mode="view"
+      hideActions
     >
       <div className="px-6 py-4 space-y-8 text-sm">
         {/* Sección básica */}
@@ -275,6 +277,6 @@ export default function EstadoPresupuestoDetailsModal({ isOpen, onClose, estado 
           </button>
         </div>
       </div>
-    </Modal>
+    </CrudModal>
   );
 }

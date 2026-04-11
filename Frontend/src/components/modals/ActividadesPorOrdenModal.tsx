@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { useActividadTecnica } from "@/hooks/useActividadTecnica";
+import type { ActividadTecnica } from "@/types/actividad.types";
 import { DocumentTextIcon, WrenchScrewdriverIcon, CalendarIcon } from "@heroicons/react/24/outline";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -21,18 +22,17 @@ export default function ActividadesPorOrdenModal({
     orderId,
     orderNumber
 }: Props) {
-    const { fetchActividadesByOrder } = useActividadTecnica();
-    const [actividades, setActividades] = useState<any[]>([]);
+    const { getActividadesByOrder } = useActividadTecnica();
+    const [actividades, setActividades] = useState<ActividadTecnica[]>([]);
     const [loading, setLoading] = useState(true);
 
     const cargarActividades = async () => {
         try {
             setLoading(true);
-            const data = await fetchActividadesByOrder(orderId);
+            const data = await getActividadesByOrder(orderId);
             setActividades(data || []);
         } catch (error) {
             toast.error("Error al cargar actividades técnicas");
-            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -54,7 +54,6 @@ export default function ActividadesPorOrdenModal({
             onClose={onClose}
             className="max-w-2xl"
             title={`Actividades Técnicas - Orden #${orderNumber || orderId}`}
-            closeButtonClassName="top-4 right-4"
         >
             <div className="px-4 py-2 max-h-[65vh] overflow-y-auto">
                 {loading ? (

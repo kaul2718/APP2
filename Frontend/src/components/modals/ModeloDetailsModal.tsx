@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import { Modelo } from "@/hooks/useModelo";
 
 interface Props {
@@ -53,11 +53,13 @@ export default function ModeloDetailsModal({ isOpen, onClose, modelo }: Props) {
     : "No eliminado";
 
   return (
-    <Modal
+    <CrudModal
       isOpen={isOpen}
       onClose={onClose}
       title="Detalles del Modelo"
-      className="max-w-2xl p-6 max-h-[80vh] overflow-y-auto"
+      onSubmit={async () => {}}
+      mode="view"
+      hideActions
     >
       <div className="px-6 py-4 space-y-8 text-sm">
         {/* Sección básica */}
@@ -240,6 +242,6 @@ export default function ModeloDetailsModal({ isOpen, onClose, modelo }: Props) {
           </button>
         </div>
       </div>
-    </Modal>
+    </CrudModal>
   );
 }

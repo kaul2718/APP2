@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import { TipoManoObra } from "@/hooks/useTipoManoObra";
 
 interface Props {
@@ -61,11 +61,13 @@ export default function TipoManoObraDetailsModal({ isOpen, onClose, tipo }: Prop
         : "No eliminado";
 
     return (
-        <Modal
+        <CrudModal
             isOpen={isOpen}
             onClose={onClose}
             title="Detalles del Tipo de Mano de Obra"
-            className="max-w-2xl p-6 max-h-[80vh] overflow-y-auto"
+            onSubmit={async () => {}}
+            mode="view"
+            hideActions
         >
             <div className="px-6 py-4 space-y-8 text-sm">
                 {/* Sección básica */}
@@ -308,10 +310,10 @@ export default function TipoManoObraDetailsModal({ isOpen, onClose, tipo }: Prop
                                                 {detalle.id}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                                                {detalle.cantidad}
+                                                {detalle.cantidad ?? "No disponible"}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                                                {new Date(detalle.createdAt).toLocaleDateString()}
+                                                {detalle.createdAt ? new Date(detalle.createdAt).toLocaleDateString() : "No disponible"}
                                             </td>
                                         </tr>
                                     ))}
@@ -331,6 +333,6 @@ export default function TipoManoObraDetailsModal({ isOpen, onClose, tipo }: Prop
                     </button>
                 </div>
             </div>
-        </Modal>
+        </CrudModal>
     );
 }

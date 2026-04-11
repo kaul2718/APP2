@@ -7,5 +7,7 @@ export class UpdateParteDto extends PartialType(CreateParteDto) {
     descripcion?: string;
     categoriaId?: number;
     marcaId?: number;
+    codigoInterno?: string;
+    precioReferencia?: number;
     estado?: boolean;
 }

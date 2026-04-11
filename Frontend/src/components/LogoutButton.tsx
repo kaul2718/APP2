@@ -3,8 +3,7 @@
 
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { toast } from "react-toastify";
 
 export default function LogoutButton() {
     const router = useRouter();
@@ -24,7 +23,7 @@ export default function LogoutButton() {
     return (
         <>
             <button
-                onClick={() => signOut({ callbackUrl: "/signin" })}
+                onClick={handleLogout}
                 className="flex items-center gap-3 px-3 py-2 mt-3 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
                 <svg
@@ -44,7 +43,6 @@ export default function LogoutButton() {
                 </svg>
                 Cerrar Sesión
             </button>
-            <ToastContainer />
         </>
     );
 }

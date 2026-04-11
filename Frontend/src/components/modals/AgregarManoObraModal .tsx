@@ -67,13 +67,13 @@ export default function AgregarManoObraModal({
         const newErrors: Partial<FormData> = {};
 
         if (!formData.tipoManoObraId) {
-            newErrors.tipoManoObraId = "⚠️ El tipo de mano de obra es requerido";
+            newErrors.tipoManoObraId = "El tipo de mano de obra es requerido";
         }
 
         if (!formData.cantidad) {
-            newErrors.cantidad = "⚠️ La cantidad es requerida";
+            newErrors.cantidad = "La cantidad es requerida";
         } else if (Number(formData.cantidad) <= 0) {
-            newErrors.cantidad = "⚠️ La cantidad debe ser mayor a 0";
+            newErrors.cantidad = "La cantidad debe ser mayor a 0";
         }
 
         setErrors(newErrors);
@@ -115,7 +115,7 @@ export default function AgregarManoObraModal({
                 throw new Error(responseData.message || "Error al registrar detalle");
             }
 
-            toast.success("✅ Detalle de mano de obra registrado con éxito", {
+            toast.success('Detalle de mano de obra registrado con exito', {
                 position: "top-center",
                 autoClose: 3000,
             });
@@ -134,7 +134,7 @@ export default function AgregarManoObraModal({
 
         } catch (error) {
             console.error("Error:", error);
-            toast.error(error instanceof Error ? `❌ ${error.message}` : "❌ Error al registrar detalle", {
+            toast.error(error instanceof Error ? error.message : 'Error al registrar detalle', {
                 position: "top-center",
                 autoClose: 5000,
             });

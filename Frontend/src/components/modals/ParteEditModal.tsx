@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { useMarcas } from "@/hooks/useMarcas";
@@ -16,6 +15,17 @@ interface Props {
     onClose: () => void;
     parte: Parte | null;
     onSave: (updatedParte: Parte) => void;
+}
+
+interface UpdatePartePayload {
+    nombre?: string;
+    modelo?: string;
+    descripcion?: string;
+    codigoInterno?: string;
+    precioReferencia?: number;
+    estado?: boolean;
+    marcaId?: number;
+    categoriaId?: number;
 }
 
 export default function ParteEditModal({ isOpen, onClose, parte, onSave }: Props) {
@@ -61,7 +71,15 @@ export default function ParteEditModal({ isOpen, onClose, parte, onSave }: Props
     }, []);
 
     useEffect(() => {
-        setEditando(parte);
+        setEditando(
+            parte
+                ? {
+                    ...parte,
+                    codigoInterno: parte.codigoInterno ?? "",
+                    precioReferencia: parte.precioReferencia ?? 0,
+                }
+                : null,
+        );
         setEstadoModificado(null);
         setMarcaModificada(null);
         setCategoriaModificada(null);
@@ -112,17 +130,22 @@ export default function ParteEditModal({ isOpen, onClose, parte, onSave }: Props
         onClose();
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async () => {
         if (!editando || !token) return;
 
         setCargando(true);
         try {
-            const cambios: Partial<Parte> = {};
+            const cambios: UpdatePartePayload = {};
 
             if (editando.nombre !== parte?.nombre) cambios.nombre = editando.nombre;
             if (editando.modelo !== parte?.modelo) cambios.modelo = editando.modelo;
             if (editando.descripcion !== parte?.descripcion) cambios.descripcion = editando.descripcion;
+            if ((editando.codigoInterno || "") !== (parte?.codigoInterno || "")) {
+                cambios.codigoInterno = editando.codigoInterno || "";
+            }
+            if (Number(editando.precioReferencia || 0) !== Number(parte?.precioReferencia ?? 0)) {
+                cambios.precioReferencia = Number(editando.precioReferencia || 0);
+            }
             if (estadoModificado !== null && estadoModificado !== parte?.estado)
                 cambios.estado = estadoModificado;
             if (marcaModificada !== null && marcaModificada !== parte?.marca?.id)
@@ -164,7 +187,14 @@ export default function ParteEditModal({ isOpen, onClose, parte, onSave }: Props
     if (!editando) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={handleCancel} className="max-w-[700px] m-4" title="Editar Parte">
+        <CrudModal
+            isOpen={isOpen}
+            onClose={handleCancel}
+            title="Editar Parte"
+            onSubmit={handleSubmit}
+            loading={cargando}
+            mode="edit"
+        >
             <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-10">
                 <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
                     Editar información de la parte
@@ -173,7 +203,13 @@ export default function ParteEditModal({ isOpen, onClose, parte, onSave }: Props
                     Puedes modificar los datos de la parte. Los cambios se guardarán al presionar "Guardar cambios".
                 </p>
 
-                <form onSubmit={handleSubmit} className="flex flex-col">
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        void handleSubmit();
+                    }}
+                    className="flex flex-col"
+                >
                     <div className="custom-scrollbar h-[500px] overflow-y-auto">
                         <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                             <div>
@@ -197,6 +233,28 @@ export default function ParteEditModal({ isOpen, onClose, parte, onSave }: Props
                                     value={editando.modelo}
                                     onChange={handleInputChange}
                                     required
+                                    disabled={cargando}
+                                />
+                            </div>
+                            <div>
+                                <Label>Código interno</Label>
+                                <Input
+                                    name="codigoInterno"
+                                    value={editando.codigoInterno || ""}
+                                    onChange={handleInputChange}
+                                    placeholder="Ej: RAM-001"
+                                    disabled={cargando}
+                                />
+                            </div>
+                            <div>
+                                <Label>Precio de referencia</Label>
+                                <Input
+                                    name="precioReferencia"
+                                    type="number"
+                                    min="0"
+                                    step={0.01}
+                                    value={editando.precioReferencia || 0}
+                                    onChange={handleInputChange}
                                     disabled={cargando}
                                 />
                             </div>
@@ -382,17 +440,8 @@ export default function ParteEditModal({ isOpen, onClose, parte, onSave }: Props
                             </div>
                         </div>
                     </div>
-
-                    <div className="flex justify-end gap-4 mt-6">
-                        <Button type="button" variant="outline" onClick={handleCancel} disabled={cargando}>
-                            Cancelar
-                        </Button>
-                        <Button type="submit" disabled={cargando} loading={cargando}>
-                            Guardar Cambios
-                        </Button>
-                    </div>
                 </form>
             </div>
-        </Modal>
+        </CrudModal>
     );
 }

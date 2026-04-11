@@ -115,7 +115,6 @@ export class UsersController {
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePasswordDto: UpdatePasswordDto,
   ) {
-    console.log('Received data:', updatePasswordDto); // Para depuración
     return this.usersService.updatePassword(
       id,
       updatePasswordDto.currentPassword,

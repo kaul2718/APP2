@@ -5,8 +5,6 @@ import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
 import { EyeCloseIcon, EyeIcon } from "@/icons";
 import Link from "next/link";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import { useSignUpFormHandler } from "@/hooks/useSignUpFormHandler";
 
 export default function SignUpForm() {
@@ -149,8 +147,6 @@ export default function SignUpForm() {
           </Link>
         </div>
       </div>
-
-      <ToastContainer position="top-right" />
     </div>
   );
 }

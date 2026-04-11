@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { Usuario } from "@/hooks/useUsuario";
@@ -103,7 +103,15 @@ export default function UsuarioEditModal({ isOpen, onClose, usuario, onSave }: P
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={handleCancel} className="max-w-[800px] m-4" title="Editar Usuario">
+        <CrudModal
+            isOpen={isOpen}
+            onClose={handleCancel}
+            title="Editar Usuario"
+            onSubmit={async () => Promise.resolve()}
+            loading={cargando}
+            mode="edit"
+            hideActions
+        >
             <div className="no-scrollbar relative w-full max-w-[800px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-10">
                 <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
                     Editar información del usuario
@@ -121,6 +129,6 @@ export default function UsuarioEditModal({ isOpen, onClose, usuario, onSave }: P
                     isModal={true}
                 />
             </div>
-        </Modal>
+        </CrudModal>
     );
 }

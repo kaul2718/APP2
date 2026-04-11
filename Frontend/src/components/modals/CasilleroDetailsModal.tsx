@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import { Casillero } from "@/hooks/useCasillero";
 
 interface Props {
@@ -54,11 +54,13 @@ export default function CasilleroDetailsModal({ isOpen, onClose, casillero }: Pr
     : "No eliminado";
 
   return (
-    <Modal
+    <CrudModal
       isOpen={isOpen}
       onClose={onClose}
       title="Detalles del Casillero"
-      className="max-w-2xl p-6 max-h-[80vh] overflow-y-auto"
+      onSubmit={async () => {}}
+      mode="view"
+      hideActions
     >
       <div className="px-6 py-4 space-y-8 text-sm">
         {/* Sección básica */}
@@ -301,6 +303,6 @@ export default function CasilleroDetailsModal({ isOpen, onClose, casillero }: Pr
           </button>
         </div>
       </div>
-    </Modal>
+    </CrudModal>
   );
 }

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
+import { apiRequest } from "@/lib/api";
+import { useCrud } from "@/hooks/useCrud";
 
 export interface OrderCasillero {
   id: number;
@@ -21,23 +23,53 @@ export interface Casillero {
   order?: OrderCasillero | null;
 }
 
-// Respuesta paginada del backend
-interface PaginatedCasilleroResponse {
-  items: Casillero[];
-  totalItems: number;
-  totalPages: number;
-  currentPage: number;
+interface CreateCasilleroDto {
+  codigo: string;
+  descripcion: string;
+}
+
+interface UpdateCasilleroDto {
+  codigo?: string;
+  descripcion?: string;
+  estado?: boolean;
 }
 
 export function useCasillero() {
   const { data: session, status } = useSession();
-  const [casilleros, setCasilleros] = useState<Casillero[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [totalItems, setTotalItems] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [showInactive, setShowInactive] = useState<boolean>(false);
+  const {
+    items: casilleros,
+    loading,
+    totalPages,
+    totalItems,
+    currentPage,
+    searchTerm,
+    showInactive,
+    fetchItems,
+    createItem,
+    updateItem,
+    toggleItemStatus,
+    deleteItem,
+    restoreItem,
+    setItems: setCasilleros,
+    setSearchTerm,
+    setShowInactive,
+  } = useCrud<Casillero, CreateCasilleroDto, UpdateCasilleroDto>('/casilleros', {
+    defaultLimit: 10,
+    listPath: '/casilleros/all',
+    messages: {
+      created: 'Casillero creado exitosamente',
+      updated: 'Casillero actualizado exitosamente',
+      deleted: 'Casillero eliminado exitosamente',
+      restored: 'Casillero restaurado exitosamente',
+      toggled: (enabled) => `Casillero ${enabled ? 'activado' : 'desactivado'} exitosamente`,
+      loadError: 'Error al cargar casilleros',
+      createError: 'Error al crear casillero',
+      updateError: 'Error al actualizar casillero',
+      deleteError: 'Error al eliminar casillero',
+      restoreError: 'Error al restaurar casillero',
+      toggleError: 'Error al cambiar estado del casillero',
+    },
+  });
   const [situacionFilter, setSituacionFilter] = useState<string | undefined>();
 
   const fetchCasilleros = async (
@@ -47,219 +79,37 @@ export function useCasillero() {
     includeInactive: boolean = false,
     situacion?: string
   ) => {
-    try {
-      setLoading(true);
-
-      if (!session?.accessToken) {
-        throw new Error("Token de sesión no disponible");
-      }
-
-      let url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/casilleros/all?page=${page}&limit=${limit}`;
-
-      if (search) {
-        url += `&search=${encodeURIComponent(search)}`;
-      }
-
-      if (includeInactive) {
-        url += `&includeInactive=true`;
-      }
-
-      if (situacion) {
-        url += `&situacion=${encodeURIComponent(situacion)}`;
-      }
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const data: PaginatedCasilleroResponse = await response.json();
-
-      if (!data.items || !Array.isArray(data.items)) {
-        throw new Error("Formato de respuesta inválido");
-      }
-
-      setCasilleros(data.items);
-      setTotalPages(data.totalPages);
-      setTotalItems(data.totalItems);
-      setCurrentPage(data.currentPage);
-    } catch (error) {
-      console.error("Error al obtener casilleros:", error);
-      toast.error(error instanceof Error ? error.message : "Error al cargar casilleros");
-      setCasilleros([]);
-    } finally {
-      setLoading(false);
-    }
+    await fetchItems(page, limit, search, includeInactive, { situacion });
   };
 
   const fetchAvailableCasilleros = async () => {
     try {
-      setLoading(true);
-
-      if (!session?.accessToken) {
-        throw new Error("Token de sesión no disponible");
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/casilleros/disponibles`, {
-        headers: {
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const data: Casillero[] = await response.json();
+      const data = await apiRequest<Casillero[]>('/casilleros/disponibles', {}, session);
       return data;
     } catch (error) {
       console.error("Error al obtener casilleros disponibles:", error);
       toast.error(error instanceof Error ? error.message : "Error al cargar casilleros disponibles");
       return [];
     } finally {
-      setLoading(false);
+      // UseCrud maneja loading para la lista principal; este endpoint solo retorna datos.
     }
   };
 
-  const createCasillero = async (casilleroData: { codigo: string; descripcion: string }) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/casilleros`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-        body: JSON.stringify(casilleroData),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const newCasillero = await response.json();
-      toast.success("Casillero creado exitosamente");
-      return newCasillero;
-    } catch (error) {
-      console.error("Error al crear casillero:", error);
-      toast.error(error instanceof Error ? error.message : "Error al crear casillero");
-      throw error;
-    }
-  };
-
-  const updateCasillero = async (id: number, casilleroData: { codigo?: string; descripcion?: string; estado?: boolean }) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/casilleros/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-        body: JSON.stringify(casilleroData),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const updatedCasillero = await response.json();
-      toast.success("Casillero actualizado exitosamente");
-      return updatedCasillero;
-    } catch (error) {
-      console.error("Error al actualizar casillero:", error);
-      toast.error(error instanceof Error ? error.message : "Error al actualizar casillero");
-      throw error;
-    }
-  };
-
-  const toggleCasilleroStatus = async (id: number) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/casilleros/${id}/toggle-estado`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const updatedCasillero = await response.json();
-      toast.success(`Casillero ${updatedCasillero.estado ? 'activado' : 'desactivado'} exitosamente`);
-      return updatedCasillero;
-    } catch (error) {
-      console.error("Error al cambiar estado del casillero:", error);
-      toast.error(error instanceof Error ? error.message : "Error al cambiar estado del casillero");
-      throw error;
-    }
-  };
-
-  const deleteCasillero = async (id: number) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/casilleros/${id}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      toast.success("Casillero eliminado exitosamente");
-      return true;
-    } catch (error) {
-      console.error("Error al eliminar casillero:", error);
-      toast.error(error instanceof Error ? error.message : "Error al eliminar casillero");
-      throw error;
-    }
-  };
-
-  const restoreCasillero = async (id: number) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/casilleros/${id}/restore`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      toast.success("Casillero restaurado exitosamente");
-      return true;
-    } catch (error) {
-      console.error("Error al restaurar casillero:", error);
-      toast.error(error instanceof Error ? error.message : "Error al restaurar casillero");
-      throw error;
-    }
-  };
+  const createCasillero = createItem;
+  const updateCasillero = updateItem;
+  const toggleCasilleroStatus = toggleItemStatus;
+  const deleteCasillero = deleteItem;
+  const restoreCasillero = restoreItem;
 
   const assignOrder = async (casilleroId: number, orderId: number) => {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/casilleros/${casilleroId}/asignar-orden/${orderId}`,
+      const updatedCasillero = await apiRequest<Casillero>(
+        `/casilleros/${casilleroId}/asignar-orden/${orderId}`,
         {
           method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${session?.accessToken}`,
-          },
-        }
+        },
+        session,
       );
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const updatedCasillero = await response.json();
       toast.success("Orden asignada al casillero exitosamente");
       return updatedCasillero;
     } catch (error) {
@@ -271,21 +121,13 @@ export function useCasillero() {
 
   const releaseCasillero = async (casilleroId: number) => {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/casilleros/${casilleroId}/liberar`,
+      const updatedCasillero = await apiRequest<Casillero>(
+        `/casilleros/${casilleroId}/liberar`,
         {
           method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${session?.accessToken}`,
-          },
-        }
+        },
+        session,
       );
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const updatedCasillero = await response.json();
       toast.success("Casillero liberado exitosamente");
       return updatedCasillero;
     } catch (error) {
@@ -299,7 +141,7 @@ export function useCasillero() {
     if (status === "authenticated") {
       fetchCasilleros(1, 10, searchTerm, showInactive, situacionFilter);
     }
-  }, [status, session, searchTerm, showInactive, situacionFilter]);
+  }, [status, searchTerm, showInactive, situacionFilter]);
 
   return {
     casilleros,

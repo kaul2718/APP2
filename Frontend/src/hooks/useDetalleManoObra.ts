@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { toast } from "react-toastify";
+import { useCrud } from "@/hooks/useCrud";
+import { apiRequest } from "@/lib/api";
 
 export interface DetalleManoObra {
   id: number;
@@ -35,11 +36,17 @@ export interface Presupuesto {
   fechaEmision: string;
 }
 
-interface PaginatedDetalleManoObraResponse {
-  items: DetalleManoObra[];
-  totalItems: number;
-  totalPages: number;
-  currentPage: number;
+interface CreateDetalleManoObraDto {
+  presupuestoId: number;
+  tipoManoObraId: number;
+  cantidad: number;
+}
+
+interface UpdateDetalleManoObraDto {
+  presupuestoId?: number;
+  tipoManoObraId?: number;
+  cantidad?: number;
+  estado?: boolean;
 }
 
 interface ResumenManoObra {
@@ -50,104 +57,64 @@ interface ResumenManoObra {
 
 export function useDetalleManoObra() {
   const { data: session, status } = useSession();
-  const [detalles, setDetalles] = useState<DetalleManoObra[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [totalItems, setTotalItems] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [showInactive, setShowInactive] = useState<boolean>(false);
+  const {
+    items: detalles,
+    loading,
+    totalPages,
+    totalItems,
+    currentPage,
+    searchTerm,
+    showInactive,
+    fetchItems,
+    createItem,
+    updateItem,
+    toggleItemStatus,
+    deleteItem,
+    restoreItem,
+    setItems: setDetalles,
+    setSearchTerm,
+    setShowInactive,
+  } = useCrud<DetalleManoObra, CreateDetalleManoObraDto, UpdateDetalleManoObraDto>(
+    '/detalles-mano-obra',
+    {
+      defaultLimit: 10,
+      listPath: '/detalles-mano-obra/all',
+      messages: {
+        created: 'Detalle de mano de obra creado exitosamente',
+        updated: 'Detalle actualizado exitosamente',
+        deleted: 'Detalle eliminado exitosamente',
+        restored: 'Detalle restaurado exitosamente',
+        toggled: (enabled) => `Detalle ${enabled ? 'activado' : 'desactivado'} exitosamente`,
+        loadError: 'Error al cargar detalles',
+        createError: 'Error al crear detalle',
+        updateError: 'Error al actualizar detalle',
+        deleteError: 'Error al eliminar detalle',
+        restoreError: 'Error al restaurar detalle',
+        toggleError: 'Error al cambiar estado',
+      },
+    },
+  );
 
-  const fetchDetalles = async (
-    page: number = 1,
-    limit: number = 10,
-    search: string = "",
-    includeInactive: boolean = false
-  ) => {
-    try {
-      setLoading(true);
-
-      if (!session?.accessToken) {
-        throw new Error("Token de sesión no disponible");
-      }
-
-      let url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/detalles-mano-obra/all?page=${page}&limit=${limit}`;
-
-      if (search) {
-        url += `&search=${encodeURIComponent(search)}`;
-      }
-
-      if (includeInactive) {
-        url += `&includeInactive=true`;
-      }
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const data: PaginatedDetalleManoObraResponse = await response.json();
-
-      if (!data.items || !Array.isArray(data.items)) {
-        throw new Error("Formato de respuesta inválido");
-      }
-
-      setDetalles(data.items);
-      setTotalPages(data.totalPages);
-      setTotalItems(data.totalItems);
-      setCurrentPage(data.currentPage);
-    } catch (error) {
-      console.error("Error al obtener detalles de mano de obra:", error);
-      toast.error(error instanceof Error ? error.message : "Error al cargar detalles");
-      setDetalles([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchDetalles = fetchItems;
+  const createDetalle = createItem;
+  const updateDetalle = updateItem;
+  const toggleDetalleStatus = toggleItemStatus;
+  const deleteDetalle = deleteItem;
+  const restoreDetalle = restoreItem;
 
   const fetchDetallesByPresupuesto = async (
     presupuestoId: number,
     includeInactive: boolean = false
   ) => {
     try {
-      if (!session?.accessToken) {
-        throw new Error("Token de sesión no disponible");
-      }
-
-      let url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/detalles-mano-obra/by-presupuesto/${presupuestoId}`;
+      let url = `/detalles-mano-obra/by-presupuesto/${presupuestoId}`;
 
       if (includeInactive) {
         url += `?includeInactive=true`;
       }
 
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-      });
+      const data = await apiRequest<DetalleManoObra[] | DetalleManoObra | null>(url, {}, session);
 
-      if (!response.ok) {
-        // Si el status es 404 (no encontrado), devolver array vacío
-        if (response.status === 404) {
-          return [];
-        }
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      // Verificar si la respuesta tiene contenido
-      const contentLength = response.headers.get('Content-Length');
-      if (contentLength === '0') {
-        return [];
-      }
-
-      const data = await response.json();
-
-      // Asegurarse de que siempre devolvemos un array
       if (!data) return [];
       return Array.isArray(data) ? data : [data];
     } catch (error) {
@@ -158,164 +125,13 @@ export function useDetalleManoObra() {
 
   const getResumenManoObra = async (presupuestoId: number): Promise<ResumenManoObra> => {
     try {
-      if (!session?.accessToken) {
-        throw new Error("Token de sesión no disponible");
-      }
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/detalles-mano-obra/by-presupuesto/${presupuestoId}/total`,
-        {
-          headers: {
-            Authorization: `Bearer ${session.accessToken}`,
-          },
-        }
+      return await apiRequest<ResumenManoObra>(
+        `/detalles-mano-obra/by-presupuesto/${presupuestoId}/total`,
+        {},
+        session,
       );
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      return await response.json();
     } catch (error) {
-      console.error("Error al obtener resumen de mano de obra:", error);
-      toast.error(error instanceof Error ? error.message : "Error al cargar resumen");
-      throw error;
-    }
-  };
-
-  const createDetalle = async (detalleData: {
-    presupuestoId: number;
-    tipoManoObraId: number;
-    cantidad: number;
-  }) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/detalles-mano-obra`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-        body: JSON.stringify(detalleData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Error: ${response.status}`);
-      }
-
-      const newDetalle = await response.json();
-      toast.success("Detalle de mano de obra creado exitosamente");
-      return newDetalle;
-    } catch (error) {
-      console.error("Error al crear detalle:", error);
-      toast.error(error instanceof Error ? error.message : "Error al crear detalle");
-      throw error;
-    }
-  };
-
-  const updateDetalle = async (
-    id: number,
-    detalleData: {
-      presupuestoId?: number;
-      tipoManoObraId?: number;
-      cantidad?: number;
-      estado?: boolean;
-    }
-  ) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/detalles-mano-obra/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-        body: JSON.stringify(detalleData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Error: ${response.status}`);
-      }
-
-      const updatedDetalle = await response.json();
-      toast.success("Detalle actualizado exitosamente");
-      return updatedDetalle;
-    } catch (error) {
-      console.error("Error al actualizar detalle:", error);
-      toast.error(error instanceof Error ? error.message : "Error al actualizar detalle");
-      throw error;
-    }
-  };
-
-  const toggleDetalleStatus = async (id: number) => {
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/detalles-mano-obra/${id}/toggle-estado`,
-        {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${session?.accessToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const updatedDetalle = await response.json();
-      return updatedDetalle;
-    } catch (error) {
-      console.error("Error al cambiar estado del detalle:", error);
-      toast.error(error instanceof Error ? error.message : "Error al cambiar estado");
-      throw error;
-    }
-  };
-
-  const deleteDetalle = async (id: number) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/detalles-mano-obra/${id}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      toast.success("Detalle eliminado exitosamente");
-      return true;
-    } catch (error) {
-      console.error("Error al eliminar detalle:", error);
-      toast.error(error instanceof Error ? error.message : "Error al eliminar detalle");
-      throw error;
-    }
-  };
-
-  const restoreDetalle = async (id: number) => {
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/detalles-mano-obra/${id}/restore`,
-        {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${session?.accessToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      toast.success("Detalle restaurado exitosamente");
-      return true;
-    } catch (error) {
-      console.error("Error al restaurar detalle:", error);
-      toast.error(error instanceof Error ? error.message : "Error al restaurar detalle");
-      throw error;
+      throw new Error(error instanceof Error ? error.message : 'Error al cargar resumen');
     }
   };
 
@@ -323,7 +139,7 @@ export function useDetalleManoObra() {
     if (status === "authenticated") {
       fetchDetalles(1, 10, searchTerm, showInactive);
     }
-  }, [status, session, searchTerm, showInactive]);
+  }, [status, searchTerm, showInactive]);
 
   return {
     detalles,

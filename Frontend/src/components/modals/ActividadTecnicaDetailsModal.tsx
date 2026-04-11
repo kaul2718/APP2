@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import { ActividadTecnica } from "@/hooks/useActividadTecnica";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -79,11 +79,13 @@ export default function ActividadTecnicaDetailsModal({ isOpen, onClose, activida
   const fechaActividad = format(new Date(actividad.fecha), 'PPPpp', { locale: es });
 
   return (
-    <Modal
+    <CrudModal
       isOpen={isOpen}
       onClose={onClose}
       title="Detalles de la Actividad Técnica"
-      className="max-w-3xl p-6 max-h-[80vh] overflow-y-auto"
+      onSubmit={async () => {}}
+      mode="view"
+      hideActions
     >
       <div className="px-6 py-4 space-y-8 text-sm">
         {/* Sección básica */}
@@ -344,6 +346,6 @@ export default function ActividadTecnicaDetailsModal({ isOpen, onClose, activida
           </button>
         </div>
       </div>
-    </Modal>
+    </CrudModal>
   );
 }

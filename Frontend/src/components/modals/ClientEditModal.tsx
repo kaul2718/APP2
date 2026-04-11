@@ -1,12 +1,10 @@
 'use client';
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
-import "react-toastify/dist/ReactToastify.css";
 import useEditarUsuario from "@/hooks/useEditarUsuario";
 import { Cliente } from "@/hooks/useClientes";
 import Badge from "@/components/ui/badge/Badge";
@@ -35,8 +33,7 @@ export default function ClientEditModal({ isOpen, onClose, cliente, onSave }: Pr
     onClose();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     const actualizado = await actualizarUsuario();
     if (actualizado) {
       onSave(actualizado);
@@ -47,11 +44,13 @@ export default function ClientEditModal({ isOpen, onClose, cliente, onSave }: Pr
   if (!editando) return null;
 
   return (
-    <Modal
+    <CrudModal
       isOpen={isOpen}
       onClose={handleCancel}
-      className="max-w-[700px] m-4"
       title="Editar Cliente"
+      onSubmit={handleSubmit}
+      loading={cargando}
+      mode="edit"
     >
       <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-10">
         <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
@@ -61,7 +60,13 @@ export default function ClientEditModal({ isOpen, onClose, cliente, onSave }: Pr
           Puedes modificar los datos del cliente. Los campos obligatorios están marcados con *.
         </p>
 
-        <form onSubmit={handleSubmit} className="flex flex-col">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSubmit();
+          }}
+          className="flex flex-col"
+        >
           <div className="custom-scrollbar h-[400px] overflow-y-auto">
             <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
               <div>
@@ -119,17 +124,8 @@ export default function ClientEditModal({ isOpen, onClose, cliente, onSave }: Pr
               </div>
             </div>
           </div>
-
-          <div className="flex justify-end gap-4 mt-6">
-            <Button type="button" variant="outline" onClick={handleCancel} disabled={cargando}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={cargando} loading={cargando}>
-              Guardar Cambios
-            </Button>
-          </div>
         </form>
       </div>
-    </Modal>
+    </CrudModal>
   );
 }

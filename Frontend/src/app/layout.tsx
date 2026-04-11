@@ -18,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body className={`${outfit.className} dark:bg-gray-900`}>
         <SessionAuthProvider>
           <ThemeProvider>
@@ -33,6 +33,7 @@ export default function RootLayout({
                 pauseOnHover
                 draggable
                 theme="colored"
+                role="status"
                 style={{ position: "fixed", top: 20, right: 20, zIndex: 99999 }}
               />
             </SidebarProvider>

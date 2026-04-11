@@ -1,68 +1,19 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import { getSession, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
+import { apiRequest } from "@/lib/api";
+import type { PaginatedResponse } from "@/types/pagination.types";
+import type {
+  EstadoOrdenBasic,
+  EquipoBasic,
+  Order,
+  UserBasic,
+} from "@/types/order.types";
 
-// Interfaces para tipos de datos
-export interface UserBasic {
-  id: number;
-  nombre: string;
-  apellido?: string;
-  role: string;
-}
-
-export interface EquipoBasic {
-  id: number;
-  numeroSerie: string;
-  tipoEquipo?: {
-    id: number;
-    nombre: string;
-  };
-  marca?: {
-    id: number;
-    nombre: string;
-  };
-  modelo?: {
-    id: number;
-    nombre: string;
-  };
-}
-
-export interface EstadoOrdenBasic {
-  id: number;
-  nombre: string;
-}
-
-export interface Order {
-  id: number;
-  workOrderNumber: string;
-  estado: boolean;
-  client: UserBasic;
-  technician?: UserBasic;
-  recepcionista?: UserBasic;
-  equipo: EquipoBasic;
-  problemaReportado: string;
-  accesorios?: string[];
-  fechaPrometidaEntrega?: string;
-  estadoOrden?: EstadoOrdenBasic;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt?: string;
-  actividades?: any[];
-  presupuesto?: any;
-  detallesRepuestos?: any[];
-  casillero?: any;
-  evidencias?: any[];
-  historialEstados?: any[];
-}
-
-interface PaginatedOrderResponse {
-  items: Order[];
-  totalItems: number;
-  totalPages: number;
-  currentPage: number;
-}
+type PaginatedOrderResponse = PaginatedResponse<Order>;
+export type { UserBasic, EquipoBasic, EstadoOrdenBasic, Order };
 
 export function useOrders() {
   const { data: session, status } = useSession();
@@ -109,7 +60,7 @@ export function useOrders() {
         isRoleSpecificEndpoint = true;
       }
 
-      let url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/${endpoint}`;
+      let url = `/${endpoint}`;
 
       // Solo agregamos parámetros de consulta para el endpoint general
       if (!isRoleSpecificEndpoint) {
@@ -145,22 +96,12 @@ export function useOrders() {
         url += `?${queryParams.toString()}`;
       }
 
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
       // Manejar diferentes formatos de respuesta
       let responseData: PaginatedOrderResponse;
 
       if (isRoleSpecificEndpoint) {
         // Los endpoints específicos devuelven un array directo
-        const items = await response.json();
+        const items = await apiRequest<Order[]>(url, {}, session);
         responseData = {
           items,
           totalItems: items.length,
@@ -169,7 +110,7 @@ export function useOrders() {
         };
       } else {
         // El endpoint general devuelve la estructura paginada
-        responseData = await response.json();
+        responseData = await apiRequest<PaginatedOrderResponse>(url, {}, session);
       }
 
       // Verificar que los datos sean válidos
@@ -219,20 +160,14 @@ export function useOrders() {
 
       //console.log('Enviando al backend:', payload);
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/orders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.accessToken}`
+      const data = await apiRequest<Order>(
+        '/orders',
+        {
+          method: 'POST',
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Error al crear orden');
-      }
+        session,
+      );
 
       return data;
     } catch (error) {
@@ -260,21 +195,14 @@ export function useOrders() {
         userId: session.user.id, // 👈 lo agregas tú aquí
       };
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/orders/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.accessToken}`
+      return await apiRequest<Order>(
+        `/orders/${id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Error: ${response.status}`);
-      }
-
-      return await response.json();
+        session,
+      );
     } catch (error) {
       //console.error("Error updating order:", error);
       throw error;
@@ -283,18 +211,13 @@ export function useOrders() {
 
   const toggleOrderStatus = async (id: number) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/orders/${id}/toggle-estado`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
+      const updatedOrder = await apiRequest<Order>(
+        `/orders/${id}/toggle-estado`,
+        {
+          method: 'PATCH',
         },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const updatedOrder = await response.json();
+        session,
+      );
       toast.success(`Orden ${updatedOrder.estado ? 'activada' : 'desactivada'} exitosamente`);
       return updatedOrder;
     } catch (error) {
@@ -306,16 +229,13 @@ export function useOrders() {
 
   const deleteOrder = async (id: number) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/orders/${id}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
+      await apiRequest<void>(
+        `/orders/${id}`,
+        {
+          method: 'DELETE',
         },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
+        session,
+      );
 
       toast.success("Orden eliminada exitosamente");
       return true;
@@ -328,16 +248,13 @@ export function useOrders() {
 
   const restoreOrder = async (id: number) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/orders/${id}/restore`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
+      await apiRequest<void>(
+        `/orders/${id}/restore`,
+        {
+          method: 'PATCH',
         },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
+        session,
+      );
 
       toast.success("Orden restaurada exitosamente");
       return true;
@@ -354,21 +271,13 @@ export function useOrders() {
         throw new Error("Usuario no autenticado");
       }
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/orders/${orderId}/estado/${estadoOrdenId}`,
+      const updatedOrder = await apiRequest<Order>(
+        `/orders/${orderId}/estado/${estadoOrdenId}`,
         {
           method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${session.accessToken}`,
-          },
-        }
+        },
+        session,
       );
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const updatedOrder = await response.json();
       toast.success("Estado de la orden actualizado exitosamente");
       return updatedOrder;
     } catch (error) {
@@ -380,23 +289,14 @@ export function useOrders() {
 
   const addActivity = async (orderId: number, activityData: any) => {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/orders/${orderId}/actividades`,
+      const newActivity = await apiRequest<any>(
+        `/orders/${orderId}/actividades`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.accessToken}`,
-          },
           body: JSON.stringify(activityData),
-        }
+        },
+        session,
       );
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const newActivity = await response.json();
       toast.success("Actividad técnica agregada exitosamente");
       return newActivity;
     } catch (error) {

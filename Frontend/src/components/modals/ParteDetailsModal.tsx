@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import { Parte } from "@/hooks/usePartes";
 
 interface Props {
@@ -53,11 +53,13 @@ export default function ParteDetailsModal({ isOpen, onClose, parte }: Props) {
     : "No eliminado";
 
   return (
-    <Modal
+    <CrudModal
       isOpen={isOpen}
       onClose={onClose}
       title="Detalles de la Parte"
-      className="max-w-2xl p-6 max-h-[80vh] overflow-y-auto"
+      onSubmit={async () => {}}
+      mode="view"
+      hideActions
     >
       <div className="px-6 py-4 space-y-8 text-sm">
         {/* Sección básica */}
@@ -124,6 +126,48 @@ export default function ParteDetailsModal({ isOpen, onClose, parte }: Props) {
                       strokeLinejoin="round"
                       strokeWidth={2}
                       d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
+                    />
+                  </svg>
+                </Icon>
+              }
+            />
+            <InputDisplay
+              label="Código interno"
+              value={parte.codigoInterno || "Generado automáticamente"}
+              icon={
+                <Icon>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 7h10M7 12h10M7 17h6"
+                    />
+                  </svg>
+                </Icon>
+              }
+            />
+            <InputDisplay
+              label="Precio de referencia"
+              value={(parte.precioReferencia ?? 0).toLocaleString('es-CL', { style: 'currency', currency: 'CLP' })}
+              icon={
+                <Icon>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-10V6m0 12v-2"
                     />
                   </svg>
                 </Icon>
@@ -303,6 +347,6 @@ export default function ParteDetailsModal({ isOpen, onClose, parte }: Props) {
           </button>
         </div>
       </div>
-    </Modal>
+    </CrudModal>
   );
 }

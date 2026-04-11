@@ -3,22 +3,25 @@ import React from "react";
 import ComponentCard from "@/components/common/ComponentCard";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import { Select } from "@headlessui/react";
 import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { useRouter } from 'next/navigation';
-import { CogIcon, FolderIcon, TagIcon } from "@heroicons/react/24/outline";
+import { CogIcon, FolderIcon, TagIcon, CurrencyDollarIcon } from "@heroicons/react/24/outline";
 import { useMarcas } from "@/hooks/useMarcas";
 import { useCategoria } from "@/hooks/useCategoria";
 
 interface FormData {
-  nombre: string; // Nuevo campo
+  nombre: string;
   modelo: string;
   descripcion: string;
+  codigoInterno: string;
+  precioReferencia: number;
   categoriaId: number | null;
   marcaId: number | null;
 }
+
+type FormErrors = Partial<Record<keyof FormData, string>>;
 
 export default function IngresarParteForm() {
   const { data: session } = useSession();
@@ -26,13 +29,15 @@ export default function IngresarParteForm() {
   const { marcas, loading: loadingMarcas } = useMarcas();
   const { categorias, loading: loadingCategorias } = useCategoria();
   const [formData, setFormData] = React.useState<FormData>({
-    nombre: "", // Nuevo campo
+    nombre: "",
     modelo: "",
     descripcion: "",
+    codigoInterno: "",
+    precioReferencia: 0,
     categoriaId: null,
     marcaId: null
   });
-  const [errors, setErrors] = React.useState<Partial<FormData>>({});
+  const [errors, setErrors] = React.useState<FormErrors>({});
   const [loading, setLoading] = React.useState(false);
 
   const handleChange = (field: keyof FormData, value: string | number) => {
@@ -43,7 +48,7 @@ export default function IngresarParteForm() {
   };
 
   const validateFields = () => {
-    const newErrors: Partial<FormData> = {};
+    const newErrors: FormErrors = {};
 
     if (!formData.nombre.trim()) {
       newErrors.nombre = "El nombre de la parte es requerido";
@@ -61,6 +66,14 @@ export default function IngresarParteForm() {
       newErrors.descripcion = "La descripción es requerida";
     } else if (formData.descripcion.trim().length < 5) {
       newErrors.descripcion = "La descripción debe tener al menos 5 caracteres";
+    }
+
+    if (formData.codigoInterno.trim() && formData.codigoInterno.trim().length < 2) {
+      newErrors.codigoInterno = "El código debe tener al menos 2 caracteres";
+    }
+
+    if (formData.precioReferencia <= 0) {
+      newErrors.precioReferencia = "El precio de referencia debe ser mayor a 0";
     }
 
     if (!formData.categoriaId) {
@@ -92,9 +105,11 @@ export default function IngresarParteForm() {
           Authorization: `Bearer ${session?.accessToken || ""}`,
         },
         body: JSON.stringify({
-          nombre: formData.nombre, // Nuevo campo
+          nombre: formData.nombre,
           modelo: formData.modelo,
           descripcion: formData.descripcion,
+          codigoInterno: formData.codigoInterno || undefined,
+          precioReferencia: formData.precioReferencia,
           categoriaId: formData.categoriaId,
           marcaId: formData.marcaId
         }),
@@ -103,16 +118,18 @@ export default function IngresarParteForm() {
       if (!res.ok) {
         const errorData = await res.json();
         console.error("Error:", errorData);
-        toast.error(errorData.message || "Error al registrar parte");
+        toast.error(errorData.message || "Error al registrar el ítem");
         return;
       }
 
-      toast.success("Parte registrada con éxito ✅");
+      toast.success("Ítem registrado con éxito ✅");
 
       setFormData({
-        nombre: "", // Nuevo campo
+        nombre: "",
         modelo: "",
         descripcion: "",
+        codigoInterno: "",
+        precioReferencia: 0,
         categoriaId: null,
         marcaId: null
       });
@@ -130,26 +147,26 @@ export default function IngresarParteForm() {
   };
 
   return (
-    <ComponentCard title="Registrar Nueva Parte">
+    <ComponentCard title="Registrar Nuevo Ítem del Catálogo">
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
-        {/* Nombre de la parte */}
+        {/* Nombre del ítem */}
         <div>
-          <Label>Nombre de la Parte</Label>
+          <Label>Nombre del Ítem</Label>
           <div className="relative">
             <TagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
             <Input
               value={formData.nombre}
               onChange={(e) => handleChange("nombre", e.target.value)}
-              placeholder="Ej: Laptop, Memoria Ram, Disco Duro"
+              placeholder="Ej: Memoria RAM DDR4, SSD Kingston 480GB"
               className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
             />
           </div>
           {errors.nombre && <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>}
         </div>
 
-        {/* Modelo de la parte */}
+        {/* Modelo / referencia */}
         <div>
-          <Label>Modelo de la Parte</Label>
+          <Label>Modelo / Referencia</Label>
           <div className="relative">
             <CogIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
             <Input
@@ -162,13 +179,46 @@ export default function IngresarParteForm() {
           {errors.modelo && <p className="text-sm text-red-500 mt-1">{errors.modelo}</p>}
         </div>
 
+        {/* Código interno */}
+        <div>
+          <Label>Código Interno (opcional)</Label>
+          <div className="relative">
+            <TagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+            <Input
+              value={formData.codigoInterno}
+              onChange={(e) => handleChange("codigoInterno", e.target.value)}
+              placeholder="Ej: RAM-001"
+              className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
+            />
+          </div>
+          {errors.codigoInterno && <p className="text-sm text-red-500 mt-1">{errors.codigoInterno}</p>}
+        </div>
+
+        {/* Precio de referencia */}
+        <div>
+          <Label>Precio de Referencia</Label>
+          <div className="relative">
+            <CurrencyDollarIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+            <Input
+              type="number"
+              min="0"
+              step={0.01}
+              value={formData.precioReferencia}
+              onChange={(e) => handleChange("precioReferencia", parseFloat(e.target.value) || 0)}
+              placeholder="0.00"
+              className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
+            />
+          </div>
+          {errors.precioReferencia && <p className="text-sm text-red-500 mt-1">{errors.precioReferencia}</p>}
+        </div>
+
         {/* Descripción */}
         <div>
           <Label>Descripción</Label>
           <textarea
             value={formData.descripcion}
             onChange={(e) => handleChange("descripcion", e.target.value)}
-            placeholder="Descripción detallada de la parte..."
+            placeholder="Descripción detallada del ítem..."
             className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-black dark:text-white"
             rows={3}
           />

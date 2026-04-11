@@ -29,12 +29,10 @@ import { User } from 'src/users/entities/user.entity';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('orders')
-@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
-
 export class OrderController {
   constructor(private readonly orderService: OrderService) { }
 
-  @Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
+  @Auth('admin', 'tech', 'recep')
   @Post()
   create(@Body() dto: CreateOrderDto): Promise<Order> {
     return this.orderService.create(dto);
@@ -56,14 +54,14 @@ export class OrderController {
     // Convertir y validar page
     const parsedPage = page ? parseInt(page, 10) : 1;
     if (isNaN(parsedPage) || parsedPage < 1) {
-      throw new Error(`page debe ser un número positivo`);
+      throw new BadRequestException('page debe ser un numero positivo');
     }
 
     // Convertir y validar limit
     const ALLOWED_LIMITS = [10, 25, 50, 100];
     const parsedLimit = limit ? parseInt(limit, 10) : 10;
     if (isNaN(parsedLimit) || !ALLOWED_LIMITS.includes(parsedLimit)) {
-      throw new Error(`limit debe ser uno de: ${ALLOWED_LIMITS.join(', ')}`);
+      throw new BadRequestException(`limit debe ser uno de: ${ALLOWED_LIMITS.join(', ')}`);
     }
 
     // Convertir IDs opcionales
@@ -73,13 +71,13 @@ export class OrderController {
 
     // Validar IDs si se proporcionan
     if (parsedEstadoOrdenId && isNaN(parsedEstadoOrdenId)) {
-      throw new Error(`estadoOrdenId debe ser un número`);
+      throw new BadRequestException('estadoOrdenId debe ser un numero');
     }
     if (parsedTechnicianId && isNaN(parsedTechnicianId)) {
-      throw new Error(`technicianId debe ser un número`);
+      throw new BadRequestException('technicianId debe ser un numero');
     }
     if (parsedClientId && isNaN(parsedClientId)) {
-      throw new Error(`clientId debe ser un número`);
+      throw new BadRequestException('clientId debe ser un numero');
     }
 
     // Convertir fechas si se proporcionan
@@ -178,7 +176,7 @@ export class OrderController {
     return this.orderService.toggleStatus(parsedId);
   }
 
-  @Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
+  @Auth('admin', 'tech', 'recep')
   @Post(':id/actividades')
   addActividadTecnica(
     @Param('id', ParseIntPipe) orderId: number,
@@ -187,7 +185,7 @@ export class OrderController {
     return this.orderService.addActividadTecnica(orderId, dto);
   }
 
-  @Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
+  @Auth('admin', 'tech', 'recep')
   @Post(':id/presupuesto')
   addPresupuesto(
     @Param('id', ParseIntPipe) orderId: number,
@@ -196,7 +194,7 @@ export class OrderController {
     return this.orderService.addPresupuesto(orderId, dto);
   }
 
-  @Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
+  @Auth('admin', 'tech', 'recep')
   @Post(':id/casillero')
   assignCasillero(
     @Param('id', ParseIntPipe) orderId: number,
@@ -205,7 +203,7 @@ export class OrderController {
     return this.orderService.assignCasillero(orderId, dto);
   }
 
-  @Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
+  @Auth('admin', 'tech', 'recep')
   @Post(':id/evidencias')
   addEvidenciaTecnica(
     @Param('id', ParseIntPipe) orderId: number,
@@ -214,7 +212,7 @@ export class OrderController {
     return this.orderService.addEvidenciaTecnica(orderId, dto);
   }
 
-  @Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
+  @Auth('admin', 'tech', 'recep')
   @Patch(':id/estado/:estadoId')
   async changeEstadoOrden(
     @Param('id', ParseIntPipe) orderId: number,
@@ -227,15 +225,12 @@ export class OrderController {
   @Auth('tech')
   @Get('tecnico/mis-ordenes')
   async getOrdersForTechnician(@CurrentUser() user: any) { // Usa CurrentUser como decorador
-    console.log('USER ID TO SEARCH:', user.sub);
-
     return this.orderService.findOrdersByTechnician(user.sub);
   }
 
   @Auth('client')
   @Get('cliente/mis-ordenes')
   async getOrdersForClient(@CurrentUser() user: any) {  // Usa any temporalmente para debug
-    console.log('USER ID TO SEARCH:', user.sub);
     return this.orderService.findOrdersByClient(user.sub); // Usa user.sub en lugar de user.id
   }
 }

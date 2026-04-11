@@ -2,7 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, Up
 import { User } from '../../users/entities/user.entity';
 import { ActividadTecnica } from '../../actividad-tecnica/entities/actividad-tecnica.entity';
 import { Presupuesto } from '../../presupuesto/entities/presupuesto.entity';
-import { DetalleRepuestos } from '../../detalle-repuestos/entities/detalle-repuesto.entity';
+import { DetallePresupuestoItem } from '../../detalle-presupuesto-item/entities/detalle-presupuesto-item.entity';
 import { Casillero } from 'src/casillero/entities/casillero.entity';
 import { Equipo } from '../../equipo/entities/equipo.entity';
 import { EvidenciaTecnica } from 'src/evidencia-tecnica/entities/evidencia-tecnica.entity';

@@ -6,7 +6,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   name?: string;
   placeholder?: string;
   defaultValue?: string | number;
-  value?: string | number; // ✅ Propiedad agregada para input controlado
+  value?: string | number; // Propiedad agregada para input controlado
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   className?: string;
   min?: string;
@@ -16,7 +16,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   success?: boolean;
   error?: boolean;
   hint?: string;
-  required?: boolean; // ✅ Esto soluciona el error
+  required?: boolean; // Esto soluciona el error
   suffix?: string; // Nueva prop opcional
   prefix?: string; // También puedes agregar prefix si lo necesitas
 

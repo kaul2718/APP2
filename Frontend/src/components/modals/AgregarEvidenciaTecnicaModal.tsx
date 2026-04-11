@@ -28,7 +28,13 @@ export default function EvidenciaTecnicaModal({
     const [filePreview, setFilePreview] = useState<string | null>(null);
     const [fileType, setFileType] = useState<"imagen" | "video">("imagen");
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const cameraStreamRef = useRef<MediaStream | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [cameraError, setCameraError] = useState<string | null>(null);
+    const [cameraReady, setCameraReady] = useState(false);
 
     const [errors, setErrors] = useState({
         file: "",
@@ -58,10 +64,176 @@ export default function EvidenciaTecnicaModal({
         }
     }, [isOpen, orderId, currentPage, itemsPerPage]);
 
+    const stopCamera = () => {
+        if (cameraStreamRef.current) {
+            cameraStreamRef.current.getTracks().forEach((track) => track.stop());
+            cameraStreamRef.current = null;
+        }
+        setIsCameraOpen(false);
+        setCameraReady(false);
+    };
+
+    useEffect(() => {
+        if (!isOpen) {
+            stopCamera();
+        }
+
+        return () => {
+            stopCamera();
+        };
+    }, [isOpen]);
+
+    const setFileData = (file: File) => {
+        setSelectedFile(file);
+        const type = file.type.startsWith("image") ? "imagen" : "video";
+        setFileType(type);
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            setFilePreview(reader.result as string);
+            setErrors((prev) => ({ ...prev, file: "" }));
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const waitForVideoReady = async (video: HTMLVideoElement, timeoutMs: number = 2500): Promise<boolean> => {
+        const startedAt = Date.now();
+
+        return new Promise((resolve) => {
+            const checkReady = () => {
+                if (video.videoWidth > 0 && video.videoHeight > 0) {
+                    resolve(true);
+                    return;
+                }
+
+                if (Date.now() - startedAt >= timeoutMs) {
+                    resolve(false);
+                    return;
+                }
+
+                requestAnimationFrame(checkReady);
+            };
+
+            checkReady();
+        });
+    };
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const attachStreamToVideo = async () => {
+            if (!isCameraOpen || !cameraStreamRef.current || !videoRef.current) {
+                return;
+            }
+
+            try {
+                const video = videoRef.current;
+                if (!video) return;
+
+                video.srcObject = cameraStreamRef.current;
+                await video.play();
+
+                const ready = await waitForVideoReady(video, 3000);
+                if (!cancelled) {
+                    setCameraReady(ready);
+                    if (!ready) {
+                        setCameraError("La cámara tardó demasiado en iniciar. Inténtalo de nuevo.");
+                    }
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setCameraError("No se pudo inicializar la vista de la cámara.");
+                    setCameraReady(false);
+                }
+            }
+        };
+
+        attachStreamToVideo();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isCameraOpen]);
+
+    const openCamera = async () => {
+        if (!navigator?.mediaDevices?.getUserMedia) {
+            setCameraError("Tu navegador no soporta acceso directo a cámara.");
+            return;
+        }
+
+        try {
+            setCameraError(null);
+            setCameraReady(false);
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: "environment" } },
+                audio: false,
+            });
+
+            cameraStreamRef.current = stream;
+            setIsCameraOpen(true);
+        } catch (error) {
+            setCameraError("No se pudo abrir la cámara. Revisa permisos del navegador.");
+        }
+    };
+
+    const capturePhoto = async () => {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+
+        if (!video || !canvas) {
+            toast.error("No se pudo capturar la foto");
+            return;
+        }
+
+        const width = video.videoWidth;
+        const height = video.videoHeight;
+
+        if (!width || !height) {
+            const ready = await waitForVideoReady(video, 2000);
+            if (!ready) {
+                toast.error("La cámara aún no está lista");
+                return;
+            }
+        }
+
+        const readyWidth = video.videoWidth;
+        const readyHeight = video.videoHeight;
+
+        canvas.width = readyWidth;
+        canvas.height = readyHeight;
+
+        const context = canvas.getContext("2d");
+        if (!context) {
+            toast.error("No se pudo procesar la imagen");
+            return;
+        }
+
+        context.drawImage(video, 0, 0, readyWidth, readyHeight);
+
+        const blob = await new Promise<Blob | null>((resolve) => {
+            canvas.toBlob(resolve, "image/jpeg", 0.9);
+        });
+
+        if (!blob) {
+            toast.error("No se pudo generar la foto");
+            return;
+        }
+
+        const capturedFile = new File([blob], `evidencia-${Date.now()}.jpg`, {
+            type: "image/jpeg",
+        });
+
+        setFileData(capturedFile);
+        stopCamera();
+    };
+
     const resetForm = () => {
+        stopCamera();
         setDescripcion("");
         setFilePreview(null);
         setSelectedFile(null); // <- limpiar aquí
+        setCameraError(null);
+        setCameraReady(false);
         setErrors({ file: "", descripcion: "" });
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
@@ -85,26 +257,15 @@ export default function EvidenciaTecnicaModal({
             return;
         }
 
-        // Guardar archivo en estado
-        setSelectedFile(file);
-
-        // Determinar tipo
-        const type = file.type.startsWith("image") ? "imagen" : "video";
-        setFileType(type);
-
-        // Crear preview
-        const reader = new FileReader();
-        reader.onload = () => {
-            setFilePreview(reader.result as string);
-            setErrors(prev => ({ ...prev, file: "" }));
-        };
-        reader.readAsDataURL(file);
+        setFileData(file);
     };
 
 
     const removeFile = () => {
+        stopCamera();
         setFilePreview(null);
         setSelectedFile(null);    // ← agregar
+        setCameraError(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
@@ -112,8 +273,8 @@ export default function EvidenciaTecnicaModal({
 
     const validateFields = () => {
         const newErrors = {
-            file: !filePreview ? "⚠️ Debe seleccionar un archivo" : "",
-            descripcion: descripcion.length > 200 ? "⚠️ La descripción no debe exceder 200 caracteres" : ""
+            file: !filePreview ? "Debe seleccionar un archivo" : "",
+            descripcion: descripcion.length > 200 ? "La descripcion no debe exceder 200 caracteres" : ""
         };
 
         setErrors(newErrors);
@@ -125,18 +286,18 @@ export default function EvidenciaTecnicaModal({
 
         // Validamos que haya un archivo y una sesión
         if (!selectedFile) {
-            toast.error("❌ No se ha seleccionado ningún archivo");
+            toast.error('No se ha seleccionado ningun archivo');
             return;
         }
         if (!session?.user?.id) {
-            toast.error("❌ No hay sesión activa");
+            toast.error('No hay sesion activa');
             return;
         }
 
         try {
             // Llamada única a createEvidencia con el selectedFile de estado
             await createEvidencia(orderId, selectedFile, descripcion);
-            //toast.success("✅ Evidencia técnica agregada exitosamente");
+            //toast.success("Evidencia técnica agregada exitosamente");
             resetForm();
             setActiveTab('ver');
             onSuccess?.();
@@ -159,8 +320,8 @@ export default function EvidenciaTecnicaModal({
         <Modal
             isOpen={isOpen}
             onClose={handleClose}
+            title="Evidencia tecnica"
             className="max-w-4xl mx-4"
-            closeButtonClassName="top-6 right-6"
         >
             <div className="flex flex-col h-full">
                 <div className="px-6 pt-4 pb-2 border-b dark:border-gray-700">
@@ -194,7 +355,7 @@ export default function EvidenciaTecnicaModal({
                             <div className="grid grid-cols-1 gap-y-4">
                                 {/* Previsualización del archivo */}
                                 <div className="mb-4">
-                                    <Label className="mb-2 block">Archivo *</Label>
+                                    <Label htmlFor="evidencia-file-input" className="mb-2 block">Archivo <span aria-hidden="true">*</span></Label>
 
                                     {filePreview ? (
                                         <div className="relative group">
@@ -220,22 +381,73 @@ export default function EvidenciaTecnicaModal({
                                                 <XMarkIcon className="w-5 h-5 text-white" />
                                             </button>
                                         </div>
+                                    ) : isCameraOpen ? (
+                                        <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-3">
+                                            <video
+                                                ref={videoRef}
+                                                autoPlay
+                                                playsInline
+                                                muted
+                                                onLoadedMetadata={() => setCameraReady(true)}
+                                                className="w-full h-64 object-cover rounded-lg bg-black"
+                                            />
+                                            <canvas ref={canvasRef} className="hidden" />
+                                            <div className="mt-3 flex justify-center gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="primary"
+                                                    onClick={capturePhoto}
+                                                    disabled={!cameraReady}
+                                                    className="flex items-center gap-2"
+                                                >
+                                                    <CameraIcon className="w-4 h-4" />
+                                                    {cameraReady ? "Capturar" : "Iniciando cámara..."}
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={stopCamera}
+                                                >
+                                                    Cancelar cámara
+                                                </Button>
+                                            </div>
+                                        </div>
                                     ) : (
                                         <div
-                                            className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                            onClick={() => fileInputRef.current?.click()}
-                                            aria-label="Área para subir archivos"
+                                            className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center"
+                                            aria-label="Área para seleccionar o capturar evidencias"
                                         >
                                             <div className="flex flex-col items-center justify-center gap-2">
                                                 <CameraIcon className="w-10 h-10 text-gray-400" />
                                                 <p className="text-gray-500 dark:text-gray-400">
-                                                    Haz clic para subir una imagen o video
+                                                    Selecciona cómo quieres agregar la evidencia
                                                 </p>
                                                 <p className="text-sm text-gray-400">
                                                     Formatos soportados: JPG, PNG, GIF, MP4, MOV, AVI (max 10MB)
                                                 </p>
+                                                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={openCamera}
+                                                        className="flex items-center gap-2"
+                                                    >
+                                                        <CameraIcon className="w-4 h-4" />
+                                                        Tomar foto
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        className="flex items-center gap-2"
+                                                    >
+                                                        <PhotoIcon className="w-4 h-4" />
+                                                        Subir archivo
+                                                    </Button>
+                                                </div>
                                             </div>
                                             <input
+                                                id="evidencia-file-input"
                                                 ref={fileInputRef}
                                                 type="file"
                                                 accept="image/*, video/*"
@@ -245,20 +457,25 @@ export default function EvidenciaTecnicaModal({
                                             />
                                         </div>
                                     )}
+                                    {cameraError && (
+                                        <p role="alert" className="text-sm text-red-500 mt-1">{cameraError}</p>
+                                    )}
                                     {errors.file && (
-                                        <p className="text-sm text-red-500 mt-1">{errors.file}</p>
+                                        <p role="alert" className="text-sm text-red-500 mt-1">{errors.file}</p>
                                     )}
                                 </div>
 
                                 {/* Descripción */}
                                 <div className="mb-4">
-                                    <Label>Descripción (opcional)</Label>
+                                    <Label htmlFor="descripcion-evidencia">Descripcion (opcional)</Label>
                                     <TextArea
+                                        id="descripcion-evidencia"
                                         value={descripcion}
                                         onChange={(e) => setDescripcion(e.target.value)}
                                         placeholder="Describa la evidencia..."
                                         rows={3}
-                                        error={errors.descripcion}
+                                        error={Boolean(errors.descripcion)}
+                                        hint={errors.descripcion}
                                         maxLength={200}
                                         aria-label="Descripción de la evidencia"
                                     />
@@ -266,11 +483,13 @@ export default function EvidenciaTecnicaModal({
                                         {descripcion.length}/200 caracteres
                                     </div>
                                     {errors.descripcion && (
-                                        <p className="text-sm text-red-500 mt-1">{errors.descripcion}</p>
+                                        <p role="alert" className="text-sm text-red-500 mt-1">{errors.descripcion}</p>
                                     )}
                                 </div>
                             </div>
                         </div>
+
+                        <p className="px-6 pb-2 text-xs text-gray-500 dark:text-gray-400">* Campo obligatorio</p>
 
                         <div className="flex justify-end gap-4 mt-4 px-6 pb-6 border-t dark:border-gray-700 pt-4">
                             <Button

@@ -2,7 +2,6 @@
 import React, { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import Label from "@/components/form/Label";
-import Input from "@/components/form/input/InputField";
 import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
@@ -11,14 +10,20 @@ import { useOrders } from "@/hooks/useOrders";
 import { useEstadoPresupuesto } from "@/hooks/useEstadoPresupuesto";
 import { usePresupuesto } from "@/hooks/usePresupuesto";
 import AgregarManoObraModal from "./AgregarManoObraModal ";
-import AgregarRepuestosModal from "./AgregarRepuestosModal";
+import AgregarItemsPresupuestoModal from "./AgregarItemsPresupuestoModal";
 
-type WizardStep = 'presupuesto' | 'manoObra' | 'repuestos';
+type WizardStep = 'presupuesto' | 'manoObra' | 'items';
 
 interface FormData {
     ordenId: number | null;
     estadoId: number | null;
     descripcion: string;
+}
+
+interface FormErrors {
+    ordenId?: string;
+    estadoId?: string;
+    descripcion?: string;
 }
 
 interface Props {
@@ -43,7 +48,7 @@ export default function AgregarPresupuestoModal({
     });
     const [itemsAdded, setItemsAdded] = useState({
         manoObra: false,
-        repuestos: false
+        items: false
     });
 
     const { data: session } = useSession();
@@ -55,7 +60,7 @@ export default function AgregarPresupuestoModal({
         // Solo permitir navegación si:
         // 1. Es un paso anterior al actual
         // 2. O si ya hemos creado el presupuesto (para los pasos 2 y 3)
-        const currentIndex = ['presupuesto', 'manoObra', 'repuestos'].indexOf(currentStep);
+        const currentIndex = ['presupuesto', 'manoObra', 'items'].indexOf(currentStep);
 
         if (index < currentIndex ||
             (index > 0 && presupuestoId !== null) ||
@@ -78,7 +83,7 @@ export default function AgregarPresupuestoModal({
         });
         setItemsAdded({
             manoObra: false,
-            repuestos: false
+            items: false
         });
         onClose();
     };
@@ -99,7 +104,7 @@ export default function AgregarPresupuestoModal({
         }
     }, [estados, formData.estadoId]);
 
-    const [errors, setErrors] = React.useState<Partial<FormData>>({});
+    const [errors, setErrors] = React.useState<FormErrors>({});
     const [loading, setLoading] = React.useState(false);
 
     const handleChange = (field: keyof FormData, value: string | number | null) => {
@@ -110,21 +115,21 @@ export default function AgregarPresupuestoModal({
     };
 
     const validateFields = () => {
-        const newErrors: Partial<FormData> = {};
+        const newErrors: FormErrors = {};
         let isValid = true;
 
         if (!formData.ordenId) {
-            newErrors.ordenId = "⚠️ Debe seleccionar una orden";
+            newErrors.ordenId = "Debe seleccionar una orden";
             isValid = false;
         }
 
         if (!formData.estadoId) {
-            newErrors.estadoId = "⚠️ Debe seleccionar un estado";
+            newErrors.estadoId = "Debe seleccionar un estado";
             isValid = false;
         }
 
         if (!formData.descripcion.trim()) {
-            newErrors.descripcion = "⚠️ La descripción es requerida";
+            newErrors.descripcion = "La descripcion es requerida";
             isValid = false;
         }
 
@@ -154,7 +159,7 @@ export default function AgregarPresupuestoModal({
                 throw new Error("No se pudo crear el presupuesto. Intente nuevamente.");
             }
 
-            toast.success(`✅ Presupuesto base creado exitosamente`, {
+            toast.success('Presupuesto base creado exitosamente', {
                 position: "top-center",
                 autoClose: 3000,
             });
@@ -166,8 +171,8 @@ export default function AgregarPresupuestoModal({
             //console.error('Error al crear presupuesto:', error);
             toast.error(
                 error instanceof Error
-                    ? `❌ ${error.message}`
-                    : "❌ Error desconocido al crear el presupuesto",
+                    ? error.message
+                    : 'Error desconocido al crear el presupuesto',
                 {
                     position: "top-center",
                     autoClose: 5000,
@@ -179,15 +184,15 @@ export default function AgregarPresupuestoModal({
     };
 
     const handleCompleteWizard = () => {
-        if (!itemsAdded.manoObra && !itemsAdded.repuestos) {
-            toast.warning("⚠️ No has agregado items de mano de obra ni repuestos", {
+        if (!itemsAdded.manoObra && !itemsAdded.items) {
+            toast.warning('No has agregado ítems de mano de obra ni de presupuesto', {
                 position: "top-center",
                 autoClose: 5000,
             });
             return;
         }
 
-        toast.success("✅ Presupuesto completado con todos los detalles");
+        toast.success('Presupuesto completado con todos los detalles');
         if (presupuestoId && onSuccess) {
             onSuccess(presupuestoId);
         }
@@ -199,9 +204,9 @@ export default function AgregarPresupuestoModal({
         //toast.success("Mano de obra agregada");
     };
 
-    const handleAddRepuesto = () => {
-        setItemsAdded(prev => ({ ...prev, repuestos: true }));
-        //toast.success("Repuesto agregado");
+    const handleAddItem = () => {
+        setItemsAdded(prev => ({ ...prev, items: true }));
+        //toast.success("Ítem agregado");
     };
 
     const renderStep = () => {
@@ -213,7 +218,7 @@ export default function AgregarPresupuestoModal({
                             <div className="grid grid-cols-1 gap-y-5">
                                 {/* Selección de orden */}
                                 <div className="mb-4">
-                                    <Label className="mb-1 block">Orden de Trabajo *</Label>
+                                    <Label htmlFor="order-select" className="mb-1 block">Orden de Trabajo <span aria-hidden="true">*</span></Label>
                                     <div className="relative">
                                         <input
                                             type="text"
@@ -227,17 +232,18 @@ export default function AgregarPresupuestoModal({
                                             })()}
                                             className="w-full bg-gray-100 dark:bg-gray-700 text-black dark:text-white p-2 pl-10 rounded-lg border border-gray-300 dark:border-gray-600 cursor-not-allowed"
                                             disabled
+                                            aria-required="true"
                                         />
                                         <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                                     </div>
                                     {errors.ordenId && (
-                                        <p className="text-sm text-red-500 mt-1">{errors.ordenId}</p>
+                                        <p role="alert" className="text-sm text-red-500 mt-1">{errors.ordenId}</p>
                                     )}
                                 </div>
 
                                 {/* Estado del presupuesto */}
                                 <div className="mb-4">
-                                    <Label>Estado del Presupuesto *</Label>
+                                    <Label htmlFor="estado-select">Estado del Presupuesto <span aria-hidden="true">*</span></Label>
                                     <div className="relative">
                                         <DocumentTextIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                                         <input
@@ -255,7 +261,7 @@ export default function AgregarPresupuestoModal({
 
                                 {/* Descripción */}
                                 <div className="mb-4">
-                                    <Label>Descripción *</Label>
+                                    <Label htmlFor="descripcion-textarea">Descripcion <span aria-hidden="true">*</span></Label>
                                     <div className="relative">
                                         <DocumentTextIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-4" />
                                         <textarea
@@ -268,11 +274,12 @@ export default function AgregarPresupuestoModal({
                                         />
                                     </div>
                                     {errors.descripcion && (
-                                        <p className="text-sm text-red-500 mt-1">{errors.descripcion}</p>
+                                        <p role="alert" className="text-sm text-red-500 mt-1">{errors.descripcion}</p>
                                     )}
                                 </div>
                             </div>
                         </div>
+                        <p className="px-4 pb-2 text-xs text-gray-500 dark:text-gray-400">* Campo obligatorio</p>
                         <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 mt-6 px-4">
                             <Button
                                 type="button"
@@ -317,7 +324,7 @@ export default function AgregarPresupuestoModal({
                                 onSuccess={(added) => {
                                     if (added) handleAddManoObra();
                                 }}
-                                onNext={() => setCurrentStep('repuestos')}
+                                onNext={() => setCurrentStep('items')}
                                 onBack={() => setCurrentStep('presupuesto')}
                                 presupuestoId={presupuestoId!}
                                 embeddedMode={true}
@@ -337,24 +344,22 @@ export default function AgregarPresupuestoModal({
                     </div>
                 );
 
-            case 'repuestos':
+            case 'items':
                 return (
                     <div className="flex flex-col h-full">
                         <div className="flex-1 overflow-y-auto px-4">
-                            <AgregarRepuestosModal
+                            <AgregarItemsPresupuestoModal
                                 isOpen={true}
                                 onClose={() => setCurrentStep('manoObra')}
                                 onSuccess={(added) => {
                                     if (added) {
-                                        handleAddRepuesto();
+                                        handleAddItem();
                                     }
                                 }}
                                 onBack={() => setCurrentStep('manoObra')}
                                 presupuestoId={presupuestoId!}
                                 embeddedMode={true}
                                 showNavigation={true}
-                                showFinalizeButton={true}
-                                onFinalize={handleCompleteWizard}
                             />
                         </div>
                         <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
@@ -381,13 +386,12 @@ export default function AgregarPresupuestoModal({
             onClose={handleClose}
             className="max-w-3xl mx-4"
             title={getStepTitle(currentStep)}
-            closeButtonClassName="top-6 right-6"
         >
             {/* Barra de progreso mejorada */}
             <div className="px-6 pt-2 pb-4">
                 <div className="relative">
                     <div className="flex items-center justify-between">
-                        {['presupuesto', 'manoObra', 'repuestos'].map((step, index) => (
+                        {['presupuesto', 'manoObra', 'items'].map((step, index) => (
                             <React.Fragment key={step}>
                                 <button
                                     type="button"
@@ -396,7 +400,7 @@ export default function AgregarPresupuestoModal({
                                 >
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center 
                             ${currentStep === step ? 'bg-primary text-white border-2 border-primary' :
-                                            index < ['presupuesto', 'manoObra', 'repuestos'].indexOf(currentStep) ?
+                                            index < ['presupuesto', 'manoObra', 'items'].indexOf(currentStep) ?
                                                 'bg-green-500 text-white border-2 border-green-500 cursor-pointer' :
                                                 'bg-white border-2 border-gray-300 dark:bg-gray-700 dark:border-gray-600 cursor-pointer'}
                             group-hover:border-primary transition-colors`}>
@@ -404,11 +408,11 @@ export default function AgregarPresupuestoModal({
                                     </div>
                                     <span className="text-xs mt-2 font-medium group-hover:text-primary transition-colors">
                                         {step === 'presupuesto' ? 'Datos Básicos' :
-                                            step === 'manoObra' ? 'Mano de Obra' : 'Repuestos'}
+                                            step === 'manoObra' ? 'Mano de Obra' : 'Ítems'}
                                     </span>
                                 </button>
                                 {index < 2 && (
-                                    <div className={`flex-1 h-1 mx-2 ${index < ['presupuesto', 'manoObra', 'repuestos'].indexOf(currentStep) ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-600'}`}></div>
+                                    <div className={`flex-1 h-1 mx-2 ${index < ['presupuesto', 'manoObra', 'items'].indexOf(currentStep) ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-600'}`}></div>
                                 )}
                             </React.Fragment>
                         ))}
@@ -428,7 +432,7 @@ const getStepTitle = (step: WizardStep): string => {
     switch (step) {
         case 'presupuesto': return 'Crear Presupuesto - Paso 1 de 3';
         case 'manoObra': return 'Agregar Mano de Obra - Paso 2 de 3';
-        case 'repuestos': return 'Agregar Repuestos - Paso 3 de 3';
+        case 'items': return 'Agregar Ítems - Paso 3 de 3';
         default: return 'Crear Presupuesto';
     }
 };

@@ -1,19 +1,19 @@
 'use client';
 
 import React, { useState } from "react";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "../ui/table";
 import Badge from "../ui/badge/Badge";
+import ConfirmDialog from "../modals/ConfirmDialog";
 import TipoEquipoDetailsModal from "../modals/TipoEquipoDetailsModal";
 import TipoEquipoEditModal from "../modals/TipoEquipoEditModal";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { TipoEquipo, useTipoEquipo } from "@/hooks/useTipoEquipo";
+import { DataTable, ColumnDef, ActionDef } from "./DataTable";
 
 export default function TipoEquipoTable() {
   const {
     tiposEquipo,
     loading,
-    setTiposEquipo,
     fetchTiposEquipo,
     totalPages,
     totalItems,
@@ -30,6 +30,7 @@ export default function TipoEquipoTable() {
   const [selectedTipoEquipo, setSelectedTipoEquipo] = useState<TipoEquipo | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [pendingToggleTipoEquipo, setPendingToggleTipoEquipo] = useState<TipoEquipo | null>(null);
 
   const handleViewClick = (tipoEquipo: TipoEquipo) => {
     setSelectedTipoEquipo(tipoEquipo);
@@ -46,17 +47,20 @@ export default function TipoEquipoTable() {
     setSelectedTipoEquipo(null);
   };
 
-  const handleSaveTipoEquipo = (actualizado: TipoEquipo) => {
-    setTiposEquipo((prev) => prev.map((t) => (t.id === actualizado.id ? actualizado : t)));
+  const handleSaveTipoEquipo = () => {
     fetchTiposEquipo(currentPage, 10, searchTerm, showInactive);
   };
 
-  const handleToggleEstado = async (tipo: TipoEquipo) => {
+  const handleToggleEstado = (tipo: TipoEquipo) => {
+    setPendingToggleTipoEquipo(tipo);
+  };
+
+  const confirmToggleEstado = async () => {
+    if (!pendingToggleTipoEquipo) return;
+
+    const tipo = pendingToggleTipoEquipo;
     const estaActivo = tipo.estado;
     const accion = estaActivo ? "deshabilit" : "habilit";
-
-    const confirmacion = confirm(`¿Estás seguro de ${accion}ar este tipo de equipo?`);
-    if (!confirmacion) return;
 
     try {
       const endpoint = `${process.env.NEXT_PUBLIC_BACKEND_URL}/tipos-equipo/${tipo.id}/toggle-estado`;
@@ -77,255 +81,123 @@ export default function TipoEquipoTable() {
     } catch (error) {
       console.error(`Error al ${accion} tipo de equipo:`, error);
       toast.error(`Error al ${accion} tipo de equipo`);
+    } finally {
+      setPendingToggleTipoEquipo(null);
     }
   };
 
+  const columns: ColumnDef<TipoEquipo>[] = [
+    { key: "id", header: "ID", render: (t) => t.id },
+    { key: "nombre", header: "Nombre", render: (t) => t.nombre },
+    {
+      key: "estado",
+      header: "Estado",
+      render: (t) => (
+        <Badge size="sm" color={t.estado ? "success" : "error"}>
+          {t.estado ? "Activo" : "Inactivo"}
+        </Badge>
+      ),
+    },
+  ];
+
+  const rowActions = (tipo: TipoEquipo): ActionDef[] => [
+    {
+      key: "view",
+      label: "Ver",
+      onClick: () => handleViewClick(tipo),
+      className:
+        "rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20",
+    },
+    {
+      key: "edit",
+      label: "Editar",
+      onClick: () => handleEditClick(tipo),
+      className:
+        "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
+    },
+    {
+      key: "toggle",
+      label: tipo.estado ? "Deshabilitar" : "Habilitar",
+      onClick: () => handleToggleEstado(tipo),
+      className: tipo.estado
+        ? "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
+        : "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20",
+    },
+  ];
+
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-      {/* Search and Filter Section */}
-      <div className="p-4 border-b border-gray-100 dark:border-white/[0.05]">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="w-full sm:w-auto">
-            <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:gap-x-3 gap-y-2">
-              <label
-                htmlFor="buscarTipoEquipo"
-                className="text-base font-semibold text-gray-700 dark:text-white"
-              >
-                Buscar:
-              </label>
-              <div className="relative w-full sm:w-96">
-                <input
-                  id="buscarTipoEquipo"
-                  type="text"
-                  placeholder="Por nombre..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-                  value={searchTerm}
-                  onChange={(e) => {
-                    const valor = e.target.value;
-                    setSearchTerm(valor);
-                    fetchTiposEquipo(1, 10, valor, showInactive);
-                  }}
-                  aria-label="Buscar tipo de equipo"
-                />
-                {searchTerm && (
-                  <button
-                    title="Limpiar búsqueda"
-                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                    onClick={() => {
-                      setSearchTerm("");
-                      fetchTiposEquipo(1, 10, "", showInactive);
-                    }}
-                    aria-label="Limpiar búsqueda"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
+    <>
+      <div className="mb-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex w-full flex-col gap-3 sm:max-w-lg sm:flex-row sm:items-center">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => {
+                const valor = e.target.value;
+                setSearchTerm(valor);
+                fetchTiposEquipo(1, 10, valor, showInactive);
+              }}
+              placeholder="Por nombre..."
+              aria-label="Buscar tipo de equipo"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+            />
+
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={() => {
+                  const next = !showInactive;
+                  setShowInactive(next);
+                  fetchTiposEquipo(1, 10, searchTerm, next);
+                }}
+                className="h-4 w-4"
+              />
+              Mostrar inactivos
+            </label>
           </div>
 
-          <div className="flex items-center justify-start sm:justify-end w-full text-sm text-gray-500 dark:text-gray-400">
-            Mostrando {tiposEquipo.length} de {totalItems} tipos
-          </div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">Mostrando {tiposEquipo.length} de {totalItems} tipos</div>
         </div>
       </div>
 
-      <div className="max-w-full overflow-x-auto">
-        <div className="min-w-[1102px]">
-          <Table>
-            {/* Table Header */}
-            <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-              <TableRow>
-                <TableCell isHeader className="px-5 py-3 font-semibold text-gray-700 text-start text-sm dark:text-gray-300">
-                  ID
-                </TableCell>
-                <TableCell isHeader className="px-5 py-3 font-semibold text-gray-700 text-start text-sm dark:text-gray-300">
-                  Nombre
-                </TableCell>
-                <TableCell isHeader className="px-5 py-3 font-semibold text-gray-700 text-start text-sm dark:text-gray-300">
-                  Estado
-                </TableCell>
-                <TableCell isHeader className="px-5 py-3 font-semibold text-gray-700 text-start text-sm dark:text-gray-300">
-                  Acciones
-                </TableCell>
-              </TableRow>
-            </TableHeader>
+      <DataTable
+        caption="Tabla de tipos de equipo"
+        data={tiposEquipo}
+        columns={columns}
+        loading={loading}
+        showControls={false}
+        totalItems={totalItems}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={(page) => fetchTiposEquipo(page, 10, searchTerm, showInactive)}
+        actions={rowActions}
+        getRowKey={(t) => t.id}
+      />
 
-            {/* Table Body */}
-            <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-4 text-gray-500">
-                    Cargando tipos de equipo...
-                  </TableCell>
-                </TableRow>
-              ) : tiposEquipo.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-4 text-gray-500">
-                    {searchTerm ? "No se encontraron resultados" : "No hay tipos de equipo disponibles."}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                tiposEquipo.map((tipo) => {
-                  const estaActivo = tipo.estado; // Aquí usamos el campo estado booleano
-                  return (
-                    <TableRow key={tipo.id}>
-                      <TableCell className="px-5 py-4 sm:px-6 text-start text-gray-500 text-theme-sm dark:text-gray-400">
-                        {tipo.id}
-                      </TableCell>
-                      <TableCell className="px-5 py-4 sm:px-6 text-start">
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                              {tipo.nombre}
-                            </span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        <Badge size="sm" color={estaActivo ? "success" : "error"}>
-                          {estaActivo ? "Activo" : "Inactivo"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        <div className="flex items-center gap-4">
-                          {/* Ver */}
-                          <button
-                            onClick={() => handleViewClick(tipo)}
-                            className="text-blue-500 hover:text-blue-600"
-                            title="Ver"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-5 h-5"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          </button>
-
-                          {/* Editar */}
-                          <button
-                            className="text-yellow-500 hover:text-yellow-600"
-                            onClick={() => handleEditClick(tipo)}
-                            title="Editar"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-5 h-5"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 013.536 3.536l-12.5 12.5H4v-4.5l12.5-12.5z" />
-                            </svg>
-                          </button>
-
-                          {/* Deshabilitar/Habilitar */}
-                          <button
-                            className={estaActivo ? "text-red-500 hover:text-red-600" : "text-green-500 hover:text-green-600"}
-                            onClick={() => handleToggleEstado(tipo)}
-                            title={estaActivo ? "Deshabilitar" : "Habilitar"}
-                          >
-                            {estaActivo ? (
-                              // Icono de "X" (para deshabilitar)
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="w-5 h-5"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={2}
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            ) : (
-                              // Icono de check verde (para habilitar)
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="w-5 h-5"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={2}
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between p-4 border-t border-gray-100 dark:border-white/[0.05]">
-            <div className="mb-4 sm:mb-0">
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                Página {currentPage} de {totalPages}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => fetchTiposEquipo(currentPage - 1, 10, searchTerm, showInactive)}
-                disabled={currentPage === 1}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Anterior
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  onClick={() => fetchTiposEquipo(page, 10, searchTerm, showInactive)}
-                  className={`px-3 py-1 border rounded-md text-sm font-medium ${currentPage === page
-                    ? "bg-blue-500 text-white border-blue-500"
-                    : "border-gray-300 text-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-                    }`}
-                >
-                  {page}
-                </button>
-              ))}
-              <button
-                onClick={() => fetchTiposEquipo(currentPage + 1, 10, searchTerm, showInactive)}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Siguiente
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Modals */}
-        <TipoEquipoDetailsModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          tipoEquipo={selectedTipoEquipo}
-        />
+      <div className="mt-4">
+        <TipoEquipoDetailsModal isOpen={isModalOpen} onClose={handleCloseModal} tipoEquipo={selectedTipoEquipo} />
         <TipoEquipoEditModal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
           tipoEquipo={selectedTipoEquipo}
           onSave={handleSaveTipoEquipo}
         />
+        <ConfirmDialog
+          isOpen={pendingToggleTipoEquipo !== null}
+          title="Cambiar estado de tipo de equipo"
+          description={
+            pendingToggleTipoEquipo
+              ? `¿Estás seguro de ${pendingToggleTipoEquipo.estado ? "deshabilitar" : "habilitar"} el tipo de equipo \"${pendingToggleTipoEquipo.nombre}\"?`
+              : ""
+          }
+          onConfirm={confirmToggleEstado}
+          onClose={() => setPendingToggleTipoEquipo(null)}
+          confirmText={pendingToggleTipoEquipo?.estado ? "Deshabilitar" : "Habilitar"}
+          destructive={pendingToggleTipoEquipo?.estado ?? false}
+        />
       </div>
-    </div>
+    </>
   );
 }

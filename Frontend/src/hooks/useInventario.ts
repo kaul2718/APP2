@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
+import { useCrud } from "@/hooks/useCrud";
+import { apiRequest } from "@/lib/api";
 
 export interface ParteInventario {
   id: number;
@@ -23,22 +25,57 @@ export interface Inventario {
   parteId: number;
 }
 
-interface PaginatedInventarioResponse {
-  items: Inventario[];
-  totalItems: number;
-  totalPages: number;
-  currentPage: number;
+interface CreateInventarioDto {
+  parteId: number;
+  cantidad: number;
+  stockMinimo: number;
+  ubicacion: string;
+}
+
+interface UpdateInventarioDto {
+  parteId?: number;
+  cantidad?: number;
+  stockMinimo?: number;
+  ubicacion?: string;
+  estado?: boolean;
 }
 
 export function useInventario() {
   const { data: session, status } = useSession();
-  const [inventarios, setInventarios] = useState<Inventario[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [totalItems, setTotalItems] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [showInactive, setShowInactive] = useState<boolean>(false);
+  const {
+    items: inventarios,
+    loading,
+    totalPages,
+    totalItems,
+    currentPage,
+    searchTerm,
+    showInactive,
+    fetchItems,
+    createItem,
+    updateItem,
+    toggleItemStatus,
+    deleteItem,
+    restoreItem,
+    setItems: setInventarios,
+    setSearchTerm,
+    setShowInactive,
+  } = useCrud<Inventario, CreateInventarioDto, UpdateInventarioDto>('/inventario', {
+    defaultLimit: 10,
+    listPath: '/inventario/all',
+    messages: {
+      created: 'Registro de inventario creado exitosamente',
+      updated: 'Inventario actualizado exitosamente',
+      deleted: 'Registro de inventario eliminado exitosamente',
+      restored: 'Registro de inventario restaurado exitosamente',
+      toggled: (enabled) => `Producto ${enabled ? 'activado' : 'desactivado'} exitosamente`,
+      loadError: 'Error al cargar inventarios',
+      createError: 'Error al crear registro de inventario',
+      updateError: 'Error al actualizar inventario',
+      deleteError: 'Error al eliminar inventario',
+      restoreError: 'Error al restaurar inventario',
+      toggleError: 'Error al cambiar estado del inventario',
+    },
+  });
   const [lowStockOnly, setLowStockOnly] = useState<boolean>(false);
 
   const fetchInventarios = async (
@@ -48,57 +85,19 @@ export function useInventario() {
     includeInactive: boolean = false,
     lowStock: boolean = false
   ) => {
-    try {
-      setLoading(true);
-
-      if (!session?.accessToken) {
-        throw new Error("Token de sesión no disponible");
-      }
-
-      let url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/inventario/all?page=${page}&limit=${limit}`;
-
-      if (search) {
-        url += `&search=${encodeURIComponent(search)}`;
-      }
-
-      if (includeInactive) {
-        url += `&includeInactive=true`;
-      }
-
-      if (lowStock) {
-        url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/inventario/bajo-stock?page=${page}&limit=${limit}`;
-        if (search) {
-          url += `&ubicacion=${encodeURIComponent(search)}`;
-        }
-      }
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const data: PaginatedInventarioResponse = await response.json();
-
-      if (!data.items || !Array.isArray(data.items)) {
-        throw new Error("Formato de respuesta inválido");
-      }
-
-      setInventarios(data.items);
-      setTotalPages(data.totalPages);
-      setTotalItems(data.totalItems);
-      setCurrentPage(data.currentPage);
-    } catch (error) {
-      console.error("Error al obtener inventarios:", error);
-      toast.error(error instanceof Error ? error.message : "Error al cargar inventarios");
-      setInventarios([]);
-    } finally {
-      setLoading(false);
+    if (lowStock) {
+      await fetchItems(
+        page,
+        limit,
+        '',
+        false,
+        search ? { ubicacion: search } : undefined,
+        '/inventario/bajo-stock',
+      );
+      return;
     }
+
+    await fetchItems(page, limit, search, includeInactive);
   };
 
   const createInventario = async (inventarioData: {
@@ -108,9 +107,6 @@ export function useInventario() {
     ubicacion: string;
   }) => {
     try {
-      setLoading(true);
-
-
       // Validación mejorada
       if (typeof inventarioData.cantidad !== 'number' ||
         inventarioData.cantidad < 0 ||
@@ -124,31 +120,12 @@ export function useInventario() {
         throw new Error("El stock mínimo debe ser un número entero positivo");
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/inventario`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-        body: JSON.stringify({
-          ...inventarioData,
-          estado: true // Asegurar que siempre se cree como activo
-        }),
+      const newInventario = await createItem({
+        ...inventarioData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        // Mejor manejo de errores del backend
-        const errorMessages = errorData.message?.split(',') || [];
-        const uniqueMessages = [...new Set(errorMessages)]; // Eliminar duplicados
-        throw new Error(uniqueMessages.join('\n'));
-      }
-
-      const newInventario = await response.json();
-      toast.success("Registro de inventario creado exitosamente");
-
       // Actualizar la lista de inventarios
-      fetchInventarios(currentPage, 10, searchTerm, showInactive, lowStockOnly);
+      await fetchInventarios(currentPage, 10, searchTerm, showInactive, lowStockOnly);
 
       return newInventario;
     } catch (error) {
@@ -165,34 +142,13 @@ export function useInventario() {
 
       throw error;
     } finally {
-      setLoading(false);
+      // loading es gestionado por useCrud
     }
   };
 
-  const updateInventario = async (id: number, inventarioData: {
-    parteId?: number;
-    cantidad?: number;
-    stockMinimo?: number;
-    ubicacion?: string;
-    estado?: boolean;
-  }) => {
+  const updateInventario = async (id: number, inventarioData: UpdateInventarioDto) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/inventario/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-        body: JSON.stringify(inventarioData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Error: ${response.status}`);
-      }
-
-      const updatedInventario = await response.json();
-      toast.success("Inventario actualizado exitosamente");
+      const updatedInventario = await updateItem(id, inventarioData);
       return updatedInventario;
     } catch (error) {
       console.error("Error al actualizar inventario:", error);
@@ -203,21 +159,14 @@ export function useInventario() {
 
   const updateStock = async (id: number, cantidad: number, operacion: 'add' | 'subtract') => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/inventario/${id}/update-stock`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.accessToken}`,
+      const updatedInventario = await apiRequest<Inventario>(
+        `/inventario/${id}/update-stock`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ cantidad, operacion }),
         },
-        body: JSON.stringify({ cantidad, operacion }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Error: ${response.status}`);
-      }
-
-      const updatedInventario = await response.json();
+        session,
+      );
       toast.success("Stock actualizado exitosamente");
       return updatedInventario;
     } catch (error) {
@@ -229,17 +178,7 @@ export function useInventario() {
 
   const checkStock = async (id: number) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/inventario/${id}/check-stock`, {
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      return await response.json();
+      return await apiRequest(`/inventario/${id}/check-stock`, {}, session);
     } catch (error) {
       console.error("Error al verificar stock:", error);
       toast.error(error instanceof Error ? error.message : "Error al verificar stock");
@@ -247,78 +186,15 @@ export function useInventario() {
     }
   };
 
-  const toggleInventarioStatus = async (id: number) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/inventario/${id}/toggle-estado`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const updatedInventario = await response.json();
-      toast.success(`Producto ${updatedInventario.estado ? 'activado' : 'desactivado'} exitosamente`);
-      return updatedInventario;
-    } catch (error) {
-      console.error("Error al cambiar estado del inventario:", error);
-      toast.error(error instanceof Error ? error.message : "Error al cambiar estado del inventario");
-      throw error;
-    }
-  };
-
-  const deleteInventario = async (id: number) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/inventario/${id}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      toast.success("Registro de inventario eliminado exitosamente");
-      return true;
-    } catch (error) {
-      console.error("Error al eliminar inventario:", error);
-      toast.error(error instanceof Error ? error.message : "Error al eliminar inventario");
-      throw error;
-    }
-  };
-
-  const restoreInventario = async (id: number) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/inventario/${id}/restore`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      toast.success("Registro de inventario restaurado exitosamente");
-      return true;
-    } catch (error) {
-      console.error("Error al restaurar inventario:", error);
-      toast.error(error instanceof Error ? error.message : "Error al restaurar inventario");
-      throw error;
-    }
-  };
+  const toggleInventarioStatus = toggleItemStatus;
+  const deleteInventario = deleteItem;
+  const restoreInventario = restoreItem;
 
   useEffect(() => {
     if (status === "authenticated") {
       fetchInventarios(1, 10, searchTerm, showInactive, lowStockOnly);
     }
-  }, [status, session, searchTerm, showInactive, lowStockOnly]);
+  }, [status, searchTerm, showInactive, lowStockOnly]);
 
   return {
     inventarios,

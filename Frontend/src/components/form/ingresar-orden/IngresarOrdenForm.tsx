@@ -31,8 +31,19 @@ interface FormData {
     currentAccessory: string;
 }
 
+interface FormErrors {
+    clientId?: string;
+    equipoId?: string;
+    problemaReportado?: string;
+}
 
-export default function IngresarOrdenForm() {
+interface IngresarOrdenFormProps {
+    onSuccess?: (order: { id: number; workOrderNumber: string }) => void;
+    onCancel?: () => void;
+}
+
+
+export default function IngresarOrdenForm({ onSuccess, onCancel }: IngresarOrdenFormProps) {
     const { data: session } = useSession();
     const router = useRouter();
     const { createOrder } = useOrders();
@@ -91,13 +102,13 @@ export default function IngresarOrdenForm() {
         currentAccessory: ""
     });
 
-    const [errors, setErrors] = React.useState<Partial<FormData>>({});
+    const [errors, setErrors] = React.useState<FormErrors>({});
     const [loading, setLoading] = React.useState(false);
 
-    const handleChange = (field: keyof FormData, value: string | number | string[]) => {
+    const handleChange = (field: keyof FormData, value: string | number | string[] | null) => {
         setFormData(prev => ({ ...prev, [field]: value }));
-        if (errors[field as keyof typeof errors]) {
-            setErrors(prev => ({ ...prev, [field]: undefined }));
+        if (field in errors) {
+            setErrors(prev => ({ ...prev, [field as keyof FormErrors]: undefined }));
         }
     };
 
@@ -127,12 +138,12 @@ export default function IngresarOrdenForm() {
     };
 
     const validateFields = () => {
-        const newErrors: Partial<FormData> = {};
+        const newErrors: FormErrors = {};
         let isValid = true;
 
         // Validación de cliente
         if (!formData.clientId) {
-            newErrors.clientId = "⚠️ Debe seleccionar un cliente";
+            newErrors.clientId = "Debe seleccionar un cliente";
             isValid = false;
             // Scroll al campo y foco automático
             setTimeout(() => {
@@ -143,7 +154,7 @@ export default function IngresarOrdenForm() {
 
         // Validación de equipo
         if (!formData.equipoId) {
-            newErrors.equipoId = "⚠️ Debe seleccionar un equipo";
+            newErrors.equipoId = "Debe seleccionar un equipo";
             isValid = false;
             if (isValid) { // Solo hacer scroll si no hay error previo
                 setTimeout(() => {
@@ -155,7 +166,7 @@ export default function IngresarOrdenForm() {
 
         // Validación de problema reportado
         if (!formData.problemaReportado.trim()) {
-            newErrors.problemaReportado = "⚠️ El problema reportado es requerido";
+            newErrors.problemaReportado = "El problema reportado es requerido";
             isValid = false;
             if (isValid) {
                 setTimeout(() => {
@@ -164,7 +175,7 @@ export default function IngresarOrdenForm() {
                 }, 100);
             }
         } else if (formData.problemaReportado.trim().length < 10) {
-            newErrors.problemaReportado = "⚠️ La descripción debe tener al menos 10 caracteres";
+            newErrors.problemaReportado = "La descripción debe tener al menos 10 caracteres";
             isValid = false;
         }
 
@@ -202,7 +213,7 @@ export default function IngresarOrdenForm() {
                 equipoId: Number(formData.equipoId),
                 problemaReportado: formData.problemaReportado,
                 accesorios: formData.accesorios,
-                fechaPrometidaEntrega: formData.fechaPrometidaEntrega || null,
+                fechaPrometidaEntrega: formData.fechaPrometidaEntrega || undefined,
                 technicianId: formData.technicianId ? Number(formData.technicianId) : undefined,
                 ...(formData.estadoOrdenId && { estadoOrdenId: Number(formData.estadoOrdenId) })
             };
@@ -213,10 +224,18 @@ export default function IngresarOrdenForm() {
                 throw new Error("No se pudo crear la orden. Intente nuevamente.");
             }
 
-            toast.success(`✅ Orden #${result.workOrderNumber} creada exitosamente`, {
+            toast.success(`Orden #${result.workOrderNumber} creada exitosamente`, {
                 position: "top-center",
                 autoClose: 3000,
             });
+
+            if (onSuccess) {
+                onSuccess({
+                    id: result.id,
+                    workOrderNumber: result.workOrderNumber,
+                });
+                return;
+            }
 
             // Reset del formulario
             setFormData({
@@ -237,8 +256,8 @@ export default function IngresarOrdenForm() {
             console.error('Error al crear orden:', error);
             toast.error(
                 error instanceof Error
-                    ? `❌ ${error.message}`
-                    : "❌ Error desconocido al crear la orden",
+                    ? `${error.message}`
+                    : "Error desconocido al crear la orden",
                 {
                     position: "top-center",
                     autoClose: 5000,
@@ -521,13 +540,25 @@ export default function IngresarOrdenForm() {
 
                     {/* Botón de envío */}
                     <div>
-                        <Button
-                            type="submit"
-                            className="w-full flex items-center justify-center gap-2"
-                            disabled={loading || loadingUsuarios || loadingEquipos}
-                        >
-                            {loading ? "Creando orden..." : "Crear Orden de Trabajo"}
-                        </Button>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                            {onCancel && (
+                                <Button
+                                    type="button"
+                                    onClick={onCancel}
+                                    className="w-full sm:w-auto"
+                                    variant="outline"
+                                >
+                                    Cancelar
+                                </Button>
+                            )}
+                            <Button
+                                type="submit"
+                                className="w-full flex items-center justify-center gap-2"
+                                disabled={loading || loadingUsuarios || loadingEquipos}
+                            >
+                                {loading ? "Creando orden..." : "Crear Orden de Trabajo"}
+                            </Button>
+                        </div>
                     </div>
                 </form>
             </ComponentCard>

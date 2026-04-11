@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { toast } from "react-toastify";
+import { useCrud } from "@/hooks/useCrud";
+import { apiRequest } from "@/lib/api";
 
 export interface ParteEspecificacion {
   id: number;
@@ -25,263 +26,90 @@ export interface EspecificacionParte {
   tipoEspecificacion: TipoEspecificacion | null;
 }
 
-// Respuesta paginada del backend
-interface PaginatedEspecificacionResponse {
-  items: EspecificacionParte[];
-  totalItems: number;
-  totalPages: number;
-  currentPage: number;
+interface CreateEspecificacionDto {
+  valor: string;
+  parteId: number;
+  tipoEspecificacionId: number;
+}
+
+interface UpdateEspecificacionDto {
+  valor?: string;
+  tipoEspecificacionId?: number;
+  estado?: boolean;
 }
 
 export function useEspecificacionParte() {
   const { data: session, status } = useSession();
-  const [especificaciones, setEspecificaciones] = useState<EspecificacionParte[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [totalItems, setTotalItems] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [showInactive, setShowInactive] = useState<boolean>(false);
+  const {
+    items: especificaciones,
+    loading,
+    totalPages,
+    totalItems,
+    currentPage,
+    searchTerm,
+    showInactive,
+    fetchItems,
+    createItem,
+    updateItem,
+    toggleItemStatus,
+    deleteItem,
+    restoreItem,
+    setItems: setEspecificaciones,
+    setSearchTerm,
+    setShowInactive,
+  } = useCrud<EspecificacionParte, CreateEspecificacionDto, UpdateEspecificacionDto>(
+    '/especificaciones-parte',
+    {
+      defaultLimit: 10,
+      listPath: '/especificaciones-parte/all',
+      messages: {
+        created: 'Especificacion creada exitosamente',
+        updated: 'Especificacion actualizada exitosamente',
+        deleted: 'Especificacion eliminada exitosamente',
+        restored: 'Especificacion restaurada exitosamente',
+        toggled: (enabled) => `Especificacion ${enabled ? 'activada' : 'desactivada'} exitosamente`,
+        loadError: 'Error al cargar especificaciones',
+        createError: 'Error al crear especificacion',
+        updateError: 'Error al actualizar especificacion',
+        deleteError: 'Error al eliminar especificacion',
+        restoreError: 'Error al restaurar especificacion',
+        toggleError: 'Error al cambiar estado de la especificacion',
+      },
+    },
+  );
 
-  const fetchEspecificaciones = async (
-    page: number = 1,
-    limit: number = 10,
-    search: string = "",
-    includeInactive: boolean = false
-  ) => {
-    try {
-      setLoading(true);
-
-      if (!session?.accessToken) {
-        throw new Error("Token de sesión no disponible");
-      }
-
-      let url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/especificaciones-parte/all?page=${page}&limit=${limit}`;
-
-      if (search) {
-        url += `&search=${encodeURIComponent(search)}`;
-      }
-
-      if (includeInactive) {
-        url += `&includeInactive=true`;
-      }
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const data: PaginatedEspecificacionResponse = await response.json();
-
-      if (!data.items || !Array.isArray(data.items)) {
-        throw new Error("Formato de respuesta inválido");
-      }
-
-      setEspecificaciones(data.items);
-      setTotalPages(data.totalPages);
-      setTotalItems(data.totalItems);
-      setCurrentPage(data.currentPage);
-    } catch (error) {
-      console.error("Error al obtener especificaciones:", error);
-      toast.error(error instanceof Error ? error.message : "Error al cargar especificaciones");
-      setEspecificaciones([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchEspecificaciones = fetchItems;
+  const createEspecificacion = createItem;
+  const updateEspecificacion = updateItem;
+  const toggleEspecificacionStatus = toggleItemStatus;
+  const deleteEspecificacion = deleteItem;
+  const restoreEspecificacion = restoreItem;
 
   const fetchByParte = async (parteId: number, includeInactive: boolean = false) => {
     try {
-      setLoading(true);
-
-      if (!session?.accessToken) {
-        throw new Error("Token de sesión no disponible");
-      }
-
-      const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/especificaciones-parte/by-parte/${parteId}?includeInactive=${includeInactive}`;
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const data: EspecificacionParte[] = await response.json();
-      return data;
+      return await apiRequest<EspecificacionParte[]>(
+        `/especificaciones-parte/by-parte/${parteId}?includeInactive=${includeInactive}`,
+        {},
+        session,
+      );
     } catch (error) {
-      console.error("Error al obtener especificaciones por parte:", error);
-      toast.error(error instanceof Error ? error.message : "Error al cargar especificaciones por parte");
-      throw error;
-    } finally {
-      setLoading(false);
+      const message =
+        error instanceof Error ? error.message : 'Error al cargar especificaciones por parte';
+      throw new Error(message);
     }
   };
 
   const fetchByTipo = async (tipoId: number, includeInactive: boolean = false) => {
     try {
-      setLoading(true);
-
-      if (!session?.accessToken) {
-        throw new Error("Token de sesión no disponible");
-      }
-
-      const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/especificaciones-parte/by-tipo/${tipoId}?includeInactive=${includeInactive}`;
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const data: EspecificacionParte[] = await response.json();
-      return data;
+      return await apiRequest<EspecificacionParte[]>(
+        `/especificaciones-parte/by-tipo/${tipoId}?includeInactive=${includeInactive}`,
+        {},
+        session,
+      );
     } catch (error) {
-      console.error("Error al obtener especificaciones por tipo:", error);
-      toast.error(error instanceof Error ? error.message : "Error al cargar especificaciones por tipo");
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const createEspecificacion = async (especificacionData: { 
-    valor: string; 
-    parteId: number; 
-    tipoEspecificacionId: number 
-  }) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/especificaciones-parte`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-        body: JSON.stringify(especificacionData),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const newEspecificacion = await response.json();
-      toast.success("Especificación creada exitosamente");
-      return newEspecificacion;
-    } catch (error) {
-      console.error("Error al crear especificación:", error);
-      toast.error(error instanceof Error ? error.message : "Error al crear especificación");
-      throw error;
-    }
-  };
-
-  const updateEspecificacion = async (
-    id: number, 
-    especificacionData: { 
-      valor?: string; 
-      tipoEspecificacionId?: number; 
-      estado?: boolean 
-    }
-  ) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/especificaciones-parte/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-        body: JSON.stringify(especificacionData),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const updatedEspecificacion = await response.json();
-      toast.success("Especificación actualizada exitosamente");
-      return updatedEspecificacion;
-    } catch (error) {
-      console.error("Error al actualizar especificación:", error);
-      toast.error(error instanceof Error ? error.message : "Error al actualizar especificación");
-      throw error;
-    }
-  };
-
-  const toggleEspecificacionStatus = async (id: number) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/especificaciones-parte/${id}/toggle-estado`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      const updatedEspecificacion = await response.json();
-      toast.success(`Especificación ${updatedEspecificacion.estado ? 'activada' : 'desactivada'} exitosamente`);
-      return updatedEspecificacion;
-    } catch (error) {
-      console.error("Error al cambiar estado de la especificación:", error);
-      toast.error(error instanceof Error ? error.message : "Error al cambiar estado de la especificación");
-      throw error;
-    }
-  };
-
-  const deleteEspecificacion = async (id: number) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/especificaciones-parte/${id}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      toast.success("Especificación eliminada exitosamente");
-      return true;
-    } catch (error) {
-      console.error("Error al eliminar especificación:", error);
-      toast.error(error instanceof Error ? error.message : "Error al eliminar especificación");
-      throw error;
-    }
-  };
-
-  const restoreEspecificacion = async (id: number) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/especificaciones-parte/${id}/restore`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
-      }
-
-      toast.success("Especificación restaurada exitosamente");
-      return true;
-    } catch (error) {
-      console.error("Error al restaurar especificación:", error);
-      toast.error(error instanceof Error ? error.message : "Error al restaurar especificación");
-      throw error;
+      const message =
+        error instanceof Error ? error.message : 'Error al cargar especificaciones por tipo';
+      throw new Error(message);
     }
   };
 
@@ -289,7 +117,7 @@ export function useEspecificacionParte() {
     if (status === "authenticated") {
       fetchEspecificaciones(1, 10, searchTerm, showInactive);
     }
-  }, [status, session, searchTerm, showInactive]);
+  }, [status, searchTerm, showInactive]);
 
   return {
     especificaciones,

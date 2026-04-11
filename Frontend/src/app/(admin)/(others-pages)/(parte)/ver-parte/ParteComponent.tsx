@@ -12,12 +12,12 @@ export default function ParteComponent() {
 
     return (
         <div>
-            <PageBreadcrumb pageTitle="Partes" />
+            <PageBreadcrumb pageTitle="Catálogo de Ítems" />
             <div className="space-y-6">
                 <ComponentCard
                     title={
                         <div className="flex justify-between items-center w-full">
-                            <span>Lista de partes registradas</span>
+                            <span>Catálogo de ítems registrados</span>
                             <Button
                                 onClick={() => router.push("/ingresar-parte")}
                                 className="flex items-center gap-1"

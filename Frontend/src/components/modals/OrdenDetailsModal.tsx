@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
-import { Order } from "@/interfaces/order";
+import CrudModal from "@/components/modals/CrudModal";
+import type { Order } from "@/types/order.types";
+import { formatCurrency, formatDate, formatUserName } from "@/lib/formatters";
 
 interface Props {
   isOpen: boolean;
@@ -57,22 +58,14 @@ const CardContainer = ({ children }: { children: React.ReactNode }) => (
 export default function OrdenDetailsModal({ isOpen, onClose, order }: Props) {
   if (!order) return null;
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "No especificada";
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const formatCurrency = (amount?: number) => {
-    if (amount === undefined) return "No especificado";
-    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount);
-  };
-
   return (
-    <Modal
+    <CrudModal
       isOpen={isOpen}
       onClose={onClose}
       title={`Detalles de Orden #${order.workOrderNumber}`}
-      className="max-w-4xl p-6 max-h-[80vh] overflow-y-auto"
+      onSubmit={async () => {}}
+      mode="view"
+      hideActions
     >
       <div className="px-6 py-4 space-y-6 text-sm">
         {/* Sección 1: Información Principal */}
@@ -133,7 +126,7 @@ export default function OrdenDetailsModal({ isOpen, onClose, order }: Props) {
           <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
             <InputDisplay
               label="Cliente"
-              value={`${order.client.nombre} ${order.client.apellido || ''}`.trim()}
+              value={formatUserName(order.client)}
               icon={
                 <Icon>
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -306,15 +299,15 @@ export default function OrdenDetailsModal({ isOpen, onClose, order }: Props) {
               </div>
             )}
 
-            {/* Detalle de Repuestos */}
-            {order.detallesRepuestos && order.detallesRepuestos.length > 0 && (
+            {/* Detalle de Ítems */}
+            {order.detallesPresupuestoItems && order.detallesPresupuestoItems.length > 0 && (
               <div className="mt-4">
-                <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">Repuestos</h4>
+                <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">Ítems del presupuesto</h4>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-100 dark:bg-gray-700">
                       <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Repuesto</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Ítem</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Código</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Cantidad</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Precio Unitario</th>
@@ -322,10 +315,10 @@ export default function OrdenDetailsModal({ isOpen, onClose, order }: Props) {
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                      {order.detallesRepuestos.map((detalle, index) => (
+                      {order.detallesPresupuestoItems.map((detalle, index) => (
                         <tr key={index}>
-                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{detalle.repuesto.nombre}</td>
-                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{detalle.repuesto.codigo}</td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{detalle.parte?.nombre || 'Ítem'}</td>
+                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{detalle.parte?.codigoInterno || '-'}</td>
                           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{detalle.cantidad}</td>
                           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{formatCurrency(detalle.precioUnitario)}</td>
                           <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{formatCurrency(detalle.subtotal)}</td>
@@ -362,17 +355,20 @@ export default function OrdenDetailsModal({ isOpen, onClose, order }: Props) {
                   </div>
                   
                   {/* Evidencias Técnicas */}
-                  {order.evidencias && order.evidencias.filter(e => e.actividadId === actividad.id).length > 0 && (
+                  {order.evidencias && order.evidencias.filter((e) => e.actividadId === actividad.id).length > 0 && (
                     <div className="mt-3">
                       <p className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Evidencias:</p>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {order.evidencias
-                          .filter(e => e.actividadId === actividad.id)
+                          .filter((e) => e.actividadId === actividad.id)
                           .map((evidencia, evIndex) => (
                             <div key={evIndex} className="border rounded overflow-hidden">
                               <img 
-                                src={evidencia.urlImagen} 
-                                alt={evidencia.descripcion || `Evidencia ${evIndex + 1}`}
+                                src={evidencia.urlImagen || evidencia.archivoUrl || ""} 
+                                alt={
+                                  evidencia.descripcion ||
+                                  `Evidencia tecnica de la actividad ${actividad.tipoActividad.nombre}`
+                                }
                                 className="w-full h-24 object-cover"
                               />
                               {evidencia.descripcion && (
@@ -472,6 +468,6 @@ export default function OrdenDetailsModal({ isOpen, onClose, order }: Props) {
           </button>
         </div>
       </div>
-    </Modal>
+    </CrudModal>
   );
 }

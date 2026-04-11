@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Modal } from "@/components/ui/modal";
+import CrudModal from "@/components/modals/CrudModal";
 import { Marca } from "@/hooks/useMarcas";
 
 interface Props {
@@ -48,11 +48,13 @@ export default function MarcaDetailsModal({ isOpen, onClose, marca }: Props) {
   const estaActiva = marca.estado; // <- Cambio aquí
 
   return (
-    <Modal
+    <CrudModal
       isOpen={isOpen}
       onClose={onClose}
       title="Detalles de la Marca"
-      className="max-w-2xl p-6 max-h-[80vh] overflow-y-auto"
+      onSubmit={async () => {}}
+      mode="view"
+      hideActions
     >
       <div className="px-6 py-4 space-y-8 text-sm">
         {/* Sección básica */}
@@ -151,6 +153,6 @@ export default function MarcaDetailsModal({ isOpen, onClose, marca }: Props) {
           </button>
         </div>
       </div>
-    </Modal>
+    </CrudModal>
   );
 }

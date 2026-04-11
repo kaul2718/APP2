@@ -16,6 +16,13 @@ export class ParteController {
     return this.parteService.create(dto);
   }
 
+  @Get()
+  findAllFlat(
+    @Query('includeInactive') includeInactive?: boolean,
+  ): Promise<Parte[]> {
+    return this.parteService.findAll(includeInactive);
+  }
+
   @Get('all')
   async findAll(
     @Query('page') page: number = 1,
