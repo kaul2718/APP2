@@ -3,7 +3,6 @@ import React from "react";
 import ComponentCard from "@/components/common/ComponentCard";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import { Select } from "@headlessui/react";
 import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
@@ -17,7 +16,17 @@ interface FormData {
     costo: number | string;
 }
 
-export default function IngresarTipoManoObraForm() {
+interface Props {
+    embeddedMode?: boolean;
+    onSuccess?: () => void;
+    onClose?: () => void;
+}
+
+export default function IngresarTipoManoObraForm({
+    embeddedMode = false,
+    onSuccess,
+    onClose,
+}: Props) {
     const { data: session } = useSession();
     const router = useRouter();
     const [formData, setFormData] = React.useState<FormData>({
@@ -100,10 +109,14 @@ export default function IngresarTipoManoObraForm() {
                 costo: ""
             });
 
-            setTimeout(() => {
-                router.push('/ver-tipo-mano-obra');
-            }, 1000);
-
+            if (embeddedMode) {
+                onSuccess?.();
+                onClose?.();
+            } else {
+                setTimeout(() => {
+                    router.push('/ver-tipo-mano-obra');
+                }, 1000);
+            }
         } catch (error) {
             console.error(error);
             toast.error("Error en la solicitud");
@@ -112,80 +125,89 @@ export default function IngresarTipoManoObraForm() {
         }
     };
 
-    return (
-        <ComponentCard title="Registrar Nuevo Tipo de Mano de Obra">
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
-                {/* Nombre */}
-                <div>
-                    <Label>Nombre del Tipo</Label>
-                    <div className="relative">
-                        <DocumentTextIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                        <Input
-                            value={formData.nombre}
-                            onChange={(e) => handleChange("nombre", e.target.value)}
-                            placeholder="Ej: Cambio Pantalla, Cambio Teclado, Mantenimiento"
-                            className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-                        />
-                    </div>
-                    {errors.nombre && <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>}
-                </div>
-
-                {/* Código */}
-                <div>
-                    <Label>Código Único</Label>
-                    <div className="relative">
-                        <CodeBracketIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                        <Input
-                            value={formData.codigo}
-                            onChange={(e) => handleChange("codigo", e.target.value)}
-                            placeholder="Ej: CAMPA-001, CAMTEC-001, MANPRE-001"
-                            className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-                        />
-                    </div>
-                    {errors.codigo && <p className="text-sm text-red-500 mt-1">{errors.codigo}</p>}
-                </div>
-
-                {/* Costo */}
-                <div>
-                    <Label>Costo por Hora</Label>
-                    <div className="relative">
-                        <CurrencyDollarIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                        <Input
-                            type="number"
-                            step={5.00}
-                            min="1"
-                            value={formData.costo}
-                            onChange={(e) => handleChange("costo", e.target.value)}
-                            placeholder="Ej: 15.00"
-                            className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-                        />
-                    </div>
-                    {errors.costo && <p className="text-sm text-red-500 mt-1">{errors.costo}</p>}
-                </div>
-
-                {/* Descripción */}
-                <div>
-                    <Label>Descripción (Opcional)</Label>
-                    <textarea
-                        value={formData.descripcion}
-                        onChange={(e) => handleChange("descripcion", e.target.value)}
-                        placeholder="Descripción detallada del tipo de mano de obra"
-                        className="w-full px-4 py-2 rounded-md border border-gray-300 bg-white dark:bg-gray-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        rows={3}
+    const formContent = (
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
+            <div>
+                <Label>Nombre del Tipo</Label>
+                <div className="relative">
+                    <DocumentTextIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                    <Input
+                        value={formData.nombre}
+                        onChange={(e) => handleChange("nombre", e.target.value)}
+                        placeholder="Ej: Cambio Pantalla, Cambio Teclado, Mantenimiento"
+                        className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
                     />
                 </div>
+                {errors.nombre && <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>}
+            </div>
 
-                {/* Botón */}
-                <div>
+            <div>
+                <Label>Código Único</Label>
+                <div className="relative">
+                    <CodeBracketIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                    <Input
+                        value={formData.codigo}
+                        onChange={(e) => handleChange("codigo", e.target.value)}
+                        placeholder="Ej: CAMPA-001, CAMTEC-001, MANPRE-001"
+                        className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
+                    />
+                </div>
+                {errors.codigo && <p className="text-sm text-red-500 mt-1">{errors.codigo}</p>}
+            </div>
+
+            <div>
+                <Label>Costo por Hora</Label>
+                <div className="relative">
+                    <CurrencyDollarIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                    <Input
+                        type="number"
+                        step={5.00}
+                        min="1"
+                        value={formData.costo}
+                        onChange={(e) => handleChange("costo", e.target.value)}
+                        placeholder="Ej: 15.00"
+                        className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
+                    />
+                </div>
+                {errors.costo && <p className="text-sm text-red-500 mt-1">{errors.costo}</p>}
+            </div>
+
+            <div>
+                <Label>Descripción (Opcional)</Label>
+                <textarea
+                    value={formData.descripcion}
+                    onChange={(e) => handleChange("descripcion", e.target.value)}
+                    placeholder="Descripción detallada del tipo de mano de obra"
+                    className="w-full px-4 py-2 rounded-md border border-gray-300 bg-white dark:bg-gray-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows={3}
+                />
+            </div>
+
+            <div className={embeddedMode ? "flex justify-end gap-4" : ""}>
+                {embeddedMode && onClose && (
                     <Button
-                        type="submit"
-                        className="w-full flex items-center justify-center gap-2"
+                        type="button"
+                        variant="outline"
+                        onClick={onClose}
                         disabled={loading}
                     >
-                        {loading ? "Registrando..." : "Registrar Tipo de Mano de Obra"}
+                        Cancelar
                     </Button>
-                </div>
-            </form>
-        </ComponentCard>
+                )}
+                <Button
+                    type="submit"
+                    className={embeddedMode ? "flex items-center justify-center gap-2" : "w-full flex items-center justify-center gap-2"}
+                    disabled={loading}
+                >
+                    {loading ? "Registrando..." : "Registrar Tipo de Mano de Obra"}
+                </Button>
+            </div>
+        </form>
     );
+
+    if (embeddedMode) {
+        return <div className="p-4">{formContent}</div>;
+    }
+
+    return <ComponentCard title="Registrar Nuevo Tipo de Mano de Obra">{formContent}</ComponentCard>;
 }

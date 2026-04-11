@@ -14,7 +14,17 @@ interface FormData {
   descripcion: string;
 }
 
-export default function IngresarEstadoPresupuestoForm() {
+interface Props {
+  embeddedMode?: boolean;
+  onSuccess?: () => void;
+  onClose?: () => void;
+}
+
+export default function IngresarEstadoPresupuestoForm({
+  embeddedMode = false,
+  onSuccess,
+  onClose,
+}: Props) {
   const { data: session } = useSession();
   const router = useRouter();
   const [formData, setFormData] = React.useState<FormData>({
@@ -80,13 +90,16 @@ export default function IngresarEstadoPresupuestoForm() {
       }
 
       toast.success("Estado de presupuesto registrado con éxito ✅");
-
       setFormData({ nombre: "", descripcion: "" });
 
-      setTimeout(() => {
-        router.push('/ver-estado-presupuesto');
-      }, 1000);
-
+      if (embeddedMode) {
+        onSuccess?.();
+        onClose?.();
+      } else {
+        setTimeout(() => {
+          router.push('/ver-estado-presupuesto');
+        }, 1000);
+      }
     } catch (error) {
       console.error(error);
       toast.error("Error en la solicitud");
@@ -95,48 +108,59 @@ export default function IngresarEstadoPresupuestoForm() {
     }
   };
 
-  return (
-    <ComponentCard title="Registrar Nuevo Estado de Presupuesto">
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
-        {/* Nombre del estado */}
-        <div>
-          <Label>Nombre del Estado</Label>
-          <div className="relative">
-            <DocumentTextIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-            <Input
-              value={formData.nombre}
-              onChange={(e) => handleChange("nombre", e.target.value)}
-              placeholder="Ej: Pendiente, Aprobado, Rechazado"
-              className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-            />
-          </div>
-          {errors.nombre && <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>}
-        </div>
-
-        {/* Descripción */}
-        <div>
-          <Label>Descripción</Label>
-          <textarea
-            value={formData.descripcion}
-            onChange={(e) => handleChange("descripcion", e.target.value)}
-            placeholder="Descripción detallada del estado del presupuesto"
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-black dark:text-white"
-            rows={4}
+  const formContent = (
+    <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
+      <div>
+        <Label>Nombre del Estado</Label>
+        <div className="relative">
+          <DocumentTextIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+          <Input
+            value={formData.nombre}
+            onChange={(e) => handleChange("nombre", e.target.value)}
+            placeholder="Ej: Pendiente, Aprobado, Rechazado"
+            className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
           />
-          {errors.descripcion && <p className="text-sm text-red-500 mt-1">{errors.descripcion}</p>}
         </div>
+        {errors.nombre && <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>}
+      </div>
 
-        {/* Botón */}
-        <div>
-          <Button 
-            type="submit" 
-            className="w-full flex items-center justify-center gap-2"
+      <div>
+        <Label>Descripción</Label>
+        <textarea
+          value={formData.descripcion}
+          onChange={(e) => handleChange("descripcion", e.target.value)}
+          placeholder="Descripción detallada del estado del presupuesto"
+          className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-black dark:text-white"
+          rows={4}
+        />
+        {errors.descripcion && <p className="text-sm text-red-500 mt-1">{errors.descripcion}</p>}
+      </div>
+
+      <div className={embeddedMode ? "flex justify-end gap-4" : ""}>
+        {embeddedMode && onClose && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
             disabled={loading}
           >
-            {loading ? "Registrando..." : "Registrar Estado"}
+            Cancelar
           </Button>
-        </div>
-      </form>
-    </ComponentCard>
+        )}
+        <Button
+          type="submit"
+          className={embeddedMode ? "flex items-center justify-center gap-2" : "w-full flex items-center justify-center gap-2"}
+          disabled={loading}
+        >
+          {loading ? "Registrando..." : "Registrar Estado"}
+        </Button>
+      </div>
+    </form>
   );
+
+  if (embeddedMode) {
+    return <div className="p-4">{formContent}</div>;
+  }
+
+  return <ComponentCard title="Registrar Nuevo Estado de Presupuesto">{formContent}</ComponentCard>;
 }

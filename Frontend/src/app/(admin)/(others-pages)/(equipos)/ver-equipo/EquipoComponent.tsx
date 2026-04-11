@@ -1,14 +1,16 @@
 'use client';
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import ComponentCard from "@/components/common/ComponentCard";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Button from "@/components/ui/button/Button";
 import { PlusCircleIcon } from "@heroicons/react/24/outline";
 import EquipoTableOne from "@/components/tables/equipoTable";
+import AgregarEquipoModal from "@/components/modals/AgregarEquipoModal";
 
 export default function EquipoComponent() {
-    const router = useRouter();
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [tableRefreshKey, setTableRefreshKey] = useState(0);
 
     return (
         <div>
@@ -19,7 +21,7 @@ export default function EquipoComponent() {
                         <div className="flex justify-between items-center w-full">
                             <span>Lista de Equipos</span>
                             <Button
-                                onClick={() => router.push("/ingresar-equipo")}
+                                onClick={() => setIsAddModalOpen(true)}
                                 className="flex items-center gap-1"
                                 size="sm"
                             >
@@ -29,8 +31,14 @@ export default function EquipoComponent() {
                         </div>
                     }
                 >
-                    <EquipoTableOne />
+                    <EquipoTableOne key={tableRefreshKey} />
                 </ComponentCard>
+
+                <AgregarEquipoModal
+                    isOpen={isAddModalOpen}
+                    onClose={() => setIsAddModalOpen(false)}
+                    onSuccess={() => setTableRefreshKey((prev) => prev + 1)}
+                />
             </div>
         </div>
     );

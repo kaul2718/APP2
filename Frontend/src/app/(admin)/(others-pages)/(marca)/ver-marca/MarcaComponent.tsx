@@ -1,14 +1,16 @@
 'use client';
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import ComponentCard from "@/components/common/ComponentCard";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Button from "@/components/ui/button/Button";
 import { PlusCircleIcon } from "@heroicons/react/24/outline";
 import MarcaTable from "@/components/tables/marcaTable";
+import AgregarMarcaModal from "@/components/modals/AgregarMarcaModal";
 
 export default function MarcaComponent() {
-    const router = useRouter();
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [tableRefreshKey, setTableRefreshKey] = useState(0);
 
     return (
         <div>
@@ -19,9 +21,9 @@ export default function MarcaComponent() {
                         <div className="flex justify-between items-center w-full">
                             <span>Lista de marcas registradas</span>
                             <Button
-                                onClick={() => router.push("/ingresar-marca")}
+                                onClick={() => setIsAddModalOpen(true)}
                                 className="flex items-center gap-1"
-                                size="sm" // Asegúrate de que tu componente Button soporte este prop
+                                size="sm"
                             >
                                 <PlusCircleIcon className="w-4 h-4" />
                                 Agregar Marca
@@ -29,8 +31,14 @@ export default function MarcaComponent() {
                         </div>
                     }
                 >
-                    <MarcaTable />
+                    <MarcaTable key={tableRefreshKey} />
                 </ComponentCard>
+
+                <AgregarMarcaModal
+                    isOpen={isAddModalOpen}
+                    onClose={() => setIsAddModalOpen(false)}
+                    onSuccess={() => setTableRefreshKey((prev) => prev + 1)}
+                />
             </div>
         </div>
     );

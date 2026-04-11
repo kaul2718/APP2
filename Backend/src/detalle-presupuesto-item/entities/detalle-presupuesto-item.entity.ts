@@ -2,7 +2,9 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDa
 import { Presupuesto } from 'src/presupuesto/entities/presupuesto.entity';
 import { Parte } from 'src/parte/entities/parte.entity';
 
-@Entity()
+// Se mantiene el nombre físico legado de la tabla para no romper la BD existente
+// mientras el dominio y los endpoints ya operan como `DetallePresupuestoItem`.
+@Entity('detalle_repuestos')
 export class DetallePresupuestoItem {
   @PrimaryGeneratedColumn()
   id: number;

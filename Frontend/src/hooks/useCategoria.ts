@@ -47,7 +47,8 @@ export function useCategoria() {
     } = useCrud<Categoria, CreateCategoriaDto, UpdateCategoriaDto>(
         '/categorias',
         {
-            defaultLimit: 10,
+            defaultLimit: 1000,
+            listPath: '/categorias/all',
             messages: {
                 created: 'Categoría creada exitosamente',
                 updated: 'Categoría actualizada exitosamente',
@@ -74,7 +75,7 @@ export function useCategoria() {
 
     useEffect(() => {
         if (status === "authenticated") {
-            fetchCategorias(1, 10, searchTerm, showInactive);
+            fetchCategorias(1, 1000, searchTerm, showInactive);
         }
     }, [status, session, searchTerm, showInactive]);
 

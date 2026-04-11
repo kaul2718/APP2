@@ -14,7 +14,17 @@ interface FormData {
     descripcion: string;
 }
 
-export default function IngresarCasilleroForm() {
+interface Props {
+    embeddedMode?: boolean;
+    onSuccess?: () => void;
+    onClose?: () => void;
+}
+
+export default function IngresarCasilleroForm({
+    embeddedMode = false,
+    onSuccess,
+    onClose,
+}: Props) {
     const { data: session } = useSession();
     const router = useRouter();
     const [formData, setFormData] = React.useState<FormData>({
@@ -60,7 +70,6 @@ export default function IngresarCasilleroForm() {
         }
 
         try {
-            // 1. Preparar los datos y headers
             const payload = {
                 codigo: formData.codigo,
                 descripcion: formData.descripcion
@@ -71,28 +80,23 @@ export default function IngresarCasilleroForm() {
                 Authorization: `Bearer ${session?.accessToken || ""}`
             };
 
-            // 2. Realizar la petición
             const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/casilleros`, {
                 method: "POST",
                 headers,
                 body: JSON.stringify(payload),
             });
 
-            // 3. Manejar la respuesta
             if (!res.ok) {
-                // Intentar obtener el mensaje de error de varias formas
                 let errorMessage = res.statusText || "Error al registrar casillero";
                 let errorDetails: any = {};
 
                 try {
-                    // Primero intentar parsear como JSON
                     const data = await res.json();
                     if (data && (data.message || data.error)) {
                         errorMessage = data.message || data.error;
                         errorDetails = data;
                     }
                 } catch (jsonError) {
-                    // Si falla el JSON, intentar como texto
                     try {
                         const text = await res.text();
                         if (text) errorMessage = text;
@@ -101,7 +105,6 @@ export default function IngresarCasilleroForm() {
                     }
                 }
 
-                // Log detallado para depuración
                 console.error("Error en el servidor:", {
                     status: res.status,
                     statusText: res.statusText,
@@ -110,21 +113,21 @@ export default function IngresarCasilleroForm() {
                     details: errorDetails
                 });
 
-                // Mostrar mensaje al usuario
                 toast.error(`Error ${res.status}: ${errorMessage}`);
                 return;
             }
 
-            // 4. Procesar respuesta exitosa
-            const responseData = await res.json();
+            await res.json();
             toast.success("Casillero registrado con éxito ✅");
             setFormData({ codigo: "", descripcion: "" });
 
-            // Redirigir después de 1 segundo
-            setTimeout(() => router.push('/ver-casillero'), 1000);
-
+            if (embeddedMode) {
+                onSuccess?.();
+                onClose?.();
+            } else {
+                setTimeout(() => router.push('/ver-casillero'), 1000);
+            }
         } catch (error) {
-            // Manejar errores de red u otros errores inesperados
             console.error("Error en la solicitud:", error);
 
             let userErrorMessage = "Error en la solicitud";
@@ -140,50 +143,61 @@ export default function IngresarCasilleroForm() {
         }
     };
 
-    return (
-        <ComponentCard title="Registrar Nuevo Casillero">
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
-                {/* Código del casillero */}
-                <div>
-                    <Label>Código del Casillero</Label>
-                    <div className="relative">
-                        <ArchiveBoxIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                        <Input
-                            value={formData.codigo}
-                            onChange={(e) => handleChange("codigo", e.target.value)}
-                            placeholder="Ej: A1, B2, C3"
-                            className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-                        />
-                    </div>
-                    {errors.codigo && <p className="text-sm text-red-500 mt-1">{errors.codigo}</p>}
+    const formContent = (
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
+            <div>
+                <Label>Código del Casillero</Label>
+                <div className="relative">
+                    <ArchiveBoxIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                    <Input
+                        value={formData.codigo}
+                        onChange={(e) => handleChange("codigo", e.target.value)}
+                        placeholder="Ej: A1, B2, C3"
+                        className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
+                    />
                 </div>
+                {errors.codigo && <p className="text-sm text-red-500 mt-1">{errors.codigo}</p>}
+            </div>
 
-                {/* Descripción */}
-                <div>
-                    <Label>Descripción</Label>
-                    <div className="relative">
-                        <ArchiveBoxIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                        <Input
-                            value={formData.descripcion}
-                            onChange={(e) => handleChange("descripcion", e.target.value)}
-                            placeholder="Ej: Casillero principal, Casillero de reparación rápida"
-                            className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-                        />
-                    </div>
-                    {errors.descripcion && <p className="text-sm text-red-500 mt-1">{errors.descripcion}</p>}
+            <div>
+                <Label>Descripción</Label>
+                <div className="relative">
+                    <ArchiveBoxIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                    <Input
+                        value={formData.descripcion}
+                        onChange={(e) => handleChange("descripcion", e.target.value)}
+                        placeholder="Ej: Casillero principal, Casillero de reparación rápida"
+                        className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
+                    />
                 </div>
+                {errors.descripcion && <p className="text-sm text-red-500 mt-1">{errors.descripcion}</p>}
+            </div>
 
-                {/* Botón */}
-                <div>
+            <div className={embeddedMode ? "flex justify-end gap-4" : ""}>
+                {embeddedMode && onClose && (
                     <Button
-                        type="submit"
-                        className="w-full flex items-center justify-center gap-2"
+                        type="button"
+                        variant="outline"
+                        onClick={onClose}
                         disabled={loading}
                     >
-                        {loading ? "Registrando..." : "Registrar Casillero"}
+                        Cancelar
                     </Button>
-                </div>
-            </form>
-        </ComponentCard>
+                )}
+                <Button
+                    type="submit"
+                    className={embeddedMode ? "flex items-center justify-center gap-2" : "w-full flex items-center justify-center gap-2"}
+                    disabled={loading}
+                >
+                    {loading ? "Registrando..." : "Registrar Casillero"}
+                </Button>
+            </div>
+        </form>
     );
+
+    if (embeddedMode) {
+        return <div className="p-4">{formContent}</div>;
+    }
+
+    return <ComponentCard title="Registrar Nuevo Casillero">{formContent}</ComponentCard>;
 }

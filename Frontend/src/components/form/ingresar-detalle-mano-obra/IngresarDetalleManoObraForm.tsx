@@ -20,11 +20,15 @@ interface FormData {
 interface IngresarDetalleManoObraFormProps {
   presupuestoId?: number;
   onSuccess?: () => void;
+  onClose?: () => void;
+  embeddedMode?: boolean;
 }
 
 export default function IngresarDetalleManoObraForm({ 
   presupuestoId: initialPresupuestoId,
-  onSuccess 
+  onSuccess,
+  onClose,
+  embeddedMode = false,
 }: IngresarDetalleManoObraFormProps) {
   const { data: session } = useSession();
   const router = useRouter();
@@ -113,6 +117,7 @@ export default function IngresarDetalleManoObraForm({
       // Ejecutar callback de éxito si existe
       if (onSuccess) {
         onSuccess();
+        onClose?.();
       } else if (initialPresupuestoId) {
         router.refresh(); // Recargar la página actual
       } else {
@@ -127,80 +132,94 @@ export default function IngresarDetalleManoObraForm({
     }
   };
 
-  return (
-    <ComponentCard title="Agregar Mano de Obra al Presupuesto">
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
-        {/* Presupuesto ID (solo si no viene como prop) */}
-        {!initialPresupuestoId && (
-          <div>
-            <Label>ID del Presupuesto</Label>
-            <div className="relative">
-              <HashtagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-              <Input
-                type="number"
-                value={formData.presupuestoId}
-                onChange={(e) => handleChange("presupuestoId", e.target.value)}
-                placeholder="Ingrese el ID del presupuesto"
-                className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-              />
-            </div>
-            {errors.presupuestoId && <p className="text-sm text-red-500 mt-1">{errors.presupuestoId}</p>}
-          </div>
-        )}
-
-        {/* Tipo de Mano de Obra */}
+  const formContent = (
+    <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
+      {/* Presupuesto ID (solo si no viene como prop) */}
+      {!initialPresupuestoId && (
         <div>
-          <Label>Tipo de Mano de Obra</Label>
-          <div className="relative">
-            <UserIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-            <Select
-              value={formData.tipoManoObraId}
-              onChange={(e) => handleChange("tipoManoObraId", e.target.value)}
-              className="w-full pl-10 pr-3 py-2 rounded-md border border-gray-300 bg-white dark:bg-gray-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
-              disabled={loadingTipos}
-            >
-              <option value="">Seleccione un tipo</option>
-              {tipos
-                .filter(tipo => tipo.estado)
-                .map((tipo) => (
-                  <option key={tipo.id} value={tipo.id}>
-                    {tipo.nombre} (${tipo.costo})
-                  </option>
-                ))}
-            </Select>
-          </div>
-          {errors.tipoManoObraId && <p className="text-sm text-red-500 mt-1">{errors.tipoManoObraId}</p>}
-        </div>
-
-        {/* Cantidad */}
-        <div>
-          <Label>Cantidad</Label>
+          <Label>ID del Presupuesto</Label>
           <div className="relative">
             <HashtagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
             <Input
               type="number"
-              min="1"
-              step={1}
-              value={formData.cantidad}
-              onChange={(e) => handleChange("cantidad", e.target.value)}
-              placeholder="Cantidad"
+              value={formData.presupuestoId}
+              onChange={(e) => handleChange("presupuestoId", e.target.value)}
+              placeholder="Ingrese el ID del presupuesto"
               className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
             />
           </div>
-          {errors.cantidad && <p className="text-sm text-red-500 mt-1">{errors.cantidad}</p>}
+          {errors.presupuestoId && <p className="text-sm text-red-500 mt-1">{errors.presupuestoId}</p>}
         </div>
+      )}
 
-        {/* Botón */}
-        <div>
+      {/* Tipo de Mano de Obra */}
+      <div>
+        <Label>Tipo de Mano de Obra</Label>
+        <div className="relative">
+          <UserIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+          <Select
+            value={formData.tipoManoObraId}
+            onChange={(e) => handleChange("tipoManoObraId", e.target.value)}
+            className="w-full pl-10 pr-3 py-2 rounded-md border border-gray-300 bg-white dark:bg-gray-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+            disabled={loadingTipos}
+          >
+            <option value="">Seleccione un tipo</option>
+            {tipos
+              .filter(tipo => tipo.estado)
+              .map((tipo) => (
+                <option key={tipo.id} value={tipo.id}>
+                  {tipo.nombre} (${tipo.costo})
+                </option>
+              ))}
+          </Select>
+        </div>
+        {errors.tipoManoObraId && <p className="text-sm text-red-500 mt-1">{errors.tipoManoObraId}</p>}
+      </div>
+
+      {/* Cantidad */}
+      <div>
+        <Label>Cantidad</Label>
+        <div className="relative">
+          <HashtagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+          <Input
+            type="number"
+            min="1"
+            step={1}
+            value={formData.cantidad}
+            onChange={(e) => handleChange("cantidad", e.target.value)}
+            placeholder="Cantidad"
+            className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
+          />
+        </div>
+        {errors.cantidad && <p className="text-sm text-red-500 mt-1">{errors.cantidad}</p>}
+      </div>
+
+      {/* Botón */}
+      <div className={embeddedMode ? "flex justify-end gap-4" : ""}>
+        {embeddedMode && onClose && (
           <Button
-            type="submit"
-            className="w-full flex items-center justify-center gap-2"
+            type="button"
+            variant="outline"
+            onClick={onClose}
             disabled={loading || loadingTipos}
           >
-            {loading ? "Registrando..." : "Agregar al Presupuesto"}
+            Cancelar
           </Button>
-        </div>
-      </form>
-    </ComponentCard>
+        )}
+        <Button
+          type="submit"
+          className={embeddedMode ? "flex items-center justify-center gap-2" : "w-full flex items-center justify-center gap-2"}
+          disabled={loading || loadingTipos}
+        >
+          {loading ? "Registrando..." : "Agregar al Presupuesto"}
+        </Button>
+      </div>
+    </form>
   );
+
+  if (embeddedMode) {
+    return <div className="p-4">{formContent}</div>;
+  }
+
+  return <ComponentCard title="Agregar Mano de Obra al Presupuesto">{formContent}</ComponentCard>;
 }

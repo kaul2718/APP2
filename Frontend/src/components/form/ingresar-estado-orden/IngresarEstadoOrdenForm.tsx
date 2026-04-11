@@ -14,7 +14,17 @@ interface FormData {
     descripcion: string;
 }
 
-export default function IngresarEstadoOrdenForm() {
+interface Props {
+    embeddedMode?: boolean;
+    onSuccess?: () => void;
+    onClose?: () => void;
+}
+
+export default function IngresarEstadoOrdenForm({
+    embeddedMode = false,
+    onSuccess,
+    onClose,
+}: Props) {
     const { data: session } = useSession();
     const router = useRouter();
     const [formData, setFormData] = React.useState<FormData>({
@@ -31,12 +41,10 @@ export default function IngresarEstadoOrdenForm() {
         }
     };
 
-    // Función de validación mejorada
     const validateFields = () => {
         const newErrors: Partial<FormData> = {};
         let isValid = true;
 
-        // Validación de nombre
         if (!formData.nombre.trim()) {
             newErrors.nombre = "El nombre del estado es requerido";
             isValid = false;
@@ -48,7 +56,6 @@ export default function IngresarEstadoOrdenForm() {
             isValid = false;
         }
 
-        // Validación de descripción
         if (formData.descripcion && formData.descripcion.length > 500) {
             newErrors.descripcion = "La descripción no puede exceder los 500 caracteres";
             isValid = false;
@@ -56,7 +63,6 @@ export default function IngresarEstadoOrdenForm() {
 
         setErrors(newErrors);
 
-        // Scroll al primer error si hay alguno
         if (!isValid) {
             const firstErrorKey = Object.keys(newErrors)[0];
             if (firstErrorKey) {
@@ -73,7 +79,6 @@ export default function IngresarEstadoOrdenForm() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Validación inicial
         if (!validateFields()) {
             return;
         }
@@ -81,17 +86,14 @@ export default function IngresarEstadoOrdenForm() {
         setLoading(true);
 
         try {
-            // Validación de sesión
             if (!session?.accessToken) {
                 throw new Error("No hay sesión activa");
             }
 
-            // Validación de datos del formulario
             if (!formData.nombre.trim()) {
                 throw new Error("El nombre no puede estar vacío");
             }
 
-            // Validación de longitud máxima
             if (formData.descripcion && formData.descripcion.length > 500) {
                 throw new Error("La descripción no puede exceder los 500 caracteres");
             }
@@ -108,14 +110,12 @@ export default function IngresarEstadoOrdenForm() {
                     Authorization: `Bearer ${session.accessToken}`,
                 },
                 body: JSON.stringify(payload),
-                signal: AbortSignal.timeout(8000) // Timeout de 8 segundos
+                signal: AbortSignal.timeout(8000)
             });
 
-            // Manejo de errores HTTP
             if (!res.ok) {
                 const errorData = await res.json().catch(() => ({}));
 
-                // Errores específicos del backend
                 if (res.status === 409) {
                     throw new Error("Ya existe un estado de orden con ese nombre");
                 } else if (res.status === 400) {
@@ -131,30 +131,29 @@ export default function IngresarEstadoOrdenForm() {
 
             const data = await res.json();
 
-            // Validación de respuesta
             if (!data.id || !data.nombre) {
                 throw new Error("Respuesta inválida del servidor");
             }
 
-            // Éxito
             toast.success("Estado de orden registrado con éxito ✅", {
                 autoClose: 2000,
                 pauseOnHover: false
             });
 
-            // Reset del formulario
             setFormData({ nombre: "", descripcion: "" });
             setErrors({});
 
-            // Redirección con delay
-            setTimeout(() => {
-                router.push('/ver-estado-orden');
-            }, 1000);
-
+            if (embeddedMode) {
+                onSuccess?.();
+                onClose?.();
+            } else {
+                setTimeout(() => {
+                    router.push('/ver-estado-orden');
+                }, 1000);
+            }
         } catch (error) {
             console.error("Error en el formulario:", error);
 
-            // Manejo de diferentes tipos de errores
             let errorMessage = "Error al registrar estado de orden";
 
             if (error instanceof DOMException && error.name === "AbortError") {
@@ -168,64 +167,75 @@ export default function IngresarEstadoOrdenForm() {
                 pauseOnHover: true
             });
 
-            // Enfocar el primer campo con error
             if (!formData.nombre.trim()) {
                 const nombreInput = document.querySelector('input[name="nombre"]');
                 if (nombreInput instanceof HTMLElement) {
                     nombreInput.focus();
                 }
             }
-
         } finally {
             setLoading(false);
         }
     };
 
-    return (
-        <ComponentCard title="Registrar Nuevo Estado de Orden">
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
-                {/* Nombre del estado */}
-                <div>
-                    <Label>Nombre del Estado</Label>
-                    <div className="relative">
-                        <DocumentTextIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                        <Input
-                            value={formData.nombre}
-                            onChange={(e) => handleChange("nombre", e.target.value)}
-                            placeholder="Ej: Pendiente, En Proceso, Completado"
-                            className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-                        />
-                    </div>
-                    {errors.nombre && <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>}
-                </div>
-
-                {/* Descripción */}
-                <div>
-                    <Label>Descripción (Opcional)</Label>
-                    <textarea
-                        value={formData.descripcion}
-                        onChange={(e) => handleChange("descripcion", e.target.value)}
-                        placeholder="Descripción del estado de orden"
-                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-black dark:text-white"
-                        rows={3}
+    const formContent = (
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
+            <div>
+                <Label>Nombre del Estado</Label>
+                <div className="relative">
+                    <DocumentTextIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                    <Input
+                        name="nombre"
+                        value={formData.nombre}
+                        onChange={(e) => handleChange("nombre", e.target.value)}
+                        placeholder="Ej: Pendiente, En Proceso, Completado"
+                        className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
                     />
-                    {errors.descripcion && <p className="text-sm text-red-500 mt-1">{errors.descripcion}</p>}
-                    <p className="text-xs text-gray-500 mt-1">
-                        {formData.descripcion.length}/500 caracteres
-                    </p>
                 </div>
+                {errors.nombre && <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>}
+            </div>
 
-                {/* Botón */}
-                <div>
+            <div>
+                <Label>Descripción (Opcional)</Label>
+                <textarea
+                    name="descripcion"
+                    value={formData.descripcion}
+                    onChange={(e) => handleChange("descripcion", e.target.value)}
+                    placeholder="Descripción del estado de orden"
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-black dark:text-white"
+                    rows={3}
+                />
+                {errors.descripcion && <p className="text-sm text-red-500 mt-1">{errors.descripcion}</p>}
+                <p className="text-xs text-gray-500 mt-1">
+                    {formData.descripcion.length}/500 caracteres
+                </p>
+            </div>
+
+            <div className={embeddedMode ? "flex justify-end gap-4" : ""}>
+                {embeddedMode && onClose && (
                     <Button
-                        type="submit"
-                        className="w-full flex items-center justify-center gap-2"
+                        type="button"
+                        variant="outline"
+                        onClick={onClose}
                         disabled={loading}
                     >
-                        {loading ? "Registrando..." : "Registrar Estado"}
+                        Cancelar
                     </Button>
-                </div>
-            </form>
-        </ComponentCard>
+                )}
+                <Button
+                    type="submit"
+                    className={embeddedMode ? "flex items-center justify-center gap-2" : "w-full flex items-center justify-center gap-2"}
+                    disabled={loading}
+                >
+                    {loading ? "Registrando..." : "Registrar Estado"}
+                </Button>
+            </div>
+        </form>
     );
+
+    if (embeddedMode) {
+        return <div className="p-4">{formContent}</div>;
+    }
+
+    return <ComponentCard title="Registrar Nuevo Estado de Orden">{formContent}</ComponentCard>;
 }

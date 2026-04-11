@@ -7,7 +7,8 @@ import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { useRouter } from 'next/navigation';
-import { CogIcon, FolderIcon, TagIcon, CurrencyDollarIcon } from "@heroicons/react/24/outline";
+import { Combobox } from '@headlessui/react';
+import { CogIcon, FolderIcon, TagIcon, CurrencyDollarIcon, CheckIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { useMarcas } from "@/hooks/useMarcas";
 import { useCategoria } from "@/hooks/useCategoria";
 
@@ -23,11 +24,21 @@ interface FormData {
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
 
-export default function IngresarParteForm() {
-  const { data: session } = useSession();
+interface IngresarParteFormProps {
+  embeddedMode?: boolean;
+  onSuccess?: () => void;
+}
+
+export default function IngresarParteForm({
+  embeddedMode = false,
+  onSuccess,
+}: IngresarParteFormProps) {
+  const { data: session, status } = useSession();
   const router = useRouter();
-  const { marcas, loading: loadingMarcas } = useMarcas();
-  const { categorias, loading: loadingCategorias } = useCategoria();
+  const { marcas, loading: loadingMarcas, fetchMarcas } = useMarcas();
+  const { categorias, loading: loadingCategorias, fetchCategorias } = useCategoria();
+  const [categoriaSearch, setCategoriaSearch] = React.useState("");
+  const [marcaSearch, setMarcaSearch] = React.useState("");
   const [formData, setFormData] = React.useState<FormData>({
     nombre: "",
     modelo: "",
@@ -39,6 +50,29 @@ export default function IngresarParteForm() {
   });
   const [errors, setErrors] = React.useState<FormErrors>({});
   const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (status !== "authenticated") return;
+    void fetchCategorias(1, 1000, "", false);
+    void fetchMarcas(1, 1000, "", false);
+  }, [status]);
+
+  const categoriasActivas = categorias.filter((categoria) => categoria.estado);
+  const marcasActivas = marcas.filter((marca) => marca.estado);
+
+  const filteredCategorias = categoriaSearch === ""
+    ? categoriasActivas
+    : categoriasActivas.filter((categoria) =>
+        [categoria.nombre, categoria.descripcion]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(categoriaSearch.toLowerCase()))
+      );
+
+  const filteredMarcas = marcaSearch === ""
+    ? marcasActivas
+    : marcasActivas.filter((marca) =>
+        marca.nombre.toLowerCase().includes(marcaSearch.toLowerCase())
+      );
 
   const handleChange = (field: keyof FormData, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -134,9 +168,13 @@ export default function IngresarParteForm() {
         marcaId: null
       });
 
-      setTimeout(() => {
-        router.push('/ver-parte');
-      }, 1000);
+      if (embeddedMode) {
+        onSuccess?.();
+      } else {
+        setTimeout(() => {
+          router.push('/ver-parte');
+        }, 1000);
+      }
 
     } catch (error) {
       console.error(error);
@@ -146,8 +184,7 @@ export default function IngresarParteForm() {
     }
   };
 
-  return (
-    <ComponentCard title="Registrar Nuevo Ítem del Catálogo">
+  const formContent = (
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
         {/* Nombre del ítem */}
         <div>
@@ -228,44 +265,113 @@ export default function IngresarParteForm() {
         {/* Selección de categoría */}
         <div>
           <Label>Categoría</Label>
-          <div className="relative">
-            <FolderIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-            <select
-              value={formData.categoriaId ?? ""}
-              onChange={(e) => handleChange("categoriaId", Number(e.target.value))}
-              disabled={loadingCategorias}
-              className="pl-10 pr-4 py-2 w-full rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Seleccione una categoría</option>
-              {categorias.map((categoria) => (
-                <option key={categoria.id} value={categoria.id}>
-                  {categoria.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Combobox
+            value={formData.categoriaId}
+            onChange={(value: number) => {
+              handleChange("categoriaId", value);
+              setCategoriaSearch("");
+            }}
+            disabled={loadingCategorias}
+          >
+            <div className="relative">
+              <div className="relative">
+                <Combobox.Input
+                  className={`w-full rounded-md border bg-white py-2 pl-10 pr-4 text-black focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${errors.categoriaId ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                  displayValue={(value: number) => categoriasActivas.find((categoria) => categoria.id === value)?.nombre || ""}
+                  onChange={(event) => setCategoriaSearch(event.target.value)}
+                  placeholder={loadingCategorias ? 'Cargando categorías...' : 'Escriba para buscar una categoría'}
+                />
+                <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              </div>
+
+              <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-sm shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800">
+                {filteredCategorias.length === 0 ? (
+                  <div className="px-4 py-2 text-gray-700 dark:text-gray-300">No se encontraron categorías</div>
+                ) : (
+                  filteredCategorias.map((categoria) => (
+                    <Combobox.Option
+                      key={categoria.id}
+                      value={categoria.id}
+                      className={({ active }) =>
+                        `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? 'bg-blue-600 text-white' : 'text-gray-900 dark:text-gray-200'}`
+                      }
+                    >
+                      {({ selected }) => (
+                        <>
+                          <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
+                            {categoria.nombre}
+                          </span>
+                          <span className={`block truncate text-xs ${selected ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'}`}>
+                            {categoria.descripcion}
+                          </span>
+                          {selected && (
+                            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                              <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </Combobox.Option>
+                  ))
+                )}
+              </Combobox.Options>
+            </div>
+          </Combobox>
           {errors.categoriaId && <p className="text-sm text-red-500 mt-1">{errors.categoriaId}</p>}
         </div>
 
         {/* Selección de marca */}
         <div>
           <Label>Marca</Label>
-          <div className="relative">
-            <TagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-            <select
-              value={formData.marcaId ?? ""}
-              onChange={(e) => handleChange("marcaId", Number(e.target.value))}
-              disabled={loadingMarcas}
-              className="pl-10 pr-4 py-2 w-full rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Seleccione una marca</option>
-              {marcas.map((marca) => (
-                <option key={marca.id} value={marca.id}>
-                  {marca.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Combobox
+            value={formData.marcaId}
+            onChange={(value: number) => {
+              handleChange("marcaId", value);
+              setMarcaSearch("");
+            }}
+            disabled={loadingMarcas}
+          >
+            <div className="relative">
+              <div className="relative">
+                <Combobox.Input
+                  className={`w-full rounded-md border bg-white py-2 pl-10 pr-4 text-black focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${errors.marcaId ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                  displayValue={(value: number) => marcasActivas.find((marca) => marca.id === value)?.nombre || ""}
+                  onChange={(event) => setMarcaSearch(event.target.value)}
+                  placeholder={loadingMarcas ? 'Cargando marcas...' : 'Escriba para buscar una marca'}
+                />
+                <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              </div>
+
+              <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-sm shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800">
+                {filteredMarcas.length === 0 ? (
+                  <div className="px-4 py-2 text-gray-700 dark:text-gray-300">No se encontraron marcas</div>
+                ) : (
+                  filteredMarcas.map((marca) => (
+                    <Combobox.Option
+                      key={marca.id}
+                      value={marca.id}
+                      className={({ active }) =>
+                        `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? 'bg-blue-600 text-white' : 'text-gray-900 dark:text-gray-200'}`
+                      }
+                    >
+                      {({ selected }) => (
+                        <>
+                          <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
+                            {marca.nombre}
+                          </span>
+                          {selected && (
+                            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                              <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </Combobox.Option>
+                  ))
+                )}
+              </Combobox.Options>
+            </div>
+          </Combobox>
           {errors.marcaId && <p className="text-sm text-red-500 mt-1">{errors.marcaId}</p>}
         </div>
 
@@ -281,6 +387,11 @@ export default function IngresarParteForm() {
           </Button>
         </div>
       </form>
-    </ComponentCard>
   );
+
+  if (embeddedMode) {
+    return formContent;
+  }
+
+  return <ComponentCard title="Registrar Nuevo Ítem del Catálogo">{formContent}</ComponentCard>;
 }

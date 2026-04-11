@@ -1,14 +1,16 @@
 'use client';
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import ComponentCard from "@/components/common/ComponentCard";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Button from "@/components/ui/button/Button";
 import { PlusCircleIcon } from "@heroicons/react/24/outline";
 import ParteTable from "@/components/tables/parteTable";
+import AgregarParteModal from "@/components/modals/AgregarParteModal";
 
 export default function ParteComponent() {
-    const router = useRouter();
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [tableRefreshKey, setTableRefreshKey] = useState(0);
 
     return (
         <div>
@@ -19,18 +21,24 @@ export default function ParteComponent() {
                         <div className="flex justify-between items-center w-full">
                             <span>Catálogo de ítems registrados</span>
                             <Button
-                                onClick={() => router.push("/ingresar-parte")}
+                                onClick={() => setIsAddModalOpen(true)}
                                 className="flex items-center gap-1"
-                                size="sm" // Asegúrate de que tu componente Button soporte este prop
+                                size="sm"
                             >
                                 <PlusCircleIcon className="w-4 h-4" />
-                                Agregar Parte
+                                Agregar Ítem
                             </Button>
                         </div>
                     }
                 >
-                    <ParteTable />
+                    <ParteTable key={tableRefreshKey} />
                 </ComponentCard>
+
+                <AgregarParteModal
+                    isOpen={isAddModalOpen}
+                    onClose={() => setIsAddModalOpen(false)}
+                    onSuccess={() => setTableRefreshKey((prev) => prev + 1)}
+                />
             </div>
         </div>
     );

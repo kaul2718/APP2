@@ -21,11 +21,15 @@ interface FormData {
 interface IngresarDetallePresupuestoItemFormProps {
     presupuestoId?: number;
     onSuccess?: () => void;
+    onClose?: () => void;
+    embeddedMode?: boolean;
 }
 
 export default function IngresarDetallePresupuestoItemForm({
     presupuestoId: initialPresupuestoId,
-    onSuccess
+    onSuccess,
+    onClose,
+    embeddedMode = false,
 }: IngresarDetallePresupuestoItemFormProps) {
     const { data: session } = useSession();
     const router = useRouter();
@@ -158,6 +162,7 @@ export default function IngresarDetallePresupuestoItemForm({
             // Ejecutar callback de éxito si existe
             if (onSuccess) {
                 onSuccess();
+                onClose?.();
             } else if (initialPresupuestoId) {
                 router.refresh();
             } else {
@@ -172,90 +177,104 @@ export default function IngresarDetallePresupuestoItemForm({
         }
     };
 
-    return (
-        <ComponentCard title="Agregar Ítem al Presupuesto">
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
-                {/* Presupuesto ID (solo si no viene como prop) */}
-                {!initialPresupuestoId && (
-                    <div>
-                        <Label>ID del Presupuesto</Label>
-                        <div className="relative">
-                            <HashtagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                            <Input
-                                type="number"
-                                value={formData.presupuestoId}
-                                onChange={(e) => handleChange("presupuestoId", e.target.value)}
-                                placeholder="Ingrese el ID del presupuesto"
-                                className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-                            />
-                        </div>
-                        {errors.presupuestoId && <p className="text-sm text-red-500 mt-1">{errors.presupuestoId}</p>}
-                    </div>
-                )}
-
-                {/* Ítem / Parte */}
+    const formContent = (
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
+            {/* Presupuesto ID (solo si no viene como prop) */}
+            {!initialPresupuestoId && (
                 <div>
-                    <Label>Ítem / Parte</Label>
-                    <div className="relative">
-                        <TagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                        <Select
-                            value={formData.parteId}
-                            onChange={(e) => handleChange("parteId", e.target.value)}
-                            className="w-full pl-10 pr-3 py-2 rounded-md border border-gray-300 bg-white dark:bg-gray-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
-                            disabled={loadingPartes}
-                        >
-                            <option value="">Seleccione un ítem</option>
-                            {partesDisponibles.map((parte) => (
-                                <option key={parte.id} value={parte.id}>
-                                    {formatParteLabel(parte)}
-                                </option>
-                            ))}
-                        </Select>
-                    </div>
-                    {errors.parteId && <p className="text-sm text-red-500 mt-1">{errors.parteId}</p>}
-                </div>
-
-                {/* Cantidad */}
-                <div>
-                    <Label>Cantidad</Label>
+                    <Label>ID del Presupuesto</Label>
                     <div className="relative">
                         <HashtagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                         <Input
                             type="number"
-                            min="1"
-                            step={1}
-                            value={formData.cantidad}
-                            onChange={(e) => handleChange("cantidad", e.target.value)}
-                            placeholder="Cantidad"
+                            value={formData.presupuestoId}
+                            onChange={(e) => handleChange("presupuestoId", e.target.value)}
+                            placeholder="Ingrese el ID del presupuesto"
                             className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
                         />
                     </div>
-                    {errors.cantidad && <p className="text-sm text-red-500 mt-1">{errors.cantidad}</p>}
+                    {errors.presupuestoId && <p className="text-sm text-red-500 mt-1">{errors.presupuestoId}</p>}
                 </div>
+            )}
 
-                {/* Comentario (opcional) */}
-                <div>
-                    <Label>Comentario (opcional)</Label>
+            {/* Ítem / Parte */}
+            <div>
+                <Label>Ítem / Parte</Label>
+                <div className="relative">
+                    <TagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                    <Select
+                        value={formData.parteId}
+                        onChange={(e) => handleChange("parteId", e.target.value)}
+                        className="w-full pl-10 pr-3 py-2 rounded-md border border-gray-300 bg-white dark:bg-gray-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+                        disabled={loadingPartes}
+                    >
+                        <option value="">Seleccione un ítem</option>
+                        {partesDisponibles.map((parte) => (
+                            <option key={parte.id} value={parte.id}>
+                                {formatParteLabel(parte)}
+                            </option>
+                        ))}
+                    </Select>
+                </div>
+                {errors.parteId && <p className="text-sm text-red-500 mt-1">{errors.parteId}</p>}
+            </div>
+
+            {/* Cantidad */}
+            <div>
+                <Label>Cantidad</Label>
+                <div className="relative">
+                    <HashtagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                     <Input
-                        type="text"
-                        value={formData.comentario}
-                        onChange={(e) => handleChange("comentario", e.target.value)}
-                        placeholder="Notas adicionales sobre este ítem"
-                        className="bg-white dark:bg-gray-800 text-black dark:text-white"
+                        type="number"
+                        min="1"
+                        step={1}
+                        value={formData.cantidad}
+                        onChange={(e) => handleChange("cantidad", e.target.value)}
+                        placeholder="Cantidad"
+                        className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
                     />
                 </div>
+                {errors.cantidad && <p className="text-sm text-red-500 mt-1">{errors.cantidad}</p>}
+            </div>
 
-                {/* Botón */}
-                <div>
+            {/* Comentario (opcional) */}
+            <div>
+                <Label>Comentario (opcional)</Label>
+                <Input
+                    type="text"
+                    value={formData.comentario}
+                    onChange={(e) => handleChange("comentario", e.target.value)}
+                    placeholder="Notas adicionales sobre este ítem"
+                    className="bg-white dark:bg-gray-800 text-black dark:text-white"
+                />
+            </div>
+
+            {/* Botón */}
+            <div className={embeddedMode ? "flex justify-end gap-4" : ""}>
+                {embeddedMode && onClose && (
                     <Button
-                        type="submit"
-                        className="w-full flex items-center justify-center gap-2"
+                        type="button"
+                        variant="outline"
+                        onClick={onClose}
                         disabled={loading || loadingPartes}
                     >
-                        {loading ? "Agregando..." : "Agregar Ítem"}
+                        Cancelar
                     </Button>
-                </div>
-            </form>
-        </ComponentCard>
+                )}
+                <Button
+                    type="submit"
+                    className={embeddedMode ? "flex items-center justify-center gap-2" : "w-full flex items-center justify-center gap-2"}
+                    disabled={loading || loadingPartes}
+                >
+                    {loading ? "Agregando..." : "Agregar Ítem"}
+                </Button>
+            </div>
+        </form>
     );
+
+    if (embeddedMode) {
+        return <div className="p-4">{formContent}</div>;
+    }
+
+    return <ComponentCard title="Agregar Ítem al Presupuesto">{formContent}</ComponentCard>;
 }

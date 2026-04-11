@@ -1,14 +1,16 @@
 'use client';
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import ComponentCard from "@/components/common/ComponentCard";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Button from "@/components/ui/button/Button";
 import { PlusCircleIcon } from "@heroicons/react/24/outline";
 import CasilleroTable from "@/components/tables/casilleroTable";
+import AgregarCasilleroModal from "@/components/modals/AgregarCasilleroModal";
 
 export default function CasilleroComponent() {
-    const router = useRouter();
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [tableRefreshKey, setTableRefreshKey] = useState(0);
 
     return (
         <div>
@@ -19,9 +21,9 @@ export default function CasilleroComponent() {
                         <div className="flex justify-between items-center w-full">
                             <span>Lista de casilleros registrados</span>
                             <Button
-                                onClick={() => router.push("/ingresar-casillero")}
+                                onClick={() => setIsAddModalOpen(true)}
                                 className="flex items-center gap-1"
-                                size="sm" // Asegúrate de que tu componente Button soporte este prop
+                                size="sm"
                             >
                                 <PlusCircleIcon className="w-4 h-4" />
                                 Agregar Casillero
@@ -29,8 +31,14 @@ export default function CasilleroComponent() {
                         </div>
                     }
                 >
-                    <CasilleroTable />
+                    <CasilleroTable key={tableRefreshKey} />
                 </ComponentCard>
+
+                <AgregarCasilleroModal
+                    isOpen={isAddModalOpen}
+                    onClose={() => setIsAddModalOpen(false)}
+                    onSuccess={() => setTableRefreshKey((prev) => prev + 1)}
+                />
             </div>
         </div>
     );

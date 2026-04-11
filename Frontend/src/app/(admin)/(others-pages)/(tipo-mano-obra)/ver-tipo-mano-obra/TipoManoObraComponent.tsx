@@ -1,15 +1,16 @@
 'use client';
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import ComponentCard from "@/components/common/ComponentCard";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Button from "@/components/ui/button/Button";
 import { PlusCircleIcon } from "@heroicons/react/24/outline";
-import ModeloTable from "@/components/tables/modeloTable";
 import TipoManoObraTable from "@/components/tables/tipoManoObraTable";
+import AgregarTipoManoObraModal from "@/components/modals/AgregarTipoManoObraModal";
 
 export default function TipoManoObraComponent() {
-    const router = useRouter();
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [tableRefreshKey, setTableRefreshKey] = useState(0);
 
     return (
         <div>
@@ -20,18 +21,24 @@ export default function TipoManoObraComponent() {
                         <div className="flex justify-between items-center w-full">
                             <span>Lista de tipos de mano de obra registrados</span>
                             <Button
-                                onClick={() => router.push("/ingresar-tipo-mano-obra")}
+                                onClick={() => setIsAddModalOpen(true)}
                                 className="flex items-center gap-1"
                                 size="sm"
                             >
                                 <PlusCircleIcon className="w-4 h-4" />
-                                Agregar Tipo Mano Obra
+                                Agregar Tipo de Mano de Obra
                             </Button>
                         </div>
                     }
                 >
-                    <TipoManoObraTable />
+                    <TipoManoObraTable key={tableRefreshKey} />
                 </ComponentCard>
+
+                <AgregarTipoManoObraModal
+                    isOpen={isAddModalOpen}
+                    onClose={() => setIsAddModalOpen(false)}
+                    onSuccess={() => setTableRefreshKey((prev) => prev + 1)}
+                />
             </div>
         </div>
     );

@@ -14,7 +14,15 @@ interface FormData {
     descripcion: string;
 }
 
-export default function IngresarCategoriaForm() {
+interface IngresarCategoriaFormProps {
+    embeddedMode?: boolean;
+    onSuccess?: () => void;
+}
+
+export default function IngresarCategoriaForm({
+    embeddedMode = false,
+    onSuccess,
+}: IngresarCategoriaFormProps) {
     const { data: session } = useSession();
     const router = useRouter();
     const [formData, setFormData] = React.useState<FormData>({
@@ -83,9 +91,13 @@ export default function IngresarCategoriaForm() {
 
             setFormData({ nombre: "", descripcion: "" });
 
-            setTimeout(() => {
-                router.push('/ver-categoria');
-            }, 1000);
+            if (embeddedMode) {
+                onSuccess?.();
+            } else {
+                setTimeout(() => {
+                    router.push('/ver-categoria');
+                }, 1000);
+            }
 
         } catch (error) {
             console.error(error);
@@ -95,8 +107,7 @@ export default function IngresarCategoriaForm() {
         }
     };
 
-    return (
-        <ComponentCard title="Registrar Nueva Categoría">
+    const formContent = (
             <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
                 {/* Nombre de la categoría */}
                 <div>
@@ -137,6 +148,11 @@ export default function IngresarCategoriaForm() {
                     </Button>
                 </div>
             </form>
-        </ComponentCard>
     );
+
+    if (embeddedMode) {
+        return formContent;
+    }
+
+    return <ComponentCard title="Registrar Nueva Categoría">{formContent}</ComponentCard>;
 }

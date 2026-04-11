@@ -1,15 +1,16 @@
 'use client';
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import ComponentCard from "@/components/common/ComponentCard";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Button from "@/components/ui/button/Button";
 import { PlusCircleIcon } from "@heroicons/react/24/outline";
-import ModeloTable from "@/components/tables/modeloTable";
 import InventarioTable from "@/components/tables/inventarioTable";
+import AgregarInventarioModal from "@/components/modals/AgregarInventarioModal";
 
 export default function InventarioComponent() {
-    const router = useRouter();
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [tableRefreshKey, setTableRefreshKey] = useState(0);
 
     return (
         <div>
@@ -20,7 +21,7 @@ export default function InventarioComponent() {
                         <div className="flex justify-between items-center w-full">
                             <span>Lista de inventario registrado</span>
                             <Button
-                                onClick={() => router.push("/ingresar-inventario")}
+                                onClick={() => setIsAddModalOpen(true)}
                                 className="flex items-center gap-1"
                             >
                                 <PlusCircleIcon className="w-4 h-4" />
@@ -29,8 +30,14 @@ export default function InventarioComponent() {
                         </div>
                     }
                 >
-                    <InventarioTable />
+                    <InventarioTable key={tableRefreshKey} />
                 </ComponentCard>
+
+                <AgregarInventarioModal
+                    isOpen={isAddModalOpen}
+                    onClose={() => setIsAddModalOpen(false)}
+                    onSuccess={() => setTableRefreshKey((prev) => prev + 1)}
+                />
             </div>
         </div>
     );

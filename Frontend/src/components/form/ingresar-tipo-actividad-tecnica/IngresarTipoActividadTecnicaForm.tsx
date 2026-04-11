@@ -15,7 +15,17 @@ interface FormData {
     descripcion: string;
 }
 
-export default function IngresarTipoActividadTecnicaForm() {
+interface Props {
+    embeddedMode?: boolean;
+    onSuccess?: () => void;
+    onClose?: () => void;
+}
+
+export default function IngresarTipoActividadTecnicaForm({
+    embeddedMode = false,
+    onSuccess,
+    onClose,
+}: Props) {
     const { data: session } = useSession();
     const router = useRouter();
     const [formData, setFormData] = React.useState<FormData>({
@@ -79,13 +89,16 @@ export default function IngresarTipoActividadTecnicaForm() {
             }
 
             toast.success("Tipo de actividad técnica registrado con éxito ✅");
-
             setFormData({ nombre: "", descripcion: "" });
 
-            setTimeout(() => {
-                router.push('/ver-tipo-actividad-tecnica');
-            }, 1000);
-
+            if (embeddedMode) {
+                onSuccess?.();
+                onClose?.();
+            } else {
+                setTimeout(() => {
+                    router.push('/ver-tipo-actividad-tecnica');
+                }, 1000);
+            }
         } catch (error) {
             console.error(error);
             toast.error("Error en la solicitud");
@@ -94,51 +107,62 @@ export default function IngresarTipoActividadTecnicaForm() {
         }
     };
 
-    return (
-        <ComponentCard title="Registrar Nuevo Tipo de Actividad Técnica">
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
-                {/* Nombre del tipo */}
-                <div>
-                    <Label>Nombre del Tipo de Actividad</Label>
-                    <div className="relative">
-                        <ClipboardDocumentIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                        <Input
-                            value={formData.nombre}
-                            onChange={(e) => handleChange("nombre", e.target.value)}
-                            placeholder="Ej: Mantenimiento preventivo, Reparación, Calibración"
-                            className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-                        />
-                    </div>
-                    {errors.nombre && <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>}
-                </div>
-
-                {/* Descripción */}
-                <div>
-                    <Label>Descripción (Opcional)</Label>
-                    <TextArea
-                        value={formData.descripcion}
-                        onChange={(e) => handleChange("descripcion", e.target.value)}
-                        placeholder="Descripción detallada del tipo de actividad..."
-                        rows={4}
-                        className="bg-white dark:bg-gray-800 text-black dark:text-white"
+    const formContent = (
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
+            <div>
+                <Label>Nombre del Tipo de Actividad</Label>
+                <div className="relative">
+                    <ClipboardDocumentIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                    <Input
+                        value={formData.nombre}
+                        onChange={(e) => handleChange("nombre", e.target.value)}
+                        placeholder="Ej: Mantenimiento preventivo, Reparación, Calibración"
+                        className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
                     />
-                    <div className="text-xs text-gray-500 mt-1">
-                        {formData.descripcion.length}/500 caracteres
-                    </div>
-                    {errors.descripcion && <p className="text-sm text-red-500 mt-1">{errors.descripcion}</p>}
                 </div>
+                {errors.nombre && <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>}
+            </div>
 
-                {/* Botón */}
-                <div>
+            <div>
+                <Label>Descripción (Opcional)</Label>
+                <TextArea
+                    value={formData.descripcion}
+                    onChange={(e) => handleChange("descripcion", e.target.value)}
+                    placeholder="Descripción detallada del tipo de actividad..."
+                    rows={4}
+                    className="bg-white dark:bg-gray-800 text-black dark:text-white"
+                />
+                <div className="text-xs text-gray-500 mt-1">
+                    {formData.descripcion.length}/500 caracteres
+                </div>
+                {errors.descripcion && <p className="text-sm text-red-500 mt-1">{errors.descripcion}</p>}
+            </div>
+
+            <div className={embeddedMode ? "flex justify-end gap-4" : ""}>
+                {embeddedMode && onClose && (
                     <Button
-                        type="submit"
-                        className="w-full flex items-center justify-center gap-2"
+                        type="button"
+                        variant="outline"
+                        onClick={onClose}
                         disabled={loading}
                     >
-                        {loading ? "Registrando..." : "Registrar Tipo de Actividad"}
+                        Cancelar
                     </Button>
-                </div>
-            </form>
-        </ComponentCard>
+                )}
+                <Button
+                    type="submit"
+                    className={embeddedMode ? "flex items-center justify-center gap-2" : "w-full flex items-center justify-center gap-2"}
+                    disabled={loading}
+                >
+                    {loading ? "Registrando..." : "Registrar Tipo de Actividad"}
+                </Button>
+            </div>
+        </form>
     );
+
+    if (embeddedMode) {
+        return <div className="p-4">{formContent}</div>;
+    }
+
+    return <ComponentCard title="Registrar Nuevo Tipo de Actividad Técnica">{formContent}</ComponentCard>;
 }

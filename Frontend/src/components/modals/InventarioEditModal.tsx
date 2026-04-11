@@ -1,14 +1,15 @@
 "use client";
 
 import React from "react";
+import { Combobox } from "@headlessui/react";
 import CrudModal from "@/components/modals/CrudModal";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
-import { usePartes } from "@/hooks/usePartes";
+import { Parte, usePartes } from "@/hooks/usePartes";
 import { Inventario } from "@/hooks/useInventario";
-import { CubeIcon, MapPinIcon, HashtagIcon, ExclamationCircleIcon, CalendarIcon, ClockIcon } from "@heroicons/react/24/outline";
+import { MapPinIcon, HashtagIcon, ExclamationCircleIcon, CalendarIcon, ClockIcon, CheckIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
 interface Props {
     isOpen: boolean;
@@ -18,9 +19,11 @@ interface Props {
 }
 
 export default function InventarioEditModal({ isOpen, onClose, inventario, onSave }: Props) {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const token = session?.accessToken || null;
-    const { partes } = usePartes();
+    const { fetchAllPartes } = usePartes();
+    const [partesDisponibles, setPartesDisponibles] = React.useState<Parte[]>([]);
+    const [parteSearch, setParteSearch] = React.useState("");
     const [editando, setEditando] = React.useState<Inventario | null>(inventario);
     const [cargando, setCargando] = React.useState(false);
     const [estadoModificado, setEstadoModificado] = React.useState<boolean | null>(null);
@@ -30,7 +33,23 @@ export default function InventarioEditModal({ isOpen, onClose, inventario, onSav
         setEditando(inventario);
         setEstadoModificado(null);
         setParteModificada(null);
+        setParteSearch("");
     }, [inventario]);
+
+    React.useEffect(() => {
+        if (!isOpen || status !== "authenticated") return;
+
+        const loadPartes = async () => {
+            try {
+                const data = await fetchAllPartes(false);
+                setPartesDisponibles(data.filter((parte) => parte.estado));
+            } catch (error) {
+                console.error("Error cargando partes para edición:", error);
+            }
+        };
+
+        void loadPartes();
+    }, [isOpen, status]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -42,14 +61,21 @@ export default function InventarioEditModal({ isOpen, onClose, inventario, onSav
         } : null);
     };
 
-    const handleParteChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const parteId = Number(e.target.value);
+    const filteredPartes = parteSearch === ""
+        ? partesDisponibles
+        : partesDisponibles.filter((parte) =>
+            [parte.nombre, parte.modelo, parte.codigoInterno, parte.marca?.nombre, parte.categoria?.nombre]
+                .filter(Boolean)
+                .some((value) => value!.toLowerCase().includes(parteSearch.toLowerCase()))
+        );
+
+    const handleParteChange = (parteId: number) => {
         setParteModificada(parteId);
 
         setEditando(prev => {
             if (!prev) return null;
 
-            const parteEncontrada = partes.find(p => p.id === parteId);
+            const parteEncontrada = partesDisponibles.find(p => p.id === parteId);
 
             return {
                 ...prev,
@@ -57,10 +83,12 @@ export default function InventarioEditModal({ isOpen, onClose, inventario, onSav
                     id: parteEncontrada.id,
                     nombre: parteEncontrada.nombre,
                     modelo: parteEncontrada.modelo
-                } : prev.parte, // Mantener el valor anterior si no se encuentra la parte
+                } : prev.parte,
                 parteId
             };
         });
+
+        setParteSearch("");
     };
     const handleEstadoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const nuevoEstado = e.target.value === "activo";
@@ -156,41 +184,79 @@ export default function InventarioEditModal({ isOpen, onClose, inventario, onSav
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="parte-select">Parte/Repuesto *</Label>
-                                <div className="relative">
-                                    <select
-                                        id="parte-select"
-                                        value={editando.parte?.id || ""}
-                                        onChange={handleParteChange}
-                                        disabled={cargando || partes.length === 0}
-                                        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white dark:border-gray-600 disabled:opacity-50"
-                                    >
-                                        <option value="">Seleccione una parte</option>
-                                        {partes.map((parte) => (
-                                            <option key={parte.id} value={parte.id}>
-                                                {parte.nombre} - {parte.modelo}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {parteModificada !== null && parteModificada !== inventario?.parteId && (
-                                        <div className="mt-2 flex items-start">
-                                            <svg
-                                                className="h-4 w-4 text-yellow-500 mt-0.5 mr-1 flex-shrink-0"
-                                                fill="currentColor"
-                                                viewBox="0 0 20 20"
-                                            >
-                                                <path
-                                                    fillRule="evenodd"
-                                                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                                    clipRule="evenodd"
-                                                />
-                                            </svg>
-                                            <span className="text-sm text-yellow-600">
-                                                La parte se actualizará a: <strong>{partes.find(p => p.id === parteModificada)?.nombre}</strong>
-                                            </span>
+                                <Label htmlFor="parte-select">Parte / Ítem *</Label>
+                                <Combobox
+                                    value={editando.parte?.id || null}
+                                    onChange={(value: number) => handleParteChange(value)}
+                                    disabled={cargando || partesDisponibles.length === 0}
+                                >
+                                    <div className="relative">
+                                        <div className="relative">
+                                            <Combobox.Input
+                                                id="parte-select"
+                                                className="w-full rounded-md border border-gray-300 bg-white py-2 pl-10 pr-3 text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white dark:border-gray-600 disabled:opacity-50"
+                                                displayValue={(value: number) => {
+                                                    const parte = partesDisponibles.find((item) => item.id === value);
+                                                    return parte ? `${parte.nombre} - ${parte.codigoInterno || parte.modelo || 'Sin referencia'}` : "";
+                                                }}
+                                                onChange={(event) => setParteSearch(event.target.value)}
+                                                placeholder="Buscar parte o ítem..."
+                                            />
+                                            <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                                         </div>
-                                    )}
-                                </div>
+
+                                        <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-sm shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800">
+                                            {filteredPartes.length === 0 ? (
+                                                <div className="px-4 py-2 text-gray-700 dark:text-gray-300">No se encontraron ítems</div>
+                                            ) : (
+                                                filteredPartes.map((parte) => (
+                                                    <Combobox.Option
+                                                        key={parte.id}
+                                                        value={parte.id}
+                                                        className={({ active }) =>
+                                                            `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? 'bg-blue-600 text-white' : 'text-gray-900 dark:text-gray-200'}`
+                                                        }
+                                                    >
+                                                        {({ selected }) => (
+                                                            <>
+                                                                <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
+                                                                    {parte.nombre} - {parte.codigoInterno || parte.modelo || 'Sin referencia'}
+                                                                </span>
+                                                                <span className={`block truncate text-xs ${selected ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'}`}>
+                                                                    {parte.marca?.nombre || 'Sin marca'} · {parte.categoria?.nombre || 'Sin categoría'}
+                                                                </span>
+                                                                {selected && (
+                                                                    <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                                                                        <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                                                    </span>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </Combobox.Option>
+                                                ))
+                                            )}
+                                        </Combobox.Options>
+
+                                        {parteModificada !== null && parteModificada !== inventario?.parteId && (
+                                            <div className="mt-2 flex items-start">
+                                                <svg
+                                                    className="h-4 w-4 text-yellow-500 mt-0.5 mr-1 flex-shrink-0"
+                                                    fill="currentColor"
+                                                    viewBox="0 0 20 20"
+                                                >
+                                                    <path
+                                                        fillRule="evenodd"
+                                                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                                        clipRule="evenodd"
+                                                    />
+                                                </svg>
+                                                <span className="text-sm text-yellow-600">
+                                                    La parte se actualizará a: <strong>{partesDisponibles.find(p => p.id === parteModificada)?.nombre}</strong>
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </Combobox>
                             </div>
 
                             <div>
