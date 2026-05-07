@@ -7,7 +7,6 @@ import Input from "@/components/form/input/InputField";
 import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
-import { useRouter } from 'next/navigation';
 import { UserIcon, IdentificationIcon, EnvelopeIcon, PhoneIcon, HomeIcon, MapIcon } from "@heroicons/react/24/outline";
 import { Role } from "@/types/role";
 
@@ -30,7 +29,6 @@ interface Props {
 
 export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Props) {
     const { data: session } = useSession();
-    const router = useRouter();
     const [formData, setFormData] = React.useState<FormData>({
         cedula: "",
         nombre: "",
@@ -191,18 +189,18 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} className="max-w-[800px] m-4" title="Registrar Nuevo Cliente">
-            <div className="no-scrollbar relative w-full max-w-[800px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-10">
-                <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
+        <Modal isOpen={isOpen} onClose={onClose} className="m-4 max-w-3xl" title="Registrar Nuevo Cliente">
+            <div className="no-scrollbar relative w-full overflow-y-auto rounded-2xl bg-white p-5 dark:bg-gray-900 sm:p-6">
+                <h4 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white/90">
                     Registrar nuevo cliente
                 </h4>
-                <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
                     Complete los datos del cliente. Se enviará automáticamente un correo para que establezca su contraseña.
                 </p>
 
                 <form onSubmit={handleSubmit} className="flex flex-col">
-                    <div className="custom-scrollbar h-[calc(100vh-250px)] overflow-y-auto">
-                        <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
+                    <div className="custom-scrollbar max-h-[62vh] overflow-y-auto pr-1">
+                        <div className="grid grid-cols-1 gap-x-4 gap-y-4 lg:grid-cols-2">
                             {/* Cédula */}
                             <div>
                                 <Label>Cédula *</Label>
@@ -334,7 +332,7 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-4 mt-6">
+                    <div className="mt-5 flex justify-end gap-3">
                         <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                             Cancelar
                         </Button>

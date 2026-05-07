@@ -54,7 +54,7 @@ export function useEstadoPresupuesto() {
     '/estados-presupuesto',
     {
       defaultLimit: 10,
-      listPath: '/all',
+      listPath: '/estados-presupuesto/all',
       messages: {
         created: 'Estado de presupuesto creado exitosamente',
         updated: 'Estado de presupuesto actualizado exitosamente',

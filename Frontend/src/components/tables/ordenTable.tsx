@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Badge from "../ui/badge/Badge";
-import OrdenDetailsModal from "../modals/OrdenDetailsModal";
+import OrdenDetailsModal from "@/components/modals/OrdenDetailsModal";
 import OrdenEditModal from "../modals/OrdenEditModal";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
@@ -51,6 +51,9 @@ export default function OrdenTable() {
 
   const { data: session } = useSession();
   const { estadosOrden } = useEstadoOrden();
+  const userRole = session?.user?.role;
+  const canOperateOrders = userRole === "admin" || userRole === "tech" || userRole === "recep";
+  const canDeleteOrders = userRole === "admin";
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -228,7 +231,6 @@ export default function OrdenTable() {
                     onChange={(e) => {
                       const valor = e.target.value;
                       setSearchTerm(valor);
-                      fetchOrders(1, 10, valor, showInactive, estadoOrdenId);
                     }}
                     aria-label="Buscar ordenes"
                   />
@@ -238,7 +240,6 @@ export default function OrdenTable() {
                       className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       onClick={() => {
                         setSearchTerm("");
-                        fetchOrders(1, 10, "", showInactive, estadoOrdenId);
                       }}
                       aria-label="Limpiar busqueda"
                     >
@@ -268,7 +269,6 @@ export default function OrdenTable() {
                     const value = e.target.value;
                     const newEstadoId = value ? Number(value) : undefined;
                     setEstadoOrdenId(newEstadoId);
-                    fetchOrders(1, 10, searchTerm, showInactive, newEstadoId);
                   }}
                 >
                   <option value="">Todos</option>
@@ -292,7 +292,6 @@ export default function OrdenTable() {
                 onChange={() => {
                   const nextValue = !showInactive;
                   setShowInactive(nextValue);
-                  fetchOrders(1, 10, searchTerm, nextValue, estadoOrdenId);
                 }}
                 className="rounded border-gray-300 text-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
               />
@@ -318,6 +317,7 @@ export default function OrdenTable() {
         getRowKey={(order) => order.id}
         actions={(order) => {
           const estaActivo = order.estado;
+            const tienePresupuesto = Boolean(order.presupuesto);
             const actions = [
               {
                 key: "view",
@@ -326,48 +326,71 @@ export default function OrdenTable() {
                 className:
                   "rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20",
               },
-              {
-                key: "edit",
-                label: "Editar",
-                onClick: () => handleEditClick(order),
-                className:
-                  "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
-              },
-              {
-                key: "budget",
-                label: "Presupuesto",
-                onClick: () => handlePresupuestoClick(order),
-                className:
-                  "rounded border border-purple-300 px-2 py-1 text-xs text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300 dark:hover:bg-purple-900/20",
-              },
-              {
+            ];
+
+            if (tienePresupuesto) {
+              actions.push({
                 key: "view-budget",
                 label: "Ver presupuesto",
                 onClick: () => void handleViewPresupuesto(order),
-              },
-              {
-                key: "add-activity",
-                label: "Agregar actividad",
-                onClick: () => handleAddActivity(order),
-              },
-              {
-                key: "view-activities",
-                label: "Ver actividades",
-                onClick: () => handleViewActivities(order.id, order.workOrderNumber),
-              },
-              {
-                key: "add-evidence",
-                label: "Agregar evidencia",
-                onClick: () => handleAddEvidencia(order),
-              },
-              {
-                key: "toggle",
-                label: estaActivo ? "Deshabilitar" : "Habilitar",
-                onClick: () => void handleToggleEstado(order),
-              },
-            ];
+                className:
+                  "rounded border border-indigo-300 px-2 py-1 text-xs text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-900/20",
+              });
+            }
 
-            if (session?.user.role === "admin") {
+            actions.push({
+              key: "view-activities",
+              label: "Ver actividades",
+              onClick: () => handleViewActivities(order.id, order.workOrderNumber),
+              className:
+                "rounded border border-cyan-300 px-2 py-1 text-xs text-cyan-700 hover:bg-cyan-50 dark:border-cyan-700 dark:text-cyan-300 dark:hover:bg-cyan-900/20",
+            });
+
+            if (canOperateOrders) {
+              actions.push(
+                {
+                  key: "edit",
+                  label: "Editar",
+                  onClick: () => handleEditClick(order),
+                  className:
+                    "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
+                },
+                {
+                  key: "add-activity",
+                  label: "Agregar actividad",
+                  onClick: () => handleAddActivity(order),
+                  className:
+                    "rounded border border-teal-300 px-2 py-1 text-xs text-teal-700 hover:bg-teal-50 dark:border-teal-700 dark:text-teal-300 dark:hover:bg-teal-900/20",
+                },
+                {
+                  key: "add-evidence",
+                  label: "Agregar evidencia",
+                  onClick: () => handleAddEvidencia(order),
+                  className:
+                    "rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900/20",
+                },
+                {
+                  key: "toggle",
+                  label: estaActivo ? "Deshabilitar" : "Habilitar",
+                  onClick: () => void handleToggleEstado(order),
+                  className: estaActivo
+                    ? "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
+                    : "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20",
+                },
+              );
+
+              if (!tienePresupuesto) {
+                actions.push({
+                  key: "budget",
+                  label: "Crear presupuesto",
+                  onClick: () => handlePresupuestoClick(order),
+                  className:
+                    "rounded border border-purple-300 px-2 py-1 text-xs text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300 dark:hover:bg-purple-900/20",
+                });
+              }
+            }
+
+            if (canDeleteOrders) {
               actions.push({
                 key: "delete",
                 label: "Eliminar",
@@ -393,17 +416,19 @@ export default function OrdenTable() {
         </>
       )}
 
-      <AgregarPresupuestoModal
-        isOpen={isPresupuestoModalOpen}
-        onClose={() => {
-          setIsPresupuestoModalOpen(false);
-          setSelectedOrderId(null);
-        }}
-        orderId={selectedOrderId}
-        onSuccess={() => {
-          toast.success("Presupuesto creado exitosamente");
-        }}
-      />
+      {isPresupuestoModalOpen && (
+        <AgregarPresupuestoModal
+          isOpen={isPresupuestoModalOpen}
+          onClose={() => {
+            setIsPresupuestoModalOpen(false);
+            setSelectedOrderId(null);
+          }}
+          orderId={selectedOrderId}
+          onSuccess={() => {
+            toast.success("Presupuesto creado exitosamente");
+          }}
+        />
+      )}
 
       {presupuestoDetails && (
         <PresupuestoDetailsModal
@@ -417,17 +442,19 @@ export default function OrdenTable() {
         />
       )}
 
-      <AgregarActividadTecnicaModal
-        isOpen={isActivityModalOpen}
-        onClose={() => {
-          setIsActivityModalOpen(false);
-          setSelectedOrder(null);
-        }}
-        onSuccess={() => {
-          toast.success("Actividad tecnica agregada correctamente");
-        }}
-        orderId={selectedOrder?.id || null}
-      />
+      {isActivityModalOpen && (
+        <AgregarActividadTecnicaModal
+          isOpen={isActivityModalOpen}
+          onClose={() => {
+            setIsActivityModalOpen(false);
+            setSelectedOrder(null);
+          }}
+          onSuccess={() => {
+            toast.success("Actividad tecnica agregada correctamente");
+          }}
+          orderId={selectedOrder?.id || null}
+        />
+      )}
 
       <ActividadesPorOrdenModal
         isOpen={showActividadesModal}
@@ -436,17 +463,19 @@ export default function OrdenTable() {
         orderNumber={selectedOrderNumber}
       />
 
-      <AgregarEvidenciaTecnicaModal
-        isOpen={isEvidenciaModalOpen}
-        onClose={() => {
-          setIsEvidenciaModalOpen(false);
-          setSelectedOrder(null);
-        }}
-        onSuccess={() => {
-          // Sin accion adicional por ahora.
-        }}
-        orderId={selectedOrder?.id || 0}
-      />
+      {isEvidenciaModalOpen && (
+        <AgregarEvidenciaTecnicaModal
+          isOpen={isEvidenciaModalOpen}
+          onClose={() => {
+            setIsEvidenciaModalOpen(false);
+            setSelectedOrder(null);
+          }}
+          onSuccess={() => {
+            // Sin accion adicional por ahora.
+          }}
+          orderId={selectedOrder?.id || 0}
+        />
+      )}
 
       <ConfirmDialog
         isOpen={Boolean(confirmAction)}

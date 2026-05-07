@@ -15,6 +15,7 @@ import {
     HomeIcon,
     MapIcon,
     LockClosedIcon,
+    ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 
 interface UsuarioFormProps {
@@ -53,7 +54,6 @@ export default function UsuarioForm({
     };
 
     const isEditMode = mode === "edit";
-    const showModifiedIndicator = isEditMode && camposModificados.size > 0;
 
     return (
         <form onSubmit={handleSubmit} className={isModal ? "" : "grid grid-cols-1 md:grid-cols-2 gap-6"}>
@@ -138,7 +138,7 @@ export default function UsuarioForm({
 
                 {/* Apellido */}
                 <div>
-                    <Label>Apellido</Label>
+                    <Label>Apellido *</Label>
                     <div className="relative">
                         <UserIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                         <Input
@@ -298,21 +298,6 @@ export default function UsuarioForm({
                     </div>
                 )}
 
-                {/* Fechas - Solo en edit mode */}
-                {isEditMode && formData.createdAt && (
-                    <div>
-                        <Label>Fecha de creación</Label>
-                        <Input value={new Date(formData.createdAt).toLocaleString()} disabled />
-                    </div>
-                )}
-
-                {isEditMode && formData.updatedAt && (
-                    <div>
-                        <Label>Última actualización</Label>
-                        <Input value={new Date(formData.updatedAt).toLocaleString()} disabled />
-                    </div>
-                )}
-
                 {/* Contraseña - Solo en create mode */}
                 {!isEditMode && (
                     <>
@@ -325,7 +310,7 @@ export default function UsuarioForm({
                                     autoComplete="new-password"
                                     value={formData.password}
                                     onChange={(e) => handleChange("password", e.target.value)}
-                                    placeholder="Dejar en blanco para enviar invitación por correo"
+                                    placeholder="Mín. 8 caracteres, 1 mayúscula, 1 número, 1 especial"
                                     disabled={isLoading}
                                     className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
                                 />
@@ -333,9 +318,6 @@ export default function UsuarioForm({
                             {errors.password && (
                                 <p className="text-sm text-red-500 mt-1">{errors.password}</p>
                             )}
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                Si dejas la contraseña en blanco, se enviará un enlace de invitación al correo
-                            </p>
                         </div>
 
                         <div>
@@ -366,17 +348,7 @@ export default function UsuarioForm({
 function ModifiedIndicator({ field }: { field: string }) {
     return (
         <div className="mt-2 flex items-start text-sm text-yellow-600">
-            <svg
-                className="h-4 w-4 text-yellow-500 mt-0.5 mr-1 flex-shrink-0"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-            >
-                <path
-                    fillRule="evenodd"
-                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                    clipRule="evenodd"
-                />
-            </svg>
+            <ExclamationTriangleIcon className="h-4 w-4 text-yellow-500 mt-0.5 mr-1 flex-shrink-0" />
             <span>Se actualizará el {field}</span>
         </div>
     );

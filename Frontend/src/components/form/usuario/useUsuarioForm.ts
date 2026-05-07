@@ -67,8 +67,10 @@ export function useUsuarioForm({ initialData, mode }: UseUsuarioFormProps) {
             newErrors.nombre = "El nombre debe tener al menos 2 caracteres";
         }
 
-        // Validación de apellido (opcional en edit mode)
-        if (formData.apellido && formData.apellido.trim().length < 2) {
+        // Validación de apellido
+        if (!formData.apellido?.trim()) {
+            newErrors.apellido = "El apellido es requerido";
+        } else if (formData.apellido.trim().length < 2) {
             newErrors.apellido = "El apellido debe tener al menos 2 caracteres";
         }
 

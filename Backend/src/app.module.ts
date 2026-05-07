@@ -32,6 +32,7 @@ import { TipoNotificacionModule } from './tipo-notificacion/tipo-notificacion.mo
 import { PermissionsModule } from './permissions/permissions.module';
 import { RolePermissionModule } from './role-permission/role-permission.module';
 import { SeederModule } from './seeder/seeder.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -88,6 +89,7 @@ import { SeederModule } from './seeder/seeder.module';
     PermissionsModule,
     RolePermissionModule,
     SeederModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

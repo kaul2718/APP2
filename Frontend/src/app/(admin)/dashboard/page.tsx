@@ -7,6 +7,6 @@ export const metadata: Metadata = {
   description: "Dashboard principal por rol para el sistema de servicio técnico",
 };
 
-export default function Ecommerce() {
+export default function DashboardPage() {
   return <RoleDashboard />;
 }

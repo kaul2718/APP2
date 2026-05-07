@@ -29,7 +29,7 @@ export class UsersController {
     @Query('search') search?: string,
     @Query('includeInactive') includeInactive?: boolean,
   ) {
-    const ALLOWED_LIMITS = [10, 25, 50, 100];
+    const ALLOWED_LIMITS = [10, 25, 50, 100, 200];
     
     // Convertir y validar page
     const pageNum = page ? parseInt(page, 10) : 1;

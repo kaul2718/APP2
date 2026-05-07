@@ -33,15 +33,8 @@ export const navItems: NavItem[] = [
   {
     icon: <Squares2X2Icon className="w-5 h-5" />,
     name: "Dashboard",
-    roles: ["admin", "tech"],
-    subItems: [
-      {
-        name: "Ecommerce",
-        path: "/",
-        pro: false,
-        roles: ["admin", "tech", "client"]
-      }
-    ],
+    path: "/dashboard",
+    roles: ["admin", "tech", "recep", "client"],
   },
   {
     icon: <UserCircleIcon className="w-5 h-5" />,
@@ -49,7 +42,7 @@ export const navItems: NavItem[] = [
     roles: ["admin"],
     subItems: [
       {
-        name: "Ver Usuarios",
+        name: "Usuarios",
         path: "/ver-usuario",
         roles: ["admin"]
       },
@@ -57,11 +50,11 @@ export const navItems: NavItem[] = [
   },
   {
     icon: <ClipboardDocumentListIcon className="w-5 h-5" />,
-    name: "Orden de Servicio",
+    name: "Órdenes de Servicio",
     roles: ["admin", "tech", "client"],
     subItems: [
       {
-        name: "Ver Ordenes de Servicio",
+        name: "Órdenes",
         path: "/ver-orden",
         roles: ["admin", "tech", "client"]
       },
@@ -100,7 +93,7 @@ export const navItems: NavItem[] = [
     roles: ["admin"],
     subItems: [
       {
-        name: "Ver Casilleros",
+        name: "Casilleros",
         path: "/ver-casillero",
         roles: ["admin"]
       },
@@ -108,11 +101,11 @@ export const navItems: NavItem[] = [
   },
   {
     icon: <DocumentTextIcon className="w-5 h-5" />,
-    name: "Estados Orden Servicio",
+    name: "Estados de Orden",
     roles: ["admin"],
     subItems: [
       {
-        name: "Ver Estados Orden",
+        name: "Estados",
         path: "/ver-estado-orden",
         roles: ["admin", "tech"]
       },
@@ -120,11 +113,11 @@ export const navItems: NavItem[] = [
   },
   {
     icon: <ClipboardIcon className="w-5 h-5" />,
-    name: "Tipo Actividad Tecnica",
+    name: "Actividades Técnicas",
     roles: ["admin"],
     subItems: [
       {
-        name: "Ver Tipos Actividad Tecnica",
+        name: "Tipos de Actividad",
         path: "/ver-tipo-actividad-tecnica",
         roles: ["admin", "tech"]
       },
@@ -136,17 +129,17 @@ export const navItems: NavItem[] = [
     roles: ["admin", "tech"],
     subItems: [
       {
-        name: "Ver Presupuestos",
+        name: "Presupuestos",
         path: "/ver-presupuesto",
         roles: ["admin", "tech", "client"]
       },
       {
-        name: "Ver Mano de Obra",
+        name: "Mano de Obra",
         path: "/ver-detalle-mano-obra",
         roles: ["admin", "tech"]
       },
       {
-        name: "Ver Detalle de Ítems",
+        name: "Detalle de Ítems",
         path: "/ver-detalle-presupuesto-item",
         roles: ["admin", "tech"]
       },
@@ -154,11 +147,11 @@ export const navItems: NavItem[] = [
   },
   {
     icon: <DocumentTextIcon className="w-5 h-5" />,
-    name: "Estado Presupuesto",
+    name: "Estados de Presupuesto",
     roles: ["admin"],
     subItems: [
       {
-        name: "Ver Estados Presupuestos",
+        name: "Estados",
         path: "/ver-estado-presupuesto",
         roles: ["admin", "tech"]
       },
@@ -166,11 +159,11 @@ export const navItems: NavItem[] = [
   },
   {
     icon: <WrenchScrewdriverIcon className="w-5 h-5" />,
-    name: "Tipo Mano Obra",
+    name: "Mano de Obra",
     roles: ["admin"],
     subItems: [
       {
-        name: "Ver Tipos de Mano Obra",
+        name: "Tipos de Mano de Obra",
         path: "/ver-tipo-mano-obra",
         roles: ["admin", "tech"]
       },
@@ -200,11 +193,11 @@ export const navItems: NavItem[] = [
   },
   {
     icon: <BellAlertIcon className="w-5 h-5" />,
-    name: "Tipo Notificación",
+    name: "Notificaciones",
     roles: ["admin"],
     subItems: [
       {
-        name: "Ver Tipos de Notificación",
+        name: "Tipos de Notificación",
         path: "/ver-tipo-notificacion",
         roles: ["admin"]
       },
@@ -228,6 +221,6 @@ export const getFilteredNavItems = (role: string | null) => {
     .filter(item => item.roles.includes(role))
     .map(item => ({
       ...item,
-      subItems: item.subItems?.filter(subItem => subItem.roles.includes(role)) || []
+      subItems: item.subItems?.filter(subItem => subItem.roles.includes(role)) || undefined
     }));
 };

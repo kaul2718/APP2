@@ -57,7 +57,7 @@ export function useModelo() {
     setShowInactive,
   } = useCrud<Modelo, CreateModeloDto, UpdateModeloDto>('/modelos', {
     defaultLimit: 1000,
-    listPath: '/all',
+    listPath: '/modelos/all',
     messages: {
       created: 'Modelo creado exitosamente',
       updated: 'Modelo actualizado exitosamente',

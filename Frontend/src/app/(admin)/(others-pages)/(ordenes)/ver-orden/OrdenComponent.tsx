@@ -48,9 +48,9 @@ export default function OrdenComponent() {
                     isOpen={isCreateOrderModalOpen}
                     onClose={() => setIsCreateOrderModalOpen(false)}
                     title="Agregar orden"
-                    className="max-w-4xl overflow-hidden"
+                    className="max-w-4xl"
                 >
-                    <div className="max-h-[85vh] overflow-hidden p-4 sm:p-5">
+                    <div className="p-4 sm:p-5">
                         <IngresarOrdenForm
                             onSuccess={handleOrderCreated}
                             onCancel={() => setIsCreateOrderModalOpen(false)}

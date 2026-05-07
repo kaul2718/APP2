@@ -17,6 +17,8 @@ export default function UsuarioNuevoTable() {
     loading,
     setUsuarios,
     fetchUsuarios,
+    deleteUsuario,
+    restoreUsuario,
     totalPages,
     totalItems,
     currentPage,
@@ -29,11 +31,14 @@ export default function UsuarioNuevoTable() {
   const { roles } = useRoles();
   const { data: session } = useSession();
   const token = session?.accessToken || "";
+  const isAdmin = session?.user?.role === "admin";
 
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [pendingToggleUsuario, setPendingToggleUsuario] = useState<Usuario | null>(null);
+  const [pendingDeleteUsuario, setPendingDeleteUsuario] = useState<Usuario | null>(null);
+  const [pendingRestoreUsuario, setPendingRestoreUsuario] = useState<Usuario | null>(null);
 
   const handleViewClick = (usuario: Usuario) => {
     setSelectedUsuario(usuario);
@@ -57,6 +62,14 @@ export default function UsuarioNuevoTable() {
 
   const handleToggleEstado = (usuario: Usuario) => {
     setPendingToggleUsuario(usuario);
+  };
+
+  const handleDeleteClick = (usuario: Usuario) => {
+    setPendingDeleteUsuario(usuario);
+  };
+
+  const handleRestoreClick = (usuario: Usuario) => {
+    setPendingRestoreUsuario(usuario);
   };
 
   const confirmToggleEstado = async () => {
@@ -86,12 +99,33 @@ export default function UsuarioNuevoTable() {
     }
   };
 
+  const confirmDeleteUsuario = async () => {
+    if (!pendingDeleteUsuario) return;
+
+    try {
+      const ok = await deleteUsuario(pendingDeleteUsuario.id);
+      if (ok) {
+        fetchUsuarios(currentPage, 10, searchTerm, showInactive);
+      }
+    } finally {
+      setPendingDeleteUsuario(null);
+    }
+  };
+
+  const confirmRestoreUsuario = async () => {
+    if (!pendingRestoreUsuario) return;
+
+    try {
+      const ok = await restoreUsuario(pendingRestoreUsuario.id);
+      if (ok) {
+        fetchUsuarios(currentPage, 10, searchTerm, showInactive);
+      }
+    } finally {
+      setPendingRestoreUsuario(null);
+    }
+  };
+
   const columns: ColumnDef<Usuario>[] = [
-    {
-      key: "id",
-      header: "ID",
-      render: (usuario) => usuario.id,
-    },
     {
       key: "nombre",
       header: "Nombre",
@@ -99,13 +133,18 @@ export default function UsuarioNuevoTable() {
     },
     {
       key: "cedula",
-      header: "Cedula",
+      header: "Cédula",
       render: (usuario) => usuario.cedula,
     },
     {
       key: "correo",
       header: "Correo",
       render: (usuario) => usuario.correo,
+    },
+    {
+      key: "telefono",
+      header: "Teléfono",
+      render: (usuario) => usuario.telefono,
     },
     {
       key: "rol",
@@ -123,30 +162,61 @@ export default function UsuarioNuevoTable() {
     },
   ];
 
-  const actions = (usuario: Usuario): ActionDef[] => [
-    {
-      key: "view",
-      label: "Ver",
-      onClick: () => handleViewClick(usuario),
-      className:
-        "rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20",
-    },
-    {
-      key: "edit",
-      label: "Editar",
-      onClick: () => handleEditClick(usuario),
-      className:
-        "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
-    },
-    {
-      key: "toggle",
-      label: usuario.estado ? "Deshabilitar" : "Habilitar",
-      onClick: () => handleToggleEstado(usuario),
-      className: usuario.estado
-        ? "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
-        : "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20",
-    },
-  ];
+  const actions = (usuario: Usuario): ActionDef[] => {
+    const isDeleted = Boolean(usuario.deletedAt);
+
+    const items: ActionDef[] = [
+      {
+        key: "view",
+        label: "Ver",
+        onClick: () => handleViewClick(usuario),
+        className:
+          "rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20",
+      },
+    ];
+
+    if (!isDeleted) {
+      items.push(
+        {
+          key: "edit",
+          label: "Editar",
+          onClick: () => handleEditClick(usuario),
+          className:
+            "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
+        },
+        {
+          key: "toggle",
+          label: usuario.estado ? "Deshabilitar" : "Habilitar",
+          onClick: () => handleToggleEstado(usuario),
+          className: usuario.estado
+            ? "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
+            : "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20",
+        }
+      );
+    }
+
+    if (isAdmin) {
+      if (isDeleted) {
+        items.push({
+          key: "restore",
+          label: "Restaurar",
+          onClick: () => handleRestoreClick(usuario),
+          className:
+            "rounded border border-emerald-300 px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/20",
+        });
+      } else {
+        items.push({
+          key: "delete",
+          label: "Eliminar",
+          onClick: () => handleDeleteClick(usuario),
+          className:
+            "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20",
+        });
+      }
+    }
+
+    return items;
+  };
 
   return (
     <>
@@ -197,6 +267,31 @@ export default function UsuarioNuevoTable() {
         onClose={() => setPendingToggleUsuario(null)}
         confirmText={pendingToggleUsuario?.estado ? "Deshabilitar" : "Habilitar"}
         destructive={pendingToggleUsuario?.estado ?? false}
+      />
+      <ConfirmDialog
+        isOpen={pendingDeleteUsuario !== null}
+        title="Eliminar usuario"
+        description={
+          pendingDeleteUsuario
+            ? `¿Deseas eliminar lógicamente al usuario \"${pendingDeleteUsuario.nombre} ${pendingDeleteUsuario.apellido}\"? Podrás restaurarlo después.`
+            : ""
+        }
+        onConfirm={confirmDeleteUsuario}
+        onClose={() => setPendingDeleteUsuario(null)}
+        confirmText="Eliminar"
+        destructive
+      />
+      <ConfirmDialog
+        isOpen={pendingRestoreUsuario !== null}
+        title="Restaurar usuario"
+        description={
+          pendingRestoreUsuario
+            ? `¿Deseas restaurar al usuario \"${pendingRestoreUsuario.nombre} ${pendingRestoreUsuario.apellido}\"?`
+            : ""
+        }
+        onConfirm={confirmRestoreUsuario}
+        onClose={() => setPendingRestoreUsuario(null)}
+        confirmText="Restaurar"
       />
     </>
   );

@@ -2,13 +2,10 @@
 import React from "react";
 import ComponentCard from "@/components/common/ComponentCard";
 import Label from "@/components/form/Label";
-import Input from "@/components/form/input/InputField";
-import { Select } from "@headlessui/react";
 import Button from "@/components/ui/button/Button";
-import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { useRouter } from 'next/navigation';
-import { DocumentTextIcon, CalendarIcon, PlusIcon, CheckIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, CheckIcon } from "@heroicons/react/24/outline";
 import { useOrders } from "@/hooks/useOrders";
 import { useEquipos } from "@/hooks/useEquipos";
 import { useUsuario } from "@/hooks/useUsuario";
@@ -45,7 +42,6 @@ interface IngresarOrdenFormProps {
 
 
 export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = false }: IngresarOrdenFormProps) {
-    const { data: session } = useSession();
     const router = useRouter();
     const { createOrder } = useOrders();
 
@@ -58,18 +54,15 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     const [equipoSearch, setEquipoSearch] = React.useState('')
 
     // Hooks para obtener datos necesarios
-    const { usuarios = [], loading: loadingUsuarios, refetch: refetchUsuarios } = useUsuario();
+    const { usuarios = [], loading: loadingUsuarios, refetch: refetchUsuarios, fetchUsuarios } = useUsuario();
     const { equipos = [], loading: loadingEquipos, refetch: refetchEquipos } = useEquipos();
-    const { estadosOrden, loading: loadingEstados } = useEstadoOrden();
+    const { estadosOrden } = useEstadoOrden();
 
     // Filtrar clientes (usuarios con rol 'CLIENT')
     const clientes = React.useMemo(() =>
         usuarios.filter(
             (usuario) =>
-                (usuario.role === Role.CLIENT ||
-                    usuario.role === Role.TECH ||
-                    usuario.role === Role.RECEP ||
-                    usuario.role === Role.ADMIN) &&
+                usuario.role === Role.CLIENT &&
                 usuario.estado,
         ),
         [usuarios]
@@ -112,6 +105,13 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
 
     const [errors, setErrors] = React.useState<FormErrors>({});
     const [loading, setLoading] = React.useState(false);
+    const hasLoadedExtendedUsers = React.useRef(false);
+
+    React.useEffect(() => {
+        if (hasLoadedExtendedUsers.current) return;
+        hasLoadedExtendedUsers.current = true;
+        void fetchUsuarios(1, 200, "", false);
+    }, [fetchUsuarios]);
 
     const handleChange = (field: keyof FormData, value: string | number | string[] | null) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -164,7 +164,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
         if (!formData.equipoId) {
             newErrors.equipoId = "Debe seleccionar un equipo";
             isValid = false;
-            if (isValid) { // Solo hacer scroll si no hay error previo
+            if (formData.clientId) {
                 setTimeout(() => {
                     document.getElementById('equipo-select')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     document.getElementById('equipo-select')?.focus();
@@ -176,7 +176,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
         if (!formData.problemaReportado.trim()) {
             newErrors.problemaReportado = "El problema reportado es requerido";
             isValid = false;
-            if (isValid) {
+            if (formData.clientId && formData.equipoId) {
                 setTimeout(() => {
                     document.getElementById('problema-textarea')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     document.getElementById('problema-textarea')?.focus();
@@ -277,33 +277,27 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     };
     const formContent = (
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-5">
-            {/* Número de orden */}
-            <div className="mb-4">
-                <Label className="mb-1 block">Número de Orden</Label>
-                <div className="relative">
-                    <DocumentTextIcon className="absolute left-3 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-gray-500 dark:text-gray-300" />
-                    <input
-                        type="text"
-                        value={formData.workOrderNumber || "Generando número de orden..."}
-                        disabled
-                        readOnly
-                        className={`w-full cursor-not-allowed rounded-lg border border-gray-300 p-2 pl-10 pr-4 transition dark:border-gray-600
-        ${formData.workOrderNumber
-                                ? "bg-gray-100 text-black dark:bg-gray-700 dark:text-white"
-                                : "animate-pulse bg-gray-50 italic text-gray-500 dark:bg-gray-800 dark:text-gray-400"}
-      `}
-                    />
-                </div>
-            </div>
-
             {/* Selección de cliente */}
-            <div className="mb-4">
-                <Label className="mb-1 block">Cliente</Label>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                    <Combobox value={formData.clientId} onChange={(value) => handleChange("clientId", value)}>
-                        <div className="relative flex-grow">
+            <div className="mb-3">
+                <div className="mb-1 flex items-center justify-between gap-3">
+                    <Label>Cliente *</Label>
+                    <button
+                        type="button"
+                        onClick={() => setIsClienteModalOpen(true)}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 transition hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                        title="Agregar nuevo cliente"
+                    >
+                        <PlusIcon className="h-3 w-3" />
+                        Agregar cliente
+                    </button>
+                </div>
+                <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
+                        <Combobox value={formData.clientId} onChange={(value) => handleChange("clientId", value)}>
+                            <div className="relative flex-grow">
                             <div className="relative">
                                 <Combobox.Input
+                                    id="client-select"
                                     className="w-full rounded-lg border border-gray-300 bg-white p-2 pl-10 text-black dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                                     displayValue={(value) => {
                                         const cliente = clientes.find((c) => c.id === value);
@@ -315,64 +309,69 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                             </div>
 
-                            <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800 sm:text-sm">
-                                {filteredClientes.length === 0 && clientSearch !== "" ? (
-                                    <div className="relative cursor-default select-none px-4 py-2 text-gray-700 dark:text-gray-300">
-                                        No se encontraron clientes
-                                    </div>
-                                ) : (
-                                    filteredClientes.map((cliente) => (
-                                        <Combobox.Option
-                                            key={cliente.id}
-                                            value={cliente.id}
-                                            className={({ active }) =>
-                                                `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? "bg-blue-600 text-white" : "text-gray-900 dark:text-gray-300"}`
-                                            }
-                                        >
-                                            {({ selected }) => (
-                                                <>
-                                                    <span className={`block truncate ${selected ? "font-medium" : "font-normal"}`}>
-                                                        {cliente.nombre} {cliente.apellido}
-                                                    </span>
-                                                    {selected && (
-                                                        <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                                                            <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800 sm:text-sm">
+                                    {filteredClientes.length === 0 && clientSearch !== "" ? (
+                                        <div className="relative cursor-default select-none px-4 py-2 text-gray-700 dark:text-gray-300">
+                                            No se encontraron clientes
+                                        </div>
+                                    ) : (
+                                        filteredClientes.map((cliente) => (
+                                            <Combobox.Option
+                                                key={cliente.id}
+                                                value={cliente.id}
+                                                className={({ active }) =>
+                                                    `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? "bg-blue-600 text-white" : "text-gray-900 dark:text-gray-300"}`
+                                                }
+                                            >
+                                                {({ selected }) => (
+                                                    <>
+                                                        <span className={`block truncate ${selected ? "font-medium" : "font-normal"}`}>
+                                                            {cliente.nombre} {cliente.apellido}
                                                         </span>
-                                                    )}
-                                                </>
-                                            )}
-                                        </Combobox.Option>
-                                    ))
-                                )}
-                            </Combobox.Options>
-                        </div>
-                    </Combobox>
-
-                    <button
-                        type="button"
-                        onClick={() => setIsClienteModalOpen(true)}
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
-                        title="Agregar nuevo cliente"
-                    >
-                        <PlusIcon className="h-5 w-5" />
-                    </button>
+                                                        {selected && (
+                                                            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                                                                <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </Combobox.Option>
+                                        ))
+                                    )}
+                                </Combobox.Options>
+                            </div>
+                        </Combobox>
+                    </div>
                 </div>
 
                 {errors.clientId && <p className="mt-1 text-sm text-red-500">{errors.clientId}</p>}
             </div>
 
             {/* Selección de equipo */}
-            <div className="mb-4">
-                <Label className="mb-1 block">Equipo</Label>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                    <Combobox
-                        value={formData.equipoId}
-                        onChange={(value) => handleChange("equipoId", value)}
-                        disabled={loadingEquipos}
+            <div className="mb-3">
+                <div className="mb-1 flex items-center justify-between gap-3">
+                    <Label>Equipo *</Label>
+                    <button
+                        type="button"
+                        onClick={() => setIsEquipoModalOpen(true)}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 transition hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                        title="Agregar nuevo equipo"
                     >
-                        <div className="relative flex-grow">
+                        <PlusIcon className="h-3 w-3" />
+                        Agregar equipo
+                    </button>
+                </div>
+                <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
+                        <Combobox
+                            value={formData.equipoId}
+                            onChange={(value) => handleChange("equipoId", value)}
+                            disabled={loadingEquipos}
+                        >
+                            <div className="relative flex-grow">
                             <div className="relative">
                                 <Combobox.Input
+                                    id="equipo-select"
                                     className={`w-full rounded-lg border bg-white p-2 pl-10 text-black dark:bg-gray-800 dark:text-white ${loadingEquipos ? "cursor-not-allowed opacity-50" : ""} ${errors.equipoId ? "border-red-500" : "border-gray-300 dark:border-gray-700"}`}
                                     displayValue={(value) => {
                                         const equipo = equipos.find((e) => e.id === value);
@@ -387,60 +386,53 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                                 <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                             </div>
 
-                            <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800 sm:text-sm">
-                                {loadingEquipos ? (
-                                    <div className="relative cursor-default select-none px-4 py-2 text-gray-700 dark:text-gray-300">
-                                        Cargando equipos...
-                                    </div>
-                                ) : filteredEquipos.length === 0 && equipoSearch !== "" ? (
-                                    <div className="relative cursor-default select-none px-4 py-2 text-gray-700 dark:text-gray-300">
-                                        No se encontraron equipos
-                                    </div>
-                                ) : (
-                                    filteredEquipos.map((equipo) => (
-                                        <Combobox.Option
-                                            key={equipo.id}
-                                            value={equipo.id}
-                                            className={({ active }) =>
-                                                `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? "bg-blue-600 text-white" : "text-gray-900 dark:text-gray-300"}`
-                                            }
-                                        >
-                                            {({ selected }) => (
-                                                <>
-                                                    <span className={`block truncate ${selected ? "font-medium" : "font-normal"}`}>
-                                                        {equipo.tipoEquipo?.nombre} - {equipo.marca?.nombre} {equipo.modelo?.nombre} ({equipo.numeroSerie})
-                                                    </span>
-                                                    {selected && (
-                                                        <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                                                            <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800 sm:text-sm">
+                                    {loadingEquipos ? (
+                                        <div className="relative cursor-default select-none px-4 py-2 text-gray-700 dark:text-gray-300">
+                                            Cargando equipos...
+                                        </div>
+                                    ) : filteredEquipos.length === 0 && equipoSearch !== "" ? (
+                                        <div className="relative cursor-default select-none px-4 py-2 text-gray-700 dark:text-gray-300">
+                                            No se encontraron equipos
+                                        </div>
+                                    ) : (
+                                        filteredEquipos.map((equipo) => (
+                                            <Combobox.Option
+                                                key={equipo.id}
+                                                value={equipo.id}
+                                                className={({ active }) =>
+                                                    `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? "bg-blue-600 text-white" : "text-gray-900 dark:text-gray-300"}`
+                                                }
+                                            >
+                                                {({ selected }) => (
+                                                    <>
+                                                        <span className={`block truncate ${selected ? "font-medium" : "font-normal"}`}>
+                                                            {equipo.tipoEquipo?.nombre} - {equipo.marca?.nombre} {equipo.modelo?.nombre} ({equipo.numeroSerie})
                                                         </span>
-                                                    )}
-                                                </>
-                                            )}
-                                        </Combobox.Option>
-                                    ))
-                                )}
-                            </Combobox.Options>
-                        </div>
-                    </Combobox>
-
-                    <button
-                        type="button"
-                        onClick={() => setIsEquipoModalOpen(true)}
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
-                        title="Agregar nuevo equipo"
-                    >
-                        <PlusIcon className="h-5 w-5" />
-                    </button>
+                                                        {selected && (
+                                                            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+                                                                <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </Combobox.Option>
+                                        ))
+                                    )}
+                                </Combobox.Options>
+                            </div>
+                        </Combobox>
+                    </div>
                 </div>
 
                 {errors.equipoId && <p className="mt-1 text-sm text-red-500">{errors.equipoId}</p>}
             </div>
 
             {/* Problema reportado */}
-            <div className="mb-4">
-                <Label>Problema Reportado</Label>
+            <div className="mb-3">
+                <Label>Problema Reportado *</Label>
                 <textarea
+                    id="problema-textarea"
                     value={formData.problemaReportado}
                     onChange={(e) => handleChange("problemaReportado", e.target.value)}
                     placeholder="Describa el problema reportado por el cliente"
@@ -451,23 +443,26 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
             </div>
 
             {/* Accesorios */}
-            <div className="mb-4">
-                <Label className="mb-1 block">Accesorios</Label>
-                <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="mb-3">
+                <div className="mb-1 flex items-center justify-between gap-3">
+                    <Label>Accesorios</Label>
+                    <button
+                        type="button"
+                        onClick={addAccessory}
+                        title="Agregar accesorio"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 transition hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                    >
+                        <PlusIcon className="h-3 w-3" />
+                        Agregar accesorio
+                    </button>
+                </div>
+                <div className="flex items-start gap-2 sm:items-center">
                     <input
                         value={formData.currentAccessory}
                         onChange={(e) => setFormData((prev) => ({ ...prev, currentAccessory: e.target.value }))}
                         placeholder="Ej: Cargador, Funda, Cable USB"
                         className="w-full rounded-lg border border-gray-300 bg-white p-2 text-black dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                     />
-                    <button
-                        type="button"
-                        onClick={addAccessory}
-                        title="Agregar accesorio"
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-white hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
-                    >
-                        <PlusIcon className="h-5 w-5" />
-                    </button>
                 </div>
 
                 {formData.accesorios.length > 0 && (
@@ -495,35 +490,35 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
             </div>
 
             {/* Fecha prometida de entrega */}
-            <div className="mb-4">
+            <div className="mb-3">
                 <Label className="mb-1 block">Fecha Prometida de Entrega</Label>
-                <div className="relative">
-                    <CalendarIcon className="pointer-events-none absolute left-3 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-gray-800 dark:text-gray-200" />
-                    <Input
-                        type="datetime-local"
-                        value={formData.fechaPrometidaEntrega}
-                        onChange={(e) => handleChange("fechaPrometidaEntrega", e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 bg-white p-2 pl-10 text-black dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                    />
-                </div>
+                <input
+                    type="datetime-local"
+                    value={formData.fechaPrometidaEntrega}
+                    onChange={(e) => handleChange("fechaPrometidaEntrega", e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white p-2 text-black dark:border-gray-700 dark:bg-gray-800 dark:text-white [&::-webkit-calendar-picker-indicator]:block [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Selecciona la fecha y hora de compromiso de entrega.</p>
             </div>
 
             {/* Selección de técnico */}
-            <div className="mb-4">
+            <div className="mb-3">
                 <Label>Técnico Asignado (Opcional)</Label>
-                <Select
+                <select
                     value={formData.technicianId || ""}
-                    onChange={(e) => handleChange("technicianId", Number(e.target.value))}
-                    disabled={loadingUsuarios}
+                    onChange={(e) => handleChange("technicianId", e.target.value ? Number(e.target.value) : null)}
                     className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-black dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                 >
-                    <option value="">Seleccione un técnico</option>
+                    <option value="" disabled>Seleccione un técnico</option>
                     {tecnicos.map((tecnico) => (
                         <option key={tecnico.id} value={tecnico.id}>
                             {tecnico.nombre} {tecnico.apellido}
                         </option>
                     ))}
-                </Select>
+                </select>
+                {!loadingUsuarios && tecnicos.length === 0 && (
+                    <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">No se encontraron técnicos activos en la lista actual.</p>
+                )}
             </div>
 
             <div className={embeddedMode ? "sticky bottom-0 -mx-1 mt-2 border-t border-gray-200 bg-white px-1 pt-4 dark:border-gray-700 dark:bg-gray-900" : "mt-2"}>
@@ -553,8 +548,8 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     return (
         <>
             {embeddedMode ? (
-                <div className="max-h-[75vh] overflow-y-auto pr-1">
-                    <div className="mb-4 border-b border-gray-200 pb-3 pr-10 dark:border-gray-700">
+                <div className="max-h-[75vh] overflow-y-auto px-3 pb-2 pr-5 sm:px-4 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[scrollbar-color:#475569_transparent] dark:[&::-webkit-scrollbar-thumb]:bg-slate-600">
+                    <div className="mb-3 border-b border-gray-200 pb-3 pr-12 dark:border-gray-700">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Crear Nueva Orden de Trabajo</h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
                             Complete los datos para registrar la orden sin salir de esta vista.

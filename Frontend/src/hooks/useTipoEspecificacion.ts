@@ -48,7 +48,7 @@ export function useTipoEspecificacion() {
     '/tipo-especificacion',
     {
       defaultLimit: 10,
-      listPath: '/all',
+      listPath: '/tipo-especificacion/all',
       messages: {
         created: 'Tipo de especificacion creado exitosamente',
         updated: 'Tipo de especificacion actualizado exitosamente',

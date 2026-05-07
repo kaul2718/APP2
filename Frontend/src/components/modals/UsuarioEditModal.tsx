@@ -113,11 +113,8 @@ export default function UsuarioEditModal({ isOpen, onClose, usuario, onSave }: P
             hideActions
         >
             <div className="no-scrollbar relative w-full max-w-[800px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-10">
-                <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
-                    Editar información del usuario
-                </h4>
                 <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-                    Modifica los datos del usuario. Solo los campos cambiados se actualizarán.
+                    Solo los campos modificados se actualizarán.
                 </p>
 
                 <UsuarioForm

@@ -19,10 +19,14 @@ const AppSidebar: React.FC = () => {
     if (!role) return [];
     return navItems
       .filter(item => item.roles.includes(role))
-      .map(item => ({
-        ...item,
-        subItems: item.subItems?.filter(subItem => subItem.roles.includes(role)) || []
-      }));
+      .map(item => {
+        const filteredSubItems = item.subItems?.filter(subItem => subItem.roles.includes(role));
+
+        return {
+          ...item,
+          subItems: filteredSubItems && filteredSubItems.length > 0 ? filteredSubItems : undefined,
+        };
+      });
   }, [role]);
 
   const renderMenuItems = (
@@ -32,7 +36,7 @@ const AppSidebar: React.FC = () => {
     <ul className="flex flex-col gap-4">
       {items.map((nav, index) => (
         <li key={nav.name}>
-          {nav.subItems ? (
+          {nav.subItems && nav.subItems.length > 0 ? (
             <button
               onClick={() => handleSubmenuToggle(index, menuType)}
               className={`menu-item group  ${openSubmenu?.type === menuType && openSubmenu?.index === index
@@ -85,7 +89,7 @@ const AppSidebar: React.FC = () => {
               </Link>
             )
           )}
-          {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
+          {nav.subItems && nav.subItems.length > 0 && (isExpanded || isHovered || isMobileOpen) && (
             <div
               ref={(el) => {
                 subMenuRefs.current[`${menuType}-${index}`] = el;
@@ -199,7 +203,7 @@ const AppSidebar: React.FC = () => {
         className={`py-8 flex  ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
           }`}
       >
-        <Link href="/" className="hidden md:block">
+        <Link href="/dashboard" className="hidden md:block">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
               <Image

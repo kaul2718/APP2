@@ -86,7 +86,7 @@ export function useUsuario(): UseUsuarioReturn {
 
   const fetchUsuarios = async (
     page: number = 1,
-    limit: number = 10000,
+    limit: number = 10,
     search: string = "",
     includeInactive: boolean = false
   ) => {
@@ -137,7 +137,7 @@ export function useUsuario(): UseUsuarioReturn {
 
   // Función refetch para actualizar los datos
   const refetch = async () => {
-    await fetchUsuarios(currentPage, 10000, searchTerm, showInactive);
+    await fetchUsuarios(currentPage, 10, searchTerm, showInactive);
   };
 
   const createUsuario = async (usuarioData: {
@@ -288,7 +288,7 @@ export function useUsuario(): UseUsuarioReturn {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetchUsuarios(1, 10000, searchTerm, showInactive);
+      fetchUsuarios(1, 10, searchTerm, showInactive);
     }
   }, [status, session, searchTerm, showInactive]);
 

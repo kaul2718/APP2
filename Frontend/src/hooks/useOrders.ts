@@ -32,7 +32,7 @@ export function useOrders() {
 
   const fetchOrders = async (
     page: number = 1,
-    limit: number = 100,
+    limit: number = 10,
     search: string = "",
     includeInactive: boolean = false,
     estadoId?: number,
@@ -311,7 +311,7 @@ export function useOrders() {
     if (status === "authenticated") {
       fetchOrders(
         1,
-        100,
+        10,
         searchTerm,
         showInactive,
         estadoOrdenId,
