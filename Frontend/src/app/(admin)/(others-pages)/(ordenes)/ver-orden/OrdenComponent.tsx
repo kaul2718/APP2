@@ -6,7 +6,7 @@ import ComponentCard from "@/components/common/ComponentCard";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Button from "@/components/ui/button/Button";
 import { PlusCircleIcon } from "@heroicons/react/24/outline";
-import OrdenTable from "@/components/tables/ordenTable";
+import OrdenListLayout from "@/components/ordenes/OrdenListLayout";
 import { Modal } from "@/components/ui/modal";
 import IngresarOrdenForm from "@/components/form/ingresar-orden/IngresarOrdenForm";
 import AgregarEvidenciaTecnicaModal from "@/components/modals/AgregarEvidenciaTecnicaModal";
@@ -41,7 +41,7 @@ export default function OrdenComponent() {
                         </div>
                     }
                 >
-                    <OrdenTable />
+                    <OrdenListLayout />
                 </ComponentCard>
 
                 <Modal
