@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, JoinColumn, DeleteDateColumn } from 'typeorm';
 import { Order } from '../../orders/entities/order.entity';
 import { User } from '../../users/entities/user.entity';
+import { EstadoOrden } from '../../estado-orden/entities/estado-orden.entity';
 
 @Entity()
 export class EvidenciaTecnica {
@@ -21,6 +22,13 @@ export class EvidenciaTecnica {
 
     @Column()
     subidoPorId: number;
+
+    @ManyToOne(() => EstadoOrden, { nullable: true })
+    @JoinColumn({ name: 'estadoOrdenId' })
+    estadoOrden: EstadoOrden;
+
+    @Column({ nullable: true })
+    estadoOrdenId: number;
 
     @Column('text')
     archivoUrl: string; // Aquí guardas la URL de la imagen/video (puede ser base64 o path en servidor)

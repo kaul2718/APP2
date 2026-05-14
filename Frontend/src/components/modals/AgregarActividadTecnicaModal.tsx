@@ -27,13 +27,17 @@ interface Props {
     onClose: () => void;
     onSuccess?: (id: number) => void;
     orderId?: number | null;
+    workOrderNumber?: string;
+    isDiagnosticoMode?: boolean;
 }
 
 export default function AgregarActividadTecnicaModal({
     isOpen,
     onClose,
     onSuccess,
-    orderId = null
+    orderId = null,
+    workOrderNumber,
+    isDiagnosticoMode = false
 }: Props) {
     const [formData, setFormData] = useState<FormData>({
         ordenId: orderId,
@@ -47,9 +51,15 @@ export default function AgregarActividadTecnicaModal({
     const [errors, setErrors] = React.useState<FormErrors>({});
 
     const resetForm = () => {
+        let initialTipoId = null;
+        if (isDiagnosticoMode && tiposActividad.length > 0) {
+            const diagTipo = tiposActividad.find(t => t.nombre.toLowerCase().includes('diagn'));
+            if (diagTipo) initialTipoId = diagTipo.id;
+        }
+        
         setFormData({
             ordenId: orderId,
-            tipoActividadId: null,
+            tipoActividadId: initialTipoId,
             diagnostico: "",
             trabajoRealizado: ""
         });
@@ -67,6 +77,15 @@ export default function AgregarActividadTecnicaModal({
             ordenId: orderId
         }));
     }, [orderId]);
+
+    React.useEffect(() => {
+        if (isDiagnosticoMode && tiposActividad.length > 0 && !formData.tipoActividadId) {
+            const diagTipo = tiposActividad.find(t => t.nombre.toLowerCase().includes('diagn'));
+            if (diagTipo) {
+                setFormData(prev => ({ ...prev, tipoActividadId: diagTipo.id }));
+            }
+        }
+    }, [isDiagnosticoMode, tiposActividad, isOpen]);
 
     const handleChange = (field: keyof FormData, value: string | number | null) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -89,6 +108,9 @@ export default function AgregarActividadTecnicaModal({
             isValid = false;
         }
 
+        const selectedTipo = tiposActividad.find(t => t.id === formData.tipoActividadId);
+        const isDiagnostico = selectedTipo?.nombre.toLowerCase().includes('diagn');
+
         if (!formData.diagnostico.trim()) {
             newErrors.diagnostico = "El diagnostico es requerido";
             isValid = false;
@@ -97,12 +119,14 @@ export default function AgregarActividadTecnicaModal({
             isValid = false;
         }
 
-        if (!formData.trabajoRealizado.trim()) {
-            newErrors.trabajoRealizado = "El trabajo realizado es requerido";
-            isValid = false;
-        } else if (formData.trabajoRealizado.trim().length < 10) {
-            newErrors.trabajoRealizado = "El trabajo realizado debe tener al menos 10 caracteres";
-            isValid = false;
+        if (!isDiagnostico) {
+            if (!formData.trabajoRealizado.trim()) {
+                newErrors.trabajoRealizado = "El trabajo realizado es requerido";
+                isValid = false;
+            } else if (formData.trabajoRealizado.trim().length < 10) {
+                newErrors.trabajoRealizado = "El trabajo realizado debe tener al menos 10 caracteres";
+                isValid = false;
+            }
         }
 
         setErrors(newErrors);
@@ -116,11 +140,14 @@ export default function AgregarActividadTecnicaModal({
         }
 
         try {
+            const selectedTipo = tiposActividad.find(t => t.id === Number(formData.tipoActividadId));
+            const isDiagnostico = selectedTipo?.nombre.toLowerCase().includes('diagn');
+
             const actividadData = {
                 ordenId: Number(formData.ordenId),
                 tipoActividadId: Number(formData.tipoActividadId),
                 diagnostico: formData.diagnostico,
-                trabajoRealizado: formData.trabajoRealizado
+                trabajoRealizado: isDiagnostico ? "Evaluación técnica y diagnóstico inicial." : formData.trabajoRealizado
             };
 
             const result = await createActividadTecnica(actividadData);
@@ -128,11 +155,6 @@ export default function AgregarActividadTecnicaModal({
             if (!result?.id) {
                 throw new Error("No se pudo crear la actividad técnica. Intente nuevamente.");
             }
-
-            toast.success('Actividad tecnica creada exitosamente', {
-                position: "top-center",
-                autoClose: 3000,
-            });
 
             if (onSuccess) onSuccess(result.id);
 
@@ -150,18 +172,20 @@ export default function AgregarActividadTecnicaModal({
         }
     };
 
+    const modalTitle = isDiagnosticoMode ? "Agregar Diagnóstico" : "Agregar Actividad Técnica";
+
     return (
         <Modal
             isOpen={isOpen}
             onClose={handleClose}
-            title="Agregar actividad tecnica"
+            title={modalTitle}
             className="max-w-3xl mx-4"
         >
             <form onSubmit={(e) => e.preventDefault()} className="flex flex-col">
                 {/* Título agregado aquí */}
                 <div className="px-6 pt-4 pb-2">
                     <h2 className="text-2xl font-bold text-center text-gray-800 dark:text-white">
-                        Agregar Actividad Técnica
+                        {modalTitle}
                     </h2>
                 </div>
 
@@ -175,7 +199,7 @@ export default function AgregarActividadTecnicaModal({
                                     type="text"
                                     id="order-select"
                                     readOnly
-                                    value={formData.ordenId ? `#${formData.ordenId}` : ''}
+                                    value={workOrderNumber ? `#${workOrderNumber}` : (formData.ordenId ? `#${formData.ordenId}` : '')}
                                     className="w-full bg-gray-100 dark:bg-gray-700 text-black dark:text-white p-2 rounded-lg border border-gray-300 dark:border-gray-600 cursor-not-allowed"
                                     disabled
                                     aria-required="true"
@@ -197,12 +221,13 @@ export default function AgregarActividadTecnicaModal({
                                 aria-required="true"
                                 className={`w-full px-4 py-2 rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border ${errors.tipoActividadId ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                             >
-                                <option value="">Seleccione un tipo de actividad</option>
+                                <option value="" disabled>Seleccione un tipo de actividad</option>
                                 {loadingTipos ? (
                                     <option disabled>Cargando tipos...</option>
                                 ) : (
                                     tiposActividad
                                         .filter(tipo => tipo.estado)
+                                        .filter(tipo => isDiagnosticoMode ? tipo.nombre.toLowerCase().includes('diagn') : true)
                                         .map((tipo) => (
                                             <option key={tipo.id} value={tipo.id}>
                                                 {tipo.nombre}
@@ -236,24 +261,33 @@ export default function AgregarActividadTecnicaModal({
                         </div>
 
                         {/* Trabajo realizado */}
-                        <div className="mb-3">
-                            <Label htmlFor="trabajo-textarea">Trabajo Realizado <span aria-hidden="true">*</span></Label>
-                            <div className="relative">
-                                <WrenchScrewdriverIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-4" />
-                                <textarea
-                                    id="trabajo-textarea"
-                                    value={formData.trabajoRealizado}
-                                    onChange={(e) => handleChange("trabajoRealizado", e.target.value)}
-                                    placeholder="Describa el trabajo técnico realizado..."
-                                    className={`w-full pl-10 pr-4 py-2 rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border ${errors.trabajoRealizado ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                                    rows={4}
-                                    aria-required="true"
-                                />
-                            </div>
-                            {errors.trabajoRealizado && (
-                                <p role="alert" className="text-sm text-red-500 mt-1">{errors.trabajoRealizado}</p>
-                            )}
-                        </div>
+                        {(() => {
+                            const selectedTipo = tiposActividad.find(t => t.id === formData.tipoActividadId);
+                            const isDiagnostico = selectedTipo?.nombre.toLowerCase().includes('diagn');
+                            
+                            if (isDiagnostico) return null; // Ocultar si es solo diagnóstico
+
+                            return (
+                                <div className="mb-3">
+                                    <Label htmlFor="trabajo-textarea">Trabajo Realizado <span aria-hidden="true">*</span></Label>
+                                    <div className="relative">
+                                        <WrenchScrewdriverIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-4" />
+                                        <textarea
+                                            id="trabajo-textarea"
+                                            value={formData.trabajoRealizado}
+                                            onChange={(e) => handleChange("trabajoRealizado", e.target.value)}
+                                            placeholder="Describa el trabajo técnico realizado..."
+                                            className={`w-full pl-10 pr-4 py-2 rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border ${errors.trabajoRealizado ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                                            rows={4}
+                                            aria-required="true"
+                                        />
+                                    </div>
+                                    {errors.trabajoRealizado && (
+                                        <p role="alert" className="text-sm text-red-500 mt-1">{errors.trabajoRealizado}</p>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
 

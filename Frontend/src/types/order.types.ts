@@ -46,6 +46,8 @@ export interface OrderPresupuesto {
     id: number;
     nombre: string;
   };
+  detallesPresupuestoItems?: OrderDetallePresupuestoItem[];
+  detallesManoObra?: any[];
 }
 
 export interface OrderDetallePresupuestoItem {

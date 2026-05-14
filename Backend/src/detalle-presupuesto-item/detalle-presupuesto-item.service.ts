@@ -54,6 +54,7 @@ export class DetallePresupuestoItemService {
     const presupuesto = await this.presupuestoRepository.findOne({
       where: { id: presupuestoId },
       withDeleted: true,
+      relations: ['orden'],
     });
     if (!presupuesto) {
       throw new NotFoundException(`Presupuesto con ID ${presupuestoId} no encontrado`);
@@ -91,6 +92,7 @@ export class DetallePresupuestoItemService {
       parte,
       comentario: createDto.comentario ?? null,
       estado: true,
+      estadoOrdenId: presupuesto.orden?.estadoOrdenId || null,
     });
 
     const detalleGuardado = await this.detalleRepository.save(detalle);

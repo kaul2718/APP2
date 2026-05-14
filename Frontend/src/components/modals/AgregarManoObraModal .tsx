@@ -143,124 +143,121 @@ export default function AgregarManoObraModal({
         }
     };
 
+    const content = (
+        <div className={`relative w-full ${embeddedMode ? '' : 'max-w-[600px] rounded-3xl'} overflow-y-auto bg-white p-4 dark:bg-gray-900 lg:p-8`}>
+            {!embeddedMode && (
+                <>
+                    <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
+                        Agregar Mano de Obra
+                    </h4>
+                    <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                        Complete los campos para agregar mano de obra al presupuesto.
+                    </p>
+                </>
+            )}
+
+            <form onSubmit={handleSubmit} className="flex flex-col">
+                <div className={`custom-scrollbar ${embeddedMode ? 'max-h-[50vh]' : 'h-[calc(100vh-250px)]'} overflow-y-auto px-1`}>
+                    <div className="grid grid-cols-1 gap-x-6 gap-y-5">
+
+
+                        {/* Tipo de Mano de Obra */}
+                        <div className="mb-4">
+                            <Label>Tipo de Mano de Obra *</Label>
+                            <div className="relative">
+                                <UserIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                                <Select
+                                    value={formData.tipoManoObraId}
+                                    onChange={(e) => handleChange("tipoManoObraId", e.target.value)}
+                                    className={`w-full pl-10 pr-3 py-2 rounded-md border ${errors.tipoManoObraId ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} bg-white dark:bg-gray-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none`}
+                                    disabled={loadingTipos}
+                                >
+                                    <option value="">Seleccione un tipo</option>
+                                    {tipos
+                                        .filter(tipo => tipo.estado)
+                                        .map((tipo) => (
+                                            <option key={tipo.id} value={tipo.id}>
+                                                {tipo.nombre} (${tipo.costo})
+                                            </option>
+                                        ))}
+                                </Select>
+                            </div>
+                            {errors.tipoManoObraId && <p className="text-sm text-red-500 mt-1">{errors.tipoManoObraId}</p>}
+                        </div>
+
+                        {/* Cantidad */}
+                        <div className="mb-4">
+                            <Label>Cantidad *</Label>
+                            <div className="relative">
+                                <HashtagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                                <Input
+                                    type="number"
+                                    min="1"
+                                    step={1}
+                                    value={formData.cantidad}
+                                    onChange={(e) => handleChange("cantidad", e.target.value)}
+                                    placeholder="Cantidad"
+                                    className={`pl-10 bg-white dark:bg-gray-800 text-black dark:text-white ${errors.cantidad ? 'border-red-500' : ''}`}
+                                />
+                            </div>
+                            {errors.cantidad && <p className="text-sm text-red-500 mt-1">{errors.cantidad}</p>}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex justify-between gap-4 mt-6">
+                    <div>
+                        {showNavigation && onBack && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={onBack}
+                                disabled={loading}
+                            >
+                                Atrás
+                            </Button>
+                        )}
+                    </div>
+
+                    <div className="flex gap-4">
+                        <Button
+                            type="submit"
+                            disabled={loading || loadingTipos}
+                            loading={loading}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                            Agregar Mano de Obra
+                        </Button>
+
+
+                        {showNavigation && onNext && (
+                            <Button
+                                type="button"
+                                onClick={onNext}
+                                disabled={loading}
+                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                                Siguiente (Ítems)
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </form>
+        </div>
+    );
+
+    if (embeddedMode) {
+        return content;
+    }
+
     return (
         <Modal
             isOpen={isOpen}
             onClose={onClose}
             className="max-w-[600px] m-4"
-            title={embeddedMode ? "Agregar Mano de Obra" : "Agregar Mano de Obra"}
+            title="Agregar Mano de Obra"
         >
-            <div className="no-scrollbar relative w-full max-w-[600px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-10">
-                {!embeddedMode && (
-                    <>
-                        <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
-                            Agregar Mano de Obra
-                        </h4>
-                        <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-                            Complete los campos para agregar mano de obra al presupuesto.
-                        </p>
-                    </>
-                )}
-
-                <form onSubmit={handleSubmit} className="flex flex-col">
-                    <div className="custom-scrollbar h-[calc(100vh-250px)] overflow-y-auto">
-                        <div className="grid grid-cols-1 gap-x-6 gap-y-5">
-                            {/* ID Presupuesto (solo lectura) */}
-                            <div className="mb-4">
-                                <Label>ID del Presupuesto</Label>
-                                <div className="relative">
-                                    <HashtagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                    <input
-                                        type="text"
-                                        value={formData.presupuestoId}
-                                        readOnly
-                                        className="w-full pl-10 pr-4 py-2 rounded-md bg-gray-100 dark:bg-gray-700 text-black dark:text-white border border-gray-300 dark:border-gray-600 cursor-not-allowed"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Tipo de Mano de Obra */}
-                            <div className="mb-4">
-                                <Label>Tipo de Mano de Obra *</Label>
-                                <div className="relative">
-                                    <UserIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                    <Select
-                                        value={formData.tipoManoObraId}
-                                        onChange={(e) => handleChange("tipoManoObraId", e.target.value)}
-                                        className={`w-full pl-10 pr-3 py-2 rounded-md border ${errors.tipoManoObraId ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} bg-white dark:bg-gray-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none`}
-                                        disabled={loadingTipos}
-                                    >
-                                        <option value="">Seleccione un tipo</option>
-                                        {tipos
-                                            .filter(tipo => tipo.estado)
-                                            .map((tipo) => (
-                                                <option key={tipo.id} value={tipo.id}>
-                                                    {tipo.nombre} (${tipo.costo})
-                                                </option>
-                                            ))}
-                                    </Select>
-                                </div>
-                                {errors.tipoManoObraId && <p className="text-sm text-red-500 mt-1">{errors.tipoManoObraId}</p>}
-                            </div>
-
-                            {/* Cantidad */}
-                            <div className="mb-4">
-                                <Label>Cantidad *</Label>
-                                <div className="relative">
-                                    <HashtagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                    <Input
-                                        type="number"
-                                        min="1"
-                                        step={1}
-                                        value={formData.cantidad}
-                                        onChange={(e) => handleChange("cantidad", e.target.value)}
-                                        placeholder="Cantidad"
-                                        className={`pl-10 bg-white dark:bg-gray-800 text-black dark:text-white ${errors.cantidad ? 'border-red-500' : ''}`}
-                                    />
-                                </div>
-                                {errors.cantidad && <p className="text-sm text-red-500 mt-1">{errors.cantidad}</p>}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-between gap-4 mt-6">
-                        <div>
-                            {showNavigation && onBack && (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={onBack}
-                                    disabled={loading}
-                                >
-                                    Atrás
-                                </Button>
-                            )}
-                        </div>
-
-                        <div className="flex gap-4">
-                            <Button
-                                type="submit"
-                                disabled={loading || loadingTipos}
-                                loading={loading}
-                                className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                                Agregar
-                            </Button>
-
-
-                            {showNavigation && onNext && (
-                                <Button
-                                    type="button"
-                                    onClick={onNext}
-                                    disabled={loading}
-                                >
-                                    Siguiente
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                </form>
-            </div>
+            {content}
         </Modal>
     );
 }

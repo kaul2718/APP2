@@ -208,7 +208,7 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                     className="flex flex-col"
                 >
                     <div className="custom-scrollbar h-[400px] overflow-y-auto">
-                        <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2 pb-6">
                             <div>
                                 <Label>ID</Label>
                                 <Input name="id" value={editando.id} disabled />
@@ -331,14 +331,14 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                             <div>
                                 <Label>Fecha de creación</Label>
                                 <Input
-                                    value={new Date(editando.createdAt).toLocaleString()}
+                                    value={new Date((editando as any).createdAt || editando.fechaEmision).toLocaleString()}
                                     disabled
                                 />
                             </div>
                             <div>
                                 <Label>Última actualización</Label>
                                 <Input
-                                    value={new Date(editando.updatedAt).toLocaleString()}
+                                    value={new Date((editando as any).updatedAt || editando.fechaEmision).toLocaleString()}
                                     disabled
                                 />
                             </div>

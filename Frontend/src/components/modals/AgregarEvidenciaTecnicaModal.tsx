@@ -9,6 +9,7 @@ import { CameraIcon, PhotoIcon, VideoCameraIcon, XMarkIcon, ArrowLeftIcon, Arrow
 import { useEvidenciaTecnica } from "@/hooks/useEvidenciaTecnica";
 import TextArea from "@/components/form/input/TextArea";
 import EvidenciaItem from "../EvidenciaItem";
+import ConfirmDialog from "@/components/modals/ConfirmDialog";
 
 interface Props {
     isOpen: boolean;
@@ -41,6 +42,7 @@ export default function EvidenciaTecnicaModal({
         descripcion: ""
     });
     const [activeTab, setActiveTab] = useState<'agregar' | 'ver'>('ver');
+    const [evidenciaToDelete, setEvidenciaToDelete] = useState<number | null>(null);
 
     const { data: session } = useSession();
     const {
@@ -56,13 +58,7 @@ export default function EvidenciaTecnicaModal({
         deleteEvidencia,
         goToPage,
         setItemsPerPage
-    } = useEvidenciaTecnica();
-
-    useEffect(() => {
-        if (isOpen && orderId) {
-            fetchEvidencias(orderId);
-        }
-    }, [isOpen, orderId, currentPage, itemsPerPage]);
+    } = useEvidenciaTecnica(orderId);
 
     const stopCamera = () => {
         if (cameraStreamRef.current) {
@@ -307,9 +303,15 @@ export default function EvidenciaTecnicaModal({
         }
     };
 
-    const handleDeleteEvidencia = async (id: number) => {
+    const confirmDelete = (id: number) => {
+        setEvidenciaToDelete(id);
+    };
+
+    const handleDeleteEvidencia = async () => {
+        if (!evidenciaToDelete) return;
         try {
-            await deleteEvidencia(id);
+            await deleteEvidencia(evidenciaToDelete);
+            setEvidenciaToDelete(null);
             //toast.success("Evidencia eliminada correctamente");
         } catch (error) {
             //console.error("Error al eliminar evidencia:", error);
@@ -334,14 +336,14 @@ export default function EvidenciaTecnicaModal({
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('ver')}
-                                className={`px-4 py-2 text-sm font-medium rounded-l-lg ${activeTab === 'ver' ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'}`}
+                                className={`px-4 py-2 text-sm font-medium rounded-l-lg border transition-colors ${activeTab === 'ver' ? 'bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700'}`}
                             >
                                 Ver Evidencias ({totalItems})
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('agregar')}
-                                className={`px-4 py-2 text-sm font-medium rounded-r-lg ${activeTab === 'agregar' ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'}`}
+                                className={`px-4 py-2 text-sm font-medium rounded-r-lg border-y border-r transition-colors ${activeTab === 'agregar' ? 'bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700'}`}
                             >
                                 Agregar Nueva
                             </button>
@@ -540,7 +542,7 @@ export default function EvidenciaTecnicaModal({
                                         <EvidenciaItem
                                             key={evidencia.id}
                                             evidencia={evidencia}
-                                            onDelete={handleDeleteEvidencia}
+                                            onDelete={confirmDelete}
                                             currentUserId={session?.user?.id}
                                         />
                                     ))}
@@ -558,7 +560,7 @@ export default function EvidenciaTecnicaModal({
                                     <select
                                         value={itemsPerPage}
                                         onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                                        className="text-sm border rounded-md px-2 py-1 dark:bg-gray-800 dark:border-gray-700"
+                                        className="text-sm border rounded-md px-2 py-1 bg-white text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
                                     >
                                         <option value={5}>5 por página</option>
                                         <option value={10}>10 por página</option>
@@ -566,15 +568,15 @@ export default function EvidenciaTecnicaModal({
                                     </select>
                                 </div>
 
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
+                                <div className="flex gap-1">
+                                    <button
+                                        type="button"
                                         onClick={() => goToPage(currentPage - 1)}
                                         disabled={currentPage === 1}
-                                        className="px-3 py-1"
+                                        className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                                     >
                                         <ArrowLeftIcon className="w-4 h-4" />
-                                    </Button>
+                                    </button>
 
                                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                                         let pageNum;
@@ -589,25 +591,29 @@ export default function EvidenciaTecnicaModal({
                                         }
 
                                         return (
-                                            <Button
+                                            <button
                                                 key={pageNum}
-                                                variant={currentPage === pageNum ? "primary" : "outline"}
+                                                type="button"
                                                 onClick={() => goToPage(pageNum)}
-                                                className="px-3 py-1 min-w-[40px]"
+                                                className={`flex h-8 min-w-[32px] items-center justify-center rounded-md border text-sm font-medium transition-colors px-2 ${
+                                                    currentPage === pageNum
+                                                        ? 'border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500'
+                                                        : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                                                }`}
                                             >
                                                 {pageNum}
-                                            </Button>
+                                            </button>
                                         );
                                     })}
 
-                                    <Button
-                                        variant="outline"
+                                    <button
+                                        type="button"
                                         onClick={() => goToPage(currentPage + 1)}
                                         disabled={currentPage === totalPages}
-                                        className="px-3 py-1"
+                                        className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                                     >
                                         <ArrowRightIcon className="w-4 h-4" />
-                                    </Button>
+                                    </button>
                                 </div>
 
                                 <Button
@@ -622,6 +628,16 @@ export default function EvidenciaTecnicaModal({
                     </div>
                 )}
             </div>
+
+            <ConfirmDialog
+                isOpen={evidenciaToDelete !== null}
+                title="Eliminar Evidencia"
+                description="¿Estás seguro de que deseas eliminar esta evidencia? Esta acción no se puede deshacer."
+                onClose={() => setEvidenciaToDelete(null)}
+                onConfirm={handleDeleteEvidencia}
+                confirmText="Eliminar"
+                destructive={true}
+            />
         </Modal>
     );
 }

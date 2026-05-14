@@ -188,134 +188,130 @@ export default function AgregarItemsPresupuestoModal({
             setLoading(false);
         }
     };
+    const content = (
+        <div className={`relative w-full ${embeddedMode ? '' : 'max-w-[600px] rounded-3xl'} overflow-y-auto bg-white p-4 dark:bg-gray-900 lg:p-8`}>
+            {!embeddedMode && (
+                <>
+                    <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
+                        Agregar Ítem al Presupuesto
+                    </h4>
+                    <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                        Complete los campos para agregar un ítem al presupuesto.
+                    </p>
+                </>
+            )}
+
+            <form onSubmit={handleSubmit} className="flex flex-col">
+                <div className={`custom-scrollbar ${embeddedMode ? 'max-h-[50vh]' : 'h-[calc(100vh-250px)]'} overflow-y-auto px-1`}>
+                    <div className="grid grid-cols-1 gap-x-6 gap-y-5">
+
+
+                        {/* Ítem / Parte */}
+                        <div className="mb-4">
+                            <Label>Ítem / Parte *</Label>
+                            <div className="relative">
+                                <TagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                                <Select
+                                    value={formData.parteId}
+                                    onChange={(e) => handleChange("parteId", e.target.value)}
+                                    className={`w-full pl-10 pr-3 py-2 rounded-md border ${errors.parteId ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} bg-white dark:bg-gray-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none`}
+                                    disabled={loadingPartes}
+                                >
+                                    <option value="">Seleccione un ítem</option>
+                                    {partesDisponibles.map((parte) => (
+                                        <option key={parte.id} value={parte.id}>
+                                            {formatParteLabel(parte)}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </div>
+                            {errors.parteId && <p className="text-sm text-red-500 mt-1">{errors.parteId}</p>}
+                        </div>
+
+                        {/* Cantidad */}
+                        <div className="mb-4">
+                            <Label>Cantidad *</Label>
+                            <div className="relative">
+                                <HashtagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                                <Input
+                                    type="number"
+                                    min="1"
+                                    step={1}
+                                    value={formData.cantidad}
+                                    onChange={(e) => handleChange("cantidad", e.target.value)}
+                                    placeholder="Cantidad"
+                                    className={`pl-10 bg-white dark:bg-gray-800 text-black dark:text-white ${errors.cantidad ? 'border-red-500' : ''}`}
+                                />
+                            </div>
+                            {errors.cantidad && <p className="text-sm text-red-500 mt-1">{errors.cantidad}</p>}
+                        </div>
+
+                        {/* Comentario (opcional) */}
+                        <div className="mb-4">
+                            <Label>Comentario (opcional)</Label>
+                            <textarea
+                                value={formData.comentario || ''}
+                                onChange={(e) => handleChange("comentario", e.target.value)}
+                                placeholder="Notas adicionales sobre este ítem"
+                                className="w-full px-4 py-2 rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                rows={3}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex justify-between gap-4 mt-6">
+                    <div>
+                        {showNavigation && onBack && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={onBack}
+                                disabled={loading}
+                            >
+                                Atrás
+                            </Button>
+                        )}
+                    </div>
+
+                    <div className="flex gap-4">
+                        <Button
+                            type="submit"
+                            disabled={loading || loadingPartes}
+                            loading={loading}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                            Agregar Ítem
+                        </Button>
+
+                        {showNavigation && onNext && (
+                            <Button
+                                type="button"
+                                onClick={onNext}
+                                disabled={loading}
+                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                                Finalizar
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </form>
+        </div>
+    );
+
+    if (embeddedMode) {
+        return content;
+    }
 
     return (
         <Modal
             isOpen={isOpen}
             onClose={onClose}
             className="max-w-[600px] m-4"
-            title={embeddedMode ? "Agregar ítem" : "Agregar ítem"}
+            title="Agregar ítem"
         >
-            <div className="no-scrollbar relative w-full max-w-[600px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-10">
-                {!embeddedMode && (
-                    <>
-                        <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
-                            Agregar Ítem al Presupuesto
-                        </h4>
-                        <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-                            Complete los campos para agregar un ítem al presupuesto.
-                        </p>
-                    </>
-                )}
-
-                <form onSubmit={handleSubmit} className="flex flex-col">
-                    <div className="custom-scrollbar h-[calc(100vh-250px)] overflow-y-auto">
-                        <div className="grid grid-cols-1 gap-x-6 gap-y-5">
-                            {/* ID Presupuesto (solo lectura) */}
-                            <div className="mb-4">
-                                <Label>ID del Presupuesto</Label>
-                                <div className="relative">
-                                    <HashtagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                    <input
-                                        type="text"
-                                        value={formData.presupuestoId}
-                                        readOnly
-                                        className="w-full pl-10 pr-4 py-2 rounded-md bg-gray-100 dark:bg-gray-700 text-black dark:text-white border border-gray-300 dark:border-gray-600 cursor-not-allowed"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Ítem / Parte */}
-                            <div className="mb-4">
-                                <Label>Ítem / Parte *</Label>
-                                <div className="relative">
-                                    <TagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                    <Select
-                                        value={formData.parteId}
-                                        onChange={(e) => handleChange("parteId", e.target.value)}
-                                        className={`w-full pl-10 pr-3 py-2 rounded-md border ${errors.parteId ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} bg-white dark:bg-gray-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none`}
-                                        disabled={loadingPartes}
-                                    >
-                                        <option value="">Seleccione un ítem</option>
-                                        {partesDisponibles.map((parte) => (
-                                            <option key={parte.id} value={parte.id}>
-                                                {formatParteLabel(parte)}
-                                            </option>
-                                        ))}
-                                    </Select>
-                                </div>
-                                {errors.parteId && <p className="text-sm text-red-500 mt-1">{errors.parteId}</p>}
-                            </div>
-
-                            {/* Cantidad */}
-                            <div className="mb-4">
-                                <Label>Cantidad *</Label>
-                                <div className="relative">
-                                    <HashtagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                    <Input
-                                        type="number"
-                                        min="1"
-                                        step={1}
-                                        value={formData.cantidad}
-                                        onChange={(e) => handleChange("cantidad", e.target.value)}
-                                        placeholder="Cantidad"
-                                        className={`pl-10 bg-white dark:bg-gray-800 text-black dark:text-white ${errors.cantidad ? 'border-red-500' : ''}`}
-                                    />
-                                </div>
-                                {errors.cantidad && <p className="text-sm text-red-500 mt-1">{errors.cantidad}</p>}
-                            </div>
-
-                            {/* Comentario (opcional) */}
-                            <div className="mb-4">
-                                <Label>Comentario (opcional)</Label>
-                                <textarea
-                                    value={formData.comentario || ''}
-                                    onChange={(e) => handleChange("comentario", e.target.value)}
-                                    placeholder="Notas adicionales sobre este ítem"
-                                    className="w-full px-4 py-2 rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    rows={3}
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-between gap-4 mt-6">
-                        <div>
-                            {showNavigation && onBack && (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={onBack}
-                                    disabled={loading}
-                                >
-                                    Atrás
-                                </Button>
-                            )}
-                        </div>
-
-                        <div className="flex gap-4">
-                            <Button
-                                type="submit"
-                                disabled={loading || loadingPartes}
-                                loading={loading}
-                                className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                                Agregar
-                            </Button>
-
-                            {showNavigation && onNext && (
-                                <Button
-                                    type="button"
-                                    onClick={onNext}
-                                    disabled={loading}
-                                >
-                                    Finalizar
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                </form>
-            </div>
+            {content}
         </Modal>
     );
 }

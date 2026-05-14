@@ -152,7 +152,7 @@ export function useOrders() {
 
       const payload = {
         ...orderData,
-        accesorios: orderData.accesorios || [],
+        accesorios: orderData.accesorios && orderData.accesorios.length > 0 ? orderData.accesorios : undefined,
         fechaPrometidaEntrega: orderData.fechaPrometidaEntrega || null,
         estadoOrdenId: orderData.estadoOrdenId || undefined, // El backend usará el estado por defecto
         recepcionistaId: session?.user?.id
@@ -278,7 +278,6 @@ export function useOrders() {
         },
         session,
       );
-      toast.success("Estado de la orden actualizado exitosamente");
       return updatedOrder;
     } catch (error) {
       //console.error("Error al cambiar estado de la orden:", error);

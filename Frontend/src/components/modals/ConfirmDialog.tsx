@@ -11,6 +11,7 @@ interface ConfirmDialogProps {
   confirmText?: string;
   cancelText?: string;
   destructive?: boolean;
+  customActions?: React.ReactNode;
 }
 
 export default function ConfirmDialog({
@@ -22,6 +23,7 @@ export default function ConfirmDialog({
   confirmText = 'Confirmar',
   cancelText = 'Cancelar',
   destructive = false,
+  customActions,
 }: ConfirmDialogProps) {
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -70,25 +72,29 @@ export default function ConfirmDialog({
         </p>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
-          >
-            {cancelText}
-          </button>
-          <button
-            ref={confirmButtonRef}
-            type="button"
-            onClick={onConfirm}
-            className={`rounded-md px-4 py-2 text-sm font-medium text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
-              destructive
-                ? 'bg-red-600 hover:bg-red-700 focus-visible:ring-red-500'
-                : 'bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-500'
-            }`}
-          >
-            {confirmText}
-          </button>
+          {customActions ? customActions : (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+              >
+                {cancelText}
+              </button>
+              <button
+                ref={confirmButtonRef}
+                type="button"
+                onClick={onConfirm}
+                className={`rounded-md px-4 py-2 text-sm font-medium text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                  destructive
+                    ? 'bg-red-600 hover:bg-red-700 focus-visible:ring-red-500'
+                    : 'bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-500'
+                }`}
+              >
+                {confirmText}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -5,7 +5,7 @@ import Badge from '@/components/ui/badge/Badge';
 import { formatDate, formatUserName } from '@/lib/formatters';
 import type { Order } from '@/types/order.types';
 import { getEstadoColor } from '@/utils/badge-utils';
-import { ArrowRightIcon, EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
+import { ArrowRightIcon, ArrowLeftIcon, EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
 
 export interface ActionDef {
   key: string;
@@ -14,6 +14,7 @@ export interface ActionDef {
   onClick: () => void;
   className?: string;
   disabled?: boolean;
+  isPrimary?: boolean;
 }
 
 interface OrdenCardProps {
@@ -22,21 +23,31 @@ interface OrdenCardProps {
   primaryActionsCount?: number;
   overflowActionsLabel?: string;
   onAdvance?: () => void;
+  onRetroceder?: () => void;
   isLastState?: boolean;
+  isFirstState?: boolean;
+  isHighlighted?: boolean;
 }
 
 export default function OrdenCard({
   order,
   actions = [],
-  primaryActionsCount = 3,
   overflowActionsLabel = 'Más acciones',
   onAdvance,
+  onRetroceder,
   isLastState = false,
+  isFirstState = false,
+  isHighlighted = false,
 }: OrdenCardProps) {
-  const primaryActions = actions.slice(0, primaryActionsCount);
-  const overflowActions = actions.slice(primaryActionsCount);
+  const primaryActions = actions.filter(a => a.isPrimary);
+  const overflowActions = actions.filter(a => !a.isPrimary);
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const menuButtonRef = React.useRef<HTMLButtonElement>(null);
+
+  const lastHistory = React.useMemo(() => {
+    if (!order.historialEstados || order.historialEstados.length === 0) return null;
+    return [...order.historialEstados].sort((a, b) => new Date(b.fechaCambio).getTime() - new Date(a.fechaCambio).getTime())[0];
+  }, [order.historialEstados]);
 
   // Cerrar menú al hacer clic fuera
   React.useEffect(() => {
@@ -51,7 +62,11 @@ export default function OrdenCard({
   }, [isMenuOpen]);
 
   return (
-    <div className="relative flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-white/[0.03] md:flex-row md:items-center md:justify-between">
+    <div className={`relative flex flex-col gap-4 rounded-xl border p-4 shadow-sm md:flex-row md:items-center md:justify-between transition-all duration-700 ${
+      isHighlighted 
+        ? 'border-brand-500 bg-brand-50/50 dark:border-brand-500/50 dark:bg-brand-900/10 ring-2 ring-brand-500/20 shadow-md scale-[1.01] z-10' 
+        : 'border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]'
+    }`}>
       {/* Decorative left border for status (optional) */}
       <div 
         className="absolute bottom-0 left-0 top-0 w-1 rounded-l-xl opacity-75"
@@ -67,6 +82,22 @@ export default function OrdenCard({
             <Badge size="sm" color={getEstadoColor(order.estadoOrden?.nombre || '')}>
               {order.estadoOrden?.nombre || 'Sin estado'}
             </Badge>
+            {order.presupuesto?.estado && (
+              <Badge 
+                size="sm" 
+                color={
+                  order.presupuesto.estado.nombre.toLowerCase().includes('aprob') ? 'success' :
+                  order.presupuesto.estado.nombre.toLowerCase().includes('rechaz') ? 'error' : 'warning'
+                }
+              >
+                Presupuesto: {order.presupuesto.estado.nombre}
+              </Badge>
+            )}
+            {order.casillero && (
+              <Badge size="sm" color="info">
+                Casillero: {order.casillero.codigo}
+              </Badge>
+            )}
             {!order.estado && (
               <Badge size="sm" color="error">Inactiva</Badge>
             )}
@@ -100,6 +131,18 @@ export default function OrdenCard({
             </div>
           )}
         </div>
+
+        {/* Historial log */}
+        {lastHistory && (
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+            </svg>
+            <span className="truncate">
+              Actualizado a <strong>{lastHistory.estadoOrden?.nombre || 'Estado'}</strong> por {formatUserName(lastHistory.usuario)} el {formatDate(lastHistory.fechaCambio)}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-end gap-2 md:pl-4">
@@ -151,6 +194,17 @@ export default function OrdenCard({
                 </div>
               )}
             </div>
+          )}
+
+          {/* Retroceder button */}
+          {onRetroceder && !isFirstState && (
+            <button 
+              onClick={onRetroceder}
+              title="Retroceder ODS"
+              className="flex items-center justify-center h-10 w-10 ml-2 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors shadow-sm dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              <ArrowLeftIcon className="h-5 w-5" />
+            </button>
           )}
 
           {/* Siguiente Paso button */}

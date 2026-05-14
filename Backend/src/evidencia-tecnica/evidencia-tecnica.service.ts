@@ -25,7 +25,10 @@ export class EvidenciaTecnicaService {
       throw new InternalServerErrorException('Debe proporcionar una URL o archivo');
     }
 
-    const orden = await this.orderRepository.findOne({ where: { id: ordenId } });
+    const orden = await this.orderRepository.findOne({ 
+      where: { id: ordenId },
+      relations: ['estadoOrden']
+    });
     if (!orden) {
       throw new NotFoundException(`Orden con ID ${ordenId} no encontrada`);
     }
@@ -38,6 +41,7 @@ export class EvidenciaTecnicaService {
     const evidencia = this.evidenciaRepository.create({
       orden,
       subidoPor: usuario,
+      estadoOrden: orden.estadoOrden,
       archivoUrl,
       tipoArchivo: this.determinarTipoArchivo(archivoUrl),
       descripcion,
@@ -70,6 +74,7 @@ export class EvidenciaTecnicaService {
     const query = this.evidenciaRepository.createQueryBuilder('evidencia')
       .leftJoinAndSelect('evidencia.orden', 'orden')
       .leftJoinAndSelect('evidencia.subidoPor', 'usuario')
+      .leftJoinAndSelect('evidencia.estadoOrden', 'estadoOrden')
       .where('evidencia.deletedAt IS NULL')
       .orderBy('evidencia.fechaSubida', 'DESC')
       .skip(skip)

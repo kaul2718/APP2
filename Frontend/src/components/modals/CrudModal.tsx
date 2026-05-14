@@ -13,6 +13,7 @@ interface CrudModalProps {
   children: React.ReactNode;
   submitLabel?: string;
   hideActions?: boolean;
+  maxWidth?: string;
 }
 
 export default function CrudModal({
@@ -25,6 +26,7 @@ export default function CrudModal({
   children,
   submitLabel,
   hideActions = false,
+  maxWidth = 'max-w-2xl',
 }: CrudModalProps) {
   const isViewMode = mode === 'view';
 
@@ -46,7 +48,7 @@ export default function CrudModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} className="mx-4 w-full max-w-2xl p-6">
+    <Modal isOpen={isOpen} onClose={onClose} title={title} className={`mx-4 w-full ${maxWidth} p-6 max-h-[90vh] overflow-y-auto`}>
       <div className="space-y-5">
         <h2 className="pr-10 text-xl font-semibold text-gray-900 dark:text-white">{title}</h2>
 

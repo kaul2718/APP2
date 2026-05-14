@@ -52,7 +52,7 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
         estadoOrdenId: order.estadoOrden?.id?.toString() || '',
         problemaReportado: order.problemaReportado || '',
         fechaPrometidaEntrega: order.fechaPrometidaEntrega
-          ? format(new Date(order.fechaPrometidaEntrega), 'yyyy-MM-dd')
+          ? format(new Date(order.fechaPrometidaEntrega), "yyyy-MM-dd'T'HH:mm")
           : '',
         accesorios: order.accesorios?.join(', ') || '',
         casilleroId: order.casillero?.id?.toString() || ''
@@ -83,7 +83,7 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
       const updatedData = {
         estadoOrdenId: formData.estadoOrdenId ? parseInt(formData.estadoOrdenId) : undefined,
         problemaReportado: formData.problemaReportado,
-        fechaPrometidaEntrega: formData.fechaPrometidaEntrega || undefined,
+        fechaPrometidaEntrega: formData.fechaPrometidaEntrega ? formData.fechaPrometidaEntrega : null,
         accesorios: formData.accesorios
           ? formData.accesorios.split(',').map(item => item.trim()).filter(item => item)
           : undefined,
@@ -128,6 +128,11 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
       title={`Editar Orden #${order.workOrderNumber}`}
       className="max-w-2xl"
     >
+      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white pr-8">
+          Editar Orden #{order.workOrderNumber}
+        </h2>
+      </div>
       <form onSubmit={handleSubmit} className="p-6 space-y-6">
         {/* Técnico asignado */}
         <div>
@@ -150,29 +155,7 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
           </select>
         </div>
 
-        {/* Estado de la orden */}
-        <div>
-          <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
-            Estado de la Orden
-          </label>
-          <select
-            name="estadoOrdenId"
-            value={formData.estadoOrdenId}
-            onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            disabled={loadingEstados}
-            required
-          >
-            <option value="">Seleccione un estado</option>
-            {estadosActivos.map(estado => (
-              <option key={estado.id} value={estado.id}>
-                {estado.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Casillero - Siempre visible */}
+        {/* Estado de la orden (Eliminado para respetar el flujo estricto) */}        {/* Casillero - Siempre visible */}
         <div>
           <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
             Asignar Casillero

@@ -134,7 +134,7 @@ export default function OrdenDetailsModal({ isOpen, onClose, order }: Props) {
                   className="rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-700"
                 >
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{actividad.tipoActividad.nombre}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{actividad.tipoActividad?.nombre || 'Actividad Técnica'}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(actividad.fecha)}</p>
                   </div>
                   <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">

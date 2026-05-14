@@ -25,6 +25,7 @@ export class DetalleManoObraService {
     const presupuesto = await this.presupuestoRepository.findOne({
       where: { id: presupuestoId },
       withDeleted: true,
+      relations: ['orden'],
     });
     if (!presupuesto) {
       throw new NotFoundException(`Presupuesto con ID ${presupuestoId} no encontrado`);
@@ -53,6 +54,7 @@ export class DetalleManoObraService {
       costoUnitario,
       costoTotal,
       estado: true, // Por defecto activo
+      estadoOrdenId: presupuesto.orden?.estadoOrdenId || null,
     });
 
     return await this.detalleRepository.save(detalle);

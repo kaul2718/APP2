@@ -127,20 +127,20 @@ export class OrderController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateOrderDto,
-    @Req() req,
+    @CurrentUser() user: any,
   ): Promise<Order> {
     const parsedId = parseInt(id, 10);
     if (isNaN(parsedId) || parsedId <= 0) {
       throw new BadRequestException('ID debe ser un número positivo');
     }
 
-    if (!req.user || !req.user.sub) {
+    if (!user || (!user.sub && !user.id)) {
       throw new UnauthorizedException('Usuario no autenticado');
     }
 
     return await this.orderService.update(parsedId, {
       ...dto,
-      userId: req.user.sub
+      userId: user.sub || user.id
     });
   }
 
@@ -233,4 +233,12 @@ export class OrderController {
   async getOrdersForClient(@CurrentUser() user: any) {  // Usa any temporalmente para debug
     return this.orderService.findOrdersByClient(user.sub); // Usa user.sub en lugar de user.id
   }
-}
+
+  @Get('public/consulta')
+  async getPublicOrder(
+    @Query('cedula') cedula: string,
+    @Query('workorder') workorder: string,
+  ) {
+    return this.orderService.findPublicOrder(cedula, workorder);
+  }
+}

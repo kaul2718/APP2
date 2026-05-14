@@ -12,12 +12,15 @@ import type { Order } from "@/types/order.types";
 
 import OrdenDetailsModal from "@/components/modals/OrdenDetailsModal";
 import OrdenEditModal from "@/components/modals/OrdenEditModal";
+import { useRouter } from "next/navigation";
 import AgregarPresupuestoModal from "@/components/modals/AgregarPresupuestoModal";
 import PresupuestoDetailsModal from "@/components/modals/PresupuestoDetailsModal";
 import AgregarActividadTecnicaModal from "@/components/modals/AgregarActividadTecnicaModal";
 import ActividadesPorOrdenModal from "@/components/modals/ActividadesPorOrdenModal";
 import AgregarEvidenciaTecnicaModal from "@/components/modals/AgregarEvidenciaTecnicaModal";
 import ConfirmDialog from "@/components/modals/ConfirmDialog";
+import AsignarCasilleroModal from "@/components/modals/AsignarCasilleroModal";
+import GenerarPdfEntregaModal from "@/components/modals/GenerarPdfEntregaModal";
 
 import StateTabsBar from "./StateTabsBar";
 import OrdenCard from "./OrdenCard";
@@ -31,7 +34,9 @@ import {
   CurrencyDollarIcon,
   TrashIcon,
   NoSymbolIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  ArchiveBoxIcon,
+  PrinterIcon
 } from "@heroicons/react/24/outline";
 
 interface UpdateOrderData {
@@ -45,6 +50,7 @@ interface UpdateOrderData {
 }
 
 export default function OrdenListLayout() {
+  const router = useRouter();
   const {
     orders,
     loading,
@@ -78,6 +84,63 @@ export default function OrdenListLayout() {
   const userRole = session?.user?.role;
   const canOperateOrders = userRole === "admin" || userRole === "tech" || userRole === "recep";
   const canDeleteOrders = userRole === "admin";
+  
+  const sortedEstadosOrden = React.useMemo(() => {
+    const normalizeString = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const STATUS_ORDER = [
+      "recepcion", 
+      "diagnostico", 
+      "repuestos", 
+      "aprobacion", 
+      "reparacion", 
+      "control", 
+      "entrega", 
+      "archivados"
+    ];
+    return [...estadosOrden].sort((a, b) => {
+      const aIdx = STATUS_ORDER.indexOf(normalizeString(a.nombre));
+      const bIdx = STATUS_ORDER.indexOf(normalizeString(b.nombre));
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return -1;
+      if (bIdx !== -1) return 1;
+      return a.nombre.localeCompare(b.nombre);
+    });
+  }, [estadosOrden]);
+
+  React.useEffect(() => {
+    if (sortedEstadosOrden.length > 0 && estadoOrdenId === undefined) {
+      const savedTab = sessionStorage.getItem('lastActiveTab');
+      const activeEstados = sortedEstadosOrden.filter(e => e.estado);
+      
+      if (savedTab && activeEstados.some(e => e.id === Number(savedTab))) {
+        setEstadoOrdenId(Number(savedTab));
+      } else if (activeEstados.length > 0) {
+        setEstadoOrdenId(activeEstados[0].id);
+      }
+    }
+  }, [sortedEstadosOrden, estadoOrdenId, setEstadoOrdenId]);
+
+  React.useEffect(() => {
+    if (estadoOrdenId !== undefined) {
+      sessionStorage.setItem('lastActiveTab', estadoOrdenId.toString());
+    }
+  }, [estadoOrdenId]);
+
+  const [lastModifiedOrderId, setLastModifiedOrderId] = useState<number | null>(null);
+
+  React.useEffect(() => {
+    const saved = sessionStorage.getItem('lastModifiedOrderId');
+    if (saved) setLastModifiedOrderId(Number(saved));
+  }, []);
+
+  const updateLastModifiedOrder = (id: number | null) => {
+    setLastModifiedOrderId(id);
+    if (id) {
+      sessionStorage.setItem('lastModifiedOrderId', id.toString());
+    } else {
+      sessionStorage.removeItem('lastModifiedOrderId');
+    }
+  };
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -94,13 +157,25 @@ export default function OrdenListLayout() {
   const [showActividadesModal, setShowActividadesModal] = useState(false);
 
   const [isEvidenciaModalOpen, setIsEvidenciaModalOpen] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<{ action: "toggle" | "delete" | "advance"; order: Order; nextState?: any } | null>(null);
+  const [isCasilleroModalOpen, setIsCasilleroModalOpen] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ action: "toggle" | "delete" | "advance" | "retroceder" | "advance_warning"; order: Order; nextState?: any; prevState?: any; warningType?: "diagnostico" | "presupuesto" | "presupuesto_rechazado" | "presupuesto_pendiente" | "sin_casillero" | "imprimir_acta" } | null>(null);
 
   const [limit, setLimit] = useState(10);
 
   const handleAddEvidencia = (order: Order) => {
     setSelectedOrder(order);
     setIsEvidenciaModalOpen(true);
+  };
+
+  const handleCasilleroClick = (order: Order) => {
+    setSelectedOrder(order);
+    setIsCasilleroModalOpen(true);
+  };
+
+  const handlePdfClick = (order: Order) => {
+    setSelectedOrder(order);
+    setIsPdfModalOpen(true);
   };
 
   const handleViewActivities = (orderId: number, orderNumber: string) => {
@@ -115,6 +190,10 @@ export default function OrdenListLayout() {
   };
 
   const handlePresupuestoClick = (order: Order) => {
+    if (Boolean(order.presupuesto)) {
+      void handleViewPresupuesto(order);
+      return;
+    }
     setSelectedOrderId(order.id);
     setIsPresupuestoModalOpen(true);
   };
@@ -179,24 +258,32 @@ export default function OrdenListLayout() {
   const handleConfirmAction = async () => {
     if (!confirmAction) return;
 
-    const { action, order, nextState } = confirmAction;
+    const { action, order, nextState, prevState } = confirmAction;
 
     try {
       if (action === "toggle") {
         const estaActivo = order.estado;
         await toggleOrderStatus(order.id);
         toast.success(`Orden ${!estaActivo ? "habilitada" : "deshabilitada"} correctamente`);
-      } else if (action === "advance" && nextState) {
+        fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
+      } else if ((action === "advance" || action === "advance_warning") && nextState) {
         await changeOrderStatus(order.id, nextState.id);
         toast.success(`Orden avanzada a: ${nextState.nombre}`);
+        updateLastModifiedOrder(order.id);
+        setEstadoOrdenId(nextState.id);
+      } else if (action === "retroceder" && prevState) {
+        await changeOrderStatus(order.id, prevState.id);
+        toast.success(`Orden retrocedida a: ${prevState.nombre}`);
+        updateLastModifiedOrder(order.id);
+        setEstadoOrdenId(prevState.id);
       } else {
         await deleteOrder(order.id);
         toast.success("Orden eliminada correctamente");
+        fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
       }
 
-      fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
     } catch (error) {
-      const accion = action === "toggle" ? (order.estado ? "deshabilitar" : "habilitar") : action === "advance" ? "avanzar" : "eliminar";
+      const accion = action === "toggle" ? (order.estado ? "deshabilitar" : "habilitar") : action === "advance" ? "avanzar" : action === "retroceder" ? "retroceder" : "eliminar";
       toast.error(`Error al ${accion} orden`);
     } finally {
       setConfirmAction(null);
@@ -204,40 +291,104 @@ export default function OrdenListLayout() {
   };
 
   const handleAdvanceClick = (order: Order) => {
-    if (!order.estadoOrden || estadosOrden.length === 0) return;
+    if (!order.estadoOrden || sortedEstadosOrden.length === 0) return;
     
+    const estadoNombre = order.estadoOrden.nombre.toLowerCase();
+    
+    // Validaciones UX (Tarea 4)
+    if (estadoNombre.includes('diagn')) {
+      const activeEstados = sortedEstadosOrden.filter(e => e.estado);
+      const currentIndex = activeEstados.findIndex(e => e.id === order.estadoOrden?.id);
+      
+      if (currentIndex >= 0 && currentIndex < activeEstados.length - 1) {
+        const nextState = activeEstados[currentIndex + 1];
+        setConfirmAction({ action: "advance_warning", order, nextState });
+      }
+      return;
+    }
+    
+    const isPendingDiagnosis = estadoNombre.includes('diagn') && (!order.actividades || order.actividades.length === 0);
+    const isPendingBudget = (estadoNombre.includes('repuesto') || estadoNombre.includes('aprob')) && !order.presupuesto;
+
     // Obtenemos todos los estados activos y ordenados
-    const activeEstados = estadosOrden.filter(e => e.estado);
+    const activeEstados = sortedEstadosOrden.filter(e => e.estado);
     const currentIndex = activeEstados.findIndex(e => e.id === order.estadoOrden?.id);
     
     if (currentIndex >= 0 && currentIndex < activeEstados.length - 1) {
       const nextState = activeEstados[currentIndex + 1];
-      setConfirmAction({ action: "advance", order, nextState });
+
+      if (estadoNombre.includes('aprob')) {
+        const budgetStatus = order.presupuesto?.estado?.nombre?.toLowerCase() || '';
+
+        if (budgetStatus.includes('rechaz')) {
+          const controlState = activeEstados.find(e => e.nombre.toLowerCase().includes('control')) || activeEstados[activeEstados.length - 1];
+          setConfirmAction({ action: "advance_warning", order, nextState: controlState, warningType: "presupuesto_rechazado" });
+          return;
+        }
+
+        if (budgetStatus.includes('pendien')) {
+          setConfirmAction({ action: "advance_warning", order, nextState, warningType: "presupuesto_pendiente" });
+          return;
+        }
+      }
+
+      if (estadoNombre.includes('control') || estadoNombre.includes('almac')) {
+        if (!order.casillero) {
+          setConfirmAction({ action: "advance_warning", order, nextState, warningType: "sin_casillero" });
+          return;
+        }
+      }
+
+      if (estadoNombre.includes('entreg')) {
+        setConfirmAction({ action: "advance_warning", order, nextState, warningType: "imprimir_acta" });
+        return;
+      }
+
+      if (isPendingDiagnosis) {
+        setConfirmAction({ action: "advance_warning", order, nextState, warningType: "diagnostico" });
+      } else if (isPendingBudget) {
+        setConfirmAction({ action: "advance_warning", order, nextState, warningType: "presupuesto" });
+      } else {
+        setConfirmAction({ action: "advance", order, nextState });
+      }
+    }
+  };
+
+  const handleRetrocederClick = (order: Order) => {
+    if (!order.estadoOrden || sortedEstadosOrden.length === 0) return;
+    
+    const activeEstados = sortedEstadosOrden.filter(e => e.estado);
+    const currentIndex = activeEstados.findIndex(e => e.id === order.estadoOrden?.id);
+    
+    if (currentIndex > 0) {
+      const prevState = activeEstados[currentIndex - 1];
+      setConfirmAction({ action: "retroceder", order, prevState });
     }
   };
 
   const buildActions = (order: Order) => {
     const estaActivo = order.estado;
     const tienePresupuesto = Boolean(order.presupuesto);
+    const estadoNombre = order.estadoOrden?.nombre.toLowerCase() || '';
+
+    // Lógica para definir acciones primarias
+    const isDiagnosticoOrReparacion = estadoNombre.includes('diagn') || estadoNombre.includes('repara');
+    const isRepuestosOrAprobacion = estadoNombre.includes('repuesto') || estadoNombre.includes('aprob');
+    const isRecepcion = estadoNombre.includes('recep');
+    const isControlOrAlmacen = estadoNombre.includes('control') || estadoNombre.includes('almac');
+
     const actions: any[] = [
       {
         key: "view",
-        label: "Ver",
+        label: "Ver Perfil ODS",
         icon: <EyeIcon className="h-5 w-5" />,
-        onClick: () => handleViewClick(order),
+        onClick: () => router.push(`/ver-orden/${order.id}`), // Cambiado para redirigir a la nueva página
         className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
+        isPrimary: true,
       },
     ];
 
-    if (tienePresupuesto) {
-      actions.push({
-        key: "view-budget",
-        label: "Ver Presupuesto",
-        icon: <CurrencyDollarIcon className="h-5 w-5" />,
-        onClick: () => void handleViewPresupuesto(order),
-        className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
-      });
-    }
+
 
     actions.push({
       key: "view-activities",
@@ -245,6 +396,7 @@ export default function OrdenListLayout() {
       icon: <QueueListIcon className="h-5 w-5" />,
       onClick: () => handleViewActivities(order.id, order.workOrderNumber),
       className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
+      isPrimary: false, // Siempre al menú ... a menos que sea principal
     });
 
     if (canOperateOrders) {
@@ -255,6 +407,23 @@ export default function OrdenListLayout() {
           icon: <PencilIcon className="h-5 w-5" />,
           onClick: () => handleEditClick(order),
           className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
+          isPrimary: isRecepcion,
+        },
+        {
+          key: "assign-locker",
+          label: "Asignar Casillero",
+          icon: <ArchiveBoxIcon className="h-5 w-5" />,
+          onClick: () => handleCasilleroClick(order),
+          className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
+          isPrimary: isControlOrAlmacen,
+        },
+        {
+          key: "generate-pdf",
+          label: "Generar Acta PDF",
+          icon: <PrinterIcon className="h-5 w-5" />,
+          onClick: () => handlePdfClick(order),
+          className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
+          isPrimary: estadoNombre.includes('entreg') || estadoNombre.includes('archiv') || isControlOrAlmacen,
         },
         {
           key: "add-activity",
@@ -262,6 +431,7 @@ export default function OrdenListLayout() {
           icon: <DocumentPlusIcon className="h-5 w-5" />,
           onClick: () => handleAddActivity(order),
           className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
+          isPrimary: isDiagnosticoOrReparacion || estadoNombre.includes('entreg'),
         },
         {
           key: "add-evidence",
@@ -269,6 +439,7 @@ export default function OrdenListLayout() {
           icon: <PhotoIcon className="h-5 w-5" />,
           onClick: () => handleAddEvidencia(order),
           className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
+          isPrimary: isDiagnosticoOrReparacion || isRecepcion || estadoNombre.includes('repuesto') || isControlOrAlmacen || estadoNombre.includes('entreg'),
         },
         {
           key: "toggle",
@@ -276,6 +447,7 @@ export default function OrdenListLayout() {
           icon: estaActivo ? <NoSymbolIcon className="h-5 w-5" /> : <CheckCircleIcon className="h-5 w-5" />,
           onClick: () => void handleToggleEstado(order),
           className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800",
+          isPrimary: false,
         }
       );
 
@@ -286,6 +458,16 @@ export default function OrdenListLayout() {
           icon: <CurrencyDollarIcon className="h-5 w-5" />,
           onClick: () => handlePresupuestoClick(order),
           className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
+          isPrimary: isRepuestosOrAprobacion || estadoNombre.includes('repara') || estadoNombre.includes('diagn') || isRecepcion || estadoNombre.includes('entreg'),
+        });
+      } else {
+        actions.push({
+          key: "view-budget",
+          label: "Ver Presupuesto",
+          icon: <CurrencyDollarIcon className="h-5 w-5" />,
+          onClick: () => handleViewPresupuesto(order),
+          className: "flex items-center justify-center h-10 w-10 rounded-full border border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 transition-colors dark:border-green-900/30 dark:text-green-400 dark:hover:bg-green-900/20",
+          isPrimary: isRepuestosOrAprobacion || estadoNombre.includes('repara') || estadoNombre.includes('diagn') || isRecepcion || estadoNombre.includes('entreg'),
         });
       }
     }
@@ -297,6 +479,7 @@ export default function OrdenListLayout() {
         icon: <TrashIcon className="h-5 w-5" />,
         onClick: () => void handleDeleteOrder(order),
         className: "flex items-center justify-center h-10 w-10 rounded-full border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-colors dark:border-red-900/30 dark:text-red-400 dark:hover:bg-red-900/20",
+        isPrimary: false,
       });
     }
 
@@ -307,7 +490,7 @@ export default function OrdenListLayout() {
     <div className="flex flex-col gap-6">
       {/* 1. Tabs de Estados */}
       <StateTabsBar 
-        estados={estadosOrden}
+        estados={sortedEstadosOrden}
         activeStateId={estadoOrdenId}
         onStateChange={(id) => setEstadoOrdenId(id)}
         totalCount={totalItems}
@@ -407,22 +590,34 @@ export default function OrdenListLayout() {
         ) : orders.length === 0 ? (
           <div className="py-12 text-center text-gray-500 dark:text-gray-400">No se encontraron órdenes con estos filtros.</div>
         ) : (
-          orders.map((order) => {
-            const activeEstados = estadosOrden.filter(e => e.estado);
-            const currentIndex = activeEstados.findIndex(e => e.id === order.estadoOrden?.id);
-            const isLastState = currentIndex !== -1 && currentIndex === activeEstados.length - 1;
+          (() => {
+            const displayOrders = [...orders].sort((a, b) => {
+              if (a.id === lastModifiedOrderId) return -1;
+              if (b.id === lastModifiedOrderId) return 1;
+              return 0;
+            });
 
-            return (
-              <OrdenCard 
-                key={order.id} 
-                order={order} 
-                actions={buildActions(order)} 
-                primaryActionsCount={6} // Mostrar más acciones primarias para que salgan en línea
-                onAdvance={!isLastState ? () => handleAdvanceClick(order) : undefined}
-                isLastState={isLastState}
-              />
-            );
-          })
+            return displayOrders.map((order) => {
+              const activeEstados = sortedEstadosOrden.filter(e => e.estado);
+              const currentIndex = activeEstados.findIndex(e => e.id === order.estadoOrden?.id);
+              const isLastState = currentIndex !== -1 && currentIndex === activeEstados.length - 1;
+              const isFirstState = currentIndex === 0;
+
+              return (
+                <OrdenCard 
+                  key={order.id} 
+                  order={order} 
+                  actions={buildActions(order)} 
+                  primaryActionsCount={6}
+                  onAdvance={!isLastState ? () => handleAdvanceClick(order) : undefined}
+                  onRetroceder={!isFirstState && currentIndex !== -1 ? () => handleRetrocederClick(order) : undefined}
+                  isLastState={isLastState}
+                  isFirstState={isFirstState}
+                  isHighlighted={order.id === lastModifiedOrderId}
+                />
+              );
+            });
+          })()
         )}
       </div>
 
@@ -481,6 +676,23 @@ export default function OrdenListLayout() {
         </>
       )}
 
+      {isCasilleroModalOpen && (
+        <AsignarCasilleroModal
+          isOpen={isCasilleroModalOpen}
+          onClose={() => setIsCasilleroModalOpen(false)}
+          order={selectedOrder}
+          onSave={handleSaveOrder}
+        />
+      )}
+
+      {isPdfModalOpen && (
+        <GenerarPdfEntregaModal
+          isOpen={isPdfModalOpen}
+          onClose={() => setIsPdfModalOpen(false)}
+          order={selectedOrder}
+        />
+      )}
+
       {isPresupuestoModalOpen && (
         <AgregarPresupuestoModal
           isOpen={isPresupuestoModalOpen}
@@ -490,7 +702,7 @@ export default function OrdenListLayout() {
           }}
           orderId={selectedOrderId}
           onSuccess={() => {
-            toast.success("Presupuesto creado exitosamente");
+            fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
           }}
         />
       )}
@@ -515,9 +727,13 @@ export default function OrdenListLayout() {
             setSelectedOrder(null);
           }}
           onSuccess={() => {
-            toast.success("Actividad tecnica agregada correctamente");
+            // Toast is handled by useCrud
+            if (selectedOrder) updateLastModifiedOrder(selectedOrder.id);
+            fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
           }}
           orderId={selectedOrder?.id || null}
+          workOrderNumber={selectedOrder?.workOrderNumber}
+          isDiagnosticoMode={selectedOrder?.estadoOrden?.nombre.toLowerCase().includes('diagn')}
         />
       )}
 
@@ -549,6 +765,14 @@ export default function OrdenListLayout() {
             ? "Confirmar eliminación de orden"
             : confirmAction?.action === "advance"
             ? "Avanzar Orden"
+            : confirmAction?.action === "advance_warning"
+            ? (confirmAction.warningType === "presupuesto" ? "Orden sin Presupuesto" : 
+               confirmAction.warningType === "presupuesto_rechazado" ? "Presupuesto Rechazado" :
+               confirmAction.warningType === "presupuesto_pendiente" ? "Presupuesto Pendiente" : 
+               confirmAction.warningType === "sin_casillero" ? "Orden sin Casillero Asignado" : 
+               confirmAction.warningType === "imprimir_acta" ? "Finalizar Orden - Imprimir Acta" : "Orden sin Diagnóstico")
+            : confirmAction?.action === "retroceder"
+            ? "Retroceder Orden"
             : `Confirmar ${confirmAction?.order.estado ? "deshabilitación" : "habilitación"}`
         }
         description={
@@ -557,13 +781,168 @@ export default function OrdenListLayout() {
               ? `¿Deseas eliminar la orden #${confirmAction.order.workOrderNumber}?`
               : confirmAction.action === "advance"
               ? `¿Deseas avanzar la orden #${confirmAction.order.workOrderNumber} a la fase de "${confirmAction.nextState?.nombre}"?`
+              : confirmAction.action === "advance_warning"
+              ? (confirmAction.warningType === "presupuesto"
+                  ? `La orden #${confirmAction.order.workOrderNumber} no tiene un presupuesto registrado. ¿Qué deseas hacer?`
+                  : confirmAction.warningType === "presupuesto_rechazado"
+                  ? `El cliente ha rechazado el presupuesto para la orden #${confirmAction.order.workOrderNumber}. Al avanzar, la orden saltará la fase de Reparación y pasará directamente a "${confirmAction.nextState?.nombre}" para almacenamiento/devolución.`
+                  : confirmAction.warningType === "presupuesto_pendiente"
+                  ? `El presupuesto de la orden #${confirmAction.order.workOrderNumber} aún está en estado Pendiente. ¿Deseas avanzar a Reparación de todas formas o esperar la respuesta del cliente?`
+                  : confirmAction.warningType === "sin_casillero"
+                  ? `La orden #${confirmAction.order.workOrderNumber} no tiene un casillero asignado en Control/Almacén. ¿Deseas asignarle un casillero ahora o pasar directamente a la fase de "${confirmAction.nextState?.nombre}" (Entrega)?`
+                  : confirmAction.warningType === "imprimir_acta"
+                  ? `La orden #${confirmAction.order.workOrderNumber} pasará a su estado final de "${confirmAction.nextState?.nombre}". ¿Deseas imprimir / generar el Acta de Entrega en PDF ahora o pasar directamente al siguiente estado?`
+                  : (confirmAction.order.actividades && confirmAction.order.actividades.length > 0
+                      ? `¿Deseas avanzar la orden #${confirmAction.order.workOrderNumber} a la fase de "${confirmAction.nextState?.nombre}" o registrar otro diagnóstico?`
+                      : `La orden #${confirmAction.order.workOrderNumber} no tiene un diagnóstico registrado. ¿Qué deseas hacer?`))
+              : confirmAction.action === "retroceder"
+              ? `¿Deseas retroceder la orden #${confirmAction.order.workOrderNumber} a la fase de "${confirmAction.prevState?.nombre}"?`
               : `¿Deseas ${confirmAction.order.estado ? "deshabilitar" : "habilitar"} la orden #${confirmAction.order.workOrderNumber}?`
             : ""
         }
-        confirmText={confirmAction?.action === "delete" ? "Eliminar" : confirmAction?.action === "advance" ? "Avanzar" : "Confirmar"}
+        confirmText={confirmAction?.action === "delete" ? "Eliminar" : confirmAction?.action === "advance" ? "Avanzar" : confirmAction?.action === "retroceder" ? "Retroceder" : "Confirmar"}
         destructive={confirmAction?.action === "delete"}
         onConfirm={handleConfirmAction}
         onClose={() => setConfirmAction(null)}
+        customActions={
+          confirmAction?.action === "advance_warning" ? (
+            confirmAction.warningType === "presupuesto_rechazado" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleConfirmAction}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                >
+                  Avanzar a Control (Saltar Reparación)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmAction(null)}
+                  className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Cancelar
+                </button>
+              </>
+            ) : confirmAction.warningType === "presupuesto_pendiente" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const orderToUpdate = confirmAction.order;
+                    setConfirmAction(null);
+                    handlePresupuestoClick(orderToUpdate);
+                  }}
+                  className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  Ver presupuesto
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmAction}
+                  className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                >
+                  Avanzar de todas formas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmAction(null)}
+                  className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Cancelar
+                </button>
+              </>
+            ) : confirmAction.warningType === "sin_casillero" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const orderToUpdate = confirmAction.order;
+                    setConfirmAction(null);
+                    handleCasilleroClick(orderToUpdate);
+                  }}
+                  className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  Asignar Casillero
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmAction}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                >
+                  Avanzar a Entrega Directa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmAction(null)}
+                  className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Cancelar
+                </button>
+              </>
+            ) : confirmAction.warningType === "imprimir_acta" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const orderToUpdate = confirmAction.order;
+                    setConfirmAction(null);
+                    handlePdfClick(orderToUpdate);
+                  }}
+                  className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 flex items-center gap-2"
+                >
+                  <PrinterIcon className="h-4 w-4" />
+                  Imprimir / Generar Acta PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmAction}
+                  className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  Avanzar a Archivados
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmAction(null)}
+                  className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Cancelar
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const orderToUpdate = confirmAction.order;
+                    setConfirmAction(null);
+                    if (confirmAction.warningType === "presupuesto") {
+                      handlePresupuestoClick(orderToUpdate);
+                    } else {
+                      handleAddActivity(orderToUpdate);
+                    }
+                  }}
+                  className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                >
+                  {confirmAction.warningType === "presupuesto" ? "Agregar presupuesto" : (confirmAction.order.actividades && confirmAction.order.actividades.length > 0 ? "Agregar otro diagnóstico" : "Agregar diagnóstico")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmAction}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                >
+                  {confirmAction.warningType === "presupuesto" ? "Avanzar sin presupuesto" : (confirmAction.order.actividades && confirmAction.order.actividades.length > 0 ? "Avanzar" : "Avanzar sin diagnóstico")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmAction(null)}
+                  className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Cancelar
+                </button>
+              </>
+            )
+          ) : undefined
+        }
       />
     </div>
   );

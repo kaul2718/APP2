@@ -16,6 +16,10 @@ export interface EvidenciaTecnica {
     id: number;
     ordenId: number;
     subidoPor: UserBasic;
+    estadoOrden?: {
+        id: number;
+        nombre: string;
+    };
     archivoUrl: string;
     tipoArchivo: 'imagen' | 'video';
     descripcion?: string;
@@ -32,7 +36,7 @@ interface ApiResponse {
     limit?: number;
 }
 
-export function useEvidenciaTecnica() {
+export function useEvidenciaTecnica(initialOrdenId?: number) {
     const { data: session, status } = useSession();
     const [evidencias, setEvidencias] = useState<EvidenciaTecnica[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
@@ -40,7 +44,7 @@ export function useEvidenciaTecnica() {
     const [totalItems, setTotalItems] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [itemsPerPage, setItemsPerPage] = useState<number>(10);
-    const [ordenIdFilter, setOrdenIdFilter] = useState<number | undefined>();
+    const [ordenIdFilter, setOrdenIdFilter] = useState<number | undefined>(initialOrdenId);
     const [totalPages, setTotalPages] = useState<number>(1);
 
     const handleApiError = useCallback((error: unknown, defaultMessage: string) => {

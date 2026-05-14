@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, } from 'typeorm';
 import { Presupuesto } from 'src/presupuesto/entities/presupuesto.entity';
 import { TipoManoObra } from 'src/tipo-mano-obra/entities/tipo-mano-obra.entity';
+import { EstadoOrden } from 'src/estado-orden/entities/estado-orden.entity';
 
 @Entity('detalle_mano_obra')
 export class DetalleManoObra {
@@ -20,6 +21,13 @@ export class DetalleManoObra {
 
   @Column()
   tipoManoObraId: number;
+
+  @ManyToOne(() => EstadoOrden, { nullable: true, eager: true })
+  @JoinColumn({ name: 'estadoOrdenId' })
+  estadoOrden: EstadoOrden;
+
+  @Column({ nullable: true })
+  estadoOrdenId: number;
 
   @Column('int', { default: 1 })
   cantidad: number;

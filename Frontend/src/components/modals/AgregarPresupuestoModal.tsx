@@ -11,6 +11,7 @@ import { useEstadoPresupuesto } from "@/hooks/useEstadoPresupuesto";
 import { usePresupuesto } from "@/hooks/usePresupuesto";
 import AgregarManoObraModal from "./AgregarManoObraModal ";
 import AgregarItemsPresupuestoModal from "./AgregarItemsPresupuestoModal";
+import ConfirmDialog from "./ConfirmDialog";
 
 type WizardStep = 'presupuesto' | 'manoObra' | 'items';
 
@@ -50,6 +51,14 @@ export default function AgregarPresupuestoModal({
         manoObra: false,
         items: false
     });
+    const [confirmConfig, setConfirmConfig] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+        confirmText?: string;
+        cancelText?: string;
+        onConfirm: () => void;
+    } | null>(null);
 
     const { data: session } = useSession();
     const { createPresupuesto } = usePresupuesto();
@@ -165,6 +174,9 @@ export default function AgregarPresupuestoModal({
             });
 
             setPresupuestoId(result.id);
+            if (onSuccess) {
+                onSuccess(result.id);
+            }
             setCurrentStep('manoObra');
 
         } catch (error) {
@@ -184,10 +196,30 @@ export default function AgregarPresupuestoModal({
     };
 
     const handleCompleteWizard = () => {
-        if (!itemsAdded.manoObra && !itemsAdded.items) {
-            toast.warning('No has agregado ítems de mano de obra ni de presupuesto', {
-                position: "top-center",
-                autoClose: 5000,
+        if (!itemsAdded.manoObra || !itemsAdded.items) {
+            let missingMsg = "";
+            if (!itemsAdded.manoObra && !itemsAdded.items) {
+                missingMsg = "mano de obra ni repuestos";
+            } else if (!itemsAdded.manoObra) {
+                missingMsg = "mano de obra";
+            } else {
+                missingMsg = "repuestos/ítems";
+            }
+
+            setConfirmConfig({
+                isOpen: true,
+                title: "Finalizar Presupuesto sin Detalles",
+                description: `No has agregado ${missingMsg} a este presupuesto. ¿Deseas finalizar el presupuesto de todas formas o prefieres regresar a agregar?`,
+                confirmText: "Continuar sin agregar",
+                cancelText: "Regresar a agregar",
+                onConfirm: () => {
+                    setConfirmConfig(null);
+                    toast.success('Presupuesto completado');
+                    if (presupuestoId && onSuccess) {
+                        onSuccess(presupuestoId);
+                    }
+                    handleClose();
+                }
             });
             return;
         }
@@ -246,16 +278,19 @@ export default function AgregarPresupuestoModal({
                                     <Label htmlFor="estado-select">Estado del Presupuesto <span aria-hidden="true">*</span></Label>
                                     <div className="relative">
                                         <DocumentTextIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                        <input
-                                            type="text"
+                                        <select
                                             id="estado-select"
-                                            value={(() => {
-                                                const estado = estados.find(e => e.id === formData.estadoId);
-                                                return estado ? estado.nombre : 'Pendiente';
-                                            })()}
-                                            disabled
-                                            className="w-full pl-10 pr-4 py-2 rounded-md bg-gray-100 dark:bg-gray-700 text-black dark:text-white border border-gray-300 dark:border-gray-600 cursor-not-allowed"
-                                        />
+                                            value={formData.estadoId || ""}
+                                            onChange={(e) => handleChange("estadoId", Number(e.target.value))}
+                                            className="w-full pl-10 pr-4 py-2 rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+                                        >
+                                            <option value="" disabled>Seleccione un estado</option>
+                                            {estados.map((estado) => (
+                                                <option key={estado.id} value={estado.id}>
+                                                    {estado.nombre}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
 
@@ -295,19 +330,9 @@ export default function AgregarPresupuestoModal({
                                 type="submit"
                                 disabled={loading || loadingOrders || loadingEstados}
                                 loading={loading}
-                                className="w-full sm:w-auto"
+                                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
                             >
-                                Siguiente (Mano de Obra)
-                            </Button>
-
-                            <Button
-                                type="button"
-                                onClick={handleCompleteWizard}
-                                disabled={loading}
-                                className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 px-4 py-2 rounded-md transition duration-150"
-                            >
-                                <CheckCircleIcon className="w-5 h-5" />
-                                Finalizar Presupuesto
+                                Guardar y Continuar
                             </Button>
                         </div>
 
@@ -388,7 +413,7 @@ export default function AgregarPresupuestoModal({
             title={getStepTitle(currentStep)}
         >
             {/* Barra de progreso mejorada */}
-            <div className="px-6 pt-2 pb-4">
+            <div className="px-6 pt-4 pb-4 pr-12">
                 <div className="relative">
                     <div className="flex items-center justify-between">
                         {['presupuesto', 'manoObra', 'items'].map((step, index) => (
@@ -424,6 +449,18 @@ export default function AgregarPresupuestoModal({
             <div className="flex flex-col" style={{ minHeight: '400px' }}>
                 {renderStep()}
             </div>
+
+            {confirmConfig && (
+                <ConfirmDialog
+                    isOpen={confirmConfig.isOpen}
+                    title={confirmConfig.title}
+                    description={confirmConfig.description}
+                    confirmText={confirmConfig.confirmText}
+                    cancelText={confirmConfig.cancelText}
+                    onConfirm={confirmConfig.onConfirm}
+                    onClose={() => setConfirmConfig(null)}
+                />
+            )}
         </Modal>
     );
 }

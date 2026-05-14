@@ -56,17 +56,19 @@ export class OrderService {
       throw new BadRequestException('problemaReportado no puede estar vacío');
     }
 
-    // Validar fechaPrometidaEntrega no esté en el pasado
+    // Validar fechaPrometidaEntrega no esté en el pasado (comparamos solo el día)
     if (createDto.fechaPrometidaEntrega) {
       const fechaPromesa = new Date(createDto.fechaPrometidaEntrega);
-      if (fechaPromesa < new Date()) {
-        throw new BadRequestException('fechaPrometidaEntrega no puede estar en el pasado');
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      if (fechaPromesa < hoy) {
+        throw new BadRequestException('fechaPrometidaEntrega no puede ser anterior a hoy');
       }
     }
 
     // Validar accesorios si se proporcionan
     if (createDto.accesorios && createDto.accesorios.length === 0) {
-      throw new BadRequestException('accesorios no puede ser un array vacío, omítelo si no hay');
+      // Permitimos arrays vacíos
     }
 
     // Generar número de orden (versión corregida)
@@ -88,7 +90,7 @@ export class OrderService {
 
     const estadoOrden = createDto.estadoOrdenId
       ? await this.estadoOrdenRepository.findOneBy({ id: createDto.estadoOrdenId })
-      : await this.estadoOrdenRepository.findOneBy({ nombre: 'Ingresado / Recepcionado' });
+      : await this.getDefaultEstadoOrden();
 
     if (!estadoOrden) {
       throw new BadRequestException('No se pudo determinar el estado de la orden');
@@ -199,20 +201,21 @@ export class OrderService {
   }
 
   private async getDefaultEstadoOrden(): Promise<EstadoOrden> {
-    const pendiente = await this.estadoOrdenRepository.findOne({
-      where: { nombre: 'Pendiente' } // O el estado por defecto que uses
-    });
+    // Intentamos encontrar el estado Recepción o su equivalente
+    const qb = this.estadoOrdenRepository.createQueryBuilder("estado");
+    let defaultState = await qb
+      .where("LOWER(estado.nombre) LIKE :nombre", { nombre: '%recepci%' })
+      .getOne();
 
-    if (pendiente) {
-      return pendiente;
+    if (!defaultState) {
+      defaultState = await this.estadoOrdenRepository.findOne({ order: { id: 'ASC' } });
     }
 
-    const fallback = await this.estadoOrdenRepository.findOne({ order: { id: 'ASC' } });
-    if (!fallback) {
+    if (!defaultState) {
       throw new NotFoundException('No hay estados de orden configurados en la base de datos');
     }
 
-    return fallback;
+    return defaultState;
   }
 
   private async createHistorial(
@@ -294,9 +297,17 @@ export class OrderService {
     if (updateDto.fechaPrometidaEntrega !== undefined) {
       if (updateDto.fechaPrometidaEntrega) {
         const fechaPromesa = new Date(updateDto.fechaPrometidaEntrega);
-        if (fechaPromesa < new Date()) {
-          throw new BadRequestException('fechaPrometidaEntrega no puede estar en el pasado');
+        
+        // Solo validamos si la fecha cambió
+        const fechaActual = orden.fechaPrometidaEntrega ? new Date(orden.fechaPrometidaEntrega).getTime() : null;
+        if (fechaActual !== fechaPromesa.getTime()) {
+          const hoy = new Date();
+          hoy.setHours(0, 0, 0, 0);
+          if (fechaPromesa < hoy) {
+            throw new BadRequestException('fechaPrometidaEntrega no puede ser anterior a hoy');
+          }
         }
+        
         orden.fechaPrometidaEntrega = fechaPromesa;
       } else {
         orden.fechaPrometidaEntrega = null;
@@ -399,13 +410,22 @@ export class OrderService {
 
       orden.estadoOrden = estadoOrden;
       cambiosHistorial.push(`Estado cambiado a: ${estadoOrden.nombre}`);
+
+      if (estadoOrden.nombre.toLowerCase().includes('archiv') && orden.casillero) {
+        const casilleroActual = await this.casilleroRepository.findOneBy({ id: orden.casillero.id });
+        if (casilleroActual) {
+          casilleroActual.situacion = EstadoCasillero.DISPONIBLE;
+          casilleroActual.order = null;
+          await this.casilleroRepository.save(casilleroActual);
+          orden.casillero = null;
+          orden.casilleroId = null;
+          cambiosHistorial.push(`Casillero liberado por archivo`);
+        }
+      }
     }
 
     // Campos simples
     if (updateDto.accesorios !== undefined) {
-      if (Array.isArray(updateDto.accesorios) && updateDto.accesorios.length === 0) {
-        throw new BadRequestException('accesorios no puede ser un array vacío, usa null para remover');
-      }
       orden.accesorios = updateDto.accesorios;
       cambiosHistorial.push('Accesorios actualizados');
     }
@@ -515,6 +535,15 @@ export class OrderService {
       .leftJoinAndSelect('order.technician', 'technician')
       .leftJoinAndSelect('order.estadoOrden', 'estadoOrden')
       .leftJoinAndSelect('order.equipo', 'equipo')
+      .leftJoinAndSelect('order.actividades', 'actividades')
+      .leftJoinAndSelect('actividades.tipoActividad', 'tipoActividad')
+      .leftJoinAndSelect('order.presupuesto', 'presupuesto')
+      .leftJoinAndSelect('presupuesto.estado', 'estadoPresupuesto')
+      .leftJoinAndSelect('presupuesto.detallesPresupuestoItems', 'detallesItems')
+      .leftJoinAndSelect('detallesItems.parte', 'parteDetalle')
+      .leftJoinAndSelect('presupuesto.detallesManoObra', 'detallesManoObra')
+      .leftJoinAndSelect('detallesManoObra.tipoManoObra', 'tipoManoObra')
+      .leftJoinAndSelect('order.casillero', 'casillero')
       .orderBy('order.createdAt', 'DESC');
 
     // Manejo de la búsqueda corregido
@@ -682,7 +711,7 @@ export class OrderService {
 
     const orden = await this.orderRepository.findOne({
       where: { id: orderId },
-      relations: ['estadoOrden']
+      relations: ['estadoOrden', 'casillero']
     });
 
     if (!orden) {
@@ -720,6 +749,18 @@ export class OrderService {
 
     // Actualizar el estado actual
     orden.estadoOrden = nuevoEstado;
+
+    if (nuevoEstado.nombre.toLowerCase().includes('archiv') && orden.casillero) {
+      const casilleroActual = await this.casilleroRepository.findOneBy({ id: orden.casillero.id });
+      if (casilleroActual) {
+        casilleroActual.situacion = EstadoCasillero.DISPONIBLE;
+        casilleroActual.order = null;
+        await this.casilleroRepository.save(casilleroActual);
+        orden.casillero = null;
+        orden.casilleroId = null;
+      }
+    }
+
     return this.orderRepository.save(orden);
   }
 
@@ -744,7 +785,7 @@ export class OrderService {
         estado: true,
         deletedAt: null,
       },
-      relations: ['client', 'technician', 'estadoOrden'],
+      relations: ['client', 'technician', 'estadoOrden', 'actividades', 'actividades.tipoActividad'],
       order: { createdAt: 'DESC' }
     });
   }
@@ -767,10 +808,63 @@ export class OrderService {
       .leftJoinAndSelect('order.client', 'client')
       .leftJoinAndSelect('order.technician', 'technician')
       .leftJoinAndSelect('order.estadoOrden', 'estadoOrden')
+      .leftJoinAndSelect('order.actividades', 'actividades')
+      .leftJoinAndSelect('actividades.tipoActividad', 'tipoActividad')
       .where('technician.id = :technicianId', { technicianId })
       .andWhere('order.estado = :estado', { estado: true })
       .andWhere('order.deletedAt IS NULL')
       .orderBy('order.createdAt', 'DESC')
       .getMany();
   }
+
+  async findPublicOrder(cedula: string, workOrderNumber: string): Promise<any> {
+    if (!cedula || !workOrderNumber) {
+      throw new BadRequestException('Cédula y Número de Orden son requeridos');
+    }
+
+    const order = await this.orderRepository.findOne({
+      where: {
+        workOrderNumber: workOrderNumber.trim(),
+        client: { cedula: cedula.trim() },
+        estado: true,
+        deletedAt: null,
+      },
+      relations: [
+        'client',
+        'equipo',
+        'equipo.tipoEquipo',
+        'equipo.marca',
+        'equipo.modelo',
+        'estadoOrden'
+      ],
+    });
+
+    if (!order) {
+      throw new NotFoundException('No se encontró ninguna orden activa con esa cédula y número de orden.');
+    }
+
+    return {
+      id: order.id,
+      workOrderNumber: order.workOrderNumber,
+      problemaReportado: order.problemaReportado,
+      fechaPrometidaEntrega: order.fechaPrometidaEntrega,
+      estado: order.estado,
+      createdAt: order.createdAt,
+      cliente: {
+        nombre: order.client.nombre,
+        apellido: order.client.apellido,
+      },
+      equipo: {
+        tipo: order.equipo.tipoEquipo?.nombre || 'Equipo',
+        marca: order.equipo.marca?.nombre || 'Marca no especificada',
+        modelo: order.equipo.modelo?.nombre || 'Modelo no especificado',
+        numeroSerie: order.equipo.numeroSerie,
+      },
+      estadoOrden: {
+        id: order.estadoOrden?.id,
+        nombre: order.estadoOrden?.nombre || 'Recepción',
+      }
+    };
+  }
 }
+

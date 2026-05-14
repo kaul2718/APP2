@@ -35,15 +35,13 @@ const EvidenciaItem: React.FC<EvidenciaItemProps> = ({
                 )}
                 
                 {isOwner && (
-                    <Button
-                        variant="danger"
-                        size="sm"
-                        className="absolute top-2 right-2 p-2"
+                    <button
+                        className="absolute top-2 right-2 rounded-full bg-red-100 p-2 text-red-600 shadow-sm transition-colors hover:bg-red-200 dark:bg-red-900/50 dark:text-red-400 dark:hover:bg-red-900/80"
                         onClick={() => onDelete(evidencia.id)}
-                        aria-label="Eliminar evidencia"
+                        title="Eliminar evidencia"
                     >
                         <TrashIcon className="w-4 h-4" />
-                    </Button>
+                    </button>
                 )}
             </div>
             
@@ -59,10 +57,16 @@ const EvidenciaItem: React.FC<EvidenciaItemProps> = ({
                     </span>
                 </div>
                 
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                    {new Date(evidencia.fechaSubida).toLocaleDateString()} - 
-                    {new Date(evidencia.fechaSubida).toLocaleTimeString()}
-                </p>
+                <div className="flex flex-col gap-1 mb-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(evidencia.fechaSubida).toLocaleDateString()} - {new Date(evidencia.fechaSubida).toLocaleTimeString()}
+                    </p>
+                    {evidencia.estadoOrden && (
+                        <div className="inline-flex w-fit items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10 dark:bg-blue-900/30 dark:text-blue-300 dark:ring-blue-900/50">
+                            Etapa: {evidencia.estadoOrden.nombre}
+                        </div>
+                    )}
+                </div>
                 
                 {evidencia.descripcion && (
                     <p className="text-sm text-gray-700 dark:text-gray-300">

@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, DeleteDateColumn, UpdateDateColumn, } from 'typeorm';
 import { Presupuesto } from 'src/presupuesto/entities/presupuesto.entity';
 import { Parte } from 'src/parte/entities/parte.entity';
+import { EstadoOrden } from 'src/estado-orden/entities/estado-orden.entity';
 
 // Se mantiene el nombre físico legado de la tabla para no romper la BD existente
 // mientras el dominio y los endpoints ya operan como `DetallePresupuestoItem`.
@@ -34,6 +35,13 @@ export class DetallePresupuestoItem {
 
   @Column({ nullable: true })
   parteId?: number | null;
+
+  @ManyToOne(() => EstadoOrden, { nullable: true, eager: true })
+  @JoinColumn({ name: 'estadoOrdenId' })
+  estadoOrden?: EstadoOrden;
+
+  @Column({ nullable: true })
+  estadoOrdenId?: number;
 
   @Column({ default: true })
   estado: boolean;
