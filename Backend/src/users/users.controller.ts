@@ -28,6 +28,7 @@ export class UsersController {
     @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('includeInactive') includeInactive?: boolean,
+    @Query('role') role?: string,
   ) {
     const ALLOWED_LIMITS = [10, 25, 50, 100, 200];
     
@@ -48,6 +49,7 @@ export class UsersController {
       limitNum,
       search,
       includeInactive,
+      role,
     );
 
     return {

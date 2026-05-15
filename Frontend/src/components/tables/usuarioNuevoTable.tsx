@@ -7,11 +7,29 @@ import UsuarioDetailsModal from "../modals/UsuarioDetailsModal";
 import UsuarioEditModal from "../modals/UsuarioEditModal";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
-import { Usuario, useUsuario } from "@/hooks/useUsuario";
+import { Usuario, useUsuario, UseUsuarioReturn } from "@/hooks/useUsuario";
 import { useRoles } from "@/hooks/useRoles";
 import { ActionDef, ColumnDef, DataTable } from "./DataTable";
+import { 
+  EyeIcon, 
+  PencilSquareIcon, 
+  TrashIcon, 
+  ArrowPathIcon,
+  NoSymbolIcon,
+  CheckCircleIcon,
+  UserIcon
+} from "@heroicons/react/24/outline";
 
-export default function UsuarioNuevoTable() {
+interface UsuarioNuevoTableProps {
+  usuarioHook?: UseUsuarioReturn;
+}
+
+export default function UsuarioNuevoTable({
+  usuarioHook: propsHook,
+}: UsuarioNuevoTableProps) {
+  const internalHook = useUsuario();
+  const hook = propsHook || internalHook;
+  
   const {
     usuarios,
     loading,
@@ -26,7 +44,11 @@ export default function UsuarioNuevoTable() {
     setSearchTerm,
     showInactive,
     setShowInactive,
-  } = useUsuario();
+    roleFilter,
+    setRoleFilter,
+    toggleUsuarioStatus,
+    refetch,
+  } = hook;
 
   const { roles } = useRoles();
   const { data: session } = useSession();
@@ -57,7 +79,7 @@ export default function UsuarioNuevoTable() {
 
   const handleSaveUsuario = (usuarioActualizado: Usuario) => {
     setUsuarios((prev) => prev.map((u) => (u.id === usuarioActualizado.id ? usuarioActualizado : u)));
-    fetchUsuarios(currentPage, 10, searchTerm, showInactive);
+    refetch();
   };
 
   const handleToggleEstado = (usuario: Usuario) => {
@@ -76,24 +98,10 @@ export default function UsuarioNuevoTable() {
     if (!pendingToggleUsuario) return;
 
     const usuario = pendingToggleUsuario;
-    const estaActivo = usuario.estado;
-    const accion = estaActivo ? "deshabilitar" : "habilitar";
-
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${usuario.id}/toggle-status`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) throw new Error(`Error: ${response.status}`);
-
-      toast.success(`Usuario ${estaActivo ? 'deshabilitado' : 'habilitado'} correctamente`);
-      fetchUsuarios(currentPage, 10, searchTerm, showInactive);
+      await toggleUsuarioStatus(usuario.id);
     } catch (error) {
-      console.error(`Error al ${accion} usuario:`, error);
-      toast.error(`Error al ${accion} usuario`);
+      console.error(`Error al cambiar estado del usuario:`, error);
     } finally {
       setPendingToggleUsuario(null);
     }
@@ -103,10 +111,7 @@ export default function UsuarioNuevoTable() {
     if (!pendingDeleteUsuario) return;
 
     try {
-      const ok = await deleteUsuario(pendingDeleteUsuario.id);
-      if (ok) {
-        fetchUsuarios(currentPage, 10, searchTerm, showInactive);
-      }
+      await deleteUsuario(pendingDeleteUsuario.id);
     } finally {
       setPendingDeleteUsuario(null);
     }
@@ -116,10 +121,7 @@ export default function UsuarioNuevoTable() {
     if (!pendingRestoreUsuario) return;
 
     try {
-      const ok = await restoreUsuario(pendingRestoreUsuario.id);
-      if (ok) {
-        fetchUsuarios(currentPage, 10, searchTerm, showInactive);
-      }
+      await restoreUsuario(pendingRestoreUsuario.id);
     } finally {
       setPendingRestoreUsuario(null);
     }
@@ -129,33 +131,47 @@ export default function UsuarioNuevoTable() {
     {
       key: "nombre",
       header: "Nombre",
-      render: (usuario) => `${usuario.nombre} ${usuario.apellido}`,
-    },
-    {
-      key: "cedula",
-      header: "Cédula",
-      render: (usuario) => usuario.cedula,
+      render: (usuario) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+            <UserIcon className="h-6 w-6 text-gray-500" />
+          </div>
+          <div>
+            <p className="font-medium text-gray-900 dark:text-white">
+              {usuario.nombre} {usuario.apellido}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{usuario.cedula}</p>
+          </div>
+        </div>
+      ),
     },
     {
       key: "correo",
-      header: "Correo",
-      render: (usuario) => usuario.correo,
-    },
-    {
-      key: "telefono",
-      header: "Teléfono",
-      render: (usuario) => usuario.telefono,
+      header: "Contacto",
+      render: (usuario) => (
+        <div className="flex flex-col">
+          <span className="text-sm text-gray-700 dark:text-gray-300">{usuario.correo}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{usuario.telefono}</span>
+        </div>
+      ),
     },
     {
       key: "rol",
       header: "Rol",
-      render: (usuario) => roles.find((r) => r.slug === usuario.role)?.nombre || String(usuario.role),
+      render: (usuario) => {
+        const rolNombre = roles.find((r) => r.slug === usuario.role)?.nombre || String(usuario.role);
+        return (
+          <Badge size="sm" color="primary">
+            {rolNombre}
+          </Badge>
+        );
+      },
     },
     {
       key: "estado",
       header: "Estado",
       render: (usuario) => (
-        <Badge size="sm" color={usuario.estado ? "success" : "error"}>
+        <Badge size="sm" variant="light" color={usuario.estado ? "success" : "error"}>
           {usuario.estado ? "Activo" : "Inactivo"}
         </Badge>
       ),
@@ -168,10 +184,11 @@ export default function UsuarioNuevoTable() {
     const items: ActionDef[] = [
       {
         key: "view",
-        label: "Ver",
+        label: <EyeIcon className="h-4 w-4" />,
+        text: "Ver detalles",
         onClick: () => handleViewClick(usuario),
         className:
-          "rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20",
+          "flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors",
       },
     ];
 
@@ -179,18 +196,20 @@ export default function UsuarioNuevoTable() {
       items.push(
         {
           key: "edit",
-          label: "Editar",
+          label: <PencilSquareIcon className="h-4 w-4" />,
+          text: "Editar usuario",
           onClick: () => handleEditClick(usuario),
           className:
-            "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
+            "flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors",
         },
         {
           key: "toggle",
-          label: usuario.estado ? "Deshabilitar" : "Habilitar",
+          label: usuario.estado ? <NoSymbolIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />,
+          text: usuario.estado ? "Deshabilitar" : "Habilitar",
           onClick: () => handleToggleEstado(usuario),
           className: usuario.estado
-            ? "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
-            : "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20",
+            ? "flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+            : "flex h-8 w-8 items-center justify-center rounded-lg border border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors",
         }
       );
     }
@@ -199,18 +218,20 @@ export default function UsuarioNuevoTable() {
       if (isDeleted) {
         items.push({
           key: "restore",
-          label: "Restaurar",
+          label: <ArrowPathIcon className="h-4 w-4" />,
+          text: "Restaurar",
           onClick: () => handleRestoreClick(usuario),
           className:
-            "rounded border border-emerald-300 px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/20",
+            "flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-900/30 transition-colors",
         });
       } else {
         items.push({
           key: "delete",
-          label: "Eliminar",
+          label: <TrashIcon className="h-4 w-4" />,
+          text: "Eliminar",
           onClick: () => handleDeleteClick(usuario),
           className:
-            "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20",
+            "flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-900/30 transition-colors",
         });
       }
     }
@@ -228,18 +249,18 @@ export default function UsuarioNuevoTable() {
         searchTerm={searchTerm}
         onSearchChange={(value) => {
           setSearchTerm(value);
-          fetchUsuarios(1, 10, value, showInactive);
+          fetchUsuarios(1, 10, value, showInactive, roleFilter);
         }}
         showInactive={showInactive}
         onToggleInactive={() => {
           const next = !showInactive;
           setShowInactive(next);
-          fetchUsuarios(1, 10, searchTerm, next);
+          fetchUsuarios(1, 10, searchTerm, next, roleFilter);
         }}
         totalItems={totalItems}
         currentPage={currentPage}
         totalPages={totalPages}
-        onPageChange={(page) => fetchUsuarios(page, 10, searchTerm, showInactive)}
+        onPageChange={(page) => fetchUsuarios(page, 10, searchTerm, showInactive, roleFilter)}
         actions={actions}
         getRowKey={(usuario) => usuario.id}
       />

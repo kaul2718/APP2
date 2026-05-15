@@ -12,7 +12,8 @@ export interface ColumnDef<T> {
 
 export interface ActionDef {
   key: string;
-  label: string;
+  label: React.ReactNode;
+  text?: string;
   onClick: () => void;
   className?: string;
   disabled?: boolean;
@@ -36,7 +37,7 @@ interface DataTableProps<T> {
   renderActions?: (row: T) => React.ReactNode;
   getRowKey: (row: T) => string | number;
   primaryActionsCount?: number;
-  overflowActionsLabel?: string;
+  overflowActionsLabel?: React.ReactNode;
 }
 
 export function DataTable<T>({
@@ -57,7 +58,7 @@ export function DataTable<T>({
   renderActions,
   getRowKey,
   primaryActionsCount = 3,
-  overflowActionsLabel = 'Mas acciones',
+  overflowActionsLabel,
 }: DataTableProps<T>) {
   const searchInputId = React.useId();
   const inactiveCheckboxId = React.useId();
@@ -201,10 +202,15 @@ export function DataTable<T>({
                                 aria-haspopup="menu"
                                 aria-expanded={isMenuOpen}
                                 aria-controls={menuId}
-                                onClick={() => setOpenActionsMenuRowKey(isMenuOpen ? null : rowKey)}
-                                className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                                 onClick={() => setOpenActionsMenuRowKey(isMenuOpen ? null : rowKey)}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+                                title="Más acciones"
                               >
-                                {overflowActionsLabel}
+                                {overflowActionsLabel || (
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+                                  </svg>
+                                )}
                               </button>
 
                               {isMenuOpen && (
@@ -212,7 +218,7 @@ export function DataTable<T>({
                                   id={menuId}
                                   role="menu"
                                   aria-labelledby={menuButtonId}
-                                  className="absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+                                  className="absolute right-0 z-30 mt-2 min-w-[120px] rounded-xl border border-gray-100 bg-white p-1.5 shadow-xl dark:border-gray-700 dark:bg-gray-800"
                                 >
                                   {overflowActions.map((action) => (
                                     <button
@@ -220,16 +226,15 @@ export function DataTable<T>({
                                       type="button"
                                       role="menuitem"
                                       disabled={action.disabled}
-                                      onClick={() => {
+                                      onClick={(e) => {
+                                        e.stopPropagation();
                                         setOpenActionsMenuRowKey(null);
                                         action.onClick();
                                       }}
-                                      className={
-                                        action.className ??
-                                        'w-full rounded px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-700'
-                                      }
+                                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors"
                                     >
-                                      {action.label}
+                                      <span className="flex-shrink-0 text-gray-500 dark:text-gray-400">{action.label}</span>
+                                      {action.text && <span className="flex-grow whitespace-nowrap">{action.text}</span>}
                                     </button>
                                   ))}
                                 </div>

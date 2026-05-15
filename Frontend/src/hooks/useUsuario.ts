@@ -28,7 +28,7 @@ interface PaginatedUsuarioResponse {
   currentPage: number;
 }
 
-interface UseUsuarioReturn {
+export interface UseUsuarioReturn {
   usuarios: Usuario[];
   loading: boolean;
   totalPages: number;
@@ -40,7 +40,8 @@ interface UseUsuarioReturn {
     page?: number,
     limit?: number,
     search?: string,
-    includeInactive?: boolean
+    includeInactive?: boolean,
+    role?: string
   ) => Promise<void>;
   refetch: () => Promise<void>;
   createUsuario: (usuarioData: {
@@ -72,6 +73,8 @@ interface UseUsuarioReturn {
   setUsuarios: React.Dispatch<React.SetStateAction<Usuario[]>>;
   setSearchTerm: React.Dispatch<React.SetStateAction<string>>;
   setShowInactive: React.Dispatch<React.SetStateAction<boolean>>;
+  roleFilter: string;
+  setRoleFilter: React.Dispatch<React.SetStateAction<string>>;
 }
 
 export function useUsuario(): UseUsuarioReturn {
@@ -83,12 +86,14 @@ export function useUsuario(): UseUsuarioReturn {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [showInactive, setShowInactive] = useState<boolean>(false);
+  const [roleFilter, setRoleFilter] = useState<string>("all");
 
   const fetchUsuarios = async (
     page: number = 1,
     limit: number = 10,
     search: string = "",
-    includeInactive: boolean = false
+    includeInactive: boolean = false,
+    role: string = "all"
   ) => {
     try {
       setLoading(true);
@@ -105,6 +110,10 @@ export function useUsuario(): UseUsuarioReturn {
 
       if (includeInactive) {
         url += `&includeInactive=true`;
+      }
+
+      if (role && role !== 'all') {
+        url += `&role=${role}`;
       }
 
       const response = await fetch(url, {
@@ -137,7 +146,7 @@ export function useUsuario(): UseUsuarioReturn {
 
   // Función refetch para actualizar los datos
   const refetch = async () => {
-    await fetchUsuarios(currentPage, 10, searchTerm, showInactive);
+    await fetchUsuarios(currentPage, 10, searchTerm, showInactive, roleFilter);
   };
 
   const createUsuario = async (usuarioData: {
@@ -288,9 +297,9 @@ export function useUsuario(): UseUsuarioReturn {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetchUsuarios(1, 10, searchTerm, showInactive);
+      fetchUsuarios(1, 10, searchTerm, showInactive, roleFilter);
     }
-  }, [status, session, searchTerm, showInactive]);
+  }, [status, session, searchTerm, showInactive, roleFilter]);
 
   return {
     usuarios,
@@ -310,5 +319,7 @@ export function useUsuario(): UseUsuarioReturn {
     setUsuarios,
     setSearchTerm,
     setShowInactive,
+    roleFilter,
+    setRoleFilter,
   };
 }

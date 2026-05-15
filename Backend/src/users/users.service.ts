@@ -351,6 +351,7 @@ export class UsersService {
     limit: number,
     search?: string,
     includeInactive = false,
+    role?: string,
   ): Promise<{ data: User[]; total: number }> {
     const skip = (page - 1) * limit;
 
@@ -375,6 +376,10 @@ export class UsersService {
 
     if (!includeInactive) {
       query.andWhere('user.estado = :estado', { estado: true });
+    }
+
+    if (role && role !== 'all') {
+      query.andWhere('rol.slug = :role', { role });
     }
 
     query.skip(skip)
