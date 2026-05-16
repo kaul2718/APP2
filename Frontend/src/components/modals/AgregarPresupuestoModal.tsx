@@ -174,9 +174,6 @@ export default function AgregarPresupuestoModal({
             });
 
             setPresupuestoId(result.id);
-            if (onSuccess) {
-                onSuccess(result.id);
-            }
             setCurrentStep('manoObra');
 
         } catch (error) {

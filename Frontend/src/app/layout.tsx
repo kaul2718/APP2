@@ -12,6 +12,16 @@ const outfit = Outfit({
   subsets: ["latin"],
 });
 
+export const metadata = {
+  title: "Hospital del Computador - Gestión de Órdenes",
+  description: "Sistema integral de gestión para servicio técnico",
+  icons: {
+    icon: "/images/logo/logo-icon.svg",
+    shortcut: "/images/logo/logo-icon.svg",
+    apple: "/images/logo/logo-icon.svg",
+  },
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

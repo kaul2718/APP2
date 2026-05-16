@@ -151,12 +151,12 @@ export class DetalleManoObraService {
   async remove(id: number): Promise<{ message: string }> {
     const detalle = await this.findOne(id);
 
-    // Soft delete
-    await this.detalleRepository.softRemove(detalle);
-
-    // Marcamos como inactivo
+    // Marcamos como inactivo primero
     detalle.estado = false;
     await this.detalleRepository.save(detalle);
+
+    // Luego soft delete
+    await this.detalleRepository.softRemove(detalle);
 
     return { message: `DetalleManoObra con ID ${id} deshabilitado (soft delete).` };
   }

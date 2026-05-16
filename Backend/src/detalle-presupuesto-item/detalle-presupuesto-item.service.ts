@@ -213,9 +213,9 @@ export class DetallePresupuestoItemService {
 
   async remove(id: number): Promise<{ message: string }> {
     const detalle = await this.findOne(id);
-    await this.detalleRepository.softRemove(detalle);
     detalle.estado = false;
     await this.detalleRepository.save(detalle);
+    await this.detalleRepository.softRemove(detalle);
     return { message: `DetallePresupuestoItem con ID ${id} deshabilitado (soft delete).` };
   }
 
