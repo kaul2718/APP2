@@ -1,39 +1,90 @@
-import { IsString, IsInt, Min, IsOptional, IsBoolean, IsNumber } from 'class-validator';
+import { IsString, IsInt, Min, IsOptional, IsBoolean, IsNumber, IsNotEmpty } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateParteDto {
-  // ✅ Valida que sea un entero y mínimo con valor 1
-  @IsInt({ message: 'La categoría debe ser un número entero' })
-  @Min(1, { message: 'La categoría debe ser mayor o igual a 1' })
-  categoriaId: number;
-
-  // ✅ Valida que sea un entero y mínimo con valor 1
-  @IsInt({ message: 'La marca debe ser un número entero' })
-  @Min(1, { message: 'La marca debe ser mayor o igual a 1' })
-  marcaId: number;
-
-  // ✅ Valida que sea una cadena de texto no vacía
-  @IsString({ message: 'El modelo debe ser un texto' })
-  modelo: string;
-
-  // ✅ Valida que sea una cadena de texto no vacía
   @IsString({ message: 'El nombre debe ser un texto' })
+  @IsNotEmpty({ message: 'El nombre es requerido' })
   nombre: string;
 
-  // ✅ Valida que sea una cadena de texto (puedes usar @IsOptional si no es requerido)
+  @IsOptional()
+  @IsString({ message: 'El modelo debe ser un texto' })
+  modelo?: string;
+
+  @IsOptional()
   @IsString({ message: 'La descripción debe ser un texto' })
-  descripcion: string;
+  descripcion?: string;
 
   @IsOptional()
   @IsString({ message: 'El código interno debe ser un texto' })
   codigoInterno?: string;
 
-  @IsOptional()
-  @IsNumber({}, { message: 'El precio de referencia debe ser un número válido' })
-  @Min(0, { message: 'El precio de referencia no puede ser negativo' })
-  precioReferencia?: number;
+  @IsInt({ message: 'La categoría debe ser un número entero' })
+  @Min(1, { message: 'ID de categoría inválido' })
+  @Type(() => Number)
+  categoriaId: number;
 
-  // ✅ Campo opcional que debe ser booleano si se envía
+  @IsInt({ message: 'La marca debe ser un número entero' })
+  @Min(1, { message: 'ID de marca inválido' })
+  @Type(() => Number)
+  marcaId: number;
+
+  @IsNumber({}, { message: 'El costo debe ser un número' })
+  @Min(0)
+  @Type(() => Number)
+  costo: number;
+
+  @IsNumber({}, { message: 'El precio 1 debe ser un número' })
+  @Min(0)
+  @Type(() => Number)
+  precio1: number;
+
+  @IsNumber({}, { message: 'El precio 2 debe ser un número' })
+  @Min(0)
+  @Type(() => Number)
+  precio2: number;
+
+  @IsNumber({}, { message: 'El precio 3 debe ser un número' })
+  @Min(0)
+  @Type(() => Number)
+  precio3: number;
+
+  @IsNumber({}, { message: 'El precio 4 debe ser un número' })
+  @Min(0)
+  @Type(() => Number)
+  precio4: number;
+
+  @IsNumber({}, { message: 'La tarifa de IVA debe ser un número' })
+  @Min(0)
+  @Type(() => Number)
+  ivaTarifa: number;
+
+  @IsNumber({}, { message: 'El stock debe ser un número' })
+  @Min(0)
+  @Type(() => Number)
+  stock: number;
+
+  @IsNumber({}, { message: 'El stock mínimo debe ser un número' })
+  @Min(0)
+  @Type(() => Number)
+  stockMinimo: number;
+
   @IsOptional()
-  @IsBoolean({ message: 'El estado debe ser verdadero o falso' })
+  @IsString()
+  ubicacion?: string;
+
+  @IsOptional()
+  @IsString()
+  unidadMedida?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  permiteModificarPrecio?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  permiteFraccionar?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   estado?: boolean;
 }

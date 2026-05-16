@@ -7,8 +7,8 @@ import { Combobox } from "@headlessui/react";
 import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
-import { HashtagIcon, TagIcon, CheckIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-import { Parte, usePartes } from "@/hooks/usePartes";
+import { HashtagIcon, TagIcon, CheckIcon, MagnifyingGlassIcon, ArchiveBoxIcon, CurrencyDollarIcon } from "@heroicons/react/24/outline";
+import { ItemAlmacen, useAlmacen } from "@/hooks/useAlmacen";
 
 interface FormData {
     presupuestoId: number | string;
@@ -39,9 +39,9 @@ export default function AgregarItemsPresupuestoModal({
     showNavigation = true
 }: Props) {
     const { data: session } = useSession();
-    const { fetchAllPartes } = usePartes();
-    const [partesDisponibles, setPartesDisponibles] = React.useState<Parte[]>([]);
+    const [partesDisponibles, setPartesDisponibles] = React.useState<ItemAlmacen[]>([]);
     const [loadingPartes, setLoadingPartes] = React.useState(false);
+    const [searchTerm, setSearchTerm] = React.useState("");
 
     const [formData, setFormData] = React.useState<FormData>({
         presupuestoId: presupuestoId,
@@ -54,43 +54,31 @@ export default function AgregarItemsPresupuestoModal({
     const [loading, setLoading] = React.useState(false);
 
     React.useEffect(() => {
-        setFormData(prev => ({
-            ...prev,
-            presupuestoId: presupuestoId
-        }));
+        setFormData(prev => ({ ...prev, presupuestoId }));
     }, [presupuestoId]);
 
     React.useEffect(() => {
         if (!isOpen || !session?.accessToken) return;
 
-        let isMounted = true;
-
         const loadPartes = async () => {
             setLoadingPartes(true);
             try {
-                const data = await fetchAllPartes(false);
-                if (isMounted) {
-                    setPartesDisponibles(data.filter((parte) => parte.estado));
+                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/partes?includeInactive=false`, {
+                    headers: { Authorization: `Bearer ${session.accessToken}` }
+                });
+                const data = await response.json();
+                if (Array.isArray(data)) {
+                    setPartesDisponibles(data.filter((p: any) => p.estado));
                 }
             } catch (error) {
-                if (isMounted) {
-                    toast.error(error instanceof Error ? error.message : 'Error al cargar el catálogo');
-                }
+                toast.error('Error al cargar catálogo');
             } finally {
-                if (isMounted) {
-                    setLoadingPartes(false);
-                }
+                setLoadingPartes(false);
             }
         };
 
         void loadPartes();
-
-        return () => {
-            isMounted = false;
-        };
     }, [isOpen, session?.accessToken]);
-
-    const [searchTerm, setSearchTerm] = React.useState("");
 
     const filteredPartes = searchTerm === ""
         ? partesDisponibles
@@ -101,51 +89,29 @@ export default function AgregarItemsPresupuestoModal({
 
     const handleChange = (field: keyof FormData, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value } as FormData));
-        if (errors[field as any]) {
+        if (errors[field]) {
             setErrors(prev => {
                 const newErrors = { ...prev };
-                delete newErrors[field as any];
+                delete newErrors[field];
                 return newErrors;
             });
         }
     };
 
-    const validateFields = () => {
-        const newErrors: Record<string, string> = {};
-
-        if (!formData.parteId) {
-            newErrors.parteId = "El ítem es requerido";
-        }
-
-        if (!formData.cantidad) {
-            newErrors.cantidad = "La cantidad es requerida";
-        } else if (Number(formData.cantidad) <= 0) {
-            newErrors.cantidad = "La cantidad debe ser mayor a 0";
-        }
-
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
-    const formatParteLabel = (parte: Parte) => {
-        const codigo = parte.codigoInterno || `ITEM-${parte.id}`;
-        const precio = Number(parte.precioReferencia ?? 0);
-        return `${parte.nombre} - ${codigo} ($${precio.toLocaleString('es-CL')})`;
-    };
+    const formatCurrency = (value?: number) =>
+        new Intl.NumberFormat("es-AR", {
+            style: "currency",
+            currency: "ARS",
+        }).format(Number(value || 0));
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
-
-        if (!validateFields()) {
-            setLoading(false);
-            toast.error('Por favor complete los campos requeridos', {
-                position: "top-center",
-                autoClose: 5000,
-            });
+        if (!formData.parteId) {
+            setErrors({ parteId: "Requerido" });
             return;
         }
 
+        setLoading(true);
         try {
             const payload = {
                 presupuestoId: Number(formData.presupuestoId),
@@ -154,201 +120,112 @@ export default function AgregarItemsPresupuestoModal({
                 comentario: formData.comentario || undefined
             };
 
-            const cleanPayload = Object.fromEntries(
-                Object.entries(payload).filter(([_, v]) => v !== undefined)
-            );
-
             const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/detalles-presupuesto-item`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${session?.accessToken || ""}`,
                 },
-                body: JSON.stringify(cleanPayload),
+                body: JSON.stringify(payload),
             });
 
-            const responseData = await res.json();
+            if (!res.ok) throw new Error("Error al añadir");
 
-            if (!res.ok) {
-                throw new Error(responseData.message || "Error al registrar detalle del ítem");
-            }
-
-            toast.success('Ítem agregado al presupuesto con éxito', {
-                position: "top-center",
-                autoClose: 3000,
-            });
-
-            // Reset form pero mantenemos el presupuestoId
-            setFormData(prev => ({
-                ...prev,
-                parteId: "",
-                cantidad: 1,
-                comentario: ""
-            }));
+            toast.success('Producto añadido al presupuesto ✅');
+            setFormData(prev => ({ ...prev, parteId: "", cantidad: 1, comentario: "" }));
             setSearchTerm("");
-
-            // Ejecutamos callback de éxito
-            if (onSuccess) {
-                onSuccess(true);
-            }
-
+            onSuccess?.(true);
         } catch (error) {
-            console.error("Error:", error);
-            toast.error(error instanceof Error ? error.message : 'Error al registrar el ítem', {
-                position: "top-center",
-                autoClose: 5000,
-            });
+            toast.error('Error al registrar el ítem');
         } finally {
             setLoading(false);
         }
     };
+
+    const selectedParte = partesDisponibles.find(p => String(p.id) === String(formData.parteId));
+
     const content = (
-        <div className={`relative w-full ${embeddedMode ? '' : 'max-w-[600px] rounded-3xl'} bg-white p-4 dark:bg-gray-900 lg:p-8`}>
-            {!embeddedMode && (
-                <>
-                    <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
-                        Agregar Ítem al Presupuesto
-                    </h4>
-                    <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-                        Complete los campos para agregar un ítem al presupuesto.
-                    </p>
-                </>
-            )}
+        <div className="space-y-6">
+            <div className="bg-brand-50 dark:bg-brand-900/10 p-4 rounded-2xl border border-brand-100 flex items-center gap-4">
+                <div className="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+                    <ArchiveBoxIcon className="w-6 h-6 text-brand-500" />
+                </div>
+                <div>
+                    <h4 className="text-xs font-black text-brand-600 uppercase tracking-widest">Presupuesto Referencia</h4>
+                    <p className="text-xl font-black text-brand-950 dark:text-brand-100">#{formData.presupuestoId}</p>
+                </div>
+            </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col">
-                <div className={`custom-scrollbar ${embeddedMode ? 'max-h-[40vh]' : 'max-h-[400px]'} overflow-y-auto px-1`}>
-                    <div className="grid grid-cols-1 gap-x-6 gap-y-5">
-
-
-                        {/* Ítem / Parte */}
-                        <div className="mb-4">
-                            <Label>Ítem / Parte *</Label>
-                            <div className="relative">
-                                <Combobox 
-                                    value={formData.parteId as any} 
-                                    onChange={(val) => handleChange("parteId", val)}
-                                    disabled={loadingPartes}
-                                >
-                                    <div className="relative">
-                                        <div className="relative w-full">
-                                            <TagIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                            <Combobox.Input
-                                                className={`w-full pl-10 pr-10 py-2 rounded-xl border ${errors['parteId' as any] ? 'border-red-500' : 'border-gray-200 dark:border-gray-700'} bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 transition-all outline-none text-sm`}
-                                                displayValue={(val: any) => {
-                                                    const p = partesDisponibles.find(x => String(x.id) === String(val));
-                                                    return p ? formatParteLabel(p) : "";
-                                                }}
-                                                placeholder="Buscar ítem o código..."
-                                                onChange={(event) => setSearchTerm(event.target.value)}
-                                            />
-                                            <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
-                                                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
-                                            </Combobox.Button>
-                                        </div>
-
-                                        <Combobox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white py-1 shadow-2xl ring-1 ring-black/5 focus:outline-none dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
-                                            {filteredPartes.length === 0 && searchTerm !== "" ? (
-                                                <div className="relative cursor-default select-none px-4 py-2 text-gray-700 dark:text-gray-400 text-sm">
-                                                    No se encontraron ítems.
-                                                </div>
-                                            ) : (
-                                                filteredPartes.map((parte) => (
-                                                    <Combobox.Option
-                                                        key={parte.id}
-                                                        className={({ active }) =>
-                                                            `relative cursor-default select-none py-2.5 pl-10 pr-4 text-sm ${
-                                                                active ? 'bg-brand-500 text-white' : 'text-gray-900 dark:text-gray-300'
-                                                            }`
-                                                        }
-                                                        value={parte.id}
-                                                    >
-                                                        {({ selected, active }) => (
-                                                            <>
-                                                                <span className={`block truncate ${selected ? 'font-bold' : 'font-normal'}`}>
-                                                                    {parte.nombre} <span className={`ml-2 text-xs ${active ? 'text-white/80' : 'text-gray-400'}`}>({parte.codigoInterno})</span>
-                                                                </span>
-                                                                {selected && (
-                                                                    <span className={`absolute inset-y-0 left-0 flex items-center pl-3 ${active ? 'text-white' : 'text-brand-500'}`}>
-                                                                        <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                                                                    </span>
-                                                                )}
-                                                            </>
-                                                        )}
-                                                    </Combobox.Option>
-                                                ))
-                                            )}
-                                        </Combobox.Options>
-                                    </div>
-                                </Combobox>
-                            </div>
-                            {errors.parteId && <p className="text-sm text-red-500 mt-1">{errors.parteId}</p>}
-                        </div>
-
-                        {/* Cantidad */}
-                        <div className="mb-4">
-                            <Label>Cantidad *</Label>
-                            <div className="relative">
-                                <HashtagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                <Input
-                                    type="number"
-                                    min="1"
-                                    step={1}
-                                    value={formData.cantidad}
-                                    onChange={(e) => handleChange("cantidad", e.target.value)}
-                                    placeholder="Cantidad"
-                                    className={`pl-10 bg-white dark:bg-gray-800 text-black dark:text-white ${errors['cantidad' as any] ? 'border-red-500' : ''}`}
+            <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                    <Label>Seleccionar Ítem del Almacén *</Label>
+                    <Combobox value={formData.parteId} onChange={(val) => handleChange("parteId", val)}>
+                        <div className="relative">
+                            <div className="relative w-full">
+                                <TagIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
+                                <Combobox.Input
+                                    className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 text-sm focus:ring-2 focus:ring-brand-500 transition-all outline-none"
+                                    displayValue={(val: any) => {
+                                        const p = partesDisponibles.find(x => String(x.id) === String(val));
+                                        return p ? `${p.nombre} (${p.codigoInterno || p.id})` : "";
+                                    }}
+                                    placeholder="Buscar por nombre o código..."
+                                    onChange={(e) => setSearchTerm(e.target.value)}
                                 />
                             </div>
-                            {errors['cantidad' as any] && <p className="text-sm text-red-500 mt-1">{errors['cantidad' as any]}</p>}
-                        </div>
 
-                        {/* Comentario (opcional) */}
-                        <div className="mb-4">
-                            <Label>Comentario (opcional)</Label>
-                            <textarea
-                                value={formData.comentario || ''}
-                                onChange={(e) => handleChange("comentario", e.target.value)}
-                                placeholder="Notas adicionales sobre este ítem"
-                                className="w-full px-4 py-2 rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                rows={3}
-                            />
+                            <Combobox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white py-1 shadow-2xl ring-1 ring-black/5 focus:outline-none dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+                                {filteredPartes.map((p) => (
+                                    <Combobox.Option key={p.id} value={p.id} className={({ active }) => `relative cursor-default select-none py-3 pl-10 pr-4 text-sm ${active ? 'bg-brand-500 text-white' : 'text-gray-900 dark:text-gray-300'}`}>
+                                        <div className="flex flex-col">
+                                            <span className="font-bold">{p.nombre}</span>
+                                            <span className="text-[10px] opacity-70">Stock: {p.stock} {p.unidadMedida} | PVP: {formatCurrency(p.precio1)}</span>
+                                        </div>
+                                    </Combobox.Option>
+                                ))}
+                            </Combobox.Options>
                         </div>
-                    </div>
+                    </Combobox>
+                    {errors.parteId && <p className="text-xs text-red-500 mt-1">{errors.parteId}</p>}
                 </div>
 
-                <div className="flex justify-between gap-4 mt-6">
+                <div className="grid grid-cols-2 gap-4">
                     <div>
-                        {showNavigation && onBack && (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={onBack}
-                                disabled={loading}
-                            >
-                                Atrás
-                            </Button>
-                        )}
+                        <Label>Cantidad *</Label>
+                        <div className="relative">
+                            <HashtagIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <Input type="number" min="1" value={formData.cantidad} onChange={(e) => handleChange("cantidad", e.target.value)} className="pl-10 font-bold" />
+                        </div>
                     </div>
+                    {selectedParte && (
+                        <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl border border-gray-100">
+                            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tighter">Subtotal</p>
+                            <p className="text-sm font-black text-gray-900 dark:text-white">{formatCurrency(selectedParte.precio1 * Number(formData.cantidad))}</p>
+                        </div>
+                    )}
+                </div>
 
-                    <div className="flex gap-4">
-                        <Button
-                            type="submit"
-                            disabled={loading || loadingPartes}
-                            loading={loading}
-                            className="bg-green-600 hover:bg-green-700 text-white"
-                        >
-                            Agregar Ítem
+                <div>
+                    <Label>Observación Interna</Label>
+                    <textarea
+                        value={formData.comentario || ''}
+                        onChange={(e) => handleChange("comentario", e.target.value)}
+                        placeholder="Notas adicionales..."
+                        className="w-full px-4 py-3 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                        rows={2}
+                    />
+                </div>
+
+                <div className="flex justify-between items-center pt-4">
+                    {showNavigation && onBack && (
+                        <Button type="button" variant="outline" onClick={onBack}>Atrás</Button>
+                    )}
+                    <div className="flex gap-3 ml-auto">
+                        <Button type="submit" disabled={loading || loadingPartes} className="px-10 shadow-lg shadow-brand-500/20">
+                            {loading ? "Añadiendo..." : "Agregar Ítem"}
                         </Button>
-
                         {showNavigation && onNext && (
-                            <Button
-                                type="button"
-                                onClick={onNext}
-                                disabled={loading}
-                                className="bg-blue-600 hover:bg-blue-700 text-white"
-                            >
-                                Finalizar
-                            </Button>
+                            <Button type="button" onClick={onNext} variant="outline">Finalizar</Button>
                         )}
                     </div>
                 </div>
@@ -356,18 +233,11 @@ export default function AgregarItemsPresupuestoModal({
         </div>
     );
 
-    if (embeddedMode) {
-        return content;
-    }
+    if (embeddedMode) return content;
 
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            className="max-w-[600px] m-4"
-            title="Agregar ítem"
-        >
-            {content}
+        <Modal isOpen={isOpen} onClose={onClose} title="Gestión de Ítems en Presupuesto" className="max-w-xl">
+            <div className="p-6">{content}</div>
         </Modal>
     );
 }

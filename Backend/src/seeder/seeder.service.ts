@@ -46,9 +46,9 @@ export class SeederService {
       { nombre: 'Eliminar Presupuestos', slug: 'presupuestos.delete' },
       { nombre: 'Aprobar Presupuestos', slug: 'presupuestos.approve' },
 
-      // Inventario
-      { nombre: 'Ver Inventario', slug: 'inventario.view' },
-      { nombre: 'Gestionar Inventario', slug: 'inventario.manage' },
+      // Almacen
+      { nombre: 'Ver Almacén', slug: 'almacen.view' },
+      { nombre: 'Gestionar Almacén', slug: 'almacen.manage' },
 
       // Reportes
       { nombre: 'Ver Reportes', slug: 'reportes.view' },
@@ -94,8 +94,8 @@ export class SeederService {
           'presupuestos.update',
           'presupuestos.delete',
           'presupuestos.approve',
-          'inventario.view',
-          'inventario.manage',
+          'almacen.view',
+          'almacen.manage',
           'reportes.view',
           'reportes.export',
           'notificaciones.send',
@@ -110,7 +110,7 @@ export class SeederService {
           'orders.view',
           'orders.update',
           'presupuestos.view',
-          'inventario.view',
+          'almacen.view',
           'notificaciones.view',
         ],
       },

@@ -28,55 +28,44 @@ export class ParteService {
     return `${base || 'ITEM'}-${parte.id}`;
   }
 
-
   async create(createDto: CreateParteDto): Promise<Parte> {
-    // Verificar si ya existe una parte con el mismo modelo o nombre
-    const existe = await this.parteRepository.findOne({
-      where: [
-        { modelo: createDto.modelo },
-        { nombre: createDto.nombre }
-      ],
+    // 1. Validaciones Pro: Precios vs Costo
+    if (createDto.precio1 < createDto.costo) {
+      throw new BadRequestException('El precio de venta 1 no puede ser inferior al costo');
+    }
+
+    // 2. Verificar duplicados por Nombre o Código Interno
+    if (createDto.codigoInterno) {
+        const existeCodigo = await this.parteRepository.findOne({
+            where: { codigoInterno: createDto.codigoInterno },
+            withDeleted: true
+        });
+        if (existeCodigo) throw new BadRequestException('El código interno ya está registrado');
+    }
+
+    const existeNombre = await this.parteRepository.findOne({
+      where: { nombre: createDto.nombre },
       withDeleted: true,
     });
+    if (existeNombre) throw new BadRequestException('Ya existe un item con ese nombre');
 
-    if (existe) {
-      if (existe.modelo === createDto.modelo) {
-        throw new BadRequestException('Ya existe una parte con ese modelo');
-      }
-      if (existe.nombre === createDto.nombre) {
-        throw new BadRequestException('Ya existe una parte con ese nombre');
-      }
-    }
+    // 3. Verificar Relaciones
+    const categoria = await this.categoriaRepository.findOne({ where: { id: createDto.categoriaId } });
+    if (!categoria) throw new NotFoundException('Categoría no encontrada');
 
-    // Verificar y obtener la categoría
-    const categoria = await this.categoriaRepository.findOne({ 
-      where: { id: createDto.categoriaId } 
-    });
-    if (!categoria) {
-      throw new NotFoundException('Categoría no encontrada');
-    }
+    const marca = await this.marcaRepository.findOne({ where: { id: createDto.marcaId } });
+    if (!marca) throw new NotFoundException('Marca no encontrada');
 
-    // Verificar y obtener la marca
-    const marca = await this.marcaRepository.findOne({ 
-      where: { id: createDto.marcaId } 
-    });
-    if (!marca) {
-      throw new NotFoundException('Marca no encontrada');
-    }
-
+    // 4. Mapeo y Creación
     const nuevo = this.parteRepository.create({
-      nombre: createDto.nombre,
-      modelo: createDto.modelo,
-      descripcion: createDto.descripcion,
-      codigoInterno: createDto.codigoInterno?.trim() || null,
-      precioReferencia: Number(createDto.precioReferencia ?? 0),
+      ...createDto,
       categoria,
       marca,
-      estado: createDto.estado ?? true,
     });
 
     const parteGuardada = await this.parteRepository.save(nuevo);
 
+    // Auto-generar código si no viene
     if (!parteGuardada.codigoInterno?.trim()) {
       parteGuardada.codigoInterno = this.buildCodigoInterno(parteGuardada);
       await this.parteRepository.save(parteGuardada);
@@ -89,7 +78,8 @@ export class ParteService {
     return this.parteRepository.find({
       where: includeInactive ? {} : { estado: true },
       withDeleted: includeInactive,
-      relations: ['categoria', 'marca', 'inventarios'],
+      relations: ['categoria', 'marca'],
+      order: { nombre: 'ASC' }
     });
   }
 
@@ -97,11 +87,11 @@ export class ParteService {
     const parte = await this.parteRepository.findOne({
       where: { id },
       withDeleted: includeInactive,
-      relations: ['categoria', 'marca', 'inventarios'],
+      relations: ['categoria', 'marca'],
     });
 
     if (!parte || (!includeInactive && !parte.estado)) {
-      throw new NotFoundException('Parte no encontrada');
+      throw new NotFoundException('Item de almacén no encontrado');
     }
 
     return parte;
@@ -110,69 +100,38 @@ export class ParteService {
   async update(id: number, updateDto: UpdateParteDto): Promise<Parte> {
     const parte = await this.findOne(id, true);
 
-    if (updateDto.modelo || updateDto.nombre) {
-      const whereConditions = [];
-      if (updateDto.modelo) whereConditions.push({ modelo: updateDto.modelo });
-      if (updateDto.nombre) whereConditions.push({ nombre: updateDto.nombre });
-
-      const duplicado = await this.parteRepository.findOne({
-        where: whereConditions,
-        withDeleted: true,
-      });
-
-      if (duplicado && duplicado.id !== id) {
-        if (duplicado.modelo === updateDto.modelo) {
-          throw new BadRequestException('Ya existe una parte con ese modelo');
-        }
-        if (duplicado.nombre === updateDto.nombre) {
-          throw new BadRequestException('Ya existe una parte con ese nombre');
-        }
-      }
+    // Validaciones de Precios si se envían
+    const finalCosto = updateDto.costo ?? parte.costo;
+    if (updateDto.precio1 !== undefined && updateDto.precio1 < finalCosto) {
+        throw new BadRequestException('El precio de venta 1 no puede ser inferior al costo');
     }
 
+    // Verificar Duplicados
+    if (updateDto.nombre && updateDto.nombre !== parte.nombre) {
+      const duplicado = await this.parteRepository.findOne({ where: { nombre: updateDto.nombre }, withDeleted: true });
+      if (duplicado) throw new BadRequestException('Ya existe un item con ese nombre');
+    }
+
+    if (updateDto.codigoInterno && updateDto.codigoInterno !== parte.codigoInterno) {
+        const duplicado = await this.parteRepository.findOne({ where: { codigoInterno: updateDto.codigoInterno }, withDeleted: true });
+        if (duplicado) throw new BadRequestException('El código interno ya está registrado');
+    }
+
+    // Actualizar Relaciones
     if (updateDto.categoriaId) {
-      const categoria = await this.categoriaRepository.findOne({ 
-        where: { id: updateDto.categoriaId } 
-      });
-      if (!categoria) {
-        throw new NotFoundException('Categoría no encontrada');
-      }
+      const categoria = await this.categoriaRepository.findOne({ where: { id: updateDto.categoriaId } });
+      if (!categoria) throw new NotFoundException('Categoría no encontrada');
       parte.categoria = categoria;
     }
 
     if (updateDto.marcaId) {
-      const marca = await this.marcaRepository.findOne({ 
-        where: { id: updateDto.marcaId } 
-      });
-      if (!marca) {
-        throw new NotFoundException('Marca no encontrada');
-      }
+      const marca = await this.marcaRepository.findOne({ where: { id: updateDto.marcaId } });
+      if (!marca) throw new NotFoundException('Marca no encontrada');
       parte.marca = marca;
     }
 
-    if (updateDto.nombre) {
-      parte.nombre = updateDto.nombre;
-    }
-
-    if (updateDto.modelo) {
-      parte.modelo = updateDto.modelo;
-    }
-
-    if (updateDto.descripcion) {
-      parte.descripcion = updateDto.descripcion;
-    }
-
-    if (updateDto.codigoInterno !== undefined) {
-      parte.codigoInterno = updateDto.codigoInterno?.trim() || null;
-    }
-
-    if (updateDto.precioReferencia !== undefined) {
-      parte.precioReferencia = Number(updateDto.precioReferencia ?? 0);
-    }
-
-    if (updateDto.estado !== undefined) {
-      parte.estado = updateDto.estado;
-    }
+    // Actualizar Campos
+    Object.assign(parte, updateDto);
 
     await this.parteRepository.save(parte);
 
@@ -186,77 +145,70 @@ export class ParteService {
 
   async remove(id: number): Promise<{ message: string }> {
     const parte = await this.findOne(id);
-    
-    // Soft delete con TypeORM
     await this.parteRepository.softRemove(parte);
-    
-    // Además marcamos como inactivo
     parte.estado = false;
     await this.parteRepository.save(parte);
-    
-    return { message: `Parte con ID ${id} deshabilitada (soft delete).` };
+    return { message: `Item con ID ${id} deshabilitado.` };
   }
 
   async restore(id: number): Promise<{ message: string }> {
     const parte = await this.findOne(id, true);
-
-    if (!parte.deletedAt) {
-      throw new BadRequestException('La parte no está eliminada');
-    }
-
-    // Restauramos el soft delete
+    if (!parte.deletedAt) throw new BadRequestException('El item no está eliminado');
     await this.parteRepository.restore(id);
-    
-    // Lo marcamos como activo
     parte.estado = true;
     await this.parteRepository.save(parte);
-    
-    return { message: `Parte con ID ${id} restaurada.` };
+    return { message: `Item con ID ${id} restaurado.` };
   }
 
   async findAllPaginated(
-    page: number,
-    limit: number,
+    page: any,
+    limit: any,
     search?: string,
     includeInactive = false,
   ): Promise<{ data: Parte[]; total: number }> {
-    const skip = (page - 1) * limit;
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
+    const skip = (pageNum - 1) * limitNum;
 
-    const query = this.parteRepository.createQueryBuilder('parte')
-      .leftJoinAndSelect('parte.categoria', 'categoria')
-      .leftJoinAndSelect('parte.marca', 'marca')
-      .leftJoinAndSelect('parte.inventarios', 'inventarios');
+    try {
+        const query = this.parteRepository.createQueryBuilder('parte')
+            .leftJoinAndSelect('parte.categoria', 'categoria')
+            .leftJoinAndSelect('parte.marca', 'marca');
 
-    if (search) {
-      query.where(
-        `LOWER(parte.nombre) LIKE LOWER(:search)
-         OR LOWER(parte.modelo) LIKE LOWER(:search)
-         OR LOWER(parte.descripcion) LIKE LOWER(:search)
-         OR LOWER(COALESCE(parte.codigoInterno, '')) LIKE LOWER(:search)`,
-        { search: `%${search}%` }
-      );
+        if (includeInactive) {
+            query.withDeleted();
+        }
+
+        if (search) {
+            query.andWhere(
+                `(LOWER(parte.nombre) LIKE LOWER(:search)
+                 OR LOWER(parte.modelo) LIKE LOWER(:search)
+                 OR LOWER(parte.descripcion) LIKE LOWER(:search))`,
+                { search: `%${search}%` }
+            );
+        }
+
+        if (!includeInactive) {
+            query.andWhere('parte.estado = :estado', { estado: true });
+        }
+
+        query.skip(skip)
+            .take(limitNum)
+            .orderBy('parte.nombre', 'ASC');
+
+        const [data, total] = await query.getManyAndCount();
+
+        return { data, total };
+    } catch (error) {
+        console.error('Error en findAllPaginated:', error);
+        throw new BadRequestException('Error al consultar el almacén. Verifique la conexión o el esquema de base de datos.');
     }
-
-    if (!includeInactive) {
-      query.andWhere('parte.estado = :estado', { estado: true })
-           .andWhere('parte.deletedAt IS NULL');
-    }
-
-    query.skip(skip)
-      .take(limit)
-      .orderBy('parte.nombre', 'ASC');
-
-    const [data, total] = await query.getManyAndCount();
-
-    return { data, total };
   }
 
   async toggleStatus(id: number): Promise<Parte> {
     const parte = await this.findOne(id, true);
-    
     parte.estado = !parte.estado;
     await this.parteRepository.save(parte);
-    
     return this.findOne(id, true);
   }
 }

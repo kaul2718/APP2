@@ -9,7 +9,6 @@ import { DetallePresupuestoItem } from './entities/detalle-presupuesto-item.enti
 import { CreateDetallePresupuestoItemDto } from './dto/create-detalle-presupuesto-item.dto';
 import { UpdateDetallePresupuestoItemDto } from './dto/update-detalle-presupuesto-item.dto';
 import { Presupuesto } from '../presupuesto/entities/presupuesto.entity';
-import { Inventario } from '../inventario/entities/inventario.entity';
 import { Parte } from '../parte/entities/parte.entity';
 
 @Injectable()
@@ -19,29 +18,20 @@ export class DetallePresupuestoItemService {
     private readonly detalleRepository: Repository<DetallePresupuestoItem>,
     @InjectRepository(Presupuesto)
     private readonly presupuestoRepository: Repository<Presupuesto>,
-    @InjectRepository(Inventario)
-    private readonly inventarioRepository: Repository<Inventario>,
     @InjectRepository(Parte)
     private readonly parteRepository: Repository<Parte>,
   ) { }
 
   private async resolveParteSelection(parteId?: number): Promise<Parte> {
-    if (!parteId) {
-      throw new BadRequestException('Debe proporcionar parteId');
-    }
+    if (!parteId) throw new BadRequestException('Debe proporcionar parteId');
 
     const parte = await this.parteRepository.findOne({
       where: { id: parteId },
       withDeleted: true,
     });
 
-    if (!parte) {
-      throw new NotFoundException(`Parte con ID ${parteId} no encontrada`);
-    }
-
-    if (parte.deletedAt || !parte.estado) {
-      throw new BadRequestException('La parte seleccionada está inactiva');
-    }
+    if (!parte) throw new NotFoundException(`Producto con ID ${parteId} no encontrado`);
+    if (parte.deletedAt || !parte.estado) throw new BadRequestException('El producto seleccionado está inactivo');
 
     return parte;
   }
@@ -50,36 +40,20 @@ export class DetallePresupuestoItemService {
     const { parteId, cantidad, presupuestoId } = createDto;
 
     const parte = await this.resolveParteSelection(parteId);
-
     const presupuesto = await this.presupuestoRepository.findOne({
       where: { id: presupuestoId },
       withDeleted: true,
       relations: ['orden'],
     });
-    if (!presupuesto) {
-      throw new NotFoundException(`Presupuesto con ID ${presupuestoId} no encontrado`);
+
+    if (!presupuesto) throw new NotFoundException(`Presupuesto con ID ${presupuestoId} no encontrado`);
+    if (cantidad <= 0) throw new BadRequestException('La cantidad debe ser mayor a 0');
+
+    if (parte.stock < cantidad) {
+      throw new BadRequestException(`Existencias insuficientes. Stock actual: ${parte.stock}`);
     }
 
-    if (cantidad <= 0) {
-      throw new BadRequestException('La cantidad debe ser mayor a 0');
-    }
-
-    const inventario = await this.inventarioRepository.findOne({
-      where: {
-        parteId: parte.id,
-        deletedAt: null,
-      },
-    });
-
-    if (!inventario) {
-      throw new NotFoundException(`Inventario para parte ID ${parte.id} no encontrado`);
-    }
-
-    if (inventario.cantidad < cantidad) {
-      throw new BadRequestException(`No hay suficiente stock disponible. Stock actual: ${inventario.cantidad}`);
-    }
-
-    const precioUnitario = Number(parte.precioReferencia ?? 0);
+    const precioUnitario = Number(parte.precio1 ?? 0); // Using PVP 1 as default
     const subtotal = precioUnitario * cantidad;
 
     const detalle = this.detalleRepository.create({
@@ -115,98 +89,57 @@ export class DetallePresupuestoItemService {
     });
 
     if (!detalle || (!includeInactive && !detalle.estado)) {
-      throw new NotFoundException(`DetalleRepuesto con ID ${id} no encontrado`);
+      throw new NotFoundException(`Detalle con ID ${id} no encontrado`);
     }
 
     return detalle;
   }
 
   async update(id: number, updateDto: UpdateDetallePresupuestoItemDto): Promise<DetallePresupuestoItem> {
-    // Obtener el detalle existente incluyendo relaciones
     const detalle = await this.detalleRepository.findOne({
       where: { id },
       relations: ['parte', 'presupuesto'],
       withDeleted: true
     });
 
-    if (!detalle) {
-      throw new NotFoundException(`DetalleRepuesto con ID ${id} no encontrado`);
-    }
+    if (!detalle) throw new NotFoundException(`Detalle con ID ${id} no encontrado`);
 
-    // Validación de cantidad
     if (updateDto.cantidad !== undefined && updateDto.cantidad <= 0) {
       throw new BadRequestException('La cantidad debe ser mayor a 0');
     }
 
-    // Manejo de cambio de ítem usando `parteId` como referencia única
     let parteActualizada: Parte | null = null;
-    if (updateDto.parteId !== undefined) {
-      const mismaSeleccionPorParte = updateDto.parteId === detalle.parteId;
-
-      if (!mismaSeleccionPorParte) {
-        parteActualizada = await this.resolveParteSelection(updateDto.parteId);
-
-        const inventario = await this.inventarioRepository.findOne({
-          where: { parteId: parteActualizada.id, deletedAt: null }
-        });
-
-        if (!inventario) {
-          throw new NotFoundException(`Inventario para parte ID ${parteActualizada.id} no encontrado`);
-        }
-
-        const cantidad = updateDto.cantidad || detalle.cantidad;
-        if (inventario.cantidad < cantidad) {
-          throw new BadRequestException(`No hay suficiente stock disponible. Stock actual: ${inventario.cantidad}`);
-        }
-
-        detalle.parte = parteActualizada;
-        detalle.parteId = parteActualizada.id;
+    if (updateDto.parteId !== undefined && updateDto.parteId !== detalle.parteId) {
+      parteActualizada = await this.resolveParteSelection(updateDto.parteId);
+      const cantidad = updateDto.cantidad || detalle.cantidad;
+      
+      if (parteActualizada.stock < cantidad) {
+        throw new BadRequestException(`Existencias insuficientes. Stock actual: ${parteActualizada.stock}`);
       }
+
+      detalle.parte = parteActualizada;
+      detalle.parteId = parteActualizada.id;
     }
 
-    // Manejo de cambio de cantidad
     if (updateDto.cantidad !== undefined) {
-      // Validar inventario si no cambió el repuesto
-      if (!parteActualizada) {
-        const parteIdActual = detalle.parteId;
-        const inventario = await this.inventarioRepository.findOne({
-          where: { parteId: parteIdActual, deletedAt: null }
-        });
-
-        if (!inventario) {
-          throw new NotFoundException(`Inventario para parte ID ${parteIdActual} no encontrado`);
-        }
-
-        if (inventario.cantidad < updateDto.cantidad) {
-          throw new BadRequestException(`No hay suficiente stock disponible. Stock actual: ${inventario.cantidad}`);
-        }
+      const p = parteActualizada ?? detalle.parte;
+      if (p && p.stock < updateDto.cantidad) {
+        throw new BadRequestException(`Existencias insuficientes. Stock actual: ${p.stock}`);
       }
-
       detalle.cantidad = updateDto.cantidad;
     }
 
-    // Actualizar precios
     if (parteActualizada || updateDto.cantidad !== undefined) {
-      const partePrecio = parteActualizada ?? detalle.parte;
-      const precioUnitario = Number(partePrecio?.precioReferencia ?? 0);
+      const p = parteActualizada ?? detalle.parte;
+      const precioUnitario = Number(p?.precio1 ?? 0);
       detalle.precioUnitario = precioUnitario;
       detalle.subtotal = precioUnitario * detalle.cantidad;
     }
 
-    // Actualizar otros campos
-    if (updateDto.comentario !== undefined) {
-      detalle.comentario = updateDto.comentario;
-    }
+    if (updateDto.comentario !== undefined) detalle.comentario = updateDto.comentario;
+    if (updateDto.estado !== undefined) detalle.estado = updateDto.estado;
+    if (updateDto.presupuestoId !== undefined) detalle.presupuestoId = updateDto.presupuestoId;
 
-    if (updateDto.estado !== undefined) {
-      detalle.estado = updateDto.estado;
-    }
-
-    if (updateDto.presupuestoId !== undefined) {
-      detalle.presupuestoId = updateDto.presupuestoId;
-    }
-
-    // Guardar cambios
     const detalleActualizado = await this.detalleRepository.save(detalle);
     return this.findOne(detalleActualizado.id, true);
   }
@@ -216,21 +149,16 @@ export class DetallePresupuestoItemService {
     detalle.estado = false;
     await this.detalleRepository.save(detalle);
     await this.detalleRepository.softRemove(detalle);
-    return { message: `DetallePresupuestoItem con ID ${id} deshabilitado (soft delete).` };
+    return { message: `Detalle con ID ${id} eliminado lógicamente.` };
   }
 
   async restore(id: number): Promise<{ message: string }> {
     const detalle = await this.findOne(id, true);
-
-    if (!detalle.deletedAt) {
-      throw new BadRequestException('El detalle no está eliminado');
-    }
-
+    if (!detalle.deletedAt) throw new BadRequestException('El detalle no está eliminado');
     await this.detalleRepository.restore(id);
     detalle.estado = true;
     await this.detalleRepository.save(detalle);
-
-    return { message: `DetallePresupuestoItem con ID ${id} restaurado.` };
+    return { message: `Detalle con ID ${id} restaurado.` };
   }
 
   async findByPresupuesto(presupuestoId: number, includeInactive = false): Promise<DetallePresupuestoItem[]> {
@@ -306,9 +234,7 @@ export class DetallePresupuestoItemService {
         .andWhere('detalle.deletedAt IS NULL');
     }
 
-    query.skip(skip)
-      .take(limit)
-      .orderBy('detalle.createdAt', 'DESC');
+    query.skip(skip).take(limit).orderBy('detalle.createdAt', 'DESC');
 
     const [data, total] = await query.getManyAndCount();
     return { data, total };

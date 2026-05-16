@@ -1,12 +1,12 @@
 "use client";
-
+ 
 import React from "react";
 import CrudModal from "@/components/modals/CrudModal";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
-import { Parte as CatalogoParte, usePartes } from "@/hooks/usePartes";
+import { ItemAlmacen, useAlmacen } from "@/hooks/useAlmacen";
 import { CurrencyDollarIcon } from "@heroicons/react/24/outline";
 import { DetallePresupuestoItem } from "@/hooks/useDetallePresupuestoItem";
 
@@ -20,8 +20,7 @@ interface Props {
 export default function DetallePresupuestoItemEditModal({ isOpen, onClose, detalle, onSave }: Props) {
     const { data: session } = useSession();
     const token = session?.accessToken || null;
-    const { fetchAllPartes } = usePartes();
-    const [partesDisponibles, setPartesDisponibles] = React.useState<CatalogoParte[]>([]);
+    const [partesDisponibles, setPartesDisponibles] = React.useState<ItemAlmacen[]>([]);
     const [loadingPartes, setLoadingPartes] = React.useState(false);
     const [editando, setEditando] = React.useState<Partial<DetallePresupuestoItem> | null>(detalle);
     const [cargando, setCargando] = React.useState(false);
@@ -33,110 +32,66 @@ export default function DetallePresupuestoItemEditModal({ isOpen, onClose, detal
     React.useEffect(() => {
         if (!isOpen || !session?.accessToken) return;
 
-        let isMounted = true;
-
         const loadPartes = async () => {
             setLoadingPartes(true);
             try {
-                const data = await fetchAllPartes(false);
-                if (isMounted) {
-                    setPartesDisponibles(data.filter((parte) => parte.estado));
+                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/partes?includeInactive=false`, {
+                    headers: { Authorization: `Bearer ${session.accessToken}` }
+                });
+                const data = await response.json();
+                if (Array.isArray(data)) {
+                    setPartesDisponibles(data.filter((p: any) => p.estado));
                 }
             } catch (error) {
-                if (isMounted) {
-                    toast.error(error instanceof Error ? error.message : "Error al cargar el catálogo");
-                }
+                toast.error("Error al cargar el catálogo de almacén");
             } finally {
-                if (isMounted) {
-                    setLoadingPartes(false);
-                }
+                setLoadingPartes(false);
             }
         };
 
         void loadPartes();
-
-        return () => {
-            isMounted = false;
-        };
     }, [isOpen, session?.accessToken]);
 
-    const formatParteLabel = (parte: CatalogoParte) => {
-        const codigo = parte.codigoInterno || `ITEM-${parte.id}`;
-        const precio = Number(parte.precioReferencia ?? 0);
-        return `${parte.nombre} - ${codigo} ($${precio.toLocaleString('es-CL')})`;
-    };
+    const formatCurrency = (value?: number) =>
+        new Intl.NumberFormat("es-AR", {
+            style: "currency",
+            currency: "ARS",
+        }).format(Number(value || 0));
 
     const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        setEditando(prev => prev ? {
-            ...prev,
-            [name]: value === '' ? '' : Number(value)
-        } : null);
-    };
-
-    const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setEditando(prev => prev ? {
-            ...prev,
-            [name]: value
-        } : null);
+        setEditando(prev => prev ? { ...prev, [name]: value === '' ? '' : Number(value) } : null);
     };
 
     const handleParteChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const parteId = Number(e.target.value);
-        const parteSeleccionada = partesDisponibles.find((parte) => parte.id === parteId);
+        const p = partesDisponibles.find((item) => item.id === parteId);
 
         setEditando(prev => {
             if (!prev) return null;
-
             return {
                 ...prev,
                 parteId,
-                parte: parteSeleccionada
-                    ? {
-                        id: parteSeleccionada.id,
-                        nombre: parteSeleccionada.nombre,
-                        codigoInterno: parteSeleccionada.codigoInterno,
-                        precioReferencia: parteSeleccionada.precioReferencia,
-                      }
-                    : prev.parte,
+                precioUnitario: p ? p.precio1 : prev.precioUnitario
             } as Partial<DetallePresupuestoItem>;
         });
     };
 
-    const handleCancel = () => {
-        onClose();
-    };
-
-    // Modifica la función handleSubmit así:
     const handleSubmit = async () => {
         if (!editando || !token || !detalle) return;
 
-        // Validaciones
-        const parteSeleccionadaId = Number(editando.parteId || 0);
-
-        if (!parteSeleccionadaId) {
-            toast.error("Debe seleccionar un ítem");
-            return;
-        }
-
-        if (!editando.cantidad || Number(editando.cantidad) <= 0) {
-            toast.error("La cantidad debe ser mayor a 0");
+        if (!editando.parteId) {
+            toast.error("Debe seleccionar un producto");
             return;
         }
 
         setCargando(true);
-
         try {
-            const cambios: any = {
-                parteId: parteSeleccionadaId,
-                cantidad: Number(editando.cantidad)
+            const cambios = {
+                parteId: Number(editando.parteId),
+                cantidad: Number(editando.cantidad),
+                comentario: editando.comentario || null
             };
-
-            // Solo incluir comentario si ha cambiado
-            if (editando.comentario !== detalle.comentario) {
-                cambios.comentario = editando.comentario || null;
-            }
 
             const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/detalles-presupuesto-item/${detalle.id}`, {
                 method: "PATCH",
@@ -147,183 +102,85 @@ export default function DetallePresupuestoItemEditModal({ isOpen, onClose, detal
                 body: JSON.stringify(cambios),
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `Error al actualizar: ${response.status}`);
-            }
+            if (!response.ok) throw new Error("Error al actualizar");
 
             const data = await response.json();
-
-            const detalleActualizado = {
-                ...data,
-                precioUnitario: data.precioUnitario,
-                subtotal: data.subtotal,
-            };
-
-            onSave(detalleActualizado);
-            toast.success("Cambios guardados correctamente");
+            onSave(data);
+            toast.success("Presupuesto actualizado");
             onClose();
         } catch (error) {
-            console.error("Error al guardar cambios:", error);
-            toast.error(error instanceof Error ? error.message : "Error al guardar cambios");
-            setEditando(detalle); // Restaurar estado original en caso de error
+            toast.error("Error al guardar cambios");
         } finally {
             setCargando(false);
         }
     };
 
-    // Calcular precios para mostrar en la UI
-    const calcularPrecioUnitario = () => {
-        if (!editando) return 0;
-
-        const parteSeleccionadaId = Number(editando.parteId || 0);
-        const parteOriginalId = detalle?.parte?.id ?? 0;
-
-        if (parteSeleccionadaId && parteSeleccionadaId !== parteOriginalId) {
-            const parte = partesDisponibles.find((item) => item.id === parteSeleccionadaId);
-            return Number(parte?.precioReferencia ?? 0);
-        }
-
-        return Number(detalle?.precioUnitario || editando.parte?.precioReferencia || 0);
-    };
-
-    const calcularSubtotal = () => {
-        const cantidad = editando?.cantidad || detalle?.cantidad || 0;
-        return calcularPrecioUnitario() * cantidad;
-    };
-
     if (!editando) return null;
+
+    const subtotal = (editando.precioUnitario || 0) * (Number(editando.cantidad) || 0);
 
     return (
         <CrudModal
             isOpen={isOpen}
-            onClose={handleCancel}
-            title="Editar Detalle de Ítem"
+            onClose={onClose}
+            title="Editar Item del Presupuesto"
             onSubmit={handleSubmit}
             loading={cargando}
             mode="edit"
         >
-            <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-10">
-                <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
-                    Editar detalle del ítem
-                </h4>
-                <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-                    Puedes modificar los datos del detalle. Los cambios se guardarán al presionar "Guardar cambios".
-                </p>
+            <div className="space-y-5 p-4 lg:p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                        <Label>Producto de Almacén *</Label>
+                        <select
+                            value={editando.parteId || ""}
+                            onChange={handleParteChange}
+                            disabled={cargando || loadingPartes}
+                            className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                        >
+                            <option value="">Seleccione un producto...</option>
+                            {partesDisponibles.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                    {p.nombre} ({p.codigoInterno || p.id}) - {formatCurrency(p.precio1)}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
 
-                <form
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        void handleSubmit();
-                    }}
-                    className="flex flex-col"
-                >
-                    <div className="custom-scrollbar h-[500px] overflow-y-auto">
-                        <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
-                            <div>
-                                <Label>ID</Label>
-                                <Input name="id" value={editando.id} disabled />
-                            </div>
+                    <div>
+                        <Label>Cantidad</Label>
+                        <Input
+                            name="cantidad"
+                            type="number"
+                            value={editando.cantidad || ""}
+                            onChange={handleNumberChange}
+                            required
+                        />
+                    </div>
 
-                            <div>
-                                <Label>Presupuesto ID</Label>
-                                <Input name="presupuestoId" value={editando.presupuestoId ?? ""} disabled />
-                            </div>
-
-                            <div className="lg:col-span-2">
-                                <Label>Ítem / Parte *</Label>
-                                <div className="relative">
-                                    <select
-                                        value={editando.parteId || ""}
-                                        onChange={handleParteChange}
-                                        disabled={cargando || loadingPartes}
-                                        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white dark:border-gray-600 disabled:opacity-50"
-                                    >
-                                        <option value="">Seleccione un ítem</option>
-                                        {partesDisponibles.map((parte) => (
-                                            <option key={parte.id} value={parte.id}>
-                                                {formatParteLabel(parte)}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <Label>Cantidad *</Label>
-                                <Input
-                                    name="cantidad"
-                                    type="number"
-                                    min="1"
-                                    step={1}
-                                    value={editando.cantidad || ""}
-                                    onChange={handleNumberChange}
-                                    required
-                                    disabled={cargando}
-                                />
-                            </div>
-
-                            <div>
-                                <Label>Precio Unitario</Label>
-                                <div className="relative">
-                                    <CurrencyDollarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <Input
-                                        value={calcularPrecioUnitario()}
-                                        disabled
-                                        className="pl-10"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <Label>Subtotal</Label>
-                                <div className="relative">
-                                    <CurrencyDollarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <Input
-                                        value={calcularSubtotal()}
-                                        disabled
-                                        className="pl-10 font-medium"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <Label>Fecha de Uso</Label>
-                                <Input
-                                    value={editando.fechaUso ? new Date(editando.fechaUso).toLocaleString() : "No especificada"}
-                                    disabled
-                                />
-                            </div>
-
-                            <div>
-                                <Label>Fecha de creación</Label>
-                                <Input
-                                    value={new Date(editando.createdAt || "").toLocaleString()}
-                                    disabled
-                                />
-                            </div>
-
-                            <div>
-                                <Label>Última actualización</Label>
-                                <Input
-                                    value={new Date(editando.updatedAt || "").toLocaleString()}
-                                    disabled
-                                />
-                            </div>
-
-                            <div className="lg:col-span-2">
-                                <Label>Comentario</Label>
-                                <Input
-                                    name="comentario"
-                                    value={editando.comentario || ""}
-                                    onChange={handleTextChange}
-                                    placeholder="Agregar comentario sobre este ítem"
-                                    disabled={cargando}
-                                />
-                            </div>
+                    <div>
+                        <Label>Precio Unitario (PVP 1)</Label>
+                        <div className="relative">
+                            <CurrencyDollarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <Input value={formatCurrency(editando.precioUnitario)} disabled className="pl-10 font-bold bg-gray-50" />
                         </div>
                     </div>
-                </form>
+
+                    <div className="md:col-span-2 bg-brand-50 dark:bg-brand-900/10 p-3 rounded-lg flex justify-between items-center border border-brand-100">
+                        <span className="text-sm font-bold text-brand-700 uppercase">Subtotal Estimado</span>
+                        <span className="text-lg font-black text-brand-900 dark:text-brand-200">{formatCurrency(subtotal)}</span>
+                    </div>
+
+                    <div className="md:col-span-2">
+                        <Label>Comentario Adicional</Label>
+                        <Input
+                            name="comentario"
+                            value={editando.comentario || ""}
+                            onChange={(e) => setEditando(prev => prev ? { ...prev, comentario: e.target.value } : null)}
+                            placeholder="Notas sobre este repuesto..."
+                        />
+                    </div>
+                </div>
             </div>
         </CrudModal>
     );

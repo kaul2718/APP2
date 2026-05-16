@@ -171,22 +171,18 @@ export const navItems: NavItem[] = [
   },
   {
     icon: <ArchiveBoxIcon className="w-5 h-5" />,
-    name: "Inventario / Catálogo",
+    name: "Almacén",
     roles: ["admin", "tech"],
     subItems: [
       {
-        name: "Inventario",
-        path: "/ver-inventario",
-        roles: ["admin", "tech"]
+        name: "Gestión Almacén",
+        path: "/items",
+        roles: ["admin", "tech"],
+        pro: true,
       },
       {
-        name: "Categorias",
+        name: "Categorías",
         path: "/ver-categoria",
-        roles: ["admin", "tech"]
-      },
-      {
-        name: "Catálogo de Ítems",
-        path: "/ver-parte",
         roles: ["admin", "tech"]
       },
       {

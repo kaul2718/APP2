@@ -8,390 +8,481 @@ import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { useRouter } from 'next/navigation';
 import { Combobox } from '@headlessui/react';
-import { CogIcon, FolderIcon, TagIcon, CurrencyDollarIcon, CheckIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import {
+    CogIcon,
+    TagIcon,
+    CurrencyDollarIcon,
+    CheckIcon,
+    MagnifyingGlassIcon,
+    ArchiveBoxIcon,
+    MapPinIcon,
+    CalculatorIcon,
+    ScaleIcon,
+    ChevronUpDownIcon
+} from "@heroicons/react/24/outline";
 import { useMarcas } from "@/hooks/useMarcas";
 import { useCategoria } from "@/hooks/useCategoria";
 
 interface FormData {
-  nombre: string;
-  modelo: string;
-  descripcion: string;
-  codigoInterno: string;
-  precioReferencia: number;
-  categoriaId: number | null;
-  marcaId: number | null;
+    nombre: string;
+    modelo: string;
+    descripcion: string;
+    codigoInterno: string;
+    costo: number;
+    precio1: number;
+    precio2: number;
+    precio3: number;
+    precio4: number;
+    ivaTarifa: number;
+    stock: number;
+    stockMinimo: number;
+    ubicacion: string;
+    unidadMedida: string;
+    permiteModificarPrecio: boolean;
+    permiteFraccionar: boolean;
+    categoriaId: number | null;
+    marcaId: number | null;
 }
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
 
 interface IngresarParteFormProps {
-  embeddedMode?: boolean;
-  onSuccess?: () => void;
+    embeddedMode?: boolean;
+    onSuccess?: () => void;
 }
 
 export default function IngresarParteForm({
-  embeddedMode = false,
-  onSuccess,
+    embeddedMode = false,
+    onSuccess,
 }: IngresarParteFormProps) {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const { marcas, loading: loadingMarcas, fetchMarcas } = useMarcas();
-  const { categorias, loading: loadingCategorias, fetchCategorias } = useCategoria();
-  const [categoriaSearch, setCategoriaSearch] = React.useState("");
-  const [marcaSearch, setMarcaSearch] = React.useState("");
-  const [formData, setFormData] = React.useState<FormData>({
-    nombre: "",
-    modelo: "",
-    descripcion: "",
-    codigoInterno: "",
-    precioReferencia: 0,
-    categoriaId: null,
-    marcaId: null
-  });
-  const [errors, setErrors] = React.useState<FormErrors>({});
-  const [loading, setLoading] = React.useState(false);
+    const { data: session, status } = useSession();
+    const router = useRouter();
+    const { marcas, fetchMarcas } = useMarcas();
+    const { categorias, fetchCategorias } = useCategoria();
 
-  React.useEffect(() => {
-    if (status !== "authenticated") return;
-    void fetchCategorias(1, 1000, "", false);
-    void fetchMarcas(1, 1000, "", false);
-  }, [status]);
+    const [categoriaSearch, setCategoriaSearch] = React.useState("");
+    const [marcaSearch, setMarcaSearch] = React.useState("");
+    const [activeTab, setActiveTab] = React.useState<"general" | "financiero" | "logistica">("general");
 
-  const categoriasActivas = categorias.filter((categoria) => categoria.estado);
-  const marcasActivas = marcas.filter((marca) => marca.estado);
-
-  const filteredCategorias = categoriaSearch === ""
-    ? categoriasActivas
-    : categoriasActivas.filter((categoria) =>
-        [categoria.nombre, categoria.descripcion]
-          .filter(Boolean)
-          .some((value) => value.toLowerCase().includes(categoriaSearch.toLowerCase()))
-      );
-
-  const filteredMarcas = marcaSearch === ""
-    ? marcasActivas
-    : marcasActivas.filter((marca) =>
-        marca.nombre.toLowerCase().includes(marcaSearch.toLowerCase())
-      );
-
-  const handleChange = (field: keyof FormData, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
-    }
-  };
-
-  const validateFields = () => {
-    const newErrors: FormErrors = {};
-
-    if (!formData.nombre.trim()) {
-      newErrors.nombre = "El nombre de la parte es requerido";
-    } else if (formData.nombre.trim().length < 2) {
-      newErrors.nombre = "El nombre debe tener al menos 2 caracteres";
-    }
-
-    if (!formData.modelo.trim()) {
-      newErrors.modelo = "El modelo de la parte es requerido";
-    } else if (formData.modelo.trim().length < 2) {
-      newErrors.modelo = "El modelo debe tener al menos 2 caracteres";
-    }
-
-    if (!formData.descripcion.trim()) {
-      newErrors.descripcion = "La descripción es requerida";
-    } else if (formData.descripcion.trim().length < 5) {
-      newErrors.descripcion = "La descripción debe tener al menos 5 caracteres";
-    }
-
-    if (formData.codigoInterno.trim() && formData.codigoInterno.trim().length < 2) {
-      newErrors.codigoInterno = "El código debe tener al menos 2 caracteres";
-    }
-
-    if (formData.precioReferencia <= 0) {
-      newErrors.precioReferencia = "El precio de referencia debe ser mayor a 0";
-    }
-
-    if (!formData.categoriaId) {
-      newErrors.categoriaId = "Debe seleccionar una categoría";
-    }
-
-    if (!formData.marcaId) {
-      newErrors.marcaId = "Debe seleccionar una marca";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    if (!validateFields()) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/partes`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.accessToken || ""}`,
-        },
-        body: JSON.stringify({
-          nombre: formData.nombre,
-          modelo: formData.modelo,
-          descripcion: formData.descripcion,
-          codigoInterno: formData.codigoInterno || undefined,
-          precioReferencia: formData.precioReferencia,
-          categoriaId: formData.categoriaId,
-          marcaId: formData.marcaId
-        }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.error("Error:", errorData);
-        toast.error(errorData.message || "Error al registrar el ítem");
-        return;
-      }
-
-      toast.success("Ítem registrado con éxito ✅");
-
-      setFormData({
+    const [formData, setFormData] = React.useState<FormData>({
         nombre: "",
         modelo: "",
         descripcion: "",
         codigoInterno: "",
-        precioReferencia: 0,
+        costo: 0,
+        precio1: 0,
+        precio2: 0,
+        precio3: 0,
+        precio4: 0,
+        ivaTarifa: 15, // Default common VAT
+        stock: 0,
+        stockMinimo: 1,
+        ubicacion: "",
+        unidadMedida: "Unidad",
+        permiteModificarPrecio: false,
+        permiteFraccionar: false,
         categoriaId: null,
         marcaId: null
-      });
+    });
 
-      if (embeddedMode) {
-        onSuccess?.();
-      } else {
-        setTimeout(() => {
-          router.push('/ver-parte');
-        }, 1000);
-      }
+    const [errors, setErrors] = React.useState<FormErrors>({});
+    const [loading, setLoading] = React.useState(false);
 
-    } catch (error) {
-      console.error(error);
-      toast.error("Error en la solicitud");
-    } finally {
-      setLoading(false);
-    }
-  };
+    React.useEffect(() => {
+        if (status !== "authenticated") return;
+        void fetchCategorias(1, 1000, "", false);
+        void fetchMarcas(1, 1000, "", false);
+    }, [status]);
 
-  const formContent = (
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
-        {/* Nombre del ítem */}
-        <div>
-          <Label>Nombre del Ítem</Label>
-          <div className="relative">
-            <TagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-            <Input
-              value={formData.nombre}
-              onChange={(e) => handleChange("nombre", e.target.value)}
-              placeholder="Ej: Memoria RAM DDR4, SSD Kingston 480GB"
-              className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-            />
-          </div>
-          {errors.nombre && <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>}
-        </div>
+    const handleChange = (field: keyof FormData, value: any) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+        if (errors[field]) {
+            setErrors(prev => ({ ...prev, [field]: undefined }));
+        }
+    };
 
-        {/* Modelo / referencia */}
-        <div>
-          <Label>Modelo / Referencia</Label>
-          <div className="relative">
-            <CogIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-            <Input
-              value={formData.modelo}
-              onChange={(e) => handleChange("modelo", e.target.value)}
-              placeholder="Ej: 1234-ABC, XT-500, ProSeries 3000"
-              className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-            />
-          </div>
-          {errors.modelo && <p className="text-sm text-red-500 mt-1">{errors.modelo}</p>}
-        </div>
+    const validateFields = () => {
+        const newErrors: FormErrors = {};
 
-        {/* Código interno */}
-        <div>
-          <Label>Código Interno (opcional)</Label>
-          <div className="relative">
-            <TagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-            <Input
-              value={formData.codigoInterno}
-              onChange={(e) => handleChange("codigoInterno", e.target.value)}
-              placeholder="Ej: RAM-001"
-              className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-            />
-          </div>
-          {errors.codigoInterno && <p className="text-sm text-red-500 mt-1">{errors.codigoInterno}</p>}
-        </div>
+        if (!formData.nombre.trim()) newErrors.nombre = "El nombre es obligatorio";
+        if (!formData.categoriaId) newErrors.categoriaId = "Seleccione una categoría";
+        if (!formData.marcaId) newErrors.marcaId = "Seleccione una marca";
 
-        {/* Precio de referencia */}
-        <div>
-          <Label>Precio de Referencia</Label>
-          <div className="relative">
-            <CurrencyDollarIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-            <Input
-              type="number"
-              min="0"
-              step={0.01}
-              value={formData.precioReferencia}
-              onChange={(e) => handleChange("precioReferencia", parseFloat(e.target.value) || 0)}
-              placeholder="0.00"
-              className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-            />
-          </div>
-          {errors.precioReferencia && <p className="text-sm text-red-500 mt-1">{errors.precioReferencia}</p>}
-        </div>
+        if (formData.costo < 0) newErrors.costo = "El costo no puede ser negativo";
+        if (formData.precio1 < formData.costo) newErrors.precio1 = "El PVP no debe ser menor al costo";
 
-        {/* Descripción */}
-        <div>
-          <Label>Descripción</Label>
-          <textarea
-            value={formData.descripcion}
-            onChange={(e) => handleChange("descripcion", e.target.value)}
-            placeholder="Descripción detallada del ítem..."
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-black dark:text-white"
-            rows={3}
-          />
-          {errors.descripcion && <p className="text-sm text-red-500 mt-1">{errors.descripcion}</p>}
-        </div>
+        setErrors(newErrors);
+        if (Object.keys(newErrors).length > 0) {
+            toast.warning("Complete los campos obligatorios ⚠️");
+            return false;
+        }
+        return true;
+    };
 
-        {/* Selección de categoría */}
-        <div>
-          <Label>Categoría</Label>
-          <Combobox
-            value={formData.categoriaId}
-            onChange={(value: number) => {
-              handleChange("categoriaId", value);
-              setCategoriaSearch("");
-            }}
-            disabled={loadingCategorias}
-          >
-            <div className="relative">
-              <div className="relative">
-                <Combobox.Input
-                  className={`w-full rounded-md border bg-white py-2 pl-10 pr-4 text-black focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${errors.categoriaId ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
-                  displayValue={(value: number) => categoriasActivas.find((categoria) => categoria.id === value)?.nombre || ""}
-                  onChange={(event) => setCategoriaSearch(event.target.value)}
-                  placeholder={loadingCategorias ? 'Cargando categorías...' : 'Escriba para buscar una categoría'}
-                />
-                <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-              </div>
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!validateFields()) return;
 
-              <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-sm shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800">
-                {filteredCategorias.length === 0 ? (
-                  <div className="px-4 py-2 text-gray-700 dark:text-gray-300">No se encontraron categorías</div>
-                ) : (
-                  filteredCategorias.map((categoria) => (
-                    <Combobox.Option
-                      key={categoria.id}
-                      value={categoria.id}
-                      className={({ active }) =>
-                        `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? 'bg-blue-600 text-white' : 'text-gray-900 dark:text-gray-200'}`
-                      }
+        setLoading(true);
+        try {
+            const finalData = { ...formData };
+            if (!finalData.permiteFraccionar) {
+                finalData.stock = Math.floor(finalData.stock);
+                finalData.stockMinimo = Math.floor(finalData.stockMinimo);
+            }
+
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/partes`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${session?.accessToken || ""}`,
+                },
+                body: JSON.stringify(finalData),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                toast.error(data.message || "Error al registrar el producto");
+                return;
+            }
+
+            toast.success("Producto registrado exitosamente ✅");
+            if (embeddedMode) {
+                onSuccess?.();
+            } else {
+                router.push('/items');
+            }
+        } catch (error) {
+            toast.error("Error de conexión con el servidor");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const filteredCategorias = categoriaSearch === "" ? categorias.filter(c => c.estado) : categorias.filter(c => c.estado && c.nombre.toLowerCase().includes(categoriaSearch.toLowerCase()));
+    const filteredMarcas = marcaSearch === "" ? marcas.filter(m => m.estado) : marcas.filter(m => m.estado && m.nombre.toLowerCase().includes(marcaSearch.toLowerCase()));
+
+    const formContent = (
+        <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Premium Tab Navigation */}
+            <div className="flex border-b border-gray-100 dark:border-gray-800 overflow-x-auto no-scrollbar gap-2">
+                {["general", "financiero", "logistica"].map((tab) => (
+                    <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setActiveTab(tab as any)}
+                        className={`px-6 py-3 text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab
+                                ? 'border-b-2 border-brand-500 text-brand-600 bg-brand-50/30 dark:bg-brand-900/10'
+                                : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                            }`}
                     >
-                      {({ selected }) => (
-                        <>
-                          <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
-                            {categoria.nombre}
-                          </span>
-                          <span className={`block truncate text-xs ${selected ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'}`}>
-                            {categoria.descripcion}
-                          </span>
-                          {selected && (
-                            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                              <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </Combobox.Option>
-                  ))
-                )}
-              </Combobox.Options>
+                        {tab}
+                    </button>
+                ))}
             </div>
-          </Combobox>
-          {errors.categoriaId && <p className="text-sm text-red-500 mt-1">{errors.categoriaId}</p>}
-        </div>
 
-        {/* Selección de marca */}
-        <div>
-          <Label>Marca</Label>
-          <Combobox
-            value={formData.marcaId}
-            onChange={(value: number) => {
-              handleChange("marcaId", value);
-              setMarcaSearch("");
-            }}
-            disabled={loadingMarcas}
-          >
-            <div className="relative">
-              <div className="relative">
-                <Combobox.Input
-                  className={`w-full rounded-md border bg-white py-2 pl-10 pr-4 text-black focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${errors.marcaId ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
-                  displayValue={(value: number) => marcasActivas.find((marca) => marca.id === value)?.nombre || ""}
-                  onChange={(event) => setMarcaSearch(event.target.value)}
-                  placeholder={loadingMarcas ? 'Cargando marcas...' : 'Escriba para buscar una marca'}
-                />
-                <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-              </div>
+            <div className="min-h-[420px]">
+                {/* TAB: GENERAL */}
+                {activeTab === "general" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
+                        <div className="md:col-span-2">
+                            <Label className="text-gray-700 dark:text-gray-300 font-bold mb-2">Nombre Comercial del Producto *</Label>
+                            <div className="relative">
+                                <ArchiveBoxIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
+                                <Input
+                                    value={formData.nombre}
+                                    onChange={(e) => handleChange("nombre", e.target.value)}
+                                    className="pl-10 font-bold text-gray-900 dark:text-white py-3 shadow-sm"
+                                    placeholder="Ej: Memoria RAM DDR4 16GB Fury Beast"
+                                />
+                            </div>
+                            {errors.nombre && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.nombre}</p>}
+                        </div>
 
-              <Combobox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-sm shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-gray-800">
-                {filteredMarcas.length === 0 ? (
-                  <div className="px-4 py-2 text-gray-700 dark:text-gray-300">No se encontraron marcas</div>
-                ) : (
-                  filteredMarcas.map((marca) => (
-                    <Combobox.Option
-                      key={marca.id}
-                      value={marca.id}
-                      className={({ active }) =>
-                        `relative cursor-default select-none py-2 pl-10 pr-4 ${active ? 'bg-blue-600 text-white' : 'text-gray-900 dark:text-gray-200'}`
-                      }
-                    >
-                      {({ selected }) => (
-                        <>
-                          <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
-                            {marca.nombre}
-                          </span>
-                          {selected && (
-                            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                              <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </Combobox.Option>
-                  ))
+                        <div>
+                            <Label className="text-gray-600 dark:text-gray-400 font-bold">Modelo / Referencia</Label>
+                            <Input value={formData.modelo} onChange={(e) => handleChange("modelo", e.target.value)} placeholder="Ej: KF432C16BB/16" className="bg-gray-50/50 dark:bg-gray-800/30" />
+                        </div>
+
+                        <div>
+                            <Label className="text-gray-600 dark:text-gray-400 font-bold">Código Interno / SKU</Label>
+                            <Input value={formData.codigoInterno} onChange={(e) => handleChange("codigoInterno", e.target.value)} placeholder="Ej: MEM-KIN-001" className="bg-gray-50/50 dark:bg-gray-800/30" />
+                        </div>
+
+                        <div>
+                            <Label className="text-gray-600 dark:text-gray-400 font-bold">Categoría *</Label>
+                            <Combobox value={formData.categoriaId} onChange={(val) => handleChange("categoriaId", val)}>
+                                <div className="relative">
+                                    <div className="relative w-full cursor-default overflow-hidden rounded-xl bg-white dark:bg-gray-800 text-left border border-gray-300 dark:border-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+                                        <Combobox.Input
+                                            className="w-full border-none py-3 pl-3 pr-10 text-sm leading-5 text-gray-900 dark:text-white bg-transparent outline-none font-medium"
+                                            displayValue={(id: number) => categorias.find(c => c.id === id)?.nombre || ""}
+                                            onChange={(e) => setCategoriaSearch(e.target.value)}
+                                            placeholder="Seleccionar categoría..."
+                                        />
+                                        <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
+                                            <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                                        </Combobox.Button>
+                                    </div>
+                                    <Combobox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white dark:bg-gray-800 py-1 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none border border-gray-100 dark:border-gray-700">
+                                        {filteredCategorias.map(c => (
+                                            <Combobox.Option key={c.id} value={c.id} className={({ active }) => `relative cursor-default select-none py-3 pl-10 pr-4 text-sm ${active ? 'bg-brand-600 text-white' : 'text-gray-900 dark:text-gray-300'}`}>
+                                                {({ selected, active }) => (
+                                                    <>
+                                                        <span className={`block truncate ${selected ? 'font-bold' : 'font-normal'}`}>{c.nombre}</span>
+                                                        {selected && (
+                                                            <span className={`absolute inset-y-0 left-0 flex items-center pl-3 ${active ? 'text-white' : 'text-brand-600'}`}>
+                                                                <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </Combobox.Option>
+                                        ))}
+                                    </Combobox.Options>
+                                </div>
+                            </Combobox>
+                            {errors.categoriaId && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.categoriaId}</p>}
+                        </div>
+
+                        <div>
+                            <Label className="text-gray-600 dark:text-gray-400 font-bold">Marca *</Label>
+                            <Combobox value={formData.marcaId} onChange={(val) => handleChange("marcaId", val)}>
+                                <div className="relative">
+                                    <div className="relative w-full cursor-default overflow-hidden rounded-xl bg-white dark:bg-gray-800 text-left border border-gray-300 dark:border-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+                                        <Combobox.Input
+                                            className="w-full border-none py-3 pl-3 pr-10 text-sm leading-5 text-gray-900 dark:text-white bg-transparent outline-none font-medium"
+                                            displayValue={(id: number) => marcas.find(m => m.id === id)?.nombre || ""}
+                                            onChange={(e) => setMarcaSearch(e.target.value)}
+                                            placeholder="Seleccionar marca..."
+                                        />
+                                        <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
+                                            <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                                        </Combobox.Button>
+                                    </div>
+                                    <Combobox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white dark:bg-gray-800 py-1 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none border border-gray-100 dark:border-gray-700">
+                                        {filteredMarcas.map(m => (
+                                            <Combobox.Option key={m.id} value={m.id} className={({ active }) => `relative cursor-default select-none py-3 pl-10 pr-4 text-sm ${active ? 'bg-brand-600 text-white' : 'text-gray-900 dark:text-gray-300'}`}>
+                                                {({ selected, active }) => (
+                                                    <>
+                                                        <span className={`block truncate ${selected ? 'font-bold' : 'font-normal'}`}>{m.nombre}</span>
+                                                        {selected && (
+                                                            <span className={`absolute inset-y-0 left-0 flex items-center pl-3 ${active ? 'text-white' : 'text-brand-600'}`}>
+                                                                <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                                            </span>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </Combobox.Option>
+                                        ))}
+                                    </Combobox.Options>
+                                </div>
+                            </Combobox>
+                            {errors.marcaId && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.marcaId}</p>}
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <Label className="text-gray-600 dark:text-gray-400 font-bold">Descripción / Notas Técnicas</Label>
+                            <textarea
+                                className="w-full rounded-2xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none transition-all shadow-sm"
+                                rows={3}
+                                value={formData.descripcion}
+                                onChange={(e) => handleChange("descripcion", e.target.value)}
+                                placeholder="Detalles sobre garantía, compatibilidad, etc."
+                            />
+                        </div>
+                    </div>
                 )}
-              </Combobox.Options>
+
+                {/* TAB: FINANCIERO */}
+                {activeTab === "financiero" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-fadeIn">
+                        <div className="bg-gray-50 dark:bg-gray-800/40 p-6 rounded-3xl border border-gray-100 dark:border-gray-800/50 space-y-5">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-brand-100 dark:bg-brand-900/30 rounded-lg">
+                                    <CalculatorIcon className="w-5 h-5 text-brand-600" />
+                                </div>
+                                <h4 className="font-black text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300">Costo y Tributos</h4>
+                            </div>
+                            <div>
+                                <Label className="text-[11px] font-black uppercase text-gray-500 mb-1">Costo Unitario de Adquisición</Label>
+                                <div className="relative">
+                                    <CurrencyDollarIcon className="w-6 h-6 text-green-500 dark:text-green-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
+                                    <Input type="number" step={0.01} value={formData.costo} onChange={(e) => handleChange("costo", parseFloat(e.target.value) || 0)} className="pl-12 font-black text-2xl text-gray-900 dark:text-white py-4 rounded-2xl shadow-inner bg-white dark:bg-gray-900" />
+                                </div>
+                                {errors.costo && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase">{errors.costo}</p>}
+                            </div>
+                            <div>
+                                <Label className="text-[11px] font-bold text-gray-500 mb-1">Tarifa IVA (%)</Label>
+                                <select
+                                    className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-3.5 text-sm font-bold text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500"
+                                    value={formData.ivaTarifa}
+                                    onChange={(e) => handleChange("ivaTarifa", parseInt(e.target.value))}
+                                >
+                                    <option value={0}>0%</option>
+                                    <option value={5}>5%</option>
+                                    <option value={8}>8%</option>
+                                    <option value={15}>15%</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-3 bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm mt-4">
+                                <input
+                                    type="checkbox"
+                                    id="modPrice"
+                                    checked={formData.permiteModificarPrecio}
+                                    onChange={(e) => handleChange("permiteModificarPrecio", e.target.checked)}
+                                    className="w-5 h-5 text-brand-600 rounded-lg cursor-pointer transition-all"
+                                />
+                                <label htmlFor="modPrice" className="text-xs font-bold text-gray-600 dark:text-gray-400 cursor-pointer">Habilitar cambio manual de precio en caja</label>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-brand-100 dark:bg-brand-900/30 rounded-lg">
+                                    <TagIcon className="w-5 h-5 text-brand-600" />
+                                </div>
+                                <h4 className="font-black text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300">Escala de Precios</h4>
+                            </div>
+                            <div className="grid grid-cols-1 gap-5">
+                                <div className="p-5 bg-brand-50/50 dark:bg-brand-900/10 rounded-[2.5rem] border border-brand-100 dark:border-brand-900/30 shadow-lg shadow-brand-500/5">
+                                    <Label className="text-brand-700 dark:text-brand-400 font-black text-xs uppercase mb-1">Precio 1 - PVP (Público) *</Label>
+                                    <Input type="number" step={0.01} value={formData.precio1} onChange={(e) => handleChange("precio1", parseFloat(e.target.value) || 0)} className="border-brand-300 dark:border-brand-800 font-black text-3xl text-brand-700 dark:text-brand-300 bg-white/80 dark:bg-gray-900/80 py-6 rounded-3xl" />
+                                    {errors.precio1 && <p className="text-[10px] font-black text-red-500 mt-2 uppercase tracking-tight">{errors.precio1}</p>}
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-white dark:bg-gray-800/40 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                                        <Label className="text-[10px] font-bold text-gray-400 uppercase mb-1">P2 - Mayorista</Label>
+                                        <Input type="number" step={0.01} value={formData.precio2} onChange={(e) => handleChange("precio2", parseFloat(e.target.value) || 0)} className="border-none p-0 h-auto font-black text-xl bg-transparent focus:ring-0" />
+                                    </div>
+                                    <div className="bg-white dark:bg-gray-800/40 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                                        <Label className="text-[10px] font-bold text-gray-400 uppercase mb-1">P3 - Especial</Label>
+                                        <Input type="number" step={0.01} value={formData.precio3} onChange={(e) => handleChange("precio3", parseFloat(e.target.value) || 0)} className="border-none p-0 h-auto font-black text-xl bg-transparent focus:ring-0" />
+                                    </div>
+                                    <div className="col-span-2 bg-white dark:bg-gray-800/40 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                                        <Label className="text-[10px] font-bold text-gray-400 uppercase mb-1">P4 - Distribución / Remate</Label>
+                                        <Input type="number" step={0.01} value={formData.precio4} onChange={(e) => handleChange("precio4", parseFloat(e.target.value) || 0)} className="border-none p-0 h-auto font-black text-xl bg-transparent focus:ring-0" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* TAB: LOGISTICA */}
+                {activeTab === "logistica" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10 animate-fadeIn">
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                                    <ScaleIcon className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <h4 className="font-black text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300">Medición y Venta</h4>
+                            </div>
+                            <div>
+                                <Label className="font-bold text-gray-600 mb-2">Unidad de Medida Oficial</Label>
+                                <select
+                                    className="w-full rounded-2xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 text-sm font-bold text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500 shadow-sm appearance-none transition-all"
+                                    value={formData.unidadMedida}
+                                    onChange={(e) => handleChange("unidadMedida", e.target.value)}
+                                >
+                                    <option value="Unidad">Unidad (ud)</option>
+                                    <option value="Metro">Metro (m)</option>
+                                    <option value="Litro">Litro (l)</option>
+                                    <option value="Kilo">Kilo (kg)</option>
+                                    <option value="Servicio">Servicio (srv)</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-4 bg-blue-50/50 dark:bg-blue-900/10 p-6 rounded-[2rem] border border-blue-100 dark:border-blue-900/30">
+                                <input
+                                    type="checkbox"
+                                    id="frac"
+                                    checked={formData.permiteFraccionar}
+                                    onChange={(e) => {
+                                        const isChecked = e.target.checked;
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            permiteFraccionar: isChecked,
+                                            stock: isChecked ? (prev.stock ?? 0) : Math.floor(prev.stock ?? 0),
+                                            stockMinimo: isChecked ? (prev.stockMinimo ?? 0) : Math.floor(prev.stockMinimo ?? 0)
+                                        }));
+                                    }}
+                                    className="w-6 h-6 text-brand-600 rounded-lg cursor-pointer"
+                                />
+                                <div>
+                                    <label htmlFor="frac" className="text-xs font-black text-blue-900 dark:text-blue-200 cursor-pointer block uppercase tracking-wide">Venta Fraccionada</label>
+                                    <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400">Permite ingresar cantidades con decimales</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-gray-50 dark:bg-gray-800/40 p-8 rounded-[3rem] border border-gray-100 dark:border-gray-800/50 space-y-6">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-brand-100 dark:bg-brand-900/30 rounded-lg">
+                                    <MapPinIcon className="w-5 h-5 text-brand-600" />
+                                </div>
+                                <h4 className="font-black text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300">Inventario Inicial</h4>
+                            </div>
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="bg-white dark:bg-gray-900 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
+                                    <Label className="text-[10px] font-black uppercase text-gray-400 mb-1">Stock Actual</Label>
+                                    <Input 
+                                        type="number" 
+                                        step={formData.permiteFraccionar ? 0.001 : 1} 
+                                        value={formData.stock} 
+                                        onChange={(e) => {
+                                            const val = parseFloat(e.target.value) || 0;
+                                            handleChange("stock", formData.permiteFraccionar ? val : Math.floor(val));
+                                        }} 
+                                        className="border-none p-0 h-auto font-black text-3xl focus:ring-0" 
+                                    />
+                                </div>
+                                <div className="bg-white dark:bg-gray-900 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
+                                    <Label className="text-[10px] font-black uppercase text-red-400 mb-1">Alerta Mínima</Label>
+                                    <Input 
+                                        type="number" 
+                                        step={formData.permiteFraccionar ? 0.001 : 1}
+                                        value={formData.stockMinimo} 
+                                        onChange={(e) => {
+                                            const val = parseFloat(e.target.value) || 0;
+                                            handleChange("stockMinimo", formData.permiteFraccionar ? val : Math.floor(val));
+                                        }} 
+                                        className="border-none p-0 h-auto font-black text-3xl text-red-600 focus:ring-0" 
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <Label className="text-xs font-bold text-gray-500 mb-2">Ubicación Física en Almacén</Label>
+                                <div className="relative">
+                                    <MapPinIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                    <Input value={formData.ubicacion} onChange={(e) => handleChange("ubicacion", e.target.value)} placeholder="Ej: Sección B - Percha 4" className="pl-10 rounded-2xl py-3" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
-          </Combobox>
-          {errors.marcaId && <p className="text-sm text-red-500 mt-1">{errors.marcaId}</p>}
-        </div>
 
+            <div className="flex justify-end gap-4 pt-8 border-t border-gray-100 dark:border-gray-800">
+                <Button
+                    type="submit"
+                    className="px-12 py-4 text-xs font-black uppercase tracking-[0.2em] shadow-2xl shadow-brand-500/30 hover:scale-[1.02] active:scale-95 transition-all"
+                    disabled={loading}
+                >
+                    {loading ? "Registrando..." : "Confirmar Alta de Producto"}
+                </Button>
+            </div>
+        </form>
+    );
 
-        {/* Botón */}
-        <div>
-          <Button
-            type="submit"
-            className="w-full flex items-center justify-center gap-2"
-            disabled={loading || loadingMarcas || loadingCategorias}
-          >
-            {loading ? "Registrando..." : "Registrar Parte"}
-          </Button>
-        </div>
-      </form>
-  );
+    if (embeddedMode) return formContent;
 
-  if (embeddedMode) {
-    return formContent;
-  }
-
-  return <ComponentCard title="Registrar Nuevo Ítem del Catálogo">{formContent}</ComponentCard>;
+    return (
+        <ComponentCard title="Registro Maestro de Artículos (Almacén Pro)">
+            <div className="max-w-5xl mx-auto">
+                {formContent}
+            </div>
+        </ComponentCard>
+    );
 }

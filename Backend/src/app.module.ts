@@ -26,7 +26,6 @@ import { DetalleManoObraModule } from './detalle-mano-obra/detalle-mano-obra.mod
 import { TipoManoObraModule } from './tipo-mano-obra/tipo-mano-obra.module';
 import { ParteModule } from './parte/parte.module';
 import { CategoriaModule } from './categoria/categoria.module';
-import { InventarioModule } from './inventario/inventario.module';
 import { NotificacionModule } from './notificacion/notificacion.module';
 import { TipoNotificacionModule } from './tipo-notificacion/tipo-notificacion.module';
 import { PermissionsModule } from './permissions/permissions.module';
@@ -52,7 +51,7 @@ import { ChecklistTemplateModule } from './checklist-template/checklist-template
       password: process.env.DB_PASSWORD,
       database: process.env.DB_DATABASE,
       autoLoadEntities: true,
-      synchronize: false,
+      synchronize: true,
       ssl: process.env.DB_SSL === 'true',
       extra: {
         ssl:
@@ -84,7 +83,6 @@ import { ChecklistTemplateModule } from './checklist-template/checklist-template
     TipoManoObraModule,
     ParteModule,
     CategoriaModule,
-    InventarioModule,
     NotificacionModule,
     TipoNotificacionModule,
     PermissionsModule,

@@ -7,7 +7,7 @@ import { UpdatePresupuestoDto } from './dto/update-presupuesto.dto';
 import { Order } from 'src/orders/entities/order.entity';
 import { EstadoPresupuesto } from '../estado-presupuesto/entities/estado-presupuesto.entity';
 import { DetallePresupuestoItem } from 'src/detalle-presupuesto-item/entities/detalle-presupuesto-item.entity';
-import { Inventario } from 'src/inventario/entities/inventario.entity';
+import { Parte } from 'src/parte/entities/parte.entity';
 import { DetalleManoObra } from 'src/detalle-mano-obra/entities/detalle-mano-obra.entity';
 
 @Injectable()
@@ -25,8 +25,8 @@ export class PresupuestoService {
     @InjectRepository(DetallePresupuestoItem)
     private readonly detallePresupuestoItemsRepository: Repository<DetallePresupuestoItem>,
 
-    @InjectRepository(Inventario)
-    private readonly inventarioRepository: Repository<Inventario>,
+    @InjectRepository(Parte)
+    private readonly parteRepository: Repository<Parte>,
 
     private readonly dataSource: DataSource,
   ) { }
@@ -37,7 +37,6 @@ export class PresupuestoService {
     const orden = await this.ordenRepository.findOne({ where: { id: ordenId } });
     if (!orden) throw new NotFoundException(`Orden con ID ${ordenId} no encontrada.`);
 
-    // Validar si ya existe un presupuesto no eliminado para esta orden
     const existente = await this.presupuestoRepository.findOne({
       where: { ordenId, deletedAt: null },
     });
@@ -114,7 +113,6 @@ export class PresupuestoService {
   }
 
   async update(id: number, updateDto: UpdatePresupuestoDto): Promise<Presupuesto> {
-    // Obtener presupuesto existente con relaciones necesarias
     const presupuesto = await this.presupuestoRepository.findOne({
       where: { id },
       relations: ['orden', 'orden.client', 'estado', 'detallesPresupuestoItems', 'detallesManoObra']
@@ -124,23 +122,16 @@ export class PresupuestoService {
       throw new NotFoundException(`Presupuesto con ID ${id} no encontrado.`);
     }
 
-    // Manejo de cambio de orden
     if (updateDto.ordenId && updateDto.ordenId !== presupuesto.ordenId) {
       const orden = await this.ordenRepository.findOne({
         where: { id: updateDto.ordenId },
         relations: ['client']
       });
 
-      if (!orden) {
-        throw new NotFoundException(`Orden con ID ${updateDto.ordenId} no encontrada.`);
-      }
+      if (!orden) throw new NotFoundException(`Orden con ID ${updateDto.ordenId} no encontrada.`);
 
-      // Validar unicidad de presupuesto por orden
       const existente = await this.presupuestoRepository.findOne({
-        where: {
-          ordenId: updateDto.ordenId,
-          deletedAt: IsNull()
-        },
+        where: { ordenId: updateDto.ordenId, deletedAt: IsNull() },
       });
 
       if (existente && existente.id !== id) {
@@ -151,23 +142,14 @@ export class PresupuestoService {
       presupuesto.orden = orden;
     }
 
-    // Manejo de cambio de estado
     if (updateDto.estadoId) {
-      const nuevoEstado = await this.estadoPresupuestoRepository.findOne({
-        where: { id: updateDto.estadoId }
-      });
+      const nuevoEstado = await this.estadoPresupuestoRepository.findOne({ where: { id: updateDto.estadoId } });
+      if (!nuevoEstado) throw new NotFoundException(`Estado con ID ${updateDto.estadoId} no encontrado.`);
 
-      if (!nuevoEstado) {
-        throw new NotFoundException(`EstadoPresupuesto con ID ${updateDto.estadoId} no encontrado.`);
-      }
-
-      const estadoAnterior = presupuesto.estado;
-      const estadoAnteriorNombre = estadoAnterior?.nombre?.toLowerCase() || '';
+      const estadoAnteriorNombre = presupuesto.estado?.nombre?.toLowerCase() || '';
       const nuevoEstadoNombre = nuevoEstado.nombre.toLowerCase();
 
-      // Solo procesar si realmente cambió el estado
       if (presupuesto.estadoId !== updateDto.estadoId) {
-        // Lógica de inventario
         if (nuevoEstadoNombre === 'aprobado') {
           await this.descontarInventario(presupuesto.id);
         }
@@ -181,60 +163,27 @@ export class PresupuestoService {
       presupuesto.estado = nuevoEstado;
     }
 
-    // Actualizar descripción si se proporciona
     if (updateDto.descripcion !== undefined) {
       presupuesto.descripcion = updateDto.descripcion;
     }
 
-    // Guardar cambios
     await this.presupuestoRepository.save(presupuesto);
 
-    // Devolver el presupuesto actualizado con todas las relaciones
-    return this.presupuestoRepository.findOne({
-      where: { id },
-      relations: [
-        'orden',
-        'orden.client',
-        'estado',
-        'detallesManoObra',
-        'detallesPresupuestoItems',
-        'detallesPresupuestoItems.parte'
-      ]
-    });
+    return this.findOne(id);
   }
 
-
   async remove(id: number) {
-    const presupuesto = await this.presupuestoRepository.findOne({
-      where: { id },
-      withDeleted: true // Para incluir eliminados lógicos
-    });
-
-    if (!presupuesto) {
-      return null;
-    }
-
-    if (presupuesto.deletedAt) {
-      // Ya estaba eliminado
-      return false;
-    }
-
-    // Eliminación lógica (soft delete)
+    const presupuesto = await this.presupuestoRepository.findOne({ where: { id }, withDeleted: true });
+    if (!presupuesto) return null;
+    if (presupuesto.deletedAt) return false;
     await this.presupuestoRepository.softDelete(id);
-
     return true;
   }
 
   async restore(id: number): Promise<{ message: string }> {
     const presupuesto = await this.findOne(id, true);
-
-    if (!presupuesto.deletedAt) {
-      throw new BadRequestException('El presupuesto no está eliminado');
-    }
-
-    // Restauramos el soft delete
+    if (!presupuesto.deletedAt) throw new BadRequestException('El presupuesto no está eliminado');
     await this.presupuestoRepository.restore(id);
-
     return { message: `Presupuesto con ID ${id} restaurado.` };
   }
 
@@ -258,21 +207,14 @@ export class PresupuestoService {
       .leftJoinAndSelect('presupuesto.estado', 'estado');
 
     if (search) {
-      query.where('LOWER(presupuesto.descripcion) LIKE LOWER(:search)', {
-        search: `%${search}%`
-      });
+      query.where('LOWER(presupuesto.descripcion) LIKE LOWER(:search)', { search: `%${search}%` });
     }
 
-    if (!includeDeleted) {
-      query.andWhere('presupuesto.deletedAt IS NULL');
-    }
+    if (!includeDeleted) query.andWhere('presupuesto.deletedAt IS NULL');
 
-    query.skip(skip)
-      .take(limitNum)
-      .orderBy('presupuesto.fechaEmision', 'DESC');
+    query.skip(skip).take(limitNum).orderBy('presupuesto.fechaEmision', 'DESC');
 
     const [data, total] = await query.getManyAndCount();
-
     return { data, total };
   }
 
@@ -284,26 +226,16 @@ export class PresupuestoService {
 
     for (const detalle of detalles) {
       const parteId = detalle.parteId ?? detalle.parte?.id;
+      if (!parteId) throw new NotFoundException(`No se pudo resolver la parte asociada al detalle ${detalle.id}.`);
 
-      if (!parteId) {
-        throw new NotFoundException(`No se pudo resolver la parte asociada al detalle ${detalle.id}.`);
-      }
+      const parte = await this.parteRepository.findOne({ where: { id: parteId } });
+      if (!parte) throw new NotFoundException(`Producto de almacén con ID ${parteId} no encontrado.`);
 
-      const inventario = await this.inventarioRepository.findOne({
-        where: {
-          parteId,
-          deletedAt: null,
-        },
-      });
+      if (parte.stock < detalle.cantidad)
+        throw new BadRequestException(`Existencias insuficientes para ${parte.nombre}. Disponible: ${parte.stock}`);
 
-      if (!inventario)
-        throw new NotFoundException(`Inventario para parte ${parteId} no encontrado.`);
-
-      if (inventario.cantidad < detalle.cantidad)
-        throw new BadRequestException(`Stock insuficiente para parte ${parteId}`);
-
-      inventario.cantidad -= detalle.cantidad;
-      await this.inventarioRepository.save(inventario);
+      parte.stock -= detalle.cantidad;
+      await this.parteRepository.save(parte);
     }
   }
 
@@ -315,22 +247,14 @@ export class PresupuestoService {
 
     for (const detalle of detalles) {
       const parteId = detalle.parteId ?? detalle.parte?.id;
-
       if (parteId) {
-        const inventario = await this.inventarioRepository.findOne({
-          where: {
-            parteId,
-            deletedAt: null,
-          },
-        });
-
-        if (inventario) {
-          inventario.cantidad += detalle.cantidad;
-          await this.inventarioRepository.save(inventario);
+        const parte = await this.parteRepository.findOne({ where: { id: parteId } });
+        if (parte) {
+          parte.stock += detalle.cantidad;
+          await this.parteRepository.save(parte);
         }
       }
-
-      detalle.comentario = 'Detalle anulado por rechazo/cancelación de presupuesto';
+      detalle.comentario = 'Stock devuelto por anulación de presupuesto';
       await this.detallePresupuestoItemsRepository.save(detalle);
     }
   }
@@ -342,27 +266,20 @@ export class PresupuestoService {
     });
     if (!presupuesto) throw new NotFoundException('Presupuesto no encontrado');
 
-    const detallesManoObra = await this.dataSource
-      .getRepository(DetalleManoObra)
-      .find({
-        where: { presupuestoId: id },
-        relations: ['tipoManoObra'],
-      });
+    const detallesManoObra = await this.dataSource.getRepository(DetalleManoObra).find({
+      where: { presupuestoId: id },
+      relations: ['tipoManoObra'],
+    });
 
-    const detallesPresupuestoItems = await this.dataSource
-      .getRepository(DetallePresupuestoItem)
-      .find({
-        where: { presupuestoId: presupuesto.id },
-        relations: ['parte'],
-      });
+    const detallesPresupuestoItems = await this.dataSource.getRepository(DetallePresupuestoItem).find({
+      where: { presupuestoId: presupuesto.id },
+      relations: ['parte'],
+    });
 
     const costoManoObra = detallesManoObra.reduce((sum, d) => sum + Number(d.costoTotal), 0);
-    const costoItems = detallesPresupuestoItems.reduce(
-      (sum, d) => sum + Number(d.precioUnitario) * d.cantidad,
-      0,
-    );
+    const costoItems = detallesPresupuestoItems.reduce((sum, d) => sum + Number(d.precioUnitario) * d.cantidad, 0);
 
-    const resumen = {
+    return {
       presupuestoId: presupuesto.id,
       descripcion: presupuesto.descripcion,
       fechaEmision: presupuesto.fechaEmision,
@@ -391,31 +308,18 @@ export class PresupuestoService {
       costoItems,
       costoTotal: costoManoObra + costoItems,
     };
-
-    return resumen;
   }
+
   async findByOrderId(orderId: number): Promise<Presupuesto[]> {
     return this.presupuestoRepository.find({
-      where: {
-        ordenId: orderId, // Corregido: usar el parámetro orderId
-        deletedAt: IsNull()
-      },
+      where: { ordenId: orderId, deletedAt: IsNull() },
       relations: [
-        'orden',
-        'orden.client',
-        'orden.equipo',
-        'orden.equipo.tipoEquipo',
-        'orden.equipo.marca',
-        'orden.equipo.modelo',
-        'estado',
-        'detallesManoObra',
-        'detallesManoObra.tipoManoObra',
-        'detallesPresupuestoItems',
-        'detallesPresupuestoItems.parte'
+        'orden', 'orden.client', 'orden.equipo', 'orden.equipo.tipoEquipo', 
+        'orden.equipo.marca', 'orden.equipo.modelo', 'estado', 
+        'detallesManoObra', 'detallesManoObra.tipoManoObra', 
+        'detallesPresupuestoItems', 'detallesPresupuestoItems.parte'
       ],
-      order: {
-        fechaEmision: 'DESC'
-      }
+      order: { fechaEmision: 'DESC' }
     });
   }
 }
