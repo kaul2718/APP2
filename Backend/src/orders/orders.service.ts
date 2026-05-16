@@ -257,6 +257,7 @@ export class OrderService {
         'casillero',
         'evidencias',
         'evidencias.subidoPor',
+        'evidencias.estadoOrden',
         'historialEstados',
         'historialEstados.estadoOrden',
         'historialEstados.usuario',
@@ -704,6 +705,8 @@ export class OrderService {
     const evidencia = this.evidenciaTecnicaRepository.create({
       ...evidenciaData,
       orden,
+      estadoOrden: orden.estadoOrden,
+      estadoOrdenId: orden.estadoOrden?.id
     });
 
     return this.evidenciaTecnicaRepository.save(evidencia);

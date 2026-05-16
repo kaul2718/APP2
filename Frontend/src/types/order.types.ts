@@ -91,6 +91,7 @@ export interface OrderEvidenciaTecnica {
   actividadId?: number;
   descripcion?: string;
   fechaSubida: string;
+  estadoOrden?: EstadoOrdenBasic;
 }
 
 export interface OrderHistorialEstado {

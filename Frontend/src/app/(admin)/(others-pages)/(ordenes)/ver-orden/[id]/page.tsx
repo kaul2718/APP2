@@ -22,7 +22,10 @@ import {
   CheckCircleIcon,
   MagnifyingGlassIcon,
   StarIcon,
-  SparklesIcon
+  SparklesIcon,
+  EyeIcon,
+  TrashIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import { formatDate, formatUserName } from '@/lib/formatters';
 import type { Order } from '@/types/order.types';
@@ -39,6 +42,7 @@ import GenerarPdfIngresoModal from "@/components/modals/GenerarPdfIngresoModal";
 import GenerarPdfEntregaModal from "@/components/modals/GenerarPdfEntregaModal";
 import AgregarPresupuestoModal from "@/components/modals/AgregarPresupuestoModal";
 import PresupuestoEditModal from "@/components/modals/PresupuestoEditModal";
+import ConfirmDialog from "@/components/modals/ConfirmDialog";
 
 export default function PerfilOrdenPage() {
   const { id } = useParams();
@@ -57,6 +61,15 @@ export default function PerfilOrdenPage() {
   const [isPdfEntregaOpen, setIsPdfEntregaOpen] = useState(false);
   const [isPresupuestoModalOpen, setIsPresupuestoModalOpen] = useState(false);
   const [isEditPresupuestoModalOpen, setIsEditPresupuestoModalOpen] = useState(false);
+  
+  // Estados para evidencias
+  const [viewerImage, setViewerImage] = useState<string | null>(null);
+  const [deleteConfig, setDeleteConfig] = useState<{ isOpen: boolean; id: number | null }>({
+    isOpen: false,
+    id: null
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<string>("todos");
 
   const fetchOrder = async () => {
     if (!id || !session) return;
@@ -81,6 +94,22 @@ export default function PerfilOrdenPage() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error al guardar cambios");
       return false;
+    }
+  };
+
+  const handleDeleteEvidence = async () => {
+    if (!deleteConfig.id || !session) return;
+    try {
+      setIsDeleting(true);
+      await apiRequest(`/evidencias-tecnicas/${deleteConfig.id}`, { method: 'DELETE' }, session);
+      toast.success("Evidencia eliminada correctamente");
+      setDeleteConfig({ isOpen: false, id: null });
+      await fetchOrder();
+    } catch (error) {
+      console.error("Error al eliminar evidencia:", error);
+      toast.error("Error al eliminar la evidencia");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -431,26 +460,66 @@ export default function PerfilOrdenPage() {
 
             {/* Evidence Gallery */}
             <div className="rounded-2xl bg-white p-8 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-1 bg-brand-500 rounded-full"></div>
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white">Evidencias Fotográficas</h2>
                 </div>
-                <span className="text-xs font-medium text-gray-400">{order.evidencias?.length || 0} archivos</span>
+                
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold uppercase text-gray-400">Filtrar por estado:</span>
+                  <select 
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="text-xs font-semibold bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-brand-500 transition-all text-gray-900 dark:text-white"
+                  >
+                    <option value="todos">Todos los estados ({order.evidencias?.length || 0})</option>
+                    {order.evidencias && Array.from(new Set(order.evidencias.map(ev => ev.estadoOrden?.nombre).filter(Boolean))).map((statusName) => (
+                      <option key={statusName} value={statusName}>
+                        {statusName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {order.evidencias && order.evidencias.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {order.evidencias.map((ev, idx) => (
-                    <div key={ev.id} className="group relative aspect-square overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 hover:ring-2 hover:ring-brand-500 transition-all cursor-pointer">
+                  {order.evidencias
+                    .filter(ev => filterStatus === "todos" || ev.estadoOrden?.nombre === filterStatus)
+                    .map((ev, idx) => (
+                    <div key={ev.id} className="group relative aspect-square overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 hover:ring-2 hover:ring-brand-500 transition-all">
                       <img 
                         src={ev.archivoUrl || ev.urlImagen} 
                         alt={`Evidencia ${idx + 1}`} 
-                        className="h-full w-full object-cover transition-transform group-hover:scale-110"
+                        className="h-full w-full object-cover transition-transform group-hover:scale-110 cursor-pointer"
+                        onClick={() => setViewerImage(ev.archivoUrl || ev.urlImagen || null)}
                       />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <EyeIcon className="h-8 w-8 text-white" />
+                      
+                      {/* Action Overlay */}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                        <button 
+                          onClick={() => setViewerImage(ev.archivoUrl || ev.urlImagen || null)}
+                          className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-sm transition-all"
+                          title="Ver imagen"
+                        >
+                          <EyeIcon className="h-6 w-6" />
+                        </button>
+                        <button 
+                          onClick={() => setDeleteConfig({ isOpen: true, id: ev.id })}
+                          className="p-2 bg-red-500/20 hover:bg-red-500/40 rounded-full text-red-200 backdrop-blur-sm transition-all"
+                          title="Eliminar evidencia"
+                        >
+                          <TrashIcon className="h-6 w-6" />
+                        </button>
                       </div>
+
+                      <div className="absolute top-2 left-2">
+                        <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[8px] font-black uppercase tracking-widest text-white border border-white/10">
+                          {ev.estadoOrden?.nombre || 'General'}
+                        </span>
+                      </div>
+
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
                         <p className="text-[10px] text-white truncate">{ev.descripcion || 'Sin descripción'}</p>
                       </div>
@@ -781,16 +850,49 @@ export default function PerfilOrdenPage() {
         onSave={handleSavePresupuesto}
       />
 
-    </div>
-  );
-}
+      <ConfirmDialog
+        isOpen={deleteConfig.isOpen}
+        onClose={() => setDeleteConfig({ isOpen: false, id: null })}
+        onConfirm={handleDeleteEvidence}
+        title="¿Eliminar evidencia?"
+        description="Esta acción eliminará permanentemente la fotografía del sistema y no se puede deshacer."
+        destructive
+        isLoading={isDeleting}
+      />
 
-// Iconos auxiliares
-function EyeIcon(props: React.ComponentProps<'svg'>) {
-  return (
-    <svg fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
+      {/* Lightbox Viewer */}
+      <AnimatePresence>
+        {viewerImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md"
+            onClick={() => setViewerImage(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative max-h-full max-w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setViewerImage(null)}
+                className="absolute -top-12 right-0 p-2 text-white/70 hover:text-white transition-colors"
+              >
+                <XMarkIcon className="h-8 w-8" />
+              </button>
+              <img
+                src={viewerImage}
+                alt="Vista ampliada"
+                className="max-h-[85vh] w-auto rounded-lg shadow-2xl border border-white/10"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+    </div>
   );
 }
