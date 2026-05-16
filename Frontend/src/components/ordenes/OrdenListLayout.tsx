@@ -473,7 +473,7 @@ export default function OrdenListLayout() {
           icon: <CurrencyDollarIcon className="h-5 w-5" />,
           onClick: () => handlePresupuestoClick(order),
           className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
-          isPrimary: isRepuestosOrAprobacion || estadoNombre.includes('repara') || estadoNombre.includes('diagn') || isRecepcion || estadoNombre.includes('entreg'),
+          isPrimary: isRepuestosOrAprobacion || estadoNombre.includes('repara') || estadoNombre.includes('diagn') || isRecepcion || estadoNombre.includes('entreg') || isControlOrAlmacen,
         });
       } else {
         actions.push({
@@ -482,7 +482,7 @@ export default function OrdenListLayout() {
           icon: <CurrencyDollarIcon className="h-5 w-5" />,
           onClick: () => handleViewPresupuesto(order),
           className: "flex items-center justify-center h-10 w-10 rounded-full border border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 transition-colors dark:border-green-900/30 dark:text-green-400 dark:hover:bg-green-900/20",
-          isPrimary: isRepuestosOrAprobacion || estadoNombre.includes('repara') || estadoNombre.includes('diagn') || isRecepcion || estadoNombre.includes('entreg'),
+          isPrimary: isRepuestosOrAprobacion || estadoNombre.includes('repara') || estadoNombre.includes('diagn') || isRecepcion || estadoNombre.includes('entreg') || isControlOrAlmacen,
         });
       }
     }

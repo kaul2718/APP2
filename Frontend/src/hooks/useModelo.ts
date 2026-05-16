@@ -18,7 +18,7 @@ export interface Modelo {
   id: number;
   nombre: string;
   estado: boolean;
-  deletedAt: string | null;
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   marca: MarcaModelo | null;  // Cambiado a null
@@ -56,7 +56,7 @@ export function useModelo() {
     setSearchTerm,
     setShowInactive,
   } = useCrud<Modelo, CreateModeloDto, UpdateModeloDto>('/modelos', {
-    defaultLimit: 1000,
+    defaultLimit: 10,
     listPath: '/modelos/all',
     messages: {
       created: 'Modelo creado exitosamente',
@@ -82,7 +82,7 @@ export function useModelo() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetchModelos(1, 1000, searchTerm, showInactive);
+      fetchModelos(1, 10, searchTerm, showInactive);
     }
   }, [status, searchTerm, showInactive]);
 

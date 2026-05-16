@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Like, Repository } from 'typeorm';
 import { EstadoOrden } from './entities/estado-orden.entity';
 import { CreateEstadoOrdenDto } from './dto/create-estado-orden.dto';
 import { UpdateEstadoOrdenDto } from './dto/update-estado-orden.dto';
@@ -108,31 +108,32 @@ export class EstadoOrdenService {
   }
 
   async findAllPaginated(
-    page: number,
-    limit: number,
+    page: any,
+    limit: any,
     search?: string,
     includeInactive = false,
   ): Promise<{ data: EstadoOrden[]; total: number }> {
-    const skip = (page - 1) * limit;
-
-    const query = this.estadoOrdenRepository.createQueryBuilder('estado');
+    const whereCondition: any = {};
+    
+    if (!includeInactive) {
+      whereCondition.estado = true;
+    }
 
     if (search) {
-      query.where('LOWER(estado.nombre) LIKE LOWER(:search)', { 
-        search: `%${search}%` 
-      });
+      // For simple search on name
+      whereCondition.nombre = Like(`%${search}%`);
     }
 
-    if (!includeInactive) {
-      query.andWhere('estado.estado = :estado', { estado: true })
-           .andWhere('estado.deletedAt IS NULL');
-    }
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
+    const skip = (pageNum - 1) * limitNum;
 
-    query.skip(skip)
-      .take(limit)
-      .orderBy('estado.nombre', 'ASC');
-
-    const [data, total] = await query.getManyAndCount();
+    const [data, total] = await this.estadoOrdenRepository.findAndCount({
+      where: whereCondition,
+      order: { nombre: 'ASC' },
+      skip: skip,
+      take: limitNum,
+    });
 
     return { data, total };
   }

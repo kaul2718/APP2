@@ -1,5 +1,5 @@
 'use client';
-
+ 
 import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useCrud } from "@/hooks/useCrud";
@@ -9,7 +9,7 @@ export interface Categoria {
     nombre: string;
     descripcion: string;
     estado: boolean;
-    deletedAt: string | null;
+    deletedAt?: string | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -47,7 +47,7 @@ export function useCategoria() {
     } = useCrud<Categoria, CreateCategoriaDto, UpdateCategoriaDto>(
         '/categorias',
         {
-            defaultLimit: 1000,
+            defaultLimit: 10,
             listPath: '/categorias/all',
             messages: {
                 created: 'Categoría creada exitosamente',
@@ -75,7 +75,7 @@ export function useCategoria() {
 
     useEffect(() => {
         if (status === "authenticated") {
-            fetchCategorias(1, 1000, searchTerm, showInactive);
+            fetchCategorias(1, 10, searchTerm, showInactive);
         }
     }, [status, session, searchTerm, showInactive]);
 

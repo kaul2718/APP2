@@ -3,11 +3,11 @@ import React from "react";
 import { Modal } from "@/components/ui/modal";
 import Label from "@/components/form/Label";
 import Input from "@/components/form/input/InputField";
-import { Select } from "@headlessui/react";
+import { Combobox } from "@headlessui/react";
 import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
-import { HashtagIcon, TagIcon } from "@heroicons/react/24/outline";
+import { HashtagIcon, TagIcon, CheckIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { Parte, usePartes } from "@/hooks/usePartes";
 
 interface FormData {
@@ -50,7 +50,7 @@ export default function AgregarItemsPresupuestoModal({
         comentario: ""
     });
 
-    const [errors, setErrors] = React.useState<Partial<FormData>>({});
+    const [errors, setErrors] = React.useState<Record<string, string>>({});
     const [loading, setLoading] = React.useState(false);
 
     React.useEffect(() => {
@@ -90,15 +90,28 @@ export default function AgregarItemsPresupuestoModal({
         };
     }, [isOpen, session?.accessToken]);
 
-    const handleChange = (field: keyof FormData, value: string | number) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
-        if (errors[field]) {
-            setErrors(prev => ({ ...prev, [field]: undefined }));
+    const [searchTerm, setSearchTerm] = React.useState("");
+
+    const filteredPartes = searchTerm === ""
+        ? partesDisponibles
+        : partesDisponibles.filter(p => 
+            p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
+            (p.codigoInterno && p.codigoInterno.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+
+    const handleChange = (field: keyof FormData, value: any) => {
+        setFormData(prev => ({ ...prev, [field]: value } as FormData));
+        if (errors[field as any]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[field as any];
+                return newErrors;
+            });
         }
     };
 
     const validateFields = () => {
-        const newErrors: Partial<FormData> = {};
+        const newErrors: Record<string, string> = {};
 
         if (!formData.parteId) {
             newErrors.parteId = "El ítem es requerido";
@@ -172,6 +185,7 @@ export default function AgregarItemsPresupuestoModal({
                 cantidad: 1,
                 comentario: ""
             }));
+            setSearchTerm("");
 
             // Ejecutamos callback de éxito
             if (onSuccess) {
@@ -189,7 +203,7 @@ export default function AgregarItemsPresupuestoModal({
         }
     };
     const content = (
-        <div className={`relative w-full ${embeddedMode ? '' : 'max-w-[600px] rounded-3xl'} overflow-y-auto bg-white p-4 dark:bg-gray-900 lg:p-8`}>
+        <div className={`relative w-full ${embeddedMode ? '' : 'max-w-[600px] rounded-3xl'} bg-white p-4 dark:bg-gray-900 lg:p-8`}>
             {!embeddedMode && (
                 <>
                     <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
@@ -202,7 +216,7 @@ export default function AgregarItemsPresupuestoModal({
             )}
 
             <form onSubmit={handleSubmit} className="flex flex-col">
-                <div className={`custom-scrollbar ${embeddedMode ? 'max-h-[50vh]' : 'h-[calc(100vh-250px)]'} overflow-y-auto px-1`}>
+                <div className={`custom-scrollbar ${embeddedMode ? 'max-h-[40vh]' : 'max-h-[400px]'} overflow-y-auto px-1`}>
                     <div className="grid grid-cols-1 gap-x-6 gap-y-5">
 
 
@@ -210,20 +224,62 @@ export default function AgregarItemsPresupuestoModal({
                         <div className="mb-4">
                             <Label>Ítem / Parte *</Label>
                             <div className="relative">
-                                <TagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                <Select
-                                    value={formData.parteId}
-                                    onChange={(e) => handleChange("parteId", e.target.value)}
-                                    className={`w-full pl-10 pr-3 py-2 rounded-md border ${errors.parteId ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} bg-white dark:bg-gray-800 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none`}
+                                <Combobox 
+                                    value={formData.parteId as any} 
+                                    onChange={(val) => handleChange("parteId", val)}
                                     disabled={loadingPartes}
                                 >
-                                    <option value="">Seleccione un ítem</option>
-                                    {partesDisponibles.map((parte) => (
-                                        <option key={parte.id} value={parte.id}>
-                                            {formatParteLabel(parte)}
-                                        </option>
-                                    ))}
-                                </Select>
+                                    <div className="relative">
+                                        <div className="relative w-full">
+                                            <TagIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                                            <Combobox.Input
+                                                className={`w-full pl-10 pr-10 py-2 rounded-xl border ${errors['parteId' as any] ? 'border-red-500' : 'border-gray-200 dark:border-gray-700'} bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 transition-all outline-none text-sm`}
+                                                displayValue={(val: any) => {
+                                                    const p = partesDisponibles.find(x => String(x.id) === String(val));
+                                                    return p ? formatParteLabel(p) : "";
+                                                }}
+                                                placeholder="Buscar ítem o código..."
+                                                onChange={(event) => setSearchTerm(event.target.value)}
+                                            />
+                                            <Combobox.Button className="absolute inset-y-0 right-0 flex items-center pr-2">
+                                                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                                            </Combobox.Button>
+                                        </div>
+
+                                        <Combobox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white py-1 shadow-2xl ring-1 ring-black/5 focus:outline-none dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+                                            {filteredPartes.length === 0 && searchTerm !== "" ? (
+                                                <div className="relative cursor-default select-none px-4 py-2 text-gray-700 dark:text-gray-400 text-sm">
+                                                    No se encontraron ítems.
+                                                </div>
+                                            ) : (
+                                                filteredPartes.map((parte) => (
+                                                    <Combobox.Option
+                                                        key={parte.id}
+                                                        className={({ active }) =>
+                                                            `relative cursor-default select-none py-2.5 pl-10 pr-4 text-sm ${
+                                                                active ? 'bg-brand-500 text-white' : 'text-gray-900 dark:text-gray-300'
+                                                            }`
+                                                        }
+                                                        value={parte.id}
+                                                    >
+                                                        {({ selected, active }) => (
+                                                            <>
+                                                                <span className={`block truncate ${selected ? 'font-bold' : 'font-normal'}`}>
+                                                                    {parte.nombre} <span className={`ml-2 text-xs ${active ? 'text-white/80' : 'text-gray-400'}`}>({parte.codigoInterno})</span>
+                                                                </span>
+                                                                {selected && (
+                                                                    <span className={`absolute inset-y-0 left-0 flex items-center pl-3 ${active ? 'text-white' : 'text-brand-500'}`}>
+                                                                        <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                                                    </span>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </Combobox.Option>
+                                                ))
+                                            )}
+                                        </Combobox.Options>
+                                    </div>
+                                </Combobox>
                             </div>
                             {errors.parteId && <p className="text-sm text-red-500 mt-1">{errors.parteId}</p>}
                         </div>
@@ -240,10 +296,10 @@ export default function AgregarItemsPresupuestoModal({
                                     value={formData.cantidad}
                                     onChange={(e) => handleChange("cantidad", e.target.value)}
                                     placeholder="Cantidad"
-                                    className={`pl-10 bg-white dark:bg-gray-800 text-black dark:text-white ${errors.cantidad ? 'border-red-500' : ''}`}
+                                    className={`pl-10 bg-white dark:bg-gray-800 text-black dark:text-white ${errors['cantidad' as any] ? 'border-red-500' : ''}`}
                                 />
                             </div>
-                            {errors.cantidad && <p className="text-sm text-red-500 mt-1">{errors.cantidad}</p>}
+                            {errors['cantidad' as any] && <p className="text-sm text-red-500 mt-1">{errors['cantidad' as any]}</p>}
                         </div>
 
                         {/* Comentario (opcional) */}

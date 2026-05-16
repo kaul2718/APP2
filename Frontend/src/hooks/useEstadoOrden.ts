@@ -10,7 +10,7 @@ export interface EstadoOrden {
   nombre: string;
   descripcion: string | null;
   estado: boolean;
-  deletedAt: string | null;
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   ordenes?: Array<{ id: number }>;
@@ -49,7 +49,8 @@ export function useEstadoOrden() {
     setSearchTerm,
     setShowInactive,
   } = useCrud<EstadoOrden, CreateEstadoOrdenDto, UpdateEstadoOrdenDto>('/estados-orden', {
-    defaultLimit: 20,
+    defaultLimit: 10,
+    listPath: '/estados-orden/all',
     messages: {
       created: 'Estado de orden creado exitosamente',
       updated: 'Estado de orden actualizado exitosamente',
@@ -87,7 +88,7 @@ export function useEstadoOrden() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetchEstadosOrden(1, 20, searchTerm, showInactive);
+      fetchEstadosOrden(1, 10, searchTerm, showInactive);
     }
   }, [status, session, searchTerm, showInactive]);
 

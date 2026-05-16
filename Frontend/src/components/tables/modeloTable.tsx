@@ -1,5 +1,5 @@
 'use client';
-
+ 
 import React, { useState } from "react";
 import Badge from "../ui/badge/Badge";
 import ConfirmDialog from "../modals/ConfirmDialog";
@@ -9,8 +9,23 @@ import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { Modelo, useModelo } from "@/hooks/useModelo";
 import { DataTable, ColumnDef, ActionDef } from "./DataTable";
+import { 
+  EyeIcon, 
+  PencilSquareIcon, 
+  CheckCircleIcon, 
+  NoSymbolIcon,
+  Square3Stack3DIcon,
+  TagIcon
+} from "@heroicons/react/24/outline";
 
-export default function ModeloTable() {
+interface ModeloTableProps {
+  modeloHook?: any;
+}
+
+export default function ModeloTable({ modeloHook }: ModeloTableProps) {
+  const internalHook = useModelo();
+  const hook = modeloHook || internalHook;
+
   const {
     modelos,
     loading,
@@ -23,7 +38,7 @@ export default function ModeloTable() {
     setSearchTerm,
     showInactive,
     setShowInactive,
-  } = useModelo();
+  } = hook;
 
   const { data: session } = useSession();
   const token = session?.accessToken || "";
@@ -49,7 +64,7 @@ export default function ModeloTable() {
   };
 
   const handleSaveModelo = (modeloActualizado: Modelo) => {
-    setModelos((prev) => prev.map((m) => (m.id === modeloActualizado.id ? modeloActualizado : m)));
+    setModelos((prev: Modelo[]) => prev.map((m) => (m.id === modeloActualizado.id ? modeloActualizado : m)));
     fetchModelos(currentPage, 10, searchTerm, showInactive);
   };
 
@@ -86,25 +101,39 @@ export default function ModeloTable() {
 
   const columns: ColumnDef<Modelo>[] = [
     {
-      key: "id",
-      header: "ID",
-      render: (modelo) => modelo.id,
-    },
-    {
       key: "nombre",
-      header: "Nombre",
-      render: (modelo) => modelo.nombre,
+      header: "Modelo",
+      render: (modelo) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+            <Square3Stack3DIcon className="h-5 w-5 text-gray-500" />
+          </div>
+          <div>
+            <p className="font-bold text-gray-900 dark:text-white">
+              {modelo.nombre}
+            </p>
+            <p className="text-xs text-gray-500">ID: #{modelo.id}</p>
+          </div>
+        </div>
+      ),
     },
     {
       key: "marca",
       header: "Marca",
-      render: (modelo) => modelo.marca?.nombre || "Sin marca",
+      render: (modelo) => (
+        <div className="flex items-center gap-2">
+            <TagIcon className="h-4 w-4 text-gray-400" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {modelo.marca?.nombre || "Sin marca"}
+            </span>
+        </div>
+      ),
     },
     {
       key: "estado",
       header: "Estado",
       render: (modelo) => (
-        <Badge size="sm" color={modelo.estado ? "success" : "error"}>
+        <Badge size="sm" variant="light" color={modelo.estado ? "success" : "error"}>
           {modelo.estado ? "Activo" : "Inactivo"}
         </Badge>
       ),
@@ -114,25 +143,28 @@ export default function ModeloTable() {
   const rowActions = (modelo: Modelo): ActionDef[] => [
     {
       key: "view",
-      label: "Ver",
+      label: <EyeIcon className="h-4 w-4" />,
+      text: "Ver detalles",
       onClick: () => handleViewClick(modelo),
       className:
-        "rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors",
     },
     {
       key: "edit",
-      label: "Editar",
+      label: <PencilSquareIcon className="h-4 w-4" />,
+      text: "Editar modelo",
       onClick: () => handleEditClick(modelo),
       className:
-        "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors",
     },
     {
       key: "toggle",
-      label: modelo.estado ? "Deshabilitar" : "Habilitar",
+      label: modelo.estado ? <NoSymbolIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />,
+      text: modelo.estado ? "Deshabilitar" : "Habilitar",
       onClick: () => handleToggleEstado(modelo),
       className: modelo.estado
-        ? "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
-        : "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20",
+        ? "flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+        : "flex h-8 w-8 items-center justify-center rounded-lg border border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors",
     },
   ];
 
@@ -140,7 +172,7 @@ export default function ModeloTable() {
     <>
       <DataTable
         caption="Tabla de modelos"
-        data={modelos}
+        data={showInactive ? modelos : modelos.filter((m: Modelo) => m.estado)}
         columns={columns}
         loading={loading}
         searchTerm={searchTerm}

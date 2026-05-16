@@ -17,7 +17,7 @@ export interface Casillero {
   descripcion: string;
   situacion: 'Ocupado' | 'Disponible';
   estado: boolean;
-  deletedAt: string | null;
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   order?: OrderCasillero | null;

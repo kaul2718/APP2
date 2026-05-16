@@ -1,5 +1,5 @@
 'use client';
-
+ 
 import React, { useState } from "react";
 import Badge from "../ui/badge/Badge";
 import ConfirmDialog from "../modals/ConfirmDialog";
@@ -8,8 +8,22 @@ import TipoActividadTecnicaEditModal from "../modals/TipoActividadTecnicaEditMod
 import { toast } from "react-toastify";
 import { TipoActividadTecnica, useTipoActividadTecnica } from "@/hooks/useTipoActividadTecnica";
 import { DataTable, ColumnDef, ActionDef } from "./DataTable";
+import { 
+  EyeIcon, 
+  PencilSquareIcon, 
+  CheckCircleIcon, 
+  NoSymbolIcon,
+  WrenchScrewdriverIcon
+} from "@heroicons/react/24/outline";
 
-export default function TipoActividadTecnicaTable() {
+interface TipoActividadTecnicaTableProps {
+  tipoActividadHook?: any;
+}
+
+export default function TipoActividadTecnicaTable({ tipoActividadHook }: TipoActividadTecnicaTableProps) {
+  const internalHook = useTipoActividadTecnica();
+  const hook = tipoActividadHook || internalHook;
+
   const {
     tipos,
     loading,
@@ -23,7 +37,7 @@ export default function TipoActividadTecnicaTable() {
     showInactive,
     setShowInactive,
     toggleTipoActividadStatus,
-  } = useTipoActividadTecnica();
+  } = hook;
 
   const [selectedTipo, setSelectedTipo] = useState<TipoActividadTecnica | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,7 +60,7 @@ export default function TipoActividadTecnicaTable() {
   };
 
   const handleSaveTipo = (tipoActualizado: TipoActividadTecnica) => {
-    setTipos((prev) => prev.map((t) => (t.id === tipoActualizado.id ? tipoActualizado : t)));
+    setTipos((prev: TipoActividadTecnica[]) => prev.map((t) => (t.id === tipoActualizado.id ? tipoActualizado : t)));
     fetchTipos(currentPage, 10, searchTerm, showInactive);
   };
 
@@ -63,25 +77,50 @@ export default function TipoActividadTecnicaTable() {
 
     try {
       await toggleTipoActividadStatus(tipo.id);
-      toast.success(`Tipo de actividad tecnica ${estaActivo ? "deshabilitado" : "habilitado"} correctamente`);
+      toast.success(`Tipo de actividad técnica ${estaActivo ? "deshabilitado" : "habilitado"} correctamente`);
       fetchTipos(currentPage, 10, searchTerm, showInactive);
     } catch (error) {
-      console.error(`Error al ${accion} tipo de actividad tecnica:`, error);
-      toast.error(`Error al ${accion} tipo de actividad tecnica`);
+      console.error(`Error al ${accion} tipo de actividad técnica:`, error);
+      toast.error(`Error al ${accion} tipo de actividad técnica`);
     } finally {
       setPendingToggleTipoActividad(null);
     }
   };
 
   const columns: ColumnDef<TipoActividadTecnica>[] = [
-    { key: "id", header: "ID", render: (t) => t.id },
-    { key: "nombre", header: "Nombre", render: (t) => t.nombre },
-    { key: "descripcion", header: "Descripcion", render: (t) => t.descripcion || "Sin descripcion" },
+    {
+      key: "nombre",
+      header: "Tipo / ID",
+      render: (t) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+            <WrenchScrewdriverIcon className="h-5 w-5 text-gray-500" />
+          </div>
+          <div>
+            <p className="font-bold text-gray-900 dark:text-white">
+              {t.nombre}
+            </p>
+            <p className="text-xs text-gray-500">ID: #{t.id}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "descripcion",
+      header: "Descripción",
+      render: (t) => (
+        <div className="max-w-[300px] xl:max-w-[500px]">
+          <p className="text-sm text-gray-600 dark:text-gray-400 italic line-clamp-2">
+              {t.descripcion || "Sin descripción"}
+          </p>
+        </div>
+      ),
+    },
     {
       key: "estado",
       header: "Estado",
       render: (t) => (
-        <Badge size="sm" color={t.estado ? "success" : "error"}>
+        <Badge size="sm" variant="light" color={t.estado ? "success" : "error"}>
           {t.estado ? "Activo" : "Inactivo"}
         </Badge>
       ),
@@ -91,33 +130,36 @@ export default function TipoActividadTecnicaTable() {
   const rowActions = (tipo: TipoActividadTecnica): ActionDef[] => [
     {
       key: "view",
-      label: "Ver",
+      label: <EyeIcon className="h-4 w-4" />,
+      text: "Ver detalles",
       onClick: () => handleViewClick(tipo),
       className:
-        "rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors",
     },
     {
       key: "edit",
-      label: "Editar",
+      label: <PencilSquareIcon className="h-4 w-4" />,
+      text: "Editar tipo",
       onClick: () => handleEditClick(tipo),
       className:
-        "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors",
     },
     {
       key: "toggle",
-      label: tipo.estado ? "Deshabilitar" : "Habilitar",
+      label: tipo.estado ? <NoSymbolIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />,
+      text: tipo.estado ? "Deshabilitar" : "Habilitar",
       onClick: () => handleToggleEstado(tipo),
       className: tipo.estado
-        ? "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
-        : "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20",
+        ? "flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+        : "flex h-8 w-8 items-center justify-center rounded-lg border border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors",
     },
   ];
 
   return (
     <>
       <DataTable
-        caption="Tabla de tipos de actividad tecnica"
-        data={tipos}
+        caption="Tabla de tipos de actividad técnica"
+        data={showInactive ? tipos : tipos.filter((t: TipoActividadTecnica) => t.estado)}
         columns={columns}
         loading={loading}
         searchTerm={searchTerm}

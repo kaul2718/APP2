@@ -1,5 +1,5 @@
 'use client';
-
+ 
 import React, { useState } from "react";
 import Badge from "../ui/badge/Badge";
 import ConfirmDialog from "../modals/ConfirmDialog";
@@ -7,7 +7,17 @@ import PresupuestoDetailsModal from "../modals/PresupuestoDetailsModal";
 import PresupuestoEditModal from "../modals/PresupuestoEditModal";
 import { toast } from "react-toastify";
 import { usePresupuesto, Presupuesto, ResumenPresupuesto } from "@/hooks/usePresupuesto";
-import { DocumentTextIcon, HashtagIcon, UserIcon, CalendarIcon } from "@heroicons/react/24/outline";
+import { 
+  DocumentTextIcon, 
+  UserIcon, 
+  CalendarIcon,
+  EyeIcon,
+  PencilSquareIcon,
+  TrashIcon,
+  ArrowPathIcon,
+  BanknotesIcon,
+  HashtagIcon
+} from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 import { DataTable, ColumnDef, ActionDef } from "./DataTable";
 
@@ -21,7 +31,14 @@ type PresupuestoRow = Presupuesto & {
   }) | null;
 };
 
-export default function PresupuestoTable() {
+interface PresupuestoTableProps {
+  presupuestoHook?: any;
+}
+
+export default function PresupuestoTable({ presupuestoHook }: PresupuestoTableProps) {
+  const internalHook = usePresupuesto();
+  const hook = presupuestoHook || internalHook;
+
   const {
     presupuestos,
     loading,
@@ -35,7 +52,9 @@ export default function PresupuestoTable() {
     updatePresupuesto,
     setSearchTerm,
     getResumenPresupuesto,
-  } = usePresupuesto();
+    setShowInactive,
+    showInactive
+  } = hook;
 
   const router = useRouter();
 
@@ -81,7 +100,7 @@ export default function PresupuestoTable() {
         ordenId: presupuestoActualizado.ordenId,
       });
 
-      fetchPresupuestos(currentPage, 10, searchTerm);
+      fetchPresupuestos(currentPage, 10, searchTerm, showInactive);
     } catch (error) {
       console.error("Error al actualizar presupuesto:", error);
       toast.error("No se pudo actualizar el presupuesto");
@@ -93,7 +112,7 @@ export default function PresupuestoTable() {
 
     try {
       await deletePresupuesto(selectedPresupuesto.id);
-      fetchPresupuestos(Number(currentPage), 10, searchTerm);
+      fetchPresupuestos(currentPage, 10, searchTerm, showInactive);
     } catch (error) {
       toast.error("Error al eliminar presupuesto");
     } finally {
@@ -103,12 +122,11 @@ export default function PresupuestoTable() {
   };
 
   const handleRestoreConfirm = async () => {
-    if (!selectedPresupuesto?.deletedAt) return;
+    if (!selectedPresupuesto) return;
 
     try {
       await restorePresupuesto(selectedPresupuesto.id);
-      toast.success("Presupuesto restaurado correctamente");
-      fetchPresupuestos(Number(currentPage), 10, searchTerm);
+      fetchPresupuestos(currentPage, 10, searchTerm, showInactive);
     } catch (error) {
       toast.error("Error al restaurar presupuesto");
     } finally {
@@ -160,26 +178,35 @@ export default function PresupuestoTable() {
   const columns: ColumnDef<PresupuestoRow>[] = [
     {
       key: "id",
-      header: "ID",
+      header: "Código / ID",
       render: (presupuesto) => (
-        <div className="flex items-center gap-2">
-          <HashtagIcon className="h-4 w-4 text-gray-400" />
-          {presupuesto.id}
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+            <HashtagIcon className="h-5 w-5 text-gray-500" />
+          </div>
+          <div>
+            <p className="font-bold text-gray-900 dark:text-white">
+              PR-{String(presupuesto.id).padStart(4, '0')}
+            </p>
+            <p className="text-xs text-gray-500">ID Interno: #{presupuesto.id}</p>
+          </div>
         </div>
       ),
     },
     {
       key: "orden",
-      header: "Orden",
+      header: "Orden Relacionada",
       render: (presupuesto) => (
         <div className="flex items-center gap-2">
-          <DocumentTextIcon className="h-4 w-4 text-gray-400" />
-          <span
-            className="cursor-pointer text-blue-500 hover:text-blue-700"
+          <div className="p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+            <DocumentTextIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          </div>
+          <button
             onClick={() => router.push(`/ver-orden/${presupuesto.ordenId}`)}
+            className="font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-all"
           >
-            #{presupuesto.orden?.workOrderNumber}
-          </span>
+            {presupuesto.orden?.workOrderNumber || `Orden #${presupuesto.ordenId}`}
+          </button>
         </div>
       ),
     },
@@ -189,8 +216,8 @@ export default function PresupuestoTable() {
       render: (presupuesto) => (
         <div className="flex items-center gap-2">
           <UserIcon className="h-4 w-4 text-gray-400" />
-          <span>
-            {presupuesto.orden?.client?.nombre || "Cliente no disponible"} {presupuesto.orden?.client?.apellido}
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {presupuesto.orden?.client?.nombre || "N/A"} {presupuesto.orden?.client?.apellido || ""}
           </span>
         </div>
       ),
@@ -201,32 +228,38 @@ export default function PresupuestoTable() {
       render: (presupuesto) => (
         <Badge
           size="sm"
+          variant="light"
           color={
-            presupuesto.estado?.nombre === "Aprobado"
+            presupuesto.estado?.nombre.toLowerCase() === "aprobado"
               ? "success"
-              : presupuesto.estado?.nombre === "Rechazado"
+              : presupuesto.estado?.nombre.toLowerCase() === "rechazado" || presupuesto.estado?.nombre.toLowerCase() === "cancelado"
                 ? "error"
                 : "warning"
           }
         >
-          {presupuesto.estado?.nombre || "Sin estado"}
+          {presupuesto.estado?.nombre || "Pendiente"}
         </Badge>
       ),
     },
     {
       key: "fechaEmision",
-      header: "Fecha Emision",
+      header: "Fecha Emisión",
       render: (presupuesto) => (
         <div className="flex items-center gap-2">
           <CalendarIcon className="h-4 w-4 text-gray-400" />
-          <span className="text-gray-500 dark:text-gray-400">{formatDate(presupuesto.fechaEmision)}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(presupuesto.fechaEmision)}</span>
         </div>
       ),
     },
     {
       key: "total",
-      header: "Total",
-      render: (presupuesto) => <span className="font-medium">{formatCurrency(calculateTotal(presupuesto))}</span>,
+      header: "Monto Total",
+      render: (presupuesto) => (
+        <div className="flex items-center gap-1.5 font-bold text-gray-900 dark:text-white">
+           <BanknotesIcon className="h-4 w-4 text-green-600" />
+           {formatCurrency(calculateTotal(presupuesto))}
+        </div>
+      ),
     },
   ];
 
@@ -236,28 +269,31 @@ export default function PresupuestoTable() {
     return [
       {
         key: "view",
-        label: "Ver",
+        label: <EyeIcon className="h-4 w-4" />,
+        text: "Ver detalles",
         onClick: () => {
           void handleViewClick(presupuesto);
         },
         className:
-          "rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20",
+          "flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors",
       },
       {
         key: "edit",
-        label: "Editar",
+        label: <PencilSquareIcon className="h-4 w-4" />,
+        text: "Editar presupuesto",
         onClick: () => handleEditClick(presupuesto),
         disabled: estaEliminado,
         className:
-          "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 disabled:opacity-40 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
+          "flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 disabled:opacity-40 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors",
       },
       {
         key: "delete-restore",
-        label: estaEliminado ? "Restaurar" : "Eliminar",
+        label: estaEliminado ? <ArrowPathIcon className="h-4 w-4" /> : <TrashIcon className="h-4 w-4" />,
+        text: estaEliminado ? "Restaurar" : "Eliminar",
         onClick: () => handleDeleteClick(presupuesto),
         className: estaEliminado
-          ? "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20"
-          : "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20",
+          ? "flex h-8 w-8 items-center justify-center rounded-lg border border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors"
+          : "flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors",
       },
     ];
   };
@@ -265,23 +301,25 @@ export default function PresupuestoTable() {
   return (
     <>
       <DataTable
-        caption="Tabla de presupuestos"
+        caption="Tabla de presupuestos registrados"
         data={presupuestos as PresupuestoRow[]}
         columns={columns}
         loading={loading}
         searchTerm={searchTerm}
         onSearchChange={(term) => {
           setSearchTerm(term);
-          fetchPresupuestos(1, 10, term);
+          fetchPresupuestos(1, 10, term, showInactive);
         }}
-        showInactive={false}
+        showInactive={showInactive}
         onToggleInactive={() => {
-          // Presupuestos no usa este filtro por ahora.
+          const nextValue = !showInactive;
+          setShowInactive(nextValue);
+          fetchPresupuestos(1, 10, searchTerm, nextValue);
         }}
         totalItems={totalItems}
         currentPage={currentPage}
         totalPages={totalPages}
-        onPageChange={(page) => fetchPresupuestos(page, 10, searchTerm)}
+        onPageChange={(page) => fetchPresupuestos(page, 10, searchTerm, showInactive)}
         actions={rowActions}
         getRowKey={(presupuesto) => presupuesto.id}
       />
@@ -307,8 +345,8 @@ export default function PresupuestoTable() {
         title={selectedPresupuesto?.deletedAt ? "Restaurar presupuesto" : "Eliminar presupuesto"}
         description={
           selectedPresupuesto?.deletedAt
-            ? "¿Estás seguro de que deseas restaurar este presupuesto?"
-            : "¿Estás seguro de que deseas eliminar este presupuesto?"
+            ? `¿Estás seguro de que deseas restaurar el presupuesto PR-${String(selectedPresupuesto.id).padStart(4, '0')}?`
+            : `¿Estás seguro de que deseas eliminar el presupuesto PR-${String(selectedPresupuesto?.id).padStart(4, '0')}?`
         }
         onConfirm={selectedPresupuesto?.deletedAt ? handleRestoreConfirm : handleDeleteConfirm}
         onClose={() => {

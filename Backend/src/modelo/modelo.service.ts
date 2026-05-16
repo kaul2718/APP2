@@ -129,33 +129,32 @@ export class ModeloService {
   }
 
   async findAllPaginated(
-    page: number,
-    limit: number,
+    page: any,
+    limit: any,
     search?: string,
     includeInactive = false,
   ): Promise<{ data: Modelo[]; total: number }> {
-    const skip = (page - 1) * limit;
-
-    const query = this.modeloRepository.createQueryBuilder('modelo')
-      .leftJoinAndSelect('modelo.marca', 'marca')
-      .leftJoinAndSelect('modelo.equipos', 'equipos');
+    const whereCondition: any = {};
+    
+    if (!includeInactive) {
+      whereCondition.estado = true;
+    }
 
     if (search) {
-      query.where('LOWER(modelo.nombre) LIKE LOWER(:search)', { 
-        search: `%${search}%` 
-      });
+      whereCondition.nombre = Like(`%${search}%`);
     }
 
-    if (!includeInactive) {
-      query.andWhere('modelo.estado = :estado', { estado: true })
-           .andWhere('modelo.deletedAt IS NULL');
-    }
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
+    const skip = (pageNum - 1) * limitNum;
 
-    query.skip(skip)
-      .take(limit)
-      .orderBy('modelo.nombre', 'ASC');
-
-    const [data, total] = await query.getManyAndCount();
+    const [data, total] = await this.modeloRepository.findAndCount({
+      where: whereCondition,
+      relations: ['marca'],
+      order: { nombre: 'ASC' },
+      skip: skip,
+      take: limitNum,
+    });
 
     return { data, total };
   }

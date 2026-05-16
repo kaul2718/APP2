@@ -125,32 +125,31 @@ export class TipoActividadTecnicaService {
   }
 
   async findAllPaginated(
-    page: number,
-    limit: number,
+    page: any,
+    limit: any,
     search?: string,
     includeInactive = false,
   ): Promise<{ data: TipoActividadTecnica[]; total: number }> {
-    const skip = (page - 1) * limit;
-
-    const query = this.tipoActividadRepository.createQueryBuilder('tipoActividad')
-      .leftJoinAndSelect('tipoActividad.actividades', 'actividades');
+    const whereCondition: any = {};
+    
+    if (!includeInactive) {
+      whereCondition.estado = true;
+    }
 
     if (search) {
-      query.where('LOWER(tipoActividad.nombre) LIKE LOWER(:search)', { 
-        search: `%${search}%` 
-      });
+      whereCondition.nombre = Like(`%${search}%`);
     }
 
-    if (!includeInactive) {
-      query.andWhere('tipoActividad.estado = :estado', { estado: true })
-           .andWhere('tipoActividad.deletedAt IS NULL');
-    }
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
+    const skip = (pageNum - 1) * limitNum;
 
-    query.skip(skip)
-      .take(limit)
-      .orderBy('tipoActividad.nombre', 'ASC');
-
-    const [data, total] = await query.getManyAndCount();
+    const [data, total] = await this.tipoActividadRepository.findAndCount({
+      where: whereCondition,
+      order: { nombre: 'ASC' },
+      skip: skip,
+      take: limitNum,
+    });
 
     return { data, total };
   }

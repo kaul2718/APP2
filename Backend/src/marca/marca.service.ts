@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Like, Repository } from 'typeorm';
@@ -87,29 +88,37 @@ export class MarcaService {
   }
 
   async findAllPaginated(
-    page: number,
-    limit: number,
+    page: any,
+    limit: any,
     search?: string,
-    includeDeleted = false,
+    includeInactive = false,
   ): Promise<{ data: Marca[]; total: number }> {
-    const skip = (page - 1) * limit;
-
-    const query = this.marcaRepository.createQueryBuilder('marca');
+    const whereCondition: any = {};
+    
+    if (!includeInactive) {
+      whereCondition.estado = true;
+    }
 
     if (search) {
-      query.where('LOWER(marca.nombre) LIKE LOWER(:search)', { search: `%${search}%` });
+      whereCondition.nombre = Like(`%${search}%`);
     }
 
-    if (!includeDeleted) {
-      query.andWhere('marca.deletedAt IS NULL');
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
+    const skip = (pageNum - 1) * limitNum;
+
+    try {
+      fs.appendFileSync('debug.txt', `[${new Date().toISOString()}] SERVICE: skip=${skip}, take=${limitNum}, totalItemsRequested=${limitNum}\n`);
+    } catch (e) {
+      console.error('Error writing to debug.txt', e);
     }
 
-    query.skip(skip)
-      .take(limit)
-      .orderBy('marca.nombre', 'ASC')
-      .leftJoinAndSelect('marca.modelos', 'modelos');
-
-    const [data, total] = await query.getManyAndCount();
+    const [data, total] = await this.marcaRepository.findAndCount({
+      where: whereCondition,
+      order: { nombre: 'ASC' },
+      skip: skip,
+      take: limitNum,
+    });
 
     return { data, total };
   }

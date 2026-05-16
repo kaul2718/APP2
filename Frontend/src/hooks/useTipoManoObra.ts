@@ -1,5 +1,5 @@
 'use client';
-
+ 
 import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useCrud } from "@/hooks/useCrud";
@@ -18,7 +18,7 @@ export interface TipoManoObra {
   estado: boolean;
   descripcion: string | null;
   costo: number;
-  deletedAt: string | null;
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   detalles?: DetalleManoObra[];
@@ -62,7 +62,7 @@ export function useTipoManoObra() {
   } = useCrud<TipoManoObra, CreateTipoManoObraDto, UpdateTipoManoObraDto>(
     '/tipos-mano-obra',
     {
-      listPath: '/tipos-mano-obra',
+      listPath: '/tipos-mano-obra/all',
       defaultLimit: 10,
       messages: {
         created: 'Tipo de mano de obra creado exitosamente',
@@ -83,7 +83,7 @@ export function useTipoManoObra() {
 
   const fetchAllTipos = async (includeInactive: boolean = false) => {
     try {
-      let url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/tipos-mano-obra/all`;
+      let url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/tipos-mano-obra`;
 
       if (includeInactive) {
         url += `?includeInactive=true`;
@@ -104,6 +104,7 @@ export function useTipoManoObra() {
       setTipos([]);
     }
   };
+
   const createTipo = createItem;
   const updateTipo = updateItem;
   const toggleTipoStatus = toggleItemStatus;

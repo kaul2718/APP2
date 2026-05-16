@@ -9,8 +9,22 @@ import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { Marca, useMarcas } from "@/hooks/useMarcas";
 import { DataTable, ColumnDef, ActionDef } from "./DataTable";
+import { 
+  EyeIcon, 
+  PencilSquareIcon, 
+  CheckCircleIcon, 
+  NoSymbolIcon,
+  TagIcon
+} from "@heroicons/react/24/outline";
 
-export default function MarcaTable() {
+interface MarcaTableProps {
+  marcasHook?: any; // Using any for simplicity as UseMarcasReturn might not be exported
+}
+
+export default function MarcaTable({ marcasHook }: MarcaTableProps) {
+  const internalHook = useMarcas();
+  const hook = marcasHook || internalHook;
+  
   const {
     marcas,
     loading,
@@ -23,7 +37,7 @@ export default function MarcaTable() {
     setSearchTerm,
     showDisabled,
     setShowDisabled,
-  } = useMarcas();
+  } = hook;
 
   const { data: session } = useSession();
   const token = session?.accessToken || "";
@@ -49,7 +63,7 @@ export default function MarcaTable() {
   };
 
   const handleSaveMarca = (marcaActualizada: Marca) => {
-    setMarcas((prev) => prev.map((m) => (m.id === marcaActualizada.id ? marcaActualizada : m)));
+    setMarcas((prev: Marca[]) => prev.map((m) => (m.id === marcaActualizada.id ? marcaActualizada : m)));
     fetchMarcas(currentPage, 10, searchTerm, showDisabled);
   };
 
@@ -90,20 +104,27 @@ export default function MarcaTable() {
 
   const columns: ColumnDef<Marca>[] = [
     {
-      key: "id",
-      header: "ID",
-      render: (marca) => marca.id,
-    },
-    {
       key: "nombre",
-      header: "Nombre",
-      render: (marca) => marca.nombre,
+      header: "Marca",
+      render: (marca) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+            <TagIcon className="h-5 w-5 text-gray-500" />
+          </div>
+          <div>
+            <p className="font-bold text-gray-900 dark:text-white">
+              {marca.nombre}
+            </p>
+            <p className="text-xs text-gray-500">ID: #{marca.id}</p>
+          </div>
+        </div>
+      ),
     },
     {
       key: "estado",
       header: "Estado",
       render: (marca) => (
-        <Badge size="sm" color={marca.estado ? "success" : "error"}>
+        <Badge size="sm" variant="light" color={marca.estado ? "success" : "error"}>
           {marca.estado ? "Activo" : "Inactivo"}
         </Badge>
       ),
@@ -113,25 +134,28 @@ export default function MarcaTable() {
   const rowActions = (marca: Marca): ActionDef[] => [
     {
       key: "view",
-      label: "Ver",
+      label: <EyeIcon className="h-4 w-4" />,
+      text: "Ver detalles",
       onClick: () => handleViewClick(marca),
       className:
-        "rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors",
     },
     {
       key: "edit",
-      label: "Editar",
+      label: <PencilSquareIcon className="h-4 w-4" />,
+      text: "Editar marca",
       onClick: () => handleEditClick(marca),
       className:
-        "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors",
     },
     {
       key: "toggle",
-      label: marca.estado ? "Deshabilitar" : "Habilitar",
+      label: marca.estado ? <NoSymbolIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />,
+      text: marca.estado ? "Deshabilitar" : "Habilitar",
       onClick: () => handleToggleEstado(marca),
       className: marca.estado
-        ? "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
-        : "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20",
+        ? "flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+        : "flex h-8 w-8 items-center justify-center rounded-lg border border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors",
     },
   ];
 
@@ -139,7 +163,7 @@ export default function MarcaTable() {
     <>
       <DataTable
         caption="Tabla de marcas"
-        data={marcas}
+        data={showDisabled ? marcas : marcas.filter((m: Marca) => m.estado)}
         columns={columns}
         loading={loading}
         searchTerm={searchTerm}

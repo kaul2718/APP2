@@ -9,7 +9,7 @@ export interface TipoEquipo {
   id: number;
   nombre: string;
   estado: boolean;
-  deletedAt: string | null;
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,7 +29,7 @@ export function useTipoEquipo() {
     setSearchTerm,
     setShowInactive,
   } = useCrud<TipoEquipo, never, never>('/tipos-equipo', {
-    defaultLimit: 1000,
+    defaultLimit: 10,
     messages: {
       loadError: 'Error al cargar tipos de equipo',
     },
@@ -39,7 +39,7 @@ export function useTipoEquipo() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetchTiposEquipo(1, 1000, searchTerm, showInactive);
+      fetchTiposEquipo(1, 10, searchTerm, showInactive);
     }
   }, [status, searchTerm, showInactive]);
 

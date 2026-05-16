@@ -14,6 +14,7 @@ export interface Presupuesto {
     estadoId: number;
     descripcion: string | null;
     fechaEmision: string;
+    deletedAt?: string | null;
     estado?: EstadoPresupuesto | null; // Permitir null
     orden?: Order | null; // Añadir | null aquí
     detallesPresupuestoItems?: DetallePresupuestoItem[];

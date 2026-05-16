@@ -1,5 +1,5 @@
 'use client';
-
+ 
 import React, { useState } from "react";
 import Badge from "../ui/badge/Badge";
 import ConfirmDialog from "../modals/ConfirmDialog";
@@ -7,9 +7,26 @@ import CasilleroDetailsModal from "../modals/CasilleroDetailsModal";
 import CasilleroEditModal from "../modals/CasilleroEditModal";
 import { toast } from "react-toastify";
 import { Casillero, useCasillero } from "@/hooks/useCasillero";
-import { DataTable, ColumnDef } from "./DataTable";
+import { DataTable, ColumnDef, ActionDef } from "./DataTable";
+import { 
+  EyeIcon, 
+  PencilSquareIcon, 
+  CheckCircleIcon, 
+  NoSymbolIcon,
+  InboxIcon,
+  LockOpenIcon,
+  LockClosedIcon,
+  ClipboardDocumentCheckIcon
+} from "@heroicons/react/24/outline";
 
-export default function CasilleroTable() {
+interface CasilleroTableProps {
+  casilleroHook?: any;
+}
+
+export default function CasilleroTable({ casilleroHook }: CasilleroTableProps) {
+  const internalHook = useCasillero();
+  const hook = casilleroHook || internalHook;
+
   const {
     casilleros,
     loading,
@@ -22,11 +39,9 @@ export default function CasilleroTable() {
     setSearchTerm,
     showInactive,
     setShowInactive,
-    situacionFilter,
-    setSituacionFilter,
     releaseCasillero,
     toggleCasilleroStatus,
-  } = useCasillero();
+  } = hook;
 
   const [selectedCasillero, setSelectedCasillero] = useState<Casillero | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,18 +65,15 @@ export default function CasilleroTable() {
   };
 
   const handleSaveCasillero = (casilleroActualizado: Casillero) => {
-    setCasilleros((prev) => prev.map((c) => (c.id === casilleroActualizado.id ? casilleroActualizado : c)));
-    fetchCasilleros(currentPage, 10, searchTerm, showInactive, situacionFilter);
+    setCasilleros((prev: Casillero[]) => prev.map((c) => (c.id === casilleroActualizado.id ? casilleroActualizado : c)));
+    fetchCasilleros(currentPage, 10, searchTerm, showInactive);
   };
 
   const handleToggleEstado = (casillero: Casillero) => {
-    const estaActivo = casillero.estado;
-
-    if (estaActivo && casillero.situacion === "Ocupado") {
+    if (casillero.estado && casillero.situacion === "Ocupado") {
       toast.error("No se puede desactivar un casillero ocupado");
       return;
     }
-
     setPendingToggleEstadoCasillero(casillero);
   };
 
@@ -75,7 +87,7 @@ export default function CasilleroTable() {
     try {
       await toggleCasilleroStatus(casillero.id);
       toast.success(`Casillero ${estaActivo ? "deshabilitado" : "habilitado"} correctamente`);
-      fetchCasilleros(currentPage, 10, searchTerm, showInactive, situacionFilter);
+      fetchCasilleros(currentPage, 10, searchTerm, showInactive);
     } catch (error) {
       console.error(`Error al ${accion} casillero:`, error);
       toast.error(`Error al ${accion} casillero`);
@@ -93,21 +105,20 @@ export default function CasilleroTable() {
 
     const casillero = pendingToggleOcupacionCasillero;
     const estaOcupado = casillero.situacion === "Ocupado";
-    const accion = estaOcupado ? "liberar" : "asignar orden";
 
     try {
       if (estaOcupado) {
         await releaseCasillero(casillero.id);
         toast.success("Casillero liberado correctamente");
       } else {
-        toast.info("Implementar logica para asignar orden");
+        toast.info("Asignación de orden desde esta tabla próximamente");
         return;
       }
 
-      fetchCasilleros(currentPage, 10, searchTerm, showInactive, situacionFilter);
+      fetchCasilleros(currentPage, 10, searchTerm, showInactive);
     } catch (error) {
-      console.error(`Error al ${accion} casillero:`, error);
-      toast.error(`Error al ${accion} casillero`);
+      console.error(`Error al cambiar ocupación:`, error);
+      toast.error(`Error al procesar solicitud`);
     } finally {
       setPendingToggleOcupacionCasillero(null);
     }
@@ -115,26 +126,42 @@ export default function CasilleroTable() {
 
   const columns: ColumnDef<Casillero>[] = [
     {
-      key: "id",
-      header: "ID",
-      render: (casillero) => casillero.id,
-    },
-    {
       key: "codigo",
-      header: "Codigo",
-      render: (casillero) => casillero.codigo,
+      header: "Código / ID",
+      render: (casillero) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+            <InboxIcon className="h-5 w-5 text-gray-500" />
+          </div>
+          <div>
+            <p className="font-bold text-gray-900 dark:text-white">
+              {casillero.codigo}
+            </p>
+            <p className="text-xs text-gray-500">ID: #{casillero.id}</p>
+          </div>
+        </div>
+      ),
     },
     {
       key: "descripcion",
-      header: "Descripcion",
-      render: (casillero) => casillero.descripcion,
+      header: "Descripción",
+      render: (casillero) => (
+        <div className="max-w-[250px] xl:max-w-[400px]">
+          <p className="text-sm text-gray-600 dark:text-gray-400 italic line-clamp-2">
+              {casillero.descripcion || "Sin descripción"}
+          </p>
+        </div>
+      ),
     },
     {
       key: "situacion",
-      header: "Situacion",
+      header: "Situación",
       render: (casillero) => (
-        <Badge size="sm" color={casillero.situacion === "Ocupado" ? "error" : "success"}>
-          {casillero.situacion}
+        <Badge size="sm" variant="light" color={casillero.situacion === "Ocupado" ? "warning" : "success"}>
+          <div className="flex items-center gap-1.5">
+            {casillero.situacion === "Ocupado" ? <LockClosedIcon className="h-3 w-3" /> : <LockOpenIcon className="h-3 w-3" />}
+            {casillero.situacion}
+          </div>
         </Badge>
       ),
     },
@@ -142,99 +169,74 @@ export default function CasilleroTable() {
       key: "estado",
       header: "Estado",
       render: (casillero) => (
-        <Badge size="sm" color={casillero.estado ? "success" : "error"}>
+        <Badge size="sm" variant="light" color={casillero.estado ? "success" : "error"}>
           {casillero.estado ? "Activo" : "Inactivo"}
         </Badge>
       ),
     },
   ];
 
+  const rowActions = (casillero: Casillero): ActionDef[] => [
+    {
+      key: "view",
+      label: <EyeIcon className="h-4 w-4" />,
+      text: "Ver detalles",
+      onClick: () => handleViewClick(casillero),
+      className:
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors",
+    },
+    {
+      key: "edit",
+      label: <PencilSquareIcon className="h-4 w-4" />,
+      text: "Editar casillero",
+      onClick: () => handleEditClick(casillero),
+      className:
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors",
+    },
+    {
+      key: "release",
+      label: <ClipboardDocumentCheckIcon className="h-4 w-4" />,
+      text: casillero.situacion === "Ocupado" ? "Liberar casillero" : "Asignar orden",
+      onClick: () => handleToggleOcupacion(casillero),
+      className: casillero.situacion === "Ocupado"
+        ? "flex h-8 w-8 items-center justify-center rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-400 dark:hover:bg-purple-900/30 transition-colors"
+        : "flex h-8 w-8 items-center justify-center rounded-lg border border-brand-200 text-brand-600 hover:bg-brand-50 dark:border-brand-800 dark:text-brand-400 dark:hover:bg-brand-900/30 transition-colors",
+    },
+    {
+      key: "toggle",
+      label: casillero.estado ? <NoSymbolIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />,
+      text: casillero.estado ? "Deshabilitar" : "Habilitar",
+      onClick: () => handleToggleEstado(casillero),
+      className: casillero.estado
+        ? "flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+        : "flex h-8 w-8 items-center justify-center rounded-lg border border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors",
+    },
+  ];
+
   return (
     <>
-      <div className="mb-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => {
-                const valor = e.target.value;
-                setSearchTerm(valor);
-                fetchCasilleros(1, 10, valor, showInactive, situacionFilter);
-              }}
-              placeholder="Por codigo o descripcion..."
-              aria-label="Buscar casilleros"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white sm:max-w-sm"
-            />
-
-            <select
-              value={situacionFilter || ""}
-              onChange={(e) => {
-                const value = e.target.value || undefined;
-                const situacion = value as "Disponible" | "Ocupado" | undefined;
-                setSituacionFilter(situacion);
-                fetchCasilleros(1, 10, searchTerm, showInactive, situacion);
-              }}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            >
-              <option value="">Todos</option>
-              <option value="Disponible">Disponible</option>
-              <option value="Ocupado">Ocupado</option>
-            </select>
-          </div>
-
-          <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-            <input
-              type="checkbox"
-              checked={showInactive}
-              onChange={() => {
-                const nextValue = !showInactive;
-                setShowInactive(nextValue);
-                fetchCasilleros(1, 10, searchTerm, nextValue, situacionFilter);
-              }}
-              className="h-4 w-4"
-            />
-            Mostrar inactivos
-          </label>
-        </div>
-      </div>
-
       <DataTable
         caption="Tabla de casilleros"
-        data={casilleros}
+        data={showInactive ? casilleros : casilleros.filter((c: Casillero) => c.estado)}
         columns={columns}
         loading={loading}
-        showControls={false}
+        searchTerm={searchTerm}
+        onSearchChange={(term) => {
+          setSearchTerm(term);
+          fetchCasilleros(1, 10, term, showInactive);
+        }}
+        showInactive={showInactive}
+        onToggleInactive={() => {
+          const nextValue = !showInactive;
+          setShowInactive(nextValue);
+          fetchCasilleros(1, 10, searchTerm, nextValue);
+        }}
         totalItems={totalItems}
         currentPage={currentPage}
         totalPages={totalPages}
-        onPageChange={(page) => fetchCasilleros(page, 10, searchTerm, showInactive, situacionFilter)}
+        onPageChange={(page) => fetchCasilleros(page, 10, searchTerm, showInactive)}
+        actions={rowActions}
         getRowKey={(casillero) => casillero.id}
-        renderActions={(casillero) => {
-          const estaActivo = casillero.estado;
-          const estaOcupado = casillero.situacion === "Ocupado";
-
-          return (
-            <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={() => handleViewClick(casillero)} className="rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50">Ver</button>
-              <button type="button" onClick={() => handleEditClick(casillero)} className="rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50">Editar</button>
-              <button
-                type="button"
-                onClick={() => handleToggleOcupacion(casillero)}
-                className={estaOcupado ? "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50" : "rounded border border-purple-300 px-2 py-1 text-xs text-purple-700 hover:bg-purple-50"}
-              >
-                {estaOcupado ? "Liberar" : "Asignar orden"}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleToggleEstado(casillero)}
-                className={estaActivo ? "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50" : "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50"}
-              >
-                {estaActivo ? "Deshabilitar" : "Habilitar"}
-              </button>
-            </div>
-          );
-        }}
       />
 
       <div className="mt-4">
@@ -260,7 +262,7 @@ export default function CasilleroTable() {
         />
         <ConfirmDialog
           isOpen={pendingToggleOcupacionCasillero !== null}
-          title="Cambiar ocupacion de casillero"
+          title="Cambiar ocupación de casillero"
           description={
             pendingToggleOcupacionCasillero
               ? `¿Estás seguro de ${pendingToggleOcupacionCasillero.situacion === "Ocupado" ? "liberar" : "asignar una orden a"} el casillero \"${pendingToggleOcupacionCasillero.codigo}\"?`

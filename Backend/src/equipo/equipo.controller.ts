@@ -32,22 +32,26 @@ export class EquipoController {
   @Get('all')
   async findAll(
     @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
+    @Query('limit') limit: any = 10,
     @Query('search') search?: string,
-    @Query('includeDeleted') includeDeleted?: boolean,
+    @Query('includeInactive') includeInactive?: string,
   ) {
+    const isIncludeInactive = includeInactive === 'true';
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
+
     const result = await this.equipoService.findAllPaginated(
-      page,
-      limit,
+      pageNum,
+      limitNum,
       search,
-      includeDeleted,
+      isIncludeInactive,
     );
 
     return {
       items: result.data,
       totalItems: result.total,
-      totalPages: Math.ceil(result.total / limit),
-      currentPage: page,
+      totalPages: Math.ceil(result.total / limitNum),
+      currentPage: pageNum,
     };
   }
 

@@ -28,7 +28,7 @@ export function useMarcas() {
     setSearchTerm,
     setShowInactive: setShowDisabled,
   } = useCrud<Marca, never, never>('/marcas', {
-    defaultLimit: 1000,
+    defaultLimit: 10,
     listPath: '/marcas/all',
     messages: {
       loadError: 'Error al cargar marcas',
@@ -37,16 +37,16 @@ export function useMarcas() {
 
   const fetchMarcas = async (
     page: number = 1,
-    limit: number = 1000,
+    limit: number = 10,
     search: string = "",
     includeInactive: boolean = false
   ) => {
-    await fetchItems(page, limit, search, includeInactive, includeInactive ? undefined : { estado: true });
+    await fetchItems(page, limit, search, includeInactive);
   };
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetchMarcas(1, 1000, searchTerm, showDisabled);
+      fetchMarcas(1, 10, searchTerm, showDisabled);
     }
   }, [status, searchTerm, showDisabled]);
 

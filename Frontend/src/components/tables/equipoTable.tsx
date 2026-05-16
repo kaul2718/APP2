@@ -1,5 +1,5 @@
 'use client';
-
+ 
 import React, { useState } from "react";
 import Badge from "../ui/badge/Badge";
 import ConfirmDialog from "../modals/ConfirmDialog";
@@ -8,8 +8,25 @@ import EquipoEditModal from "../modals/EquipoEditModal";
 import { toast } from "react-toastify";
 import { Equipo, useEquipos } from "@/hooks/useEquipos";
 import { DataTable, ColumnDef, ActionDef } from "./DataTable";
+import { 
+  EyeIcon, 
+  PencilSquareIcon, 
+  CheckCircleIcon, 
+  NoSymbolIcon,
+  ComputerDesktopIcon,
+  TagIcon,
+  Square3Stack3DIcon,
+  CpuChipIcon
+} from "@heroicons/react/24/outline";
 
-export default function EquipoTable() {
+interface EquipoTableProps {
+  equipoHook?: any;
+}
+
+export default function EquipoTable({ equipoHook }: EquipoTableProps) {
+  const internalHook = useEquipos();
+  const hook = equipoHook || internalHook;
+
   const {
     equipos,
     loading,
@@ -23,7 +40,7 @@ export default function EquipoTable() {
     showInactive,
     setShowInactive,
     toggleEstado,
-  } = useEquipos();
+  } = hook;
 
   const [selectedEquipo, setSelectedEquipo] = useState<Equipo | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,7 +63,7 @@ export default function EquipoTable() {
   };
 
   const handleSaveEquipo = (equipoActualizado: Equipo) => {
-    setEquipos((prev) => prev.map((e) => (e.id === equipoActualizado.id ? equipoActualizado : e)));
+    setEquipos((prev: Equipo[]) => prev.map((e) => (e.id === equipoActualizado.id ? equipoActualizado : e)));
     fetchEquipos(currentPage, 10, searchTerm, showInactive);
   };
 
@@ -74,35 +91,53 @@ export default function EquipoTable() {
 
   const columns: ColumnDef<Equipo>[] = [
     {
-      key: "id",
-      header: "ID",
-      render: (equipo) => equipo.id,
-    },
-    {
       key: "numeroSerie",
-      header: "N Serie",
-      render: (equipo) => equipo.numeroSerie,
+      header: "Equipo / S/N",
+      render: (equipo) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+            <ComputerDesktopIcon className="h-5 w-5 text-gray-500" />
+          </div>
+          <div>
+            <p className="font-bold text-gray-900 dark:text-white">
+              {equipo.numeroSerie}
+            </p>
+            <p className="text-xs text-gray-500">ID: #{equipo.id}</p>
+          </div>
+        </div>
+      ),
     },
     {
-      key: "tipo",
-      header: "Tipo",
-      render: (equipo) => equipo.tipoEquipo?.nombre || "Sin tipo",
-    },
-    {
-      key: "marca",
-      header: "Marca",
-      render: (equipo) => equipo.marca?.nombre || "Sin marca",
-    },
-    {
-      key: "modelo",
-      header: "Modelo",
-      render: (equipo) => equipo.modelo?.nombre || "Sin modelo",
+      key: "detalles",
+      header: "Detalles",
+      render: (equipo) => (
+        <div className="space-y-1">
+            <div className="flex items-center gap-2">
+                <CpuChipIcon className="h-3.5 w-3.5 text-gray-400" />
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                    {equipo.tipoEquipo?.nombre || "Sin tipo"}
+                </span>
+            </div>
+            <div className="flex items-center gap-2">
+                <TagIcon className="h-3.5 w-3.5 text-gray-400" />
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                    {equipo.marca?.nombre || "Sin marca"}
+                </span>
+            </div>
+            <div className="flex items-center gap-2">
+                <Square3Stack3DIcon className="h-3.5 w-3.5 text-gray-400" />
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                    {equipo.modelo?.nombre || "Sin modelo"}
+                </span>
+            </div>
+        </div>
+      ),
     },
     {
       key: "estado",
       header: "Estado",
       render: (equipo) => (
-        <Badge size="sm" color={equipo.estado ? "success" : "error"}>
+        <Badge size="sm" variant="light" color={equipo.estado ? "success" : "error"}>
           {equipo.estado ? "Activo" : "Inactivo"}
         </Badge>
       ),
@@ -112,25 +147,28 @@ export default function EquipoTable() {
   const rowActions = (equipo: Equipo): ActionDef[] => [
     {
       key: "view",
-      label: "Ver",
+      label: <EyeIcon className="h-4 w-4" />,
+      text: "Ver detalles",
       onClick: () => handleViewClick(equipo),
       className:
-        "rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors",
     },
     {
       key: "edit",
-      label: "Editar",
+      label: <PencilSquareIcon className="h-4 w-4" />,
+      text: "Editar equipo",
       onClick: () => handleEditClick(equipo),
       className:
-        "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors",
     },
     {
       key: "toggle",
-      label: equipo.estado ? "Deshabilitar" : "Habilitar",
+      label: equipo.estado ? <NoSymbolIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />,
+      text: equipo.estado ? "Deshabilitar" : "Habilitar",
       onClick: () => handleToggleEstado(equipo),
       className: equipo.estado
-        ? "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
-        : "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20",
+        ? "flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+        : "flex h-8 w-8 items-center justify-center rounded-lg border border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors",
     },
   ];
 
@@ -138,7 +176,7 @@ export default function EquipoTable() {
     <>
       <DataTable
         caption="Tabla de equipos"
-        data={equipos}
+        data={showInactive ? equipos : equipos.filter((e: Equipo) => e.estado)}
         columns={columns}
         loading={loading}
         searchTerm={searchTerm}

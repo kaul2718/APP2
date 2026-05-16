@@ -19,22 +19,26 @@ export class EstadoPresupuestoController {
   @Get('all')
   async findAll(
     @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
+    @Query('limit') limit: any = 10,
     @Query('search') search?: string,
-    @Query('includeInactive') includeInactive?: boolean,
+    @Query('includeInactive') includeInactive?: any,
   ) {
+    const isIncludeInactive = includeInactive === 'true' || includeInactive === true;
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
+
     const result = await this.estadoPresupuestoService.findAllPaginated(
-      page,
-      limit,
+      pageNum,
+      limitNum,
       search,
-      includeInactive,
+      isIncludeInactive,
     );
 
     return {
       items: result.data,
       totalItems: result.total,
-      totalPages: Math.ceil(result.total / limit),
-      currentPage: page,
+      totalPages: Math.ceil(result.total / limitNum),
+      currentPage: pageNum,
     };
   }
 

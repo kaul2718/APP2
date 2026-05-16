@@ -1,4 +1,5 @@
-import {Controller,Post,Body,Get,Param,Patch,Delete,Query,ParseIntPipe,} from '@nestjs/common';
+import * as fs from 'fs';
+import {Controller,Post,Body,Get,Param,Patch,Delete,Query,ParseIntPipe,DefaultValuePipe,} from '@nestjs/common';
 import { MarcaService } from './marca.service';
 import { CreateMarcaDto } from './dto/create-marca.dto';
 import { UpdateMarcaDto } from './dto/update-marca.dto';
@@ -21,20 +22,31 @@ export class MarcaController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
     @Query('search') search?: string,
-    @Query('includeDeleted') includeDeleted?: boolean,
+    @Query('includeInactive') includeInactive?: string,
   ) {
+    const isIncludeInactive = includeInactive === 'true';
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
+
+    try {
+      fs.appendFileSync('debug.txt', `[${new Date().toISOString()}] CONTROLLER: page=${page} (pageNum=${pageNum}), limit=${limit} (limitNum=${limitNum})\n`);
+    } catch (e) {
+      console.error('Error writing to debug.txt', e);
+    }
+
     const result = await this.marcaService.findAllPaginated(
-      page,
-      limit,
+      pageNum,
+      limitNum,
       search,
-      includeDeleted,
+      isIncludeInactive,
     );
 
     return {
+      debug: { page: pageNum, limit: limitNum, limitType: typeof limitNum },
       items: result.data,
       totalItems: result.total,
-      totalPages: Math.ceil(result.total / limit),
-      currentPage: page,
+      totalPages: Math.ceil(result.total / limitNum),
+      currentPage: pageNum,
     };
   }
 

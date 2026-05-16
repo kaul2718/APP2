@@ -15,7 +15,7 @@ export interface TipoActividadTecnica {
   nombre: string;
   descripcion: string | null;
   estado: boolean;
-  deletedAt: string | null;
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   actividades?: ActividadTecnica[];
@@ -55,6 +55,7 @@ export function useTipoActividadTecnica() {
     '/tipos-actividad-tecnica',
     {
       defaultLimit: 10,
+      listPath: '/tipos-actividad-tecnica/all',
       messages: {
         created: 'Tipo de actividad tecnica creado exitosamente',
         updated: 'Tipo de actividad tecnica actualizado exitosamente',

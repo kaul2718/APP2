@@ -16,23 +16,22 @@ export class PresupuestoController {
     return this.presupuestoService.create(dto);
   }
 
-  @Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
   @Get('all')
   async findAllPaginated(
-    @Query('page') page: string,
-    @Query('limit') limit: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: any = 10,
     @Query('search') search?: string,
-    @Query('includeDeleted') includeDeleted?: string,
+    @Query('includeDeleted') includeDeleted?: any,
   ) {
-    const pageNum = parseInt(page, 10) || 1;
-    const limitNum = parseInt(limit, 10) || 10;
-    const includeDeletedBool = includeDeleted === 'true';
+    const isIncludeDeleted = includeDeleted === 'true' || includeDeleted === true;
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
 
     const result = await this.presupuestoService.findAllPaginated(
       pageNum,
       limitNum,
       search,
-      includeDeletedBool,
+      isIncludeDeleted,
     );
 
     return {

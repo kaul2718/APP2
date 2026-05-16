@@ -52,7 +52,7 @@ import { ChecklistTemplateModule } from './checklist-template/checklist-template
       password: process.env.DB_PASSWORD,
       database: process.env.DB_DATABASE,
       autoLoadEntities: true,
-      synchronize: true,
+      synchronize: false,
       ssl: process.env.DB_SSL === 'true',
       extra: {
         ssl:

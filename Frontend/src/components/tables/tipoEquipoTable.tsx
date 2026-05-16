@@ -1,5 +1,5 @@
 'use client';
-
+ 
 import React, { useState } from "react";
 import Badge from "../ui/badge/Badge";
 import ConfirmDialog from "../modals/ConfirmDialog";
@@ -9,12 +9,27 @@ import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { TipoEquipo, useTipoEquipo } from "@/hooks/useTipoEquipo";
 import { DataTable, ColumnDef, ActionDef } from "./DataTable";
+import { 
+  EyeIcon, 
+  PencilSquareIcon, 
+  CheckCircleIcon, 
+  NoSymbolIcon,
+  DevicePhoneMobileIcon
+} from "@heroicons/react/24/outline";
 
-export default function TipoEquipoTable() {
+interface TipoEquipoTableProps {
+  tiposEquipoHook?: any;
+}
+
+export default function TipoEquipoTable({ tiposEquipoHook }: TipoEquipoTableProps) {
+  const internalHook = useTipoEquipo();
+  const hook = tiposEquipoHook || internalHook;
+
   const {
     tiposEquipo,
     loading,
     fetchTiposEquipo,
+    setTiposEquipo,
     totalPages,
     totalItems,
     currentPage,
@@ -22,7 +37,7 @@ export default function TipoEquipoTable() {
     setSearchTerm,
     showInactive,
     setShowInactive,
-  } = useTipoEquipo();
+  } = hook;
 
   const { data: session } = useSession();
   const token = session?.accessToken || "";
@@ -47,7 +62,8 @@ export default function TipoEquipoTable() {
     setSelectedTipoEquipo(null);
   };
 
-  const handleSaveTipoEquipo = () => {
+  const handleSaveTipoEquipo = (tipoActualizado: TipoEquipo) => {
+    setTiposEquipo((prev: TipoEquipo[]) => prev.map((t) => (t.id === tipoActualizado.id ? tipoActualizado : t)));
     fetchTiposEquipo(currentPage, 10, searchTerm, showInactive);
   };
 
@@ -87,14 +103,29 @@ export default function TipoEquipoTable() {
   };
 
   const columns: ColumnDef<TipoEquipo>[] = [
-    { key: "id", header: "ID", render: (t) => t.id },
-    { key: "nombre", header: "Nombre", render: (t) => t.nombre },
+    {
+      key: "nombre",
+      header: "Tipo de Equipo",
+      render: (tipo) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+            <DevicePhoneMobileIcon className="h-5 w-5 text-gray-500" />
+          </div>
+          <div>
+            <p className="font-bold text-gray-900 dark:text-white">
+              {tipo.nombre}
+            </p>
+            <p className="text-xs text-gray-500">ID: #{tipo.id}</p>
+          </div>
+        </div>
+      ),
+    },
     {
       key: "estado",
       header: "Estado",
-      render: (t) => (
-        <Badge size="sm" color={t.estado ? "success" : "error"}>
-          {t.estado ? "Activo" : "Inactivo"}
+      render: (tipo) => (
+        <Badge size="sm" variant="light" color={tipo.estado ? "success" : "error"}>
+          {tipo.estado ? "Activo" : "Inactivo"}
         </Badge>
       ),
     },
@@ -103,71 +134,49 @@ export default function TipoEquipoTable() {
   const rowActions = (tipo: TipoEquipo): ActionDef[] => [
     {
       key: "view",
-      label: "Ver",
+      label: <EyeIcon className="h-4 w-4" />,
+      text: "Ver detalles",
       onClick: () => handleViewClick(tipo),
       className:
-        "rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors",
     },
     {
       key: "edit",
-      label: "Editar",
+      label: <PencilSquareIcon className="h-4 w-4" />,
+      text: "Editar tipo",
       onClick: () => handleEditClick(tipo),
       className:
-        "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors",
     },
     {
       key: "toggle",
-      label: tipo.estado ? "Deshabilitar" : "Habilitar",
+      label: tipo.estado ? <NoSymbolIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />,
+      text: tipo.estado ? "Deshabilitar" : "Habilitar",
       onClick: () => handleToggleEstado(tipo),
       className: tipo.estado
-        ? "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
-        : "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20",
+        ? "flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+        : "flex h-8 w-8 items-center justify-center rounded-lg border border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors",
     },
   ];
 
   return (
     <>
-      <div className="mb-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex w-full flex-col gap-3 sm:max-w-lg sm:flex-row sm:items-center">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => {
-                const valor = e.target.value;
-                setSearchTerm(valor);
-                fetchTiposEquipo(1, 10, valor, showInactive);
-              }}
-              placeholder="Por nombre..."
-              aria-label="Buscar tipo de equipo"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-            />
-
-            <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-              <input
-                type="checkbox"
-                checked={showInactive}
-                onChange={() => {
-                  const next = !showInactive;
-                  setShowInactive(next);
-                  fetchTiposEquipo(1, 10, searchTerm, next);
-                }}
-                className="h-4 w-4"
-              />
-              Mostrar inactivos
-            </label>
-          </div>
-
-          <div className="text-sm text-gray-500 dark:text-gray-400">Mostrando {tiposEquipo.length} de {totalItems} tipos</div>
-        </div>
-      </div>
-
       <DataTable
         caption="Tabla de tipos de equipo"
-        data={tiposEquipo}
+        data={showInactive ? tiposEquipo : tiposEquipo.filter((t: TipoEquipo) => t.estado)}
         columns={columns}
         loading={loading}
-        showControls={false}
+        searchTerm={searchTerm}
+        onSearchChange={(term) => {
+          setSearchTerm(term);
+          fetchTiposEquipo(1, 10, term, showInactive);
+        }}
+        showInactive={showInactive}
+        onToggleInactive={() => {
+          const nextValue = !showInactive;
+          setShowInactive(nextValue);
+          fetchTiposEquipo(1, 10, searchTerm, nextValue);
+        }}
         totalItems={totalItems}
         currentPage={currentPage}
         totalPages={totalPages}

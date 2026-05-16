@@ -136,15 +136,16 @@ export class TipoManoObraService {
   }
 
   async findAllPaginated(
-    page: number,
-    limit: number,
+    page: any,
+    limit: any,
     search?: string,
     includeInactive = false,
   ): Promise<{ data: TipoManoObra[]; total: number }> {
-    const skip = (page - 1) * limit;
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
+    const skip = (pageNum - 1) * limitNum;
 
-    const query = this.tipoManoObraRepository.createQueryBuilder('tipo')
-      .leftJoinAndSelect('tipo.detalles', 'detalles');
+    const query = this.tipoManoObraRepository.createQueryBuilder('tipo');
 
     if (search) {
       query.where(
@@ -159,7 +160,7 @@ export class TipoManoObraService {
     }
 
     query.skip(skip)
-      .take(limit)
+      .take(limitNum)
       .orderBy('tipo.nombre', 'ASC');
 
     const [data, total] = await query.getManyAndCount();

@@ -1,5 +1,5 @@
 'use client';
-
+ 
 import React, { useState } from "react";
 import Badge from "../ui/badge/Badge";
 import ConfirmDialog from "../modals/ConfirmDialog";
@@ -8,8 +8,22 @@ import EstadoOrdenEditModal from "../modals/EstadoOrdenEditModal";
 import { toast } from "react-toastify";
 import { EstadoOrden, useEstadoOrden } from "@/hooks/useEstadoOrden";
 import { DataTable, ColumnDef, ActionDef } from "./DataTable";
+import { 
+  EyeIcon, 
+  PencilSquareIcon, 
+  CheckCircleIcon, 
+  NoSymbolIcon,
+  QueueListIcon
+} from "@heroicons/react/24/outline";
 
-export default function EstadoOrdenTable() {
+interface EstadoOrdenTableProps {
+  estadoOrdenHook?: any;
+}
+
+export default function EstadoOrdenTable({ estadoOrdenHook }: EstadoOrdenTableProps) {
+  const internalHook = useEstadoOrden();
+  const hook = estadoOrdenHook || internalHook;
+
   const {
     estadosOrden,
     loading,
@@ -23,7 +37,7 @@ export default function EstadoOrdenTable() {
     showInactive,
     setShowInactive,
     toggleEstadoOrdenStatus,
-  } = useEstadoOrden();
+  } = hook;
 
   const [selectedEstadoOrden, setSelectedEstadoOrden] = useState<EstadoOrden | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,7 +60,7 @@ export default function EstadoOrdenTable() {
   };
 
   const handleSaveEstadoOrden = (estadoOrdenActualizado: EstadoOrden) => {
-    setEstadosOrden((prev) => prev.map((e) => (e.id === estadoOrdenActualizado.id ? estadoOrdenActualizado : e)));
+    setEstadosOrden((prev: EstadoOrden[]) => prev.map((e) => (e.id === estadoOrdenActualizado.id ? estadoOrdenActualizado : e)));
     fetchEstadosOrden(currentPage, 10, searchTerm, showInactive);
   };
 
@@ -63,6 +77,7 @@ export default function EstadoOrdenTable() {
 
     try {
       await toggleEstadoOrdenStatus(estadoOrden.id);
+      toast.success(`Estado de orden ${estaActivo ? "deshabilitado" : "habilitado"} correctamente`);
       fetchEstadosOrden(currentPage, 10, searchTerm, showInactive);
     } catch (error) {
       console.error(`Error al ${accion} estado de orden:`, error);
@@ -73,14 +88,39 @@ export default function EstadoOrdenTable() {
   };
 
   const columns: ColumnDef<EstadoOrden>[] = [
-    { key: "id", header: "ID", render: (e) => e.id },
-    { key: "nombre", header: "Nombre", render: (e) => e.nombre },
-    { key: "descripcion", header: "Descripcion", render: (e) => e.descripcion || "Sin descripcion" },
+    {
+      key: "nombre",
+      header: "Estado / ID",
+      render: (e) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+            <QueueListIcon className="h-5 w-5 text-gray-500" />
+          </div>
+          <div>
+            <p className="font-bold text-gray-900 dark:text-white">
+              {e.nombre}
+            </p>
+            <p className="text-xs text-gray-500">ID: #{e.id}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "descripcion",
+      header: "Descripción",
+      render: (e) => (
+        <div className="max-w-[300px] xl:max-w-[500px]">
+          <p className="text-sm text-gray-600 dark:text-gray-400 italic line-clamp-2">
+              {e.descripcion || "Sin descripción"}
+          </p>
+        </div>
+      ),
+    },
     {
       key: "estado",
       header: "Estado",
       render: (e) => (
-        <Badge size="sm" color={e.estado ? "success" : "error"}>
+        <Badge size="sm" variant="light" color={e.estado ? "success" : "error"}>
           {e.estado ? "Activo" : "Inactivo"}
         </Badge>
       ),
@@ -90,25 +130,28 @@ export default function EstadoOrdenTable() {
   const rowActions = (estadoOrden: EstadoOrden): ActionDef[] => [
     {
       key: "view",
-      label: "Ver",
+      label: <EyeIcon className="h-4 w-4" />,
+      text: "Ver detalles",
       onClick: () => handleViewClick(estadoOrden),
       className:
-        "rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors",
     },
     {
       key: "edit",
-      label: "Editar",
+      label: <PencilSquareIcon className="h-4 w-4" />,
+      text: "Editar estado",
       onClick: () => handleEditClick(estadoOrden),
       className:
-        "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors",
     },
     {
       key: "toggle",
-      label: estadoOrden.estado ? "Deshabilitar" : "Habilitar",
+      label: estadoOrden.estado ? <NoSymbolIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />,
+      text: estadoOrden.estado ? "Deshabilitar" : "Habilitar",
       onClick: () => handleToggleEstado(estadoOrden),
       className: estadoOrden.estado
-        ? "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
-        : "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20",
+        ? "flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+        : "flex h-8 w-8 items-center justify-center rounded-lg border border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors",
     },
   ];
 
@@ -116,7 +159,7 @@ export default function EstadoOrdenTable() {
     <>
       <DataTable
         caption="Tabla de estados de orden"
-        data={estadosOrden}
+        data={showInactive ? estadosOrden : estadosOrden.filter((e: EstadoOrden) => e.estado)}
         columns={columns}
         loading={loading}
         searchTerm={searchTerm}

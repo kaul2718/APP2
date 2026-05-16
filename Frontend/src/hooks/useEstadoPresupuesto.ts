@@ -14,7 +14,7 @@ export interface EstadoPresupuesto {
   nombre: string;
   descripcion: string;
   estado: boolean;
-  deletedAt: string | null;
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   presupuestos?: PresupuestoEstado[];

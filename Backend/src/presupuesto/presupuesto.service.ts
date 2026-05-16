@@ -239,12 +239,14 @@ export class PresupuestoService {
   }
 
   async findAllPaginated(
-    page: number,
-    limit: number,
+    page: any,
+    limit: any,
     search?: string,
     includeDeleted = false,
   ): Promise<{ data: Presupuesto[]; total: number }> {
-    const skip = (page - 1) * limit;
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
+    const skip = (pageNum - 1) * limitNum;
 
     const query = this.presupuestoRepository.createQueryBuilder('presupuesto')
       .leftJoinAndSelect('presupuesto.orden', 'orden')
@@ -266,7 +268,7 @@ export class PresupuestoService {
     }
 
     query.skip(skip)
-      .take(limit)
+      .take(limitNum)
       .orderBy('presupuesto.fechaEmision', 'DESC');
 
     const [data, total] = await query.getManyAndCount();

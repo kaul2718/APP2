@@ -1,5 +1,5 @@
 'use client';
-
+ 
 import React, { useState } from "react";
 import Badge from "../ui/badge/Badge";
 import ConfirmDialog from "../modals/ConfirmDialog";
@@ -8,8 +8,23 @@ import TipoManoObraEditModal from "../modals/TipoManoObraEditModal";
 import { toast } from "react-toastify";
 import { TipoManoObra, useTipoManoObra } from "@/hooks/useTipoManoObra";
 import { DataTable, ColumnDef, ActionDef } from "./DataTable";
+import { 
+  EyeIcon, 
+  PencilSquareIcon, 
+  CheckCircleIcon, 
+  NoSymbolIcon,
+  BriefcaseIcon,
+  CurrencyDollarIcon
+} from "@heroicons/react/24/outline";
 
-export default function TipoManoObraTable() {
+interface TipoManoObraTableProps {
+  tipoManoObraHook?: any;
+}
+
+export default function TipoManoObraTable({ tipoManoObraHook }: TipoManoObraTableProps) {
+  const internalHook = useTipoManoObra();
+  const hook = tipoManoObraHook || internalHook;
+
   const {
     tipos,
     loading,
@@ -23,7 +38,7 @@ export default function TipoManoObraTable() {
     showInactive,
     setShowInactive,
     toggleTipoStatus,
-  } = useTipoManoObra();
+  } = hook;
 
   const [selectedTipo, setSelectedTipo] = useState<TipoManoObra | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,7 +61,7 @@ export default function TipoManoObraTable() {
   };
 
   const handleSaveTipo = (tipoActualizado: TipoManoObra) => {
-    setTipos((prev) => prev.map((t) => (t.id === tipoActualizado.id ? tipoActualizado : t)));
+    setTipos((prev: TipoManoObra[]) => prev.map((t) => (t.id === tipoActualizado.id ? tipoActualizado : t)));
     fetchTipos(currentPage, 10, searchTerm, showInactive);
   };
 
@@ -81,24 +96,49 @@ export default function TipoManoObraTable() {
     }).format(value);
 
   const columns: ColumnDef<TipoManoObra>[] = [
-    { key: "id", header: "ID", render: (t) => t.id },
     {
       key: "nombre",
-      header: "Nombre",
+      header: "Tipo / Código",
       render: (t) => (
-        <div>
-          <span className="block font-medium text-gray-800 dark:text-white/90">{t.nombre}</span>
-          {t.descripcion && <span className="block text-xs text-gray-500 dark:text-gray-400">{t.descripcion.substring(0, 50)}...</span>}
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+            <BriefcaseIcon className="h-5 w-5 text-gray-500" />
+          </div>
+          <div>
+            <p className="font-bold text-gray-900 dark:text-white">
+              {t.nombre}
+            </p>
+            <p className="text-xs text-gray-500 font-mono">Cód: {t.codigo}</p>
+          </div>
         </div>
       ),
     },
-    { key: "codigo", header: "Codigo", render: (t) => t.codigo },
-    { key: "costo", header: "Costo", render: (t) => formatCurrency(t.costo) },
+    {
+      key: "descripcion",
+      header: "Descripción",
+      render: (t) => (
+        <div className="max-w-[250px] xl:max-w-[400px]">
+          <p className="text-sm text-gray-600 dark:text-gray-400 italic line-clamp-2">
+              {t.descripcion || "Sin descripción adicional"}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: "costo",
+      header: "Costo Base",
+      render: (t) => (
+        <div className="flex items-center gap-1.5 font-semibold text-gray-900 dark:text-white">
+           <CurrencyDollarIcon className="h-4 w-4 text-green-600" />
+           {formatCurrency(t.costo)}
+        </div>
+      ),
+    },
     {
       key: "estado",
       header: "Estado",
       render: (t) => (
-        <Badge size="sm" color={t.estado ? "success" : "error"}>
+        <Badge size="sm" variant="light" color={t.estado ? "success" : "error"}>
           {t.estado ? "Activo" : "Inactivo"}
         </Badge>
       ),
@@ -108,25 +148,28 @@ export default function TipoManoObraTable() {
   const rowActions = (tipo: TipoManoObra): ActionDef[] => [
     {
       key: "view",
-      label: "Ver",
+      label: <EyeIcon className="h-4 w-4" />,
+      text: "Ver detalles",
       onClick: () => handleViewClick(tipo),
       className:
-        "rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors",
     },
     {
       key: "edit",
-      label: "Editar",
+      label: <PencilSquareIcon className="h-4 w-4" />,
+      text: "Editar tipo",
       onClick: () => handleEditClick(tipo),
       className:
-        "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors",
     },
     {
       key: "toggle",
-      label: tipo.estado ? "Deshabilitar" : "Habilitar",
+      label: tipo.estado ? <NoSymbolIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />,
+      text: tipo.estado ? "Deshabilitar" : "Habilitar",
       onClick: () => handleToggleEstado(tipo),
       className: tipo.estado
-        ? "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
-        : "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20",
+        ? "flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+        : "flex h-8 w-8 items-center justify-center rounded-lg border border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors",
     },
   ];
 

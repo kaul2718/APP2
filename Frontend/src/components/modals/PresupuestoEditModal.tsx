@@ -286,7 +286,7 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                     }}
                     className="flex flex-col"
                 >
-                    <div className="custom-scrollbar max-h-[500px] overflow-y-auto px-1">
+                    <div className="custom-scrollbar max-h-[400px] overflow-y-auto px-1">
                         <div className="grid grid-cols-1 gap-6 pb-6">
 
                             {/* Estado y Descripción */}

@@ -245,7 +245,15 @@ export default function PerfilOrdenPage() {
               className="flex items-center gap-2 rounded-lg border border-transparent bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600"
             >
               <WrenchScrewdriverIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Añadir Actividad</span>
+              <span className="hidden sm:inline">Actividad</span>
+            </button>
+
+            <button 
+              onClick={() => order.presupuesto ? setIsEditPresupuestoModalOpen(true) : setIsPresupuestoModalOpen(true)}
+              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              <CurrencyDollarIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Presupuesto</span>
             </button>
 
             <button 

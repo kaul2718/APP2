@@ -87,26 +87,31 @@ export class TipoEquipoService {
   }
 
   async findAllPaginated(
-    page: number,
-    limit: number,
+    page: any,
+    limit: any,
     search?: string,
-    includeDeleted = false,
+    includeInactive = false,
   ): Promise<{ data: TipoEquipo[]; total: number }> {
-    const skip = (page - 1) * limit;
-
-    const query = this.tipoEquipoRepository.createQueryBuilder('tipoEquipo');
+    const whereCondition: any = {};
+    
+    if (!includeInactive) {
+      whereCondition.estado = true;
+    }
 
     if (search) {
-      query.where('LOWER(tipoEquipo.nombre) LIKE LOWER(:search)', { search: `%${search}%` });
+      whereCondition.nombre = Like(`%${search}%`);
     }
 
-    if (!includeDeleted) {
-      query.andWhere('tipoEquipo.deletedAt IS NULL');
-    }
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
+    const skip = (pageNum - 1) * limitNum;
 
-    query.skip(skip).take(limit).orderBy('tipoEquipo.nombre', 'ASC').leftJoinAndSelect('tipoEquipo.equipos', 'equipos');
-
-    const [data, total] = await query.getManyAndCount();
+    const [data, total] = await this.tipoEquipoRepository.findAndCount({
+      where: whereCondition,
+      order: { nombre: 'ASC' },
+      skip: skip,
+      take: limitNum,
+    });
 
     return { data, total };
   }

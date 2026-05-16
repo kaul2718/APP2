@@ -111,12 +111,14 @@ export class CategoriaService {
   }
 
   async findAllPaginated(
-    page: number,
-    limit: number,
+    page: any,
+    limit: any,
     search?: string,
     includeInactive = false,
   ): Promise<{ data: Categoria[]; total: number }> {
-    const skip = (page - 1) * limit;
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
+    const skip = (pageNum - 1) * limitNum;
 
     const query = this.categoriaRepository.createQueryBuilder('categoria');
 
@@ -132,7 +134,7 @@ export class CategoriaService {
     }
 
     query.skip(skip)
-      .take(limit)
+      .take(limitNum)
       .orderBy('categoria.nombre', 'ASC');
 
     const [data, total] = await query.getManyAndCount();

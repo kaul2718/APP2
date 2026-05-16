@@ -1,5 +1,5 @@
 'use client';
-
+ 
 import React, { useState } from "react";
 import Badge from "../ui/badge/Badge";
 import ConfirmDialog from "../modals/ConfirmDialog";
@@ -8,8 +8,22 @@ import CategoriaEditModal from "../modals/CategoriaEditModal";
 import { toast } from "react-toastify";
 import { Categoria, useCategoria } from "@/hooks/useCategoria";
 import { DataTable, ColumnDef, ActionDef } from "./DataTable";
+import { 
+  EyeIcon, 
+  PencilSquareIcon, 
+  CheckCircleIcon, 
+  NoSymbolIcon,
+  TagIcon
+} from "@heroicons/react/24/outline";
 
-export default function CategoriaTable() {
+interface CategoriaTableProps {
+  categoriaHook?: any;
+}
+
+export default function CategoriaTable({ categoriaHook }: CategoriaTableProps) {
+  const internalHook = useCategoria();
+  const hook = categoriaHook || internalHook;
+
   const {
     categorias,
     loading,
@@ -23,7 +37,7 @@ export default function CategoriaTable() {
     showInactive,
     setShowInactive,
     toggleCategoriaStatus,
-  } = useCategoria();
+  } = hook;
 
   const [selectedCategoria, setSelectedCategoria] = useState<Categoria | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -46,7 +60,7 @@ export default function CategoriaTable() {
   };
 
   const handleSaveCategoria = (categoriaActualizada: Categoria) => {
-    setCategorias((prev) => prev.map((c) => (c.id === categoriaActualizada.id ? categoriaActualizada : c)));
+    setCategorias((prev: Categoria[]) => prev.map((c) => (c.id === categoriaActualizada.id ? categoriaActualizada : c)));
     fetchCategorias(currentPage, 10, searchTerm, showInactive);
   };
 
@@ -63,25 +77,50 @@ export default function CategoriaTable() {
 
     try {
       await toggleCategoriaStatus(categoria.id);
-      toast.success(`Categoria ${estaActivo ? "deshabilitada" : "habilitada"} correctamente`);
+      toast.success(`Categoría ${estaActivo ? "deshabilitada" : "habilitada"} correctamente`);
       fetchCategorias(currentPage, 10, searchTerm, showInactive);
     } catch (error) {
-      console.error(`Error al ${accion} categoria:`, error);
-      toast.error(`Error al ${accion} categoria`);
+      console.error(`Error al ${accion} categoría:`, error);
+      toast.error(`Error al ${accion} categoría`);
     } finally {
       setPendingToggleCategoria(null);
     }
   };
 
   const columns: ColumnDef<Categoria>[] = [
-    { key: "id", header: "ID", render: (c) => c.id },
-    { key: "nombre", header: "Nombre", render: (c) => c.nombre },
-    { key: "descripcion", header: "Descripcion", render: (c) => c.descripcion || "Sin descripcion" },
+    {
+      key: "nombre",
+      header: "Categoría / ID",
+      render: (c) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+            <TagIcon className="h-5 w-5 text-gray-500" />
+          </div>
+          <div>
+            <p className="font-bold text-gray-900 dark:text-white">
+              {c.nombre}
+            </p>
+            <p className="text-xs text-gray-500 font-mono">ID: #{c.id}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "descripcion",
+      header: "Descripción",
+      render: (c) => (
+        <div className="max-w-[300px] xl:max-w-[500px]">
+          <p className="text-sm text-gray-600 dark:text-gray-400 italic line-clamp-2">
+              {c.descripcion || "Sin descripción proporcionada"}
+          </p>
+        </div>
+      ),
+    },
     {
       key: "estado",
       header: "Estado",
       render: (c) => (
-        <Badge size="sm" color={c.estado ? "success" : "error"}>
+        <Badge size="sm" variant="light" color={c.estado ? "success" : "error"}>
           {c.estado ? "Activo" : "Inactivo"}
         </Badge>
       ),
@@ -91,32 +130,35 @@ export default function CategoriaTable() {
   const rowActions = (categoria: Categoria): ActionDef[] => [
     {
       key: "view",
-      label: "Ver",
+      label: <EyeIcon className="h-4 w-4" />,
+      text: "Ver detalles",
       onClick: () => handleViewClick(categoria),
       className:
-        "rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors",
     },
     {
       key: "edit",
-      label: "Editar",
+      label: <PencilSquareIcon className="h-4 w-4" />,
+      text: "Editar categoría",
       onClick: () => handleEditClick(categoria),
       className:
-        "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors",
     },
     {
       key: "toggle",
-      label: categoria.estado ? "Deshabilitar" : "Habilitar",
+      label: categoria.estado ? <NoSymbolIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />,
+      text: categoria.estado ? "Deshabilitar" : "Habilitar",
       onClick: () => handleToggleEstado(categoria),
       className: categoria.estado
-        ? "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
-        : "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20",
+        ? "flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+        : "flex h-8 w-8 items-center justify-center rounded-lg border border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors",
     },
   ];
 
   return (
     <>
       <DataTable
-        caption="Tabla de categorias"
+        caption="Tabla de categorías registradas"
         data={categorias}
         columns={columns}
         loading={loading}
@@ -149,10 +191,10 @@ export default function CategoriaTable() {
         />
         <ConfirmDialog
           isOpen={pendingToggleCategoria !== null}
-          title="Cambiar estado de categoria"
+          title="Cambiar estado de categoría"
           description={
             pendingToggleCategoria
-              ? `¿Estás seguro de ${pendingToggleCategoria.estado ? "deshabilitar" : "habilitar"} la categoria \"${pendingToggleCategoria.nombre}\"?`
+              ? `¿Estás seguro de ${pendingToggleCategoria.estado ? "deshabilitar" : "habilitar"} la categoría \"${pendingToggleCategoria.nombre}\"?`
               : ""
           }
           onConfirm={confirmToggleEstado}

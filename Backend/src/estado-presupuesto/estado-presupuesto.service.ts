@@ -113,15 +113,16 @@ export class EstadoPresupuestoService {
   }
 
   async findAllPaginated(
-    page: number,
-    limit: number,
+    page: any,
+    limit: any,
     search?: string,
     includeInactive = false,
   ): Promise<{ data: EstadoPresupuesto[]; total: number }> {
-    const skip = (page - 1) * limit;
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
+    const skip = (pageNum - 1) * limitNum;
 
-    const query = this.estadoPresupuestoRepository.createQueryBuilder('estado')
-      .leftJoinAndSelect('estado.presupuestos', 'presupuestos');
+    const query = this.estadoPresupuestoRepository.createQueryBuilder('estado');
 
     if (search) {
       query.where('LOWER(estado.nombre) LIKE LOWER(:search)', { 
@@ -135,7 +136,7 @@ export class EstadoPresupuestoService {
     }
 
     query.skip(skip)
-      .take(limit)
+      .take(limitNum)
       .orderBy('estado.nombre', 'ASC');
 
     const [data, total] = await query.getManyAndCount();

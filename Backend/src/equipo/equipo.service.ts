@@ -159,29 +159,32 @@ export class EquipoService {
   }
 
   async findAllPaginated(
-    page: number,
-    limit: number,
+    page: any,
+    limit: any,
     search?: string,
-    includeDeleted = false,
+    includeInactive = false,
   ): Promise<{ data: Equipo[]; total: number }> {
-    const skip = (page - 1) * limit;
-
-    const query = this.equipoRepository.createQueryBuilder('equipo')
-      .leftJoinAndSelect('equipo.tipoEquipo', 'tipoEquipo')
-      .leftJoinAndSelect('equipo.marca', 'marca')
-      .leftJoinAndSelect('equipo.modelo', 'modelo');
+    const whereCondition: any = {};
+    
+    if (!includeInactive) {
+      whereCondition.estado = true;
+    }
 
     if (search) {
-      query.where('LOWER(equipo.numeroSerie) LIKE LOWER(:search)', { search: `%${search}%` });
+      whereCondition.numeroSerie = Like(`%${search}%`);
     }
 
-    if (!includeDeleted) {
-      query.andWhere('equipo.deletedAt IS NULL');
-    }
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
+    const skip = (pageNum - 1) * limitNum;
 
-    query.skip(skip).take(limit).orderBy('equipo.numeroSerie', 'ASC');
-
-    const [data, total] = await query.getManyAndCount();
+    const [data, total] = await this.equipoRepository.findAndCount({
+      where: whereCondition,
+      relations: ['tipoEquipo', 'marca', 'modelo'],
+      order: { numeroSerie: 'ASC' },
+      skip: skip,
+      take: limitNum,
+    });
 
     return { data, total };
   }

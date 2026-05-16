@@ -24,7 +24,7 @@ export interface Equipo {
   } | null;
   createdAt: string;
   updatedAt: string;
-  deletedAt: string | null;
+  deletedAt?: string | null;
 }
 
 interface CreateEquipoDto {
@@ -87,7 +87,7 @@ export function useEquipos(): UseEquiposReturn {
     setSearchTerm,
     setShowInactive,
   } = useCrud<Equipo, CreateEquipoDto, UpdateEquipoDto>('/equipos', {
-    defaultLimit: 1000,
+    defaultLimit: 10,
     listPath: '/equipos/all',
     messages: {
       created: 'Equipo creado exitosamente',
@@ -108,7 +108,7 @@ export function useEquipos(): UseEquiposReturn {
 
   // Nueva función refetch
   const refetch = async () => {
-    await fetchEquipos(currentPage, 1000, searchTerm, showInactive);
+    await fetchEquipos(currentPage, 10, searchTerm, showInactive);
   };
 
   const createEquipo = async (equipoData: CreateEquipoDto): Promise<Equipo> => {
@@ -184,7 +184,7 @@ export function useEquipos(): UseEquiposReturn {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetchEquipos(1, 1000, searchTerm, showInactive);
+      fetchEquipos(1, 10, searchTerm, showInactive);
     }
   }, [status, searchTerm, showInactive]);
 

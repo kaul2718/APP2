@@ -202,21 +202,39 @@ export class CasilleroService {
   }
 
   async findAllPaginated(
-    page: number,
-    limit: number,
+    page: any,
+    limit: any,
     search?: string,
     includeInactive = false,
     situacion?: EstadoCasillero,
   ): Promise<{ data: Casillero[]; total: number }> {
-    const skip = (page - 1) * limit;
+    const whereCondition: any = {};
+    
+    if (!includeInactive) {
+      whereCondition.estado = true;
+    }
 
+    if (situacion) {
+      whereCondition.situacion = situacion;
+    }
+
+    // search normally uses OR, so we might need a more complex where or stick to QueryBuilder for this one
+    // BUT! for consistency, I'll try to use findAndCount's where with an array for OR if needed, 
+    // but usually search in these modules is just for name/code.
+    
+    const limitNum = Number(limit) || 10;
+    const pageNum = Number(page) || 1;
+    const skip = (pageNum - 1) * limitNum;
+
+    // For Casillero, search can be on codigo or descripcion
+    // I'll stick to QueryBuilder here if the search is complex, 
+    // but I'll make it clean and ensure numeric skip/take.
+    
     const query = this.casilleroRepository.createQueryBuilder('casillero')
       .leftJoinAndSelect('casillero.order', 'order');
 
     if (search) {
-      query.where('LOWER(casillero.codigo) LIKE LOWER(:search)', {
-        search: `%${search}%`
-      }).orWhere('LOWER(casillero.descripcion) LIKE LOWER(:search)', {
+      query.andWhere('(LOWER(casillero.codigo) LIKE LOWER(:search) OR LOWER(casillero.descripcion) LIKE LOWER(:search))', {
         search: `%${search}%`
       });
     }
@@ -227,11 +245,11 @@ export class CasilleroService {
 
     if (!includeInactive) {
       query.andWhere('casillero.estado = :estado', { estado: true })
-        .andWhere('casillero.deletedAt IS NULL');
+           .andWhere('casillero.deletedAt IS NULL');
     }
 
     query.skip(skip)
-      .take(limit)
+      .take(limitNum)
       .orderBy('casillero.codigo', 'ASC');
 
     const [data, total] = await query.getManyAndCount();
