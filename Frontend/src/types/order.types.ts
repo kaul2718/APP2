@@ -1,3 +1,8 @@
+export enum OrderType {
+  EXPRESS = 'EXPRESS',
+  COMPLETA = 'COMPLETA',
+}
+
 export interface UserBasic {
   id: number;
   nombre: string;
@@ -104,4 +109,6 @@ export interface Order {
   };
   evidencias?: OrderEvidenciaTecnica[];
   historialEstados?: OrderHistorialEstado[];
+  tipoOrden: OrderType;
+  checklistData?: any;
 }

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsNumber } from 'class-validator';
 import { IsNotBlank } from 'src/decorators/is-not-blank-decorator';
 
 export class CreateTipoEquipoDto {
@@ -6,6 +6,10 @@ export class CreateTipoEquipoDto {
   @IsNotBlank({ message: 'El nombre del tipo de equipo no puede estar vacío' })
   @IsString({ message: 'El nombre debe ser un texto válido' })
   nombre: string;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'El ID de la categoría debe ser un número válido' })
+  categoriaId?: number;
 
   // ✅ Campo opcional. Si se envía, debe ser de tipo booleano (true o false)
   @IsOptional()

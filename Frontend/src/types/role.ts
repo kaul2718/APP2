@@ -3,7 +3,6 @@
  * Corresponden a los slugs almacenados en la tabla 'roles'
  */
 export enum Role {
-    USER = 'user',
     ADMIN = 'admin',
     TECH = 'tech',
     CLIENT = 'client',
@@ -14,7 +13,6 @@ export enum Role {
  * Mapeo para mostrar nombres legibles en la UI
  */
 export const RoleDisplayNames: Record<Role, string> = {
-    [Role.USER]: 'Usuario',
     [Role.ADMIN]: 'Administrador',
     [Role.TECH]: 'Técnico',
     [Role.CLIENT]: 'Cliente',

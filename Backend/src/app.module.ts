@@ -33,6 +33,7 @@ import { PermissionsModule } from './permissions/permissions.module';
 import { RolePermissionModule } from './role-permission/role-permission.module';
 import { SeederModule } from './seeder/seeder.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { ChecklistTemplateModule } from './checklist-template/checklist-template.module';
 
 @Module({
   imports: [
@@ -51,7 +52,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
       password: process.env.DB_PASSWORD,
       database: process.env.DB_DATABASE,
       autoLoadEntities: true,
-      synchronize: false,
+      synchronize: true,
       ssl: process.env.DB_SSL === 'true',
       extra: {
         ssl:
@@ -90,6 +91,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     RolePermissionModule,
     SeederModule,
     DashboardModule,
+    ChecklistTemplateModule,
   ],
   controllers: [AppController],
   providers: [AppService],

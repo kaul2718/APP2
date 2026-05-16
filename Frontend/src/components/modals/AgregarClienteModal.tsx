@@ -24,7 +24,7 @@ interface FormData {
 interface Props {
     isOpen: boolean;
     onClose: () => void;
-    onSuccess?: (id: number) => void;
+    onSuccess?: (user: any) => void;
 }
 
 export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Props) {
@@ -100,7 +100,12 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
             });
 
             if (!res.ok) {
-                throw new Error('Error al enviar invitación');
+                let msg = 'Error al enviar invitación';
+                try {
+                    const data = await res.json();
+                    msg = data.message || msg;
+                } catch (e) {}
+                throw new Error(msg);
             }
 
             return await res.json();
@@ -126,17 +131,17 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
         }
 
         try {
-            // 1. Registrar usuario sin contraseña
+            // Limpiar datos para enviar (no enviar password si es null)
+            const { ...payload } = formData;
+            
+            // 1. Registrar usuario
             const registroResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/users`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${session.accessToken}`,
                 },
-                body: JSON.stringify({
-                    ...formData,
-                    password: null // Siempre null porque será por invitación
-                }),
+                body: JSON.stringify(payload),
             });
 
             if (!registroResponse.ok) {
@@ -175,7 +180,7 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
             });
 
             onClose();
-            if (onSuccess) onSuccess(nuevoUsuario.id);
+            if (onSuccess) onSuccess(nuevoUsuario);
 
         } catch (error) {
             if (error instanceof Error) {

@@ -14,7 +14,11 @@ import { Role } from "@/types/role";
 import AgregarClienteModal from "@/components/modals/AgregarClienteModal";
 import AgregarEquipoModal from "@/components/modals/AgregarEquipoModal";
 import { Combobox } from '@headlessui/react'
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, ClipboardDocumentCheckIcon, BoltIcon } from '@heroicons/react/24/outline'
+import { OrderType } from "@/types/order.types";
+import { ChecklistItemResult } from "@/types/checklist.types";
+import { useChecklistTemplate } from "@/hooks/useChecklistTemplate";
+import PeritajeForm from "./PeritajeForm";
 
 interface FormData {
     workOrderNumber?: string;
@@ -26,6 +30,8 @@ interface FormData {
     technicianId: number | null;
     estadoOrdenId: number | null;
     currentAccessory: string;
+    tipoOrden: OrderType;
+    checklistData: ChecklistItemResult[] | null;
 }
 
 interface FormErrors {
@@ -54,7 +60,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     const [equipoSearch, setEquipoSearch] = React.useState('')
 
     // Hooks para obtener datos necesarios
-    const { usuarios = [], loading: loadingUsuarios, refetch: refetchUsuarios, fetchUsuarios } = useUsuario();
+    const { usuarios = [], loading: loadingUsuarios, refetch: refetchUsuarios, fetchUsuarios, setUsuarios } = useUsuario();
     const { equipos = [], loading: loadingEquipos, refetch: refetchEquipos } = useEquipos();
     const { estadosOrden } = useEstadoOrden();
 
@@ -100,12 +106,15 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
         fechaPrometidaEntrega: "",
         technicianId: null,
         estadoOrdenId: null,
-        currentAccessory: ""
+        currentAccessory: "",
+        tipoOrden: OrderType.EXPRESS,
+        checklistData: null
     });
 
     const [errors, setErrors] = React.useState<FormErrors>({});
     const [loading, setLoading] = React.useState(false);
     const hasLoadedExtendedUsers = React.useRef(false);
+    const { getTemplateByTipoEquipo, selectedTemplate, loadingTemplate } = useChecklistTemplate();
 
     React.useEffect(() => {
         if (hasLoadedExtendedUsers.current) return;
@@ -113,7 +122,30 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
         void fetchUsuarios(1, 200, "", false);
     }, [fetchUsuarios]);
 
-    const handleChange = (field: keyof FormData, value: string | number | string[] | null) => {
+    // Cargar plantilla cuando cambia el equipo
+    React.useEffect(() => {
+        const fetchTemplate = async () => {
+            if (formData.equipoId && formData.tipoOrden === OrderType.COMPLETA) {
+                const equipo = equipos.find(e => e.id === Number(formData.equipoId)) as any;
+                const tipoEquipoId = equipo?.tipoEquipo?.id || equipo?.tipoEquipoId;
+                
+                // Solo cargar si el tipo de equipo cambió y no es la plantilla que ya tenemos
+                if (tipoEquipoId && (!selectedTemplate || selectedTemplate.tipoEquipoId !== Number(tipoEquipoId))) {
+                    try {
+                        await getTemplateByTipoEquipo(Number(tipoEquipoId));
+                    } catch (error) {
+                        console.log(`No hay plantilla para el tipo de equipo ${tipoEquipoId}`);
+                    }
+                }
+            } else if (formData.tipoOrden !== OrderType.COMPLETA) {
+                // Si cambia a Express, podemos limpiar la plantilla seleccionada si fuera necesario
+                // Pero lo dejamos así para no interferir con el estado global si se vuelve a cambiar a Completa
+            }
+        };
+        fetchTemplate();
+    }, [formData.equipoId, formData.tipoOrden, equipos, getTemplateByTipoEquipo, selectedTemplate]);
+
+    const handleChange = (field: keyof FormData, value: string | number | string[] | ChecklistItemResult[] | null) => {
         setFormData(prev => ({ ...prev, [field]: value }));
         if (field in errors) {
             setErrors(prev => ({ ...prev, [field as keyof FormErrors]: undefined }));
@@ -121,9 +153,12 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     };
 
     // Manejar creación de cliente
-    const handleClienteCreado = async (nuevoClienteId: number) => {
-        await refetchUsuarios(); // Actualiza la lista de usuarios
-        setFormData(prev => ({ ...prev, clientId: nuevoClienteId }));
+    const handleClienteCreado = async (nuevoCliente: any) => {
+        // Inyectar el nuevo cliente inmediatamente en la lista local para que aparezca al instante
+        setUsuarios(prev => [nuevoCliente, ...prev]);
+        setFormData(prev => ({ ...prev, clientId: nuevoCliente.id }));
+        setClientSearch(""); // Limpiar búsqueda para que el Combobox muestre el valor seleccionado
+        await refetchUsuarios(); // Actualiza la lista de usuarios completa en segundo plano
     };
 
     // Manejar creación de equipo
@@ -223,6 +258,8 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                 accesorios: formData.accesorios,
                 fechaPrometidaEntrega: formData.fechaPrometidaEntrega || undefined,
                 technicianId: formData.technicianId ? Number(formData.technicianId) : undefined,
+                tipoOrden: formData.tipoOrden,
+                checklistData: formData.checklistData ? { results: formData.checklistData, fechaPeritaje: new Date().toISOString() } : undefined,
                 ...(formData.estadoOrdenId && { estadoOrdenId: Number(formData.estadoOrdenId) })
             };
 
@@ -247,7 +284,6 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
 
             // Reset del formulario
             setFormData({
-                workOrderNumber: result.workOrderNumber || "",
                 clientId: null,
                 equipoId: null,
                 problemaReportado: "",
@@ -255,10 +291,14 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                 fechaPrometidaEntrega: "",
                 technicianId: null,
                 estadoOrdenId: null,
-                currentAccessory: ""
+                currentAccessory: "",
+                tipoOrden: OrderType.EXPRESS,
+                checklistData: null
             });
 
-            setTimeout(() => router.push('/ver-orden'), 1500);
+            if (!embeddedMode) {
+                setTimeout(() => router.push('/ver-orden'), 1500);
+            }
 
         } catch (error) {
             console.error('Error al crear orden:', error);
@@ -426,6 +466,65 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                 </div>
 
                 {errors.equipoId && <p className="mt-1 text-sm text-red-500">{errors.equipoId}</p>}
+            </div>
+
+            {/* Tipo de Orden y Peritaje */}
+            <div className="mb-3">
+                <Label className="mb-3">Tipo de Orden de Servicio *</Label>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <button
+                        type="button"
+                        onClick={() => handleChange("tipoOrden", OrderType.EXPRESS)}
+                        className={`flex items-center gap-3 rounded-xl border-2 p-4 transition-all ${formData.tipoOrden === OrderType.EXPRESS ? "border-brand-500 bg-brand-50 dark:bg-brand-500/10" : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800"}`}
+                    >
+                        <div className={`rounded-full p-2 ${formData.tipoOrden === OrderType.EXPRESS ? "bg-brand-500 text-white" : "bg-gray-100 text-gray-500 dark:bg-gray-700"}`}>
+                            <BoltIcon className="h-6 w-6" />
+                        </div>
+                        <div className="text-left">
+                            <p className="font-bold text-gray-900 dark:text-white">Orden Express</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Recepción rápida sin peritaje inicial.</p>
+                        </div>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => handleChange("tipoOrden", OrderType.COMPLETA)}
+                        className={`flex items-center gap-3 rounded-xl border-2 p-4 transition-all ${formData.tipoOrden === OrderType.COMPLETA ? "border-brand-500 bg-brand-50 dark:bg-brand-500/10" : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800"}`}
+                    >
+                        <div className={`rounded-full p-2 ${formData.tipoOrden === OrderType.COMPLETA ? "bg-brand-500 text-white" : "bg-gray-100 text-gray-500 dark:bg-gray-700"}`}>
+                            <ClipboardDocumentCheckIcon className="h-6 w-6" />
+                        </div>
+                        <div className="text-left">
+                            <p className="font-bold text-gray-900 dark:text-white">Orden Completa</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Incluye revisión de periféricos y estética.</p>
+                        </div>
+                    </button>
+                </div>
+
+                {formData.tipoOrden === OrderType.COMPLETA && (
+                    <div className="mt-4">
+                        {!formData.equipoId ? (
+                            <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                                Por favor seleccione un equipo primero para cargar la plantilla de revisión.
+                            </div>
+                        ) : loadingTemplate ? (
+                            <div className="flex items-center justify-center p-8">
+                                <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent"></div>
+                                <span className="ml-3 text-sm text-gray-500">Cargando plantilla técnica...</span>
+                            </div>
+                        ) : selectedTemplate ? (
+                            <PeritajeForm
+                                template={selectedTemplate}
+                                onChange={(results) => handleChange("checklistData", results)}
+                            />
+                        ) : (
+                            <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-500 dark:bg-gray-800/50">
+                                No hay una plantilla de peritaje configurada para esta categoría de equipo. 
+                                <span className="ml-1 text-xs italic">(Se guardará solo el problema reportado)</span>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Problema reportado */}

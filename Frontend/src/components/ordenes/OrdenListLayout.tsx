@@ -21,6 +21,7 @@ import AgregarEvidenciaTecnicaModal from "@/components/modals/AgregarEvidenciaTe
 import ConfirmDialog from "@/components/modals/ConfirmDialog";
 import AsignarCasilleroModal from "@/components/modals/AsignarCasilleroModal";
 import GenerarPdfEntregaModal from "@/components/modals/GenerarPdfEntregaModal";
+import GenerarPdfIngresoModal from "@/components/modals/GenerarPdfIngresoModal";
 
 import StateTabsBar from "./StateTabsBar";
 import OrdenCard from "./OrdenCard";
@@ -159,6 +160,7 @@ export default function OrdenListLayout() {
   const [isEvidenciaModalOpen, setIsEvidenciaModalOpen] = useState(false);
   const [isCasilleroModalOpen, setIsCasilleroModalOpen] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [isIngresoPdfModalOpen, setIsIngresoPdfModalOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ action: "toggle" | "delete" | "advance" | "retroceder" | "advance_warning"; order: Order; nextState?: any; prevState?: any; warningType?: "diagnostico" | "presupuesto" | "presupuesto_rechazado" | "presupuesto_pendiente" | "sin_casillero" | "imprimir_acta" } | null>(null);
 
   const [limit, setLimit] = useState(10);
@@ -176,6 +178,11 @@ export default function OrdenListLayout() {
   const handlePdfClick = (order: Order) => {
     setSelectedOrder(order);
     setIsPdfModalOpen(true);
+  };
+
+  const handleIngresoPdfClick = (order: Order) => {
+    setSelectedOrder(order);
+    setIsIngresoPdfModalOpen(true);
   };
 
   const handleViewActivities = (orderId: number, orderNumber: string) => {
@@ -424,6 +431,14 @@ export default function OrdenListLayout() {
           onClick: () => handlePdfClick(order),
           className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
           isPrimary: estadoNombre.includes('entreg') || estadoNombre.includes('archiv') || isControlOrAlmacen,
+        },
+        {
+          key: "generate-ingreso-pdf",
+          label: "Imprimir Comprobante Ingreso",
+          icon: <PrinterIcon className="h-5 w-5 text-blue-600" />,
+          onClick: () => handleIngresoPdfClick(order),
+          className: "flex items-center justify-center h-10 w-10 rounded-full border border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 transition-colors dark:border-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/20",
+          isPrimary: isRecepcion,
         },
         {
           key: "add-activity",
@@ -689,6 +704,14 @@ export default function OrdenListLayout() {
         <GenerarPdfEntregaModal
           isOpen={isPdfModalOpen}
           onClose={() => setIsPdfModalOpen(false)}
+          order={selectedOrder}
+        />
+      )}
+
+      {isIngresoPdfModalOpen && (
+        <GenerarPdfIngresoModal
+          isOpen={isIngresoPdfModalOpen}
+          onClose={() => setIsIngresoPdfModalOpen(false)}
           order={selectedOrder}
         />
       )}

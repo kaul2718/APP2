@@ -1,4 +1,5 @@
-import { IsString, IsArray, IsDateString, IsOptional, IsInt, Min, IsEnum, IsBoolean } from 'class-validator';
+import { IsString, IsArray, IsDateString, IsOptional, IsInt, Min, IsEnum, IsBoolean, IsObject } from 'class-validator';
+import { OrderType } from 'src/common/enums/order-type.enum';
 
 
 export class CreateOrderDto {
@@ -49,4 +50,12 @@ export class CreateOrderDto {
   @IsInt()
   @Min(1)
   estadoOrdenId?: number; // Asegurar que este campo esté presente
+
+  @IsOptional()
+  @IsEnum(OrderType)
+  tipoOrden?: OrderType;
+
+  @IsOptional()
+  @IsObject()
+  checklistData?: any;
 }

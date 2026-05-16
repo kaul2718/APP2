@@ -8,11 +8,22 @@ import { Equipo } from '../../equipo/entities/equipo.entity';
 import { EvidenciaTecnica } from 'src/evidencia-tecnica/entities/evidencia-tecnica.entity';
 import { EstadoOrden } from 'src/estado-orden/entities/estado-orden.entity';
 import { HistorialEstadoOrden } from 'src/historial-estado-orden/entities/historial-estado-orden.entity';
+import { OrderType } from 'src/common/enums/order-type.enum';
 
 @Entity('orders')
 export class Order {
     @PrimaryGeneratedColumn()
     id: number;
+
+    @Column({
+        type: 'enum',
+        enum: OrderType,
+        default: OrderType.EXPRESS,
+    })
+    tipoOrden: OrderType;
+
+    @Column({ type: 'jsonb', nullable: true })
+    checklistData: any; // Guardará el resultado del peritaje
 
     @Column()
     workOrderNumber: string;

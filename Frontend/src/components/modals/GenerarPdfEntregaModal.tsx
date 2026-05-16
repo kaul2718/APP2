@@ -3,7 +3,10 @@
 import React from 'react';
 import { Modal } from '@/components/ui/modal';
 import { Order } from '@/types/order.types';
-import { PrinterIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PrinterIcon, XMarkIcon, MapPinIcon, PhoneIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
+import Image from 'next/image';
+
+import { useReactToPrint } from 'react-to-print';
 
 interface Props {
   isOpen: boolean;
@@ -12,14 +15,29 @@ interface Props {
 }
 
 export default function GenerarPdfEntregaModal({ isOpen, onClose, order }: Props) {
+  const componentRef = React.useRef<HTMLDivElement>(null);
+
   if (!order) return null;
 
-  const handlePrint = () => {
-    const originalTitle = document.title;
-    document.title = `Acta_Entrega_ODS_${order.workOrderNumber}`;
-    window.print();
-    document.title = originalTitle;
-  };
+  const handlePrint = useReactToPrint({
+    contentRef: componentRef,
+    documentTitle: `Acta_Entrega_ODS_${order.workOrderNumber}`,
+    pageStyle: `
+      @page {
+        size: auto;
+        margin: 0mm !important;
+      }
+      @media print {
+        body {
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        .printable-area {
+          margin: 10mm !important;
+        }
+      }
+    `,
+  });
 
   // Calcular total del presupuesto si existe
   const presupuestoItems = order.presupuesto?.detallesPresupuestoItems || [];
@@ -34,8 +52,18 @@ export default function GenerarPdfEntregaModal({ isOpen, onClose, order }: Props
       isOpen={isOpen}
       onClose={onClose}
       title={`Generar Acta de Entrega - ODS #${order.workOrderNumber}`}
-      className="max-w-4xl print:max-w-full print:shadow-none print:border-none print:p-0 print:m-0 print:bg-white print:text-black"
+      className="max-w-4xl print:hidden"
     >
+      {/* Estilos locales para el documento impreso */}
+      <style jsx global>{`
+        @media print {
+          body {
+            -webkit-print-color-adjust: exact;
+            background-color: white !important;
+          }
+        }
+      `}</style>
+
       {/* Barra de herramientas superior (Oculta al imprimir) */}
       <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-t-2xl print:hidden">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -62,22 +90,44 @@ export default function GenerarPdfEntregaModal({ isOpen, onClose, order }: Props
       </div>
 
       {/* Contenedor del documento imprimible */}
-      <div className="p-8 space-y-8 bg-white text-gray-900 dark:bg-white dark:text-gray-900 max-h-[calc(100vh-13rem)] overflow-y-auto print:max-h-none print:overflow-visible print:p-0 print:space-y-6">
+      <div ref={componentRef} className="p-8 space-y-8 bg-white text-gray-900 dark:bg-white dark:text-gray-900 max-h-[calc(100vh-13rem)] overflow-y-auto print:max-h-none print:overflow-visible print:p-0 printable-area">
         
-        {/* Encabezado del documento */}
+        {/* Encabezado Alineado a la Izquierda */}
         <div className="flex justify-between items-start border-b-2 border-gray-900 pb-6">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 uppercase">
-              Centro de Servicio Técnico
-            </h1>
-            <p className="text-sm text-gray-600 mt-1">Acta de Entrega de Equipo y Conformidad de Servicio</p>
+          <div className="space-y-4">
+            <div className="relative w-64 h-24">
+              <Image 
+                src="/images/logo/logo.svg" 
+                alt="Logo Hospital del Computador" 
+                fill
+                className="object-contain object-left"
+                priority
+              />
+            </div>
+            
+            <div className="space-y-1 text-xs font-bold text-gray-600 uppercase">
+              <p className="flex items-center gap-1.5">
+                <MapPinIcon className="w-4 h-4 text-brand-500" />
+                Veloz, entre diego de ibarra y uruguay
+              </p>
+              <p className="flex items-center gap-1.5">
+                <PhoneIcon className="w-4 h-4 text-brand-500" />
+                0959081140 - 0999959595
+              </p>
+              <p className="flex items-center gap-1.5">
+                <GlobeAltIcon className="w-4 h-4 text-brand-500" />
+                WWW.HOSPITALCOMPUTADOR.COM
+              </p>
+            </div>
           </div>
-          <div className="text-right">
-            <span className="inline-block bg-gray-900 text-white font-bold text-lg px-4 py-1.5 rounded-md tracking-wider">
-              ODS #{order.workOrderNumber}
-            </span>
-            <p className="text-xs text-gray-500 mt-2 font-medium">
-              Fecha de Emisión: {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
+
+          <div className="flex flex-col items-end">
+            <div className="border-2 border-gray-900 px-6 py-2 rounded-xl text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Acta de Entrega</p>
+              <p className="text-3xl font-black text-gray-900">#{order.workOrderNumber}</p>
+            </div>
+            <p className="text-[10px] font-black text-gray-900 uppercase mt-3 text-right">
+              Fecha: {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
             </p>
           </div>
         </div>
@@ -118,6 +168,60 @@ export default function GenerarPdfEntregaModal({ isOpen, onClose, order }: Props
             "{order.problemaReportado}"
           </p>
         </div>
+
+        {/* Sección: Peritaje Inicial (Checklist) */}
+        {order.checklistData?.results && order.checklistData.results.length > 0 && (
+          <div className="border border-gray-200 p-5 rounded-xl print:border-gray-400 bg-gray-50/50">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-900 mb-4 border-b pb-2">
+              Peritaje Técnico de Recepción (Estado Inicial)
+            </h3>
+            <div className="grid grid-cols-1 gap-2">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-gray-500 text-left border-b border-gray-300">
+                    <th className="pb-2">Componente / Ítem</th>
+                    <th className="pb-2 text-center">Fucionalidad</th>
+                    <th className="pb-2 text-center">Estética</th>
+                    <th className="pb-2">Observaciones de Ingreso</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {order.checklistData.results.map((res: any, idx: number) => (
+                    <tr key={idx} className="py-1.5">
+                      <td className="py-2 font-semibold text-gray-800">{res.item}</td>
+                      <td className="py-2 text-center">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          res.funcional === 'operativo' ? 'bg-green-100 text-green-700' :
+                          res.funcional === 'parcial' ? 'bg-amber-100 text-amber-700' :
+                          res.funcional === 'no_operativo' ? 'bg-red-100 text-red-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {res.funcional.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="py-2 text-center">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          res.estetica === 'bueno' ? 'bg-green-100 text-green-700' :
+                          res.estetica === 'regular' ? 'bg-amber-100 text-amber-700' :
+                          res.estetica === 'dañada' ? 'bg-red-100 text-red-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {res.estetica}
+                        </span>
+                      </td>
+                      <td className="py-2 text-gray-600 italic">
+                        {res.observaciones || '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-[10px] text-gray-400 mt-2">
+                * Este peritaje fue realizado al momento de recibir el equipo el día {new Date(order.createdAt).toLocaleDateString()}.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Sección 2: Trabajos Realizados (Bitácora Técnica) */}
         <div>

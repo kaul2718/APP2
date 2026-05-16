@@ -107,7 +107,9 @@ export class OrderService {
       problemaReportado,
       accesorios: createDto.accesorios || [],
       fechaPrometidaEntrega: createDto.fechaPrometidaEntrega || null,
-      estadoOrden
+      estadoOrden,
+      tipoOrden: createDto.tipoOrden,
+      checklistData: createDto.checklistData
     });
 
     const ordenGuardada = await this.orderRepository.save(nuevaOrden);
@@ -430,6 +432,16 @@ export class OrderService {
       cambiosHistorial.push('Accesorios actualizados');
     }
 
+    if (updateDto.tipoOrden !== undefined) {
+      orden.tipoOrden = updateDto.tipoOrden;
+      cambiosHistorial.push(`Tipo de orden actualizado a ${updateDto.tipoOrden}`);
+    }
+
+    if (updateDto.checklistData !== undefined) {
+      orden.checklistData = updateDto.checklistData;
+      cambiosHistorial.push('Datos de peritaje actualizados');
+    }
+
     // Validación coherencia estado y casillero
     if (orden.estadoOrden && orden.estadoOrden.nombre.toLowerCase().includes('almacén') && !orden.casillero) {
       throw new BadRequestException('Para estados de almacén se requiere asignar un casillero');
@@ -448,6 +460,8 @@ export class OrderService {
       client: orden.client,
       equipo: orden.equipo,
       technician: orden.technician,
+      tipoOrden: orden.tipoOrden,
+      checklistData: orden.checklistData,
     });
 
     // Registrar cambios adicionales en historial si los hay

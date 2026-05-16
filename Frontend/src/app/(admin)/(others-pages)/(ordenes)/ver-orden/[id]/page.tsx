@@ -8,6 +8,7 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { formatDate, formatUserName } from '@/lib/formatters';
 import type { Order, OrderHistorialEstado } from '@/types/order.types';
 import { apiRequest } from '@/lib/api';
+import ChecklistResultView from '@/components/orden/ChecklistResultView';
 
 export default function PerfilOrdenPage() {
   const { id } = useParams();
@@ -57,7 +58,7 @@ export default function PerfilOrdenPage() {
   }
 
   // Ordenamos el historial de más nuevo a más antiguo para el timeline
-  const historialOrdenado = order.historialEstados 
+  const historialOrdenado = order.historialEstados
     ? [...order.historialEstados].sort((a, b) => new Date(b.fechaCambio).getTime() - new Date(a.fechaCambio).getTime())
     : [];
 
@@ -146,6 +147,11 @@ export default function PerfilOrdenPage() {
               )}
             </div>
           </div>
+
+          {/* Resultado del Peritaje Técnico */}
+          {order.checklistData && (
+            <ChecklistResultView data={order.checklistData} />
+          )}
 
           {/* Actividades Técnicas */}
           <div className="overflow-hidden rounded-xl bg-white shadow-sm dark:bg-gray-800/50">

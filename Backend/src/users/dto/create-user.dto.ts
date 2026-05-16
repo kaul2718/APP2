@@ -26,7 +26,6 @@ export class CreateUserDto {
   ciudad: string;
 
   @IsOptional()
-  @IsNotEmpty({ message: 'La contraseña es requerida' })
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres.' })
   password?: string;
 
@@ -39,6 +38,9 @@ export class CreateUserDto {
   @IsArray({ message: 'Los roles deben ser un array' })
   @IsNumber({}, { each: true, message: 'Cada rol debe ser un número (ID)' })
   roleIds?: number[];
+
+  @IsOptional()
+  role?: string;
 
   @IsOptional()
   @IsBoolean()

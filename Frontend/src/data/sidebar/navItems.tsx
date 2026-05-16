@@ -189,6 +189,11 @@ export const navItems: NavItem[] = [
         path: "/ver-parte",
         roles: ["admin", "tech"]
       },
+      {
+        name: "Checklists (Peritaje)",
+        path: "/ver-checklist",
+        roles: ["admin"]
+      },
     ],
   },
   {

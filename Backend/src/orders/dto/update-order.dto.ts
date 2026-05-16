@@ -1,4 +1,5 @@
-import { IsString, IsArray, IsDateString, IsOptional, IsInt, Min, IsBoolean, ValidateIf } from 'class-validator';
+import { IsString, IsArray, IsDateString, IsOptional, IsInt, Min, IsBoolean, ValidateIf, IsEnum, IsObject } from 'class-validator';
+import { OrderType } from 'src/common/enums/order-type.enum';
 
 export class UpdateOrderDto {
 
@@ -59,4 +60,12 @@ export class UpdateOrderDto {
   @IsInt({ message: 'El ID del usuario debe ser un número entero' })
   @Min(1, { message: 'El ID del usuario debe ser mayor o igual a 1' })
   userId?: number; // Nuevo campo para el usuario que realiza la modificación
+
+  @IsOptional()
+  @IsEnum(OrderType)
+  tipoOrden?: OrderType;
+
+  @IsOptional()
+  @IsObject()
+  checklistData?: any;
 }

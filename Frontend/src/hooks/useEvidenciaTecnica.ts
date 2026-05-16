@@ -54,6 +54,15 @@ export function useEvidenciaTecnica(initialOrdenId?: number) {
         throw new Error(message);
     }, []);
 
+    // Sincronizar el filtro con el ID inicial y limpiar estado al cambiar de orden
+    useEffect(() => {
+        setOrdenIdFilter(initialOrdenId);
+        setEvidencias([]); // Limpiar evidencias anteriores al cambiar de orden
+        setCurrentPage(1);  // Resetear a la primera página
+        setTotalItems(0);   // Reiniciar contador
+        setTotalPages(1);   // Reiniciar páginas
+    }, [initialOrdenId]);
+
     const fetchEvidencias = useCallback(async (
         ordenId?: number,
         page: number = currentPage,

@@ -9,6 +9,8 @@ import { BrevoService } from 'src/auth/brevo.service';
 import { JwtService } from '@nestjs/jwt';
 import { UsuarioRolService } from 'src/usuario-rol/usuario-rol.service';
 
+import { RolService } from 'src/rol/rol.service';
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -17,6 +19,7 @@ export class UsersService {
     private readonly brevoService: BrevoService,
     private readonly jwtService: JwtService,
     private readonly usuarioRolService: UsuarioRolService,
+    private readonly rolService: RolService,
   ) { }
 
   async create(createDto: CreateUserDto): Promise<User> {
@@ -26,9 +29,6 @@ export class UsersService {
     }
     if (!createDto.nombre || createDto.nombre.trim() === '') {
       throw new BadRequestException('El nombre es requerido');
-    }
-    if (!createDto.apellido || createDto.apellido.trim() === '') {
-      throw new BadRequestException('El apellido es requerido');
     }
     if (!createDto.correo || createDto.correo.trim() === '') {
       throw new BadRequestException('El correo es requerido');
@@ -105,6 +105,19 @@ export class UsersService {
 
     const usuarioGuardado = await this.userRepository.save(nuevoUsuario);
 
+    // ✅ SOPORTE PARA ROL POR SLUG (Enviado desde el frontend como 'role')
+    if (createDto.role && (!createDto.roleIds || createDto.roleIds.length === 0)) {
+        try {
+            const roleObj = await this.rolService.findBySlug(createDto.role);
+            if (roleObj) {
+                if (!createDto.roleIds) createDto.roleIds = [];
+                createDto.roleIds.push(roleObj.id);
+            }
+        } catch (error) {
+            console.error(`Error al buscar rol por slug ${createDto.role}:`, error.message);
+        }
+    }
+
     // ✅ ASIGNAR ROLES al nuevo usuario
     if (createDto.roleIds && createDto.roleIds.length > 0) {
       for (const roleId of createDto.roleIds) {
@@ -119,27 +132,8 @@ export class UsersService {
       }
     }
 
-    // Si no hay contraseña, enviar invitación por correo
-    if (!createDto.password) {
-      const token = this.jwtService.sign(
-        { id: usuarioGuardado.id, email: usuarioGuardado.correo },
-        { expiresIn: '7d' }
-      );
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-      const enlaceInvitacion = `${frontendUrl}/crear-contraseña?token=${token}`;
-      
-      try {
-        await this.brevoService.enviarInvitacion(
-          usuarioGuardado.nombre,
-          usuarioGuardado.correo,
-          enlaceInvitacion
-        );
-      } catch (error) {
-        // No bloquear la creación del usuario si falla el email
-        console.error('Advertencia: No se pudo enviar el correo de invitación:', error);
-        // El usuario fue creado exitosamente, solo falta enviar el email
-      }
-    }
+    // El envío de invitación se maneja explícitamente desde el frontend o AuthService
+    // para evitar duplicidad y asegurar el formato correcto del enlace.
 
     // ✅ Recargar el usuario con sus relaciones de roles
     const usuarioConRoles = await this.userRepository.findOne({
@@ -151,7 +145,7 @@ export class UsersService {
     const usuarioObj = usuarioConRoles as any;
     usuarioObj.role = usuarioConRoles?.userRoles?.length > 0 
       ? usuarioConRoles.userRoles[0].rol.slug 
-      : 'user';
+      : 'client';
     
     return usuarioConRoles;
   }
@@ -165,7 +159,7 @@ export class UsersService {
 
     return data.map(user => {
       const userObj = user as any;
-      userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'user';
+      userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'client';
       return userObj;
     });
   }
@@ -182,7 +176,7 @@ export class UsersService {
     }
 
     const userObj = user as any;
-    userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'user';
+    userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'client';
     return userObj;
   }
 
@@ -391,7 +385,7 @@ export class UsersService {
     // Transformar los usuarios para que tengan un campo 'role' mapeado desde userRoles
     const transformedData = data.map(user => {
       const userObj = user as any;
-      userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'user';
+      userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'client';
       return userObj;
     });
 
