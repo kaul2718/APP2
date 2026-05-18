@@ -437,6 +437,9 @@ export default function OrdenTable() {
             setIsPresupuestoDetailsModalOpen(false);
             setPresupuestoDetails(null);
           }}
+          onSuccess={() => {
+            fetchOrders(currentPage, 10, searchTerm, showInactive, estadoOrdenId);
+          }}
           presupuesto={presupuestoDetails.presupuesto}
           resumen={presupuestoDetails.resumen}
         />

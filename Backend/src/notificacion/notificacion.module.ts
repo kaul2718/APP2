@@ -6,6 +6,7 @@ import { Notificacion } from './entities/notificacion.entity';
 import { User } from '../users/entities/user.entity';
 import { Order } from '../orders/entities/order.entity';
 import { TipoNotificacion } from '../tipo-notificacion/entities/tipo-notificacion.entity';
+import { NotificacionGateway } from './notificacion.gateway';
 
 @Module({
   imports: [
@@ -13,7 +14,7 @@ import { TipoNotificacion } from '../tipo-notificacion/entities/tipo-notificacio
     ]),
   ],
   controllers: [NotificacionController],
-  providers: [NotificacionService],
-  exports: [NotificacionService],
+  providers: [NotificacionService, NotificacionGateway],
+  exports: [NotificacionService, NotificacionGateway],
 })
 export class NotificacionModule {}

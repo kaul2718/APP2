@@ -691,23 +691,10 @@ export default function PerfilOrdenPage() {
                       </div>
                     )}
 
-                    {/* Mano de obra loop (Legacy + New Services) */}
-                    {(
-                      (order.presupuesto.detallesManoObra?.filter(i => i.estado !== false && !i.deletedAt).length || 0) > 0 || 
-                      (order.presupuesto.detallesPresupuestoItems?.filter(i => i.estado !== false && !i.deletedAt && i.parte?.unidadMedida === 'Servicio').length || 0) > 0
-                    ) && (
+                    {/* Mano de obra / Servicios */}
+                    {order.presupuesto.detallesPresupuestoItems && order.presupuesto.detallesPresupuestoItems.filter(i => i.estado !== false && !i.deletedAt && i.parte?.unidadMedida === 'Servicio').length > 0 && (
                       <div className="space-y-2 pb-3">
-                        {/* Legacy Labor */}
-                        {order.presupuesto.detallesManoObra?.filter(i => i.estado !== false && !i.deletedAt).map((mo) => (
-                          <div key={`side-mo-${mo.id}`} className="flex justify-between text-xs">
-                            <span className="text-gray-500">{mo.cantidad}x {mo.tipoManoObra?.nombre}</span>
-                            <span className="font-medium text-gray-900 dark:text-white">
-                              ${Number(mo.costoTotal || 0).toFixed(2)}
-                            </span>
-                          </div>
-                        ))}
-                        {/* New Catalog Services */}
-                        {order.presupuesto.detallesPresupuestoItems?.filter(i => i.estado !== false && !i.deletedAt && i.parte?.unidadMedida === 'Servicio').map((item) => (
+                        {order.presupuesto.detallesPresupuestoItems.filter(i => i.estado !== false && !i.deletedAt && i.parte?.unidadMedida === 'Servicio').map((item) => (
                           <div key={`side-service-${item.id}`} className="flex justify-between text-xs border-l-2 border-blue-400 pl-2 ml-1">
                             <span className="text-blue-600 dark:text-blue-400 font-medium">{item.cantidad}x {item.parte?.nombre}</span>
                             <span className="font-bold text-blue-700 dark:text-blue-300">
@@ -724,8 +711,7 @@ export default function PerfilOrdenPage() {
                       <span className="text-sm font-black uppercase text-gray-900 dark:text-white">Total Presupuesto</span>
                       <span className="text-lg font-black text-brand-600 dark:text-brand-400">
                         ${(
-                          (order.presupuesto.detallesPresupuestoItems?.filter(i => i.estado !== false && !i.deletedAt).reduce((acc, i) => acc + Number(i.subtotal || 0), 0) || 0) +
-                          (order.presupuesto.detallesManoObra?.filter(i => i.estado !== false && !i.deletedAt).reduce((acc, i) => acc + Number(i.costoTotal || 0), 0) || 0)
+                          order.presupuesto.detallesPresupuestoItems?.filter(i => i.estado !== false && !i.deletedAt).reduce((acc, i) => acc + Number(i.subtotal || 0), 0) || 0
                         ).toFixed(2)}
                       </span>
                     </div>

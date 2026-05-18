@@ -6,6 +6,7 @@ import { Categoria } from '../categoria/entities/categoria.entity';
 import { Marca } from '../marca/entities/marca.entity';
 import { CreateParteDto } from './dto/create-parte.dto';
 import { UpdateParteDto } from './dto/update-parte.dto';
+import { NotificacionService } from '../notificacion/notificacion.service';
 
 @Injectable()
 export class ParteService {
@@ -16,6 +17,7 @@ export class ParteService {
     private readonly categoriaRepository: Repository<Categoria>,
     @InjectRepository(Marca)
     private readonly marcaRepository: Repository<Marca>,
+    private readonly notificacionService: NotificacionService,
   ) { }
 
   private buildCodigoInterno(parte: Pick<Parte, 'id' | 'nombre' | 'modelo'>): string {
@@ -70,6 +72,9 @@ export class ParteService {
       parteGuardada.codigoInterno = this.buildCodigoInterno(parteGuardada);
       await this.parteRepository.save(parteGuardada);
     }
+
+    // Alerta de stock bajo si aplica al crear
+    await this.notificacionService.checkAndNotificarStockBajo(parteGuardada.id);
 
     return this.findOne(parteGuardada.id, true);
   }
@@ -139,6 +144,9 @@ export class ParteService {
       parte.codigoInterno = this.buildCodigoInterno(parte);
       await this.parteRepository.save(parte);
     }
+
+    // Alerta de stock bajo si aplica al actualizar
+    await this.notificacionService.checkAndNotificarStockBajo(parte.id);
 
     return this.findOne(id, true);
   }

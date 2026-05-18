@@ -1,6 +1,5 @@
 
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
-import IngresarDetalleManoObraForm from "@/components/form/ingresar-detalle-mano-obra/IngresarDetalleManoObraForm";
 import IngresarDetallePresupuestoItemForm from "@/components/form/ingresar-detalle-presupuesto-item/IngresarDetallePresupuestoItemForm";
 import { Metadata } from "next";
 import React from "react";

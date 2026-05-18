@@ -156,23 +156,13 @@ export default function PresupuestoTable({ presupuestoHook }: PresupuestoTablePr
 
   const calculateTotal = (presupuesto: Presupuesto) => {
     const detallesItems = Array.isArray(presupuesto.detallesPresupuestoItems) ? presupuesto.detallesPresupuestoItems : [];
-    const detallesManoObra = Array.isArray(presupuesto.detallesManoObra) ? presupuesto.detallesManoObra : [];
 
-    const totalItems = detallesItems
+    return detallesItems
       .filter((detalle) => detalle?.estado !== false)
       .reduce((sum, detalle) => {
         const subtotal = Number(detalle?.subtotal) || (Number(detalle?.precioUnitario) || 0) * (Number(detalle?.cantidad) || 0);
         return sum + subtotal;
       }, 0);
-
-    const totalManoObra = detallesManoObra
-      .filter((detalle) => detalle?.estado !== false)
-      .reduce((sum, detalle) => {
-        const costo = Number(detalle?.costoTotal) || (Number(detalle?.costoUnitario) || 0) * (Number(detalle?.cantidad) || 0);
-        return sum + costo;
-      }, 0);
-
-    return totalItems + totalManoObra;
   };
 
   const columns: ColumnDef<PresupuestoRow>[] = [
@@ -328,6 +318,9 @@ export default function PresupuestoTable({ presupuestoHook }: PresupuestoTablePr
         <PresupuestoDetailsModal
           isOpen={isModalOpen}
           onClose={handleCloseModal}
+          onSuccess={() => {
+            fetchPresupuestos(currentPage, 10, searchTerm, showInactive);
+          }}
           presupuesto={selectedPresupuesto}
           resumen={resumen}
         />

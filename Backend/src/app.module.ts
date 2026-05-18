@@ -22,8 +22,6 @@ import { ModeloModule } from './modelo/modelo.module';
 import { TipoActividadTecnicaModule } from './tipo-actividad-tecnica/tipo-actividad-tecnica.module';
 import { EvidenciaTecnicaModule } from './evidencia-tecnica/evidencia-tecnica.module';
 import { EstadoPresupuestoModule } from './estado-presupuesto/estado-presupuesto.module';
-import { DetalleManoObraModule } from './detalle-mano-obra/detalle-mano-obra.module';
-import { TipoManoObraModule } from './tipo-mano-obra/tipo-mano-obra.module';
 import { ParteModule } from './parte/parte.module';
 import { CategoriaModule } from './categoria/categoria.module';
 import { NotificacionModule } from './notificacion/notificacion.module';
@@ -33,6 +31,9 @@ import { RolePermissionModule } from './role-permission/role-permission.module';
 import { SeederModule } from './seeder/seeder.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ChecklistTemplateModule } from './checklist-template/checklist-template.module';
+import { AjusteInventarioModule } from './ajuste-inventario/ajuste-inventario.module';
+import { ProveedorModule } from './proveedor/proveedor.module';
+import { CompraModule } from './compra/compra.module';
 
 @Module({
   imports: [
@@ -79,8 +80,6 @@ import { ChecklistTemplateModule } from './checklist-template/checklist-template
     TipoActividadTecnicaModule,
     EvidenciaTecnicaModule,
     EstadoPresupuestoModule,
-    DetalleManoObraModule,
-    TipoManoObraModule,
     ParteModule,
     CategoriaModule,
     NotificacionModule,
@@ -90,6 +89,9 @@ import { ChecklistTemplateModule } from './checklist-template/checklist-template
     SeederModule,
     DashboardModule,
     ChecklistTemplateModule,
+    AjusteInventarioModule,
+    ProveedorModule,
+    CompraModule,
   ],
   controllers: [AppController],
   providers: [AppService],

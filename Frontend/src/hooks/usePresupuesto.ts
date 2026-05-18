@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { useDetallePresupuestoItem, DetallePresupuestoItem } from "./useDetallePresupuestoItem";
-import { useDetalleManoObra, DetalleManoObra, TipoManoObra } from "./useDetalleManoObra";
 import { useEstadoPresupuesto } from "./useEstadoPresupuesto";
 import { apiRequest } from "@/lib/api";
 
@@ -18,7 +17,6 @@ export interface Presupuesto {
     estado?: EstadoPresupuesto | null; // Permitir null
     orden?: Order | null; // Añadir | null aquí
     detallesPresupuestoItems?: DetallePresupuestoItem[];
-    detallesManoObra?: DetalleManoObra[];
 }
 
 export interface EstadoPresupuesto {
@@ -83,10 +81,6 @@ export function usePresupuesto() {
         calculateTotalByPresupuesto: calculateTotalItems
     } = useDetallePresupuestoItem();
 
-    const {
-        fetchDetallesByPresupuesto: fetchManoObraByPresupuesto,
-        getResumenManoObra
-    } = useDetalleManoObra();
 
     const fetchPresupuestos = async (
         page: number = 1,
@@ -133,26 +127,18 @@ export function usePresupuesto() {
             const presupuestosConDetalles = await Promise.all(
                 data.items.map(async (presupuesto) => {
                     try {
-                        const [detallesPresupuestoItems, detallesManoObra] = await Promise.all([
-                            fetchItemsByPresupuesto(presupuesto.id, includeInactive)
-                                .then(res => res || [])
-                                .catch(() => []),
-                            fetchManoObraByPresupuesto(presupuesto.id, includeInactive)
-                                .then(res => res || [])
-                                .catch(() => [])
-                        ]);
+                        const detallesPresupuestoItems = await fetchItemsByPresupuesto(presupuesto.id, includeInactive)
+                            .then(res => res || [])
+                            .catch(() => []);
 
                         return {
                             ...presupuesto,
-                            detallesPresupuestoItems: Array.isArray(detallesPresupuestoItems) ? detallesPresupuestoItems : [],
-                            detallesManoObra: Array.isArray(detallesManoObra) ? detallesManoObra : []
+                            detallesPresupuestoItems: Array.isArray(detallesPresupuestoItems) ? detallesPresupuestoItems : []
                         };
                     } catch (error) {
-                        //console.error(`Error cargando detalles para presupuesto ${presupuesto.id}:`, error);
                         return {
                             ...presupuesto,
-                            detallesPresupuestoItems: [],
-                            detallesManoObra: []
+                            detallesPresupuestoItems: []
                         };
                     }
                 })
@@ -182,21 +168,16 @@ export function usePresupuesto() {
 
             if (includeDetails) {
                 try {
-                    const [detallesPresupuestoItems, detallesManoObra] = await Promise.all([
-                        fetchItemsByPresupuesto(id).then(res => res || []),
-                        fetchManoObraByPresupuesto(id).then(res => res || [])
-                    ]);
+                    const detallesPresupuestoItems = await fetchItemsByPresupuesto(id).then(res => res || []);
 
                     setPresupuesto(prev => {
                         if (!prev) return null;
                         return {
                             ...prev,
-                            detallesPresupuestoItems,
-                            detallesManoObra
+                            detallesPresupuestoItems
                         };
                     });
                 } catch (error) {
-                    //console.error("Error cargando detalles:", error);
                     toast.error("Error cargando detalles del presupuesto");
                 }
             }
@@ -339,36 +320,14 @@ export function usePresupuesto() {
 
     const calculateTotalPresupuesto = async (id: number) => {
         try {
-            // Iniciar ambas solicitudes en paralelo
-            const [itemsResponse, manoObraResponse] = await Promise.allSettled([
-                calculateTotalItems(id),
-                getResumenManoObra(id)
-            ]);
-
-            // Manejar respuesta de ítems
-            const totalItems = itemsResponse.status === 'fulfilled'
-                ? itemsResponse.value?.totalItems || 0
-                : 0;
-
-            // Manejar respuesta de mano de obra
-            const totalManoObra = manoObraResponse.status === 'fulfilled'
-                ? manoObraResponse.value?.totalManoObra || 0
-                : 0;
-
-            // Calcular total general
-            const totalGeneral = totalItems + totalManoObra;
-
+            const resumen = await getResumenPresupuesto(id);
             return {
-                totalItems,
-                totalManoObra,
-                total: totalGeneral,
-                success: itemsResponse.status === 'fulfilled' &&
-                    manoObraResponse.status === 'fulfilled'
+                totalItems: resumen.costoItems,
+                totalManoObra: resumen.costoManoObra,
+                total: resumen.costoTotal,
+                success: true
             };
         } catch (error) {
-            // console.error(`Error al calcular total para presupuesto ${id}:`, error);
-
-            // Retornar valores por defecto en caso de error
             return {
                 totalItems: 0,
                 totalManoObra: 0,

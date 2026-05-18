@@ -12,12 +12,14 @@ import { EstadoOrdenModule } from 'src/estado-orden/estado-orden.module';
 import { HistorialEstadoOrden } from 'src/historial-estado-orden/entities/historial-estado-orden.entity';
 import { Presupuesto } from 'src/presupuesto/entities/presupuesto.entity';
 import { ActividadTecnica } from 'src/actividad-tecnica/entities/actividad-tecnica.entity';
+import { NotificacionModule } from '../notificacion/notificacion.module';
 
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Order, EstadoOrden, User, Equipo, EvidenciaTecnica, Casillero, HistorialEstadoOrden, Presupuesto, ActividadTecnica]),
     EstadoOrdenModule,
+    NotificacionModule,
   ],
   controllers: [OrderController],
   providers: [OrderService],

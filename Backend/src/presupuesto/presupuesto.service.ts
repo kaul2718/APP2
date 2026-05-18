@@ -8,7 +8,7 @@ import { Order } from 'src/orders/entities/order.entity';
 import { EstadoPresupuesto } from '../estado-presupuesto/entities/estado-presupuesto.entity';
 import { DetallePresupuestoItem } from 'src/detalle-presupuesto-item/entities/detalle-presupuesto-item.entity';
 import { Parte } from 'src/parte/entities/parte.entity';
-import { DetalleManoObra } from 'src/detalle-mano-obra/entities/detalle-mano-obra.entity';
+import { NotificacionService } from '../notificacion/notificacion.service';
 
 @Injectable()
 export class PresupuestoService {
@@ -29,6 +29,7 @@ export class PresupuestoService {
     private readonly parteRepository: Repository<Parte>,
 
     private readonly dataSource: DataSource,
+    private readonly notificacionService: NotificacionService,
   ) { }
 
   async create(createDto: CreatePresupuestoDto): Promise<Presupuesto> {
@@ -71,8 +72,6 @@ export class PresupuestoService {
       .leftJoinAndSelect('equipo.marca', 'marca')
       .leftJoinAndSelect('equipo.modelo', 'modelo')
       .leftJoinAndSelect('presupuesto.estado', 'estado')
-      .leftJoinAndSelect('presupuesto.detallesManoObra', 'detallesManoObra')
-      .leftJoinAndSelect('detallesManoObra.tipoManoObra', 'tipoManoObra')
       .leftJoinAndSelect('presupuesto.detallesPresupuestoItems', 'detallesPresupuestoItems')
       .leftJoinAndSelect('detallesPresupuestoItems.parte', 'parteDetalle')
       .orderBy('presupuesto.fechaEmision', 'DESC');
@@ -93,8 +92,6 @@ export class PresupuestoService {
       .leftJoinAndSelect('equipo.marca', 'marca')
       .leftJoinAndSelect('equipo.modelo', 'modelo')
       .leftJoinAndSelect('presupuesto.estado', 'estado')
-      .leftJoinAndSelect('presupuesto.detallesManoObra', 'detallesManoObra')
-      .leftJoinAndSelect('detallesManoObra.tipoManoObra', 'tipoManoObra')
       .leftJoinAndSelect('presupuesto.detallesPresupuestoItems', 'detallesPresupuestoItems')
       .leftJoinAndSelect('detallesPresupuestoItems.parte', 'parteDetalle')
       .where('presupuesto.id = :id', { id });
@@ -115,7 +112,7 @@ export class PresupuestoService {
   async update(id: number, updateDto: UpdatePresupuestoDto): Promise<Presupuesto> {
     const presupuesto = await this.presupuestoRepository.findOne({
       where: { id },
-      relations: ['orden', 'orden.client', 'estado', 'detallesPresupuestoItems', 'detallesManoObra']
+      relations: ['orden', 'orden.client', 'orden.technician', 'estado', 'detallesPresupuestoItems']
     });
 
     if (!presupuesto) {
@@ -150,12 +147,25 @@ export class PresupuestoService {
       const nuevoEstadoNombre = nuevoEstado.nombre.toLowerCase();
 
       if (presupuesto.estadoId !== updateDto.estadoId) {
-        if (nuevoEstadoNombre === 'aprobado') {
+        if (nuevoEstadoNombre === 'aprobado' && estadoAnteriorNombre !== 'aprobado') {
           await this.descontarInventario(presupuesto.id);
         }
-        else if (['rechazado', 'cancelado'].includes(nuevoEstadoNombre) &&
-          ['aprobado', 'en proceso'].includes(estadoAnteriorNombre)) {
+        else if (nuevoEstadoNombre !== 'aprobado' && estadoAnteriorNombre === 'aprobado') {
           await this.revertirInventario(presupuesto.id);
+        }
+
+        // Enviar notificaciones en tiempo real al cambiar el estado del presupuesto
+        if (presupuesto.orden) {
+          const client = presupuesto.orden.client;
+          const technician = presupuesto.orden.technician;
+          const orderNum = presupuesto.orden.workOrderNumber;
+          
+          if (client) {
+            await this.notificacionService.notificarPresupuesto(presupuesto.orden.id, client.id, orderNum, nuevoEstado.nombre);
+          }
+          if (technician) {
+            await this.notificacionService.notificarPresupuesto(presupuesto.orden.id, technician.id, orderNum, nuevoEstado.nombre);
+          }
         }
       }
 
@@ -173,9 +183,19 @@ export class PresupuestoService {
   }
 
   async remove(id: number) {
-    const presupuesto = await this.presupuestoRepository.findOne({ where: { id }, withDeleted: true });
+    const presupuesto = await this.presupuestoRepository.findOne({ 
+      where: { id }, 
+      relations: ['estado'],
+      withDeleted: true 
+    });
     if (!presupuesto) return null;
     if (presupuesto.deletedAt) return false;
+
+    // Si el presupuesto estaba aprobado, devolvemos el stock al almacén antes de eliminarlo
+    if (presupuesto.estado?.nombre?.toLowerCase() === 'aprobado') {
+      await this.revertirInventario(id);
+    }
+
     await this.presupuestoRepository.softDelete(id);
     return true;
   }
@@ -220,7 +240,7 @@ export class PresupuestoService {
 
   private async descontarInventario(presupuestoId: number) {
     const detalles = await this.detallePresupuestoItemsRepository.find({
-      where: { presupuestoId },
+      where: { presupuestoId, estado: true }, // Solo descontamos stock para detalles activos
       relations: ['parte'],
     });
 
@@ -231,17 +251,23 @@ export class PresupuestoService {
       const parte = await this.parteRepository.findOne({ where: { id: parteId } });
       if (!parte) throw new NotFoundException(`Producto de almacén con ID ${parteId} no encontrado.`);
 
-      if (parte.stock < detalle.cantidad)
+      // Si es un servicio, omitimos el descuento y control de stock
+      if (parte.unidadMedida === 'Servicio') continue;
+
+      if (Number(parte.stock) < detalle.cantidad)
         throw new BadRequestException(`Existencias insuficientes para ${parte.nombre}. Disponible: ${parte.stock}`);
 
-      parte.stock -= detalle.cantidad;
+      parte.stock = Number(parte.stock) - detalle.cantidad;
       await this.parteRepository.save(parte);
+      
+      // Lanzar alerta de stock bajo si aplica
+      await this.notificacionService.checkAndNotificarStockBajo(parte.id);
     }
   }
 
   private async revertirInventario(presupuestoId: number) {
     const detalles = await this.detallePresupuestoItemsRepository.find({
-      where: { presupuestoId },
+      where: { presupuestoId, estado: true }, // Solo devolvemos stock para detalles activos que no hayan sido eliminados previamente
       relations: ['parte'],
     });
 
@@ -249,8 +275,9 @@ export class PresupuestoService {
       const parteId = detalle.parteId ?? detalle.parte?.id;
       if (parteId) {
         const parte = await this.parteRepository.findOne({ where: { id: parteId } });
-        if (parte) {
-          parte.stock += detalle.cantidad;
+        // Solo revertir stock si no es un servicio
+        if (parte && parte.unidadMedida !== 'Servicio') {
+          parte.stock = Number(parte.stock) + detalle.cantidad;
           await this.parteRepository.save(parte);
         }
       }
@@ -266,18 +293,17 @@ export class PresupuestoService {
     });
     if (!presupuesto) throw new NotFoundException('Presupuesto no encontrado');
 
-    const detallesManoObra = await this.dataSource.getRepository(DetalleManoObra).find({
-      where: { presupuestoId: id },
-      relations: ['tipoManoObra'],
-    });
-
-    const detallesPresupuestoItems = await this.dataSource.getRepository(DetallePresupuestoItem).find({
+    const todosLosItems = await this.detallePresupuestoItemsRepository.find({
       where: { presupuestoId: presupuesto.id },
       relations: ['parte'],
     });
 
-    const costoManoObra = detallesManoObra.reduce((sum, d) => sum + Number(d.costoTotal), 0);
-    const costoItems = detallesPresupuestoItems.reduce((sum, d) => sum + Number(d.precioUnitario) * d.cantidad, 0);
+    // Dividimos en mano de obra (Servicios) y repuestos (Productos)
+    const detallesManoObra = todosLosItems.filter(item => item.parte?.unidadMedida === 'Servicio');
+    const detallesRepuestos = todosLosItems.filter(item => item.parte?.unidadMedida !== 'Servicio');
+
+    const costoManoObra = detallesManoObra.reduce((sum, d) => sum + Number(d.precioUnitario) * d.cantidad, 0);
+    const costoItems = detallesRepuestos.reduce((sum, d) => sum + Number(d.precioUnitario) * d.cantidad, 0);
 
     return {
       presupuestoId: presupuesto.id,
@@ -288,19 +314,20 @@ export class PresupuestoService {
         clienteId: presupuesto.orden.clientId,
         equipoId: presupuesto.orden.equipoId,
       },
+      // Estructura retrocompatible con el frontend legado
       detalleManoObra: detallesManoObra.map((d) => ({
         id: d.id,
-        tipo: d.tipoManoObra?.nombre,
+        tipo: d.parte?.nombre || 'Servicio sin nombre',
         cantidad: d.cantidad,
-        costoUnitario: d.costoUnitario,
-        costoTotal: d.costoTotal,
+        costoUnitario: Number(d.precioUnitario),
+        costoTotal: d.cantidad * Number(d.precioUnitario),
         estado: d.estado,
       })),
-      detalleItems: detallesPresupuestoItems.map((d) => ({
+      detalleItems: detallesRepuestos.map((d) => ({
         id: d.id,
         nombre: d.parte?.nombre || 'Ítem sin nombre',
         cantidad: d.cantidad,
-        precioUnitario: d.precioUnitario,
+        precioUnitario: Number(d.precioUnitario),
         subtotal: d.cantidad * Number(d.precioUnitario),
         estado: d.estado,
       })),
@@ -316,7 +343,6 @@ export class PresupuestoService {
       relations: [
         'orden', 'orden.client', 'orden.equipo', 'orden.equipo.tipoEquipo', 
         'orden.equipo.marca', 'orden.equipo.modelo', 'estado', 
-        'detallesManoObra', 'detallesManoObra.tipoManoObra', 
         'detallesPresupuestoItems', 'detallesPresupuestoItems.parte'
       ],
       order: { fechaEmision: 'DESC' }

@@ -7,6 +7,7 @@ import { Order } from 'src/orders/entities/order.entity';
 import { EstadoPresupuesto } from 'src/estado-presupuesto/entities/estado-presupuesto.entity';
 import { DetallePresupuestoItem } from 'src/detalle-presupuesto-item/entities/detalle-presupuesto-item.entity';
 import { Parte } from 'src/parte/entities/parte.entity';
+import { NotificacionModule } from '../notificacion/notificacion.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { Parte } from 'src/parte/entities/parte.entity';
       DetallePresupuestoItem,
       Parte,
     ]),
+    NotificacionModule,
   ],
   controllers: [PresupuestoController],
   providers: [PresupuestoService],

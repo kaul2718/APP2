@@ -10,6 +10,7 @@ import { CreateDetallePresupuestoItemDto } from './dto/create-detalle-presupuest
 import { UpdateDetallePresupuestoItemDto } from './dto/update-detalle-presupuesto-item.dto';
 import { Presupuesto } from '../presupuesto/entities/presupuesto.entity';
 import { Parte } from '../parte/entities/parte.entity';
+import { NotificacionService } from '../notificacion/notificacion.service';
 
 @Injectable()
 export class DetallePresupuestoItemService {
@@ -20,6 +21,7 @@ export class DetallePresupuestoItemService {
     private readonly presupuestoRepository: Repository<Presupuesto>,
     @InjectRepository(Parte)
     private readonly parteRepository: Repository<Parte>,
+    private readonly notificacionService: NotificacionService,
   ) { }
 
   private async resolveParteSelection(parteId?: number): Promise<Parte> {
@@ -43,17 +45,19 @@ export class DetallePresupuestoItemService {
     const presupuesto = await this.presupuestoRepository.findOne({
       where: { id: presupuestoId },
       withDeleted: true,
-      relations: ['orden'],
+      relations: ['orden', 'estado'],
     });
 
     if (!presupuesto) throw new NotFoundException(`Presupuesto con ID ${presupuestoId} no encontrado`);
     if (cantidad <= 0) throw new BadRequestException('La cantidad debe ser mayor a 0');
 
-    if (parte.stock < cantidad) {
+    if (parte.unidadMedida !== 'Servicio' && Number(parte.stock) < cantidad) {
       throw new BadRequestException(`Existencias insuficientes. Stock actual: ${parte.stock}`);
     }
 
-    const precioUnitario = Number(parte.precio1 ?? 0); // Using PVP 1 as default
+    const precioUnitario = createDto.precioUnitario !== undefined 
+      ? Number(createDto.precioUnitario)
+      : Number(parte.precio1 ?? 0);
     const subtotal = precioUnitario * cantidad;
 
     const detalle = this.detalleRepository.create({
@@ -68,6 +72,13 @@ export class DetallePresupuestoItemService {
       estado: true,
       estadoOrdenId: presupuesto.orden?.estadoOrdenId || null,
     });
+
+    // Si el presupuesto ya está aprobado, descontamos del inventario inmediatamente
+    if (presupuesto.estado?.nombre?.toLowerCase() === 'aprobado' && parte.unidadMedida !== 'Servicio') {
+      parte.stock = Number(parte.stock) - cantidad;
+      await this.parteRepository.save(parte);
+      await this.notificacionService.checkAndNotificarStockBajo(parte.id);
+    }
 
     const detalleGuardado = await this.detalleRepository.save(detalle);
     return this.findOne(detalleGuardado.id, true);
@@ -98,7 +109,7 @@ export class DetallePresupuestoItemService {
   async update(id: number, updateDto: UpdateDetallePresupuestoItemDto): Promise<DetallePresupuestoItem> {
     const detalle = await this.detalleRepository.findOne({
       where: { id },
-      relations: ['parte', 'presupuesto'],
+      relations: ['parte', 'presupuesto', 'presupuesto.estado'],
       withDeleted: true
     });
 
@@ -108,24 +119,64 @@ export class DetallePresupuestoItemService {
       throw new BadRequestException('La cantidad debe ser mayor a 0');
     }
 
+    const isApproved = detalle.presupuesto?.estado?.nombre?.toLowerCase() === 'aprobado';
+
     let parteActualizada: Parte | null = null;
     if (updateDto.parteId !== undefined && updateDto.parteId !== detalle.parteId) {
       parteActualizada = await this.resolveParteSelection(updateDto.parteId);
-      const cantidad = updateDto.cantidad || detalle.cantidad;
+      const cantidad = updateDto.cantidad !== undefined ? updateDto.cantidad : detalle.cantidad;
       
-      if (parteActualizada.stock < cantidad) {
-        throw new BadRequestException(`Existencias insuficientes. Stock actual: ${parteActualizada.stock}`);
+      // Si el presupuesto está aprobado, revertimos stock de la parte anterior y descontamos de la nueva
+      if (isApproved) {
+        if (detalle.parte && detalle.parte.unidadMedida !== 'Servicio') {
+          detalle.parte.stock = Number(detalle.parte.stock) + detalle.cantidad;
+          await this.parteRepository.save(detalle.parte);
+        }
+        if (parteActualizada.unidadMedida !== 'Servicio') {
+          if (Number(parteActualizada.stock) < cantidad) {
+            // Revertir para mantener estado consistente
+            if (detalle.parte && detalle.parte.unidadMedida !== 'Servicio') {
+              detalle.parte.stock = Number(detalle.parte.stock) - detalle.cantidad;
+              await this.parteRepository.save(detalle.parte);
+            }
+            throw new BadRequestException(`Existencias insuficientes para el nuevo repuesto. Stock actual: ${parteActualizada.stock}`);
+          }
+          parteActualizada.stock = Number(parteActualizada.stock) - cantidad;
+          await this.parteRepository.save(parteActualizada);
+          await this.notificacionService.checkAndNotificarStockBajo(parteActualizada.id);
+        }
+      } else {
+        if (parteActualizada.unidadMedida !== 'Servicio' && Number(parteActualizada.stock) < cantidad) {
+          throw new BadRequestException(`Existencias insuficientes. Stock actual: ${parteActualizada.stock}`);
+        }
       }
 
       detalle.parte = parteActualizada;
       detalle.parteId = parteActualizada.id;
     }
 
-    if (updateDto.cantidad !== undefined) {
-      const p = parteActualizada ?? detalle.parte;
-      if (p && p.stock < updateDto.cantidad) {
-        throw new BadRequestException(`Existencias insuficientes. Stock actual: ${p.stock}`);
+    if (updateDto.cantidad !== undefined && updateDto.parteId === undefined) {
+      const p = detalle.parte;
+      if (p && p.unidadMedida !== 'Servicio') {
+        const oldQty = detalle.cantidad;
+        const newQty = updateDto.cantidad;
+        const diff = newQty - oldQty;
+
+        if (isApproved) {
+          if (Number(p.stock) < diff) {
+            throw new BadRequestException(`Existencias insuficientes para aumentar cantidad. Disponible: ${p.stock}`);
+          }
+          p.stock = Number(p.stock) - diff;
+          await this.parteRepository.save(p);
+          await this.notificacionService.checkAndNotificarStockBajo(p.id);
+        } else {
+          if (Number(p.stock) < newQty) {
+            throw new BadRequestException(`Existencias insuficientes. Stock actual: ${p.stock}`);
+          }
+        }
       }
+      detalle.cantidad = updateDto.cantidad;
+    } else if (updateDto.cantidad !== undefined) {
       detalle.cantidad = updateDto.cantidad;
     }
 
@@ -145,7 +196,18 @@ export class DetallePresupuestoItemService {
   }
 
   async remove(id: number): Promise<{ message: string }> {
-    const detalle = await this.findOne(id);
+    const detalle = await this.detalleRepository.findOne({
+      where: { id },
+      relations: ['parte', 'presupuesto', 'presupuesto.estado'],
+    });
+    if (!detalle) throw new NotFoundException(`Detalle con ID ${id} no encontrado`);
+
+    // Si el presupuesto está aprobado, devolvemos el stock al almacén
+    if (detalle.presupuesto?.estado?.nombre?.toLowerCase() === 'aprobado' && detalle.parte?.unidadMedida !== 'Servicio') {
+      detalle.parte.stock = Number(detalle.parte.stock) + detalle.cantidad;
+      await this.parteRepository.save(detalle.parte);
+    }
+
     detalle.estado = false;
     await this.detalleRepository.save(detalle);
     await this.detalleRepository.softRemove(detalle);

@@ -13,6 +13,7 @@ import { Casillero } from 'src/casillero/entities/casillero.entity';
 import { EvidenciaTecnica } from 'src/evidencia-tecnica/entities/evidencia-tecnica.entity';
 import { HistorialEstadoOrden } from 'src/historial-estado-orden/entities/historial-estado-orden.entity';
 import { EstadoCasillero } from 'src/common/enums/estadoCasillero.enum';
+import { NotificacionService } from '../notificacion/notificacion.service';
 
 @Injectable()
 export class OrderService {
@@ -37,6 +38,7 @@ export class OrderService {
     private readonly evidenciaTecnicaRepository: Repository<EvidenciaTecnica>,
     @InjectRepository(HistorialEstadoOrden)
     private readonly historialEstadoOrdenRepository: Repository<HistorialEstadoOrden>,
+    private readonly notificacionService: NotificacionService,
   ) { }
 
   async create(createDto: CreateOrderDto): Promise<Order> {
@@ -116,6 +118,14 @@ export class OrderService {
 
     // Crear historial
     await this.createHistorial(ordenGuardada, estadoOrden, recepcionista || technician || client);
+
+    // Notificaciones automáticas
+    if (technician) {
+      await this.notificacionService.notificarAsignacionTecnico(ordenGuardada.id, technician.id, workOrderNumber);
+    }
+    if (client) {
+      await this.notificacionService.notificarCambioEstadoOds(ordenGuardada.id, client.id, workOrderNumber, estadoOrden.nombre);
+    }
 
     return ordenGuardada;
   }
@@ -252,8 +262,6 @@ export class OrderService {
         'presupuesto.estado',
         'presupuesto.detallesPresupuestoItems',
         'presupuesto.detallesPresupuestoItems.parte',
-        'presupuesto.detallesManoObra',
-        'presupuesto.detallesManoObra.tipoManoObra',
         'casillero',
         'evidencias',
         'evidencias.subidoPor',
@@ -390,6 +398,7 @@ export class OrderService {
         orden.technician = technician;
         if (!oldTech || technician.id !== orden.technician?.id) {
           cambiosHistorial.push(`Técnico cambiado a ${technician.nombre}`);
+          await this.notificacionService.notificarAsignacionTecnico(orden.id, technician.id, orden.workOrderNumber);
         }
       }
     }
@@ -415,6 +424,14 @@ export class OrderService {
 
       orden.estadoOrden = estadoOrden;
       cambiosHistorial.push(`Estado cambiado a: ${estadoOrden.nombre}`);
+
+      // Notificaciones automáticas de cambio de estado
+      if (orden.clientId) {
+        await this.notificacionService.notificarCambioEstadoOds(orden.id, orden.clientId, orden.workOrderNumber, estadoOrden.nombre);
+      }
+      if (orden.technicianId) {
+        await this.notificacionService.notificarCambioEstadoOds(orden.id, orden.technicianId, orden.workOrderNumber, estadoOrden.nombre);
+      }
 
       if (estadoOrden.nombre.toLowerCase().includes('archiv') && orden.casillero) {
         const casilleroActual = await this.casilleroRepository.findOneBy({ id: orden.casillero.id });
@@ -558,8 +575,6 @@ export class OrderService {
       .leftJoinAndSelect('presupuesto.estado', 'estadoPresupuesto')
       .leftJoinAndSelect('presupuesto.detallesPresupuestoItems', 'detallesItems')
       .leftJoinAndSelect('detallesItems.parte', 'parteDetalle')
-      .leftJoinAndSelect('presupuesto.detallesManoObra', 'detallesManoObra')
-      .leftJoinAndSelect('detallesManoObra.tipoManoObra', 'tipoManoObra')
       .leftJoinAndSelect('order.casillero', 'casillero')
       .orderBy('order.createdAt', 'DESC');
 
@@ -730,7 +745,7 @@ export class OrderService {
 
     const orden = await this.orderRepository.findOne({
       where: { id: orderId },
-      relations: ['estadoOrden', 'casillero']
+      relations: ['estadoOrden', 'casillero', 'client', 'technician']
     });
 
     if (!orden) {
@@ -780,7 +795,17 @@ export class OrderService {
       }
     }
 
-    return this.orderRepository.save(orden);
+    const saved = await this.orderRepository.save(orden);
+
+    // Notificaciones automáticas de cambio de estado
+    if (saved.client) {
+      await this.notificacionService.notificarCambioEstadoOds(saved.id, saved.client.id, saved.workOrderNumber, nuevoEstado.nombre);
+    }
+    if (saved.technician) {
+      await this.notificacionService.notificarCambioEstadoOds(saved.id, saved.technician.id, saved.workOrderNumber, nuevoEstado.nombre);
+    }
+
+    return saved;
   }
 
   // order.service.ts

@@ -18,13 +18,27 @@ import AlmacenTable from "@/components/tables/almacenTable";
 import AgregarAlmacenModal from "@/components/modals/AgregarAlmacenModal";
 import { useAlmacen, ItemAlmacen } from "@/hooks/useAlmacen";
 import { apiRequest } from "@/lib/api";
+import { useSearchParams, useRouter } from "next/navigation";
 
 export default function AlmacenComponent() {
+    const router = useRouter();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [tableRefreshKey, setTableRefreshKey] = useState(0);
     const [activeFilter, setActiveFilter] = useState<"all" | "productos" | "servicios">("productos");
     const hook = useAlmacen(false);
     const [allItemsForStats, setAllItemsForStats] = useState<ItemAlmacen[]>([]);
+    
+    const searchParams = useSearchParams();
+    const querySearch = searchParams?.get("search");
+
+    // Auto-filter by search query parameter if present in URL
+    useEffect(() => {
+        if (querySearch) {
+            hook.setSearchTerm(querySearch);
+            setActiveFilter("all");
+            hook.fetchItems(1, 10, querySearch, hook.showInactive, {});
+        }
+    }, [querySearch]);
 
     // Fetch for the main table data
     useEffect(() => {
@@ -171,18 +185,49 @@ export default function AlmacenComponent() {
                     </div>
                 </div>
 
-                <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                >
-                    <Button
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 shadow-lg shadow-brand-500/20"
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                    <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="w-full sm:w-auto"
                     >
-                        <PlusCircleIcon className="w-5 h-5" />
-                        <span>Nuevo Item</span>
-                    </Button>
-                </motion.div>
+                        <Button
+                            onClick={() => router.push("/items/compras")}
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800 shadow-lg shadow-blue-500/20 border-none h-11"
+                        >
+                            <TruckIcon className="w-5 h-5" />
+                            <span>Compras y Proveedores</span>
+                        </Button>
+                    </motion.div>
+
+                    <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="w-full sm:w-auto"
+                    >
+                        <Button
+                            onClick={() => router.push("/items/ajuste")}
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-700 dark:hover:bg-amber-800 shadow-lg shadow-amber-500/20 border-none h-11"
+                        >
+                            <ArchiveBoxIcon className="w-5 h-5" />
+                            <span>Ajuste de Inventario</span>
+                        </Button>
+                    </motion.div>
+
+                    <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="w-full sm:w-auto"
+                    >
+                        <Button
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 shadow-lg shadow-brand-500/20 h-11"
+                        >
+                            <PlusCircleIcon className="w-5 h-5" />
+                            <span>Nuevo Item</span>
+                        </Button>
+                    </motion.div>
+                </div>
             </div>
 
             {/* Main Table Section */}

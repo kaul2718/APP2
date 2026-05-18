@@ -21,6 +21,12 @@ interface FormData {
     descripcion: string;
 }
 
+interface FormErrors {
+    ordenId?: string;
+    estadoId?: string;
+    descripcion?: string;
+}
+
 export default function IngresarPresupuestoForm() {
     const { data: session } = useSession();
     const router = useRouter();
@@ -46,18 +52,18 @@ export default function IngresarPresupuestoForm() {
         descripcion: ""
     });
 
-    const [errors, setErrors] = React.useState<Partial<FormData>>({});
+    const [errors, setErrors] = React.useState<FormErrors>({});
     const [loading, setLoading] = React.useState(false);
 
     const handleChange = (field: keyof FormData, value: string | number | null) => {
         setFormData(prev => ({ ...prev, [field]: value }));
-        if (errors[field as keyof typeof errors]) {
+        if (errors[field as keyof FormErrors]) {
             setErrors(prev => ({ ...prev, [field]: undefined }));
         }
     };
 
     const validateFields = () => {
-        const newErrors: Partial<FormData> = {};
+        const newErrors: FormErrors = {};
         let isValid = true;
 
         // Validación de orden

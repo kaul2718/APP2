@@ -4,13 +4,8 @@ import {
   Squares2X2Icon,
   UserCircleIcon,
   ClipboardDocumentListIcon,
-  ComputerDesktopIcon,
-  RectangleGroupIcon,
-  DocumentTextIcon,
-  ClipboardIcon,
-  WrenchScrewdriverIcon,
   ArchiveBoxIcon,
-  BellAlertIcon,
+  Cog8ToothIcon,
 } from "@heroicons/react/24/outline";
 
 export type SubNavItem = {
@@ -61,124 +56,31 @@ export const navItems: NavItem[] = [
     ],
   },
   {
-    icon: <ComputerDesktopIcon className="w-5 h-5" />,
-    name: "Equipos",
-    roles: ["admin", "tech"],
-    subItems: [
-      {
-        name: "Marcas",
-        path: "/ver-marca",
-        roles: ["admin", "tech"]
-      },
-      {
-        name: "Tipo Equipo",
-        path: "/ver-tipo-equipo",
-        roles: ["admin", "tech"]
-      },
-      {
-        name: "Modelos",
-        path: "/ver-modelo",
-        roles: ["admin", "tech"]
-      },
-      {
-        name: "Equipos",
-        path: "/ver-equipo",
-        roles: ["admin", "tech", "client"]
-      },
-    ],
-  },
-  {
-    icon: <RectangleGroupIcon className="w-5 h-5" />,
-    name: "Casilleros",
-    roles: ["admin"],
-    subItems: [
-      {
-        name: "Casilleros",
-        path: "/ver-casillero",
-        roles: ["admin"]
-      },
-    ],
-  },
-  {
-    icon: <DocumentTextIcon className="w-5 h-5" />,
-    name: "Estados de Orden",
-    roles: ["admin"],
-    subItems: [
-      {
-        name: "Estados",
-        path: "/ver-estado-orden",
-        roles: ["admin", "tech"]
-      },
-    ],
-  },
-  {
-    icon: <ClipboardIcon className="w-5 h-5" />,
-    name: "Actividades Técnicas",
-    roles: ["admin"],
-    subItems: [
-      {
-        name: "Tipos de Actividad",
-        path: "/ver-tipo-actividad-tecnica",
-        roles: ["admin", "tech"]
-      },
-    ],
-  },
-  {
-    icon: <DocumentTextIcon className="w-5 h-5" />,
-    name: "Presupuestos",
-    roles: ["admin", "tech"],
-    subItems: [
-      {
-        name: "Presupuestos",
-        path: "/ver-presupuesto",
-        roles: ["admin", "tech", "client"]
-      },
-      {
-        name: "Mano de Obra",
-        path: "/ver-detalle-mano-obra",
-        roles: ["admin", "tech"]
-      },
-      {
-        name: "Detalle de Ítems",
-        path: "/ver-detalle-presupuesto-item",
-        roles: ["admin", "tech"]
-      },
-    ],
-  },
-  {
-    icon: <DocumentTextIcon className="w-5 h-5" />,
-    name: "Estados de Presupuesto",
-    roles: ["admin"],
-    subItems: [
-      {
-        name: "Estados",
-        path: "/ver-estado-presupuesto",
-        roles: ["admin", "tech"]
-      },
-    ],
-  },
-  {
-    icon: <WrenchScrewdriverIcon className="w-5 h-5" />,
-    name: "Mano de Obra",
-    roles: ["admin"],
-    subItems: [
-      {
-        name: "Tipos de Mano de Obra",
-        path: "/ver-tipo-mano-obra",
-        roles: ["admin", "tech"]
-      },
-    ],
-  },
-  {
     icon: <ArchiveBoxIcon className="w-5 h-5" />,
     name: "Almacén",
     roles: ["admin", "tech"],
     subItems: [
       {
-        name: "Gestión Almacén",
+        name: "Catálogo e Inventario",
         path: "/items",
         roles: ["admin", "tech"],
-        pro: true,
+      },
+      {
+        name: "Ajuste de Inventario",
+        path: "/items/ajuste",
+        roles: ["admin", "tech"],
+        new: true,
+      },
+      {
+        name: "Compras y Facturación",
+        path: "/items/compras",
+        roles: ["admin", "tech"],
+        new: true,
+      },
+      {
+        name: "Proveedores",
+        path: "/items/compras/proveedores",
+        roles: ["admin", "tech"],
       },
       {
         name: "Categorías",
@@ -193,16 +95,10 @@ export const navItems: NavItem[] = [
     ],
   },
   {
-    icon: <BellAlertIcon className="w-5 h-5" />,
-    name: "Notificaciones",
+    icon: <Cog8ToothIcon className="w-5 h-5" />,
+    name: "Administración",
+    path: "/admin",
     roles: ["admin"],
-    subItems: [
-      {
-        name: "Tipos de Notificación",
-        path: "/ver-tipo-notificacion",
-        roles: ["admin"]
-      },
-    ],
   },
 ];
 

@@ -20,6 +20,10 @@ export class CreateDetallePresupuestoItemDto {
   parteId?: number;
 
   @IsOptional()
+  @IsNumber({}, { message: 'El precio unitario debe ser un número válido.' })
+  precioUnitario?: number;
+
+  @IsOptional()
   @IsString({ message: 'El comentario debe ser una cadena de texto.' })
   @MaxLength(500, { message: 'El comentario no puede tener más de 500 caracteres.' })
   comentario?: string;

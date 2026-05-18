@@ -14,6 +14,11 @@ interface FormData {
   marcaId: number | null;
 }
 
+interface FormErrors {
+  nombre?: string;
+  marcaId?: string;
+}
+
 interface Props {
   onSuccess?: (newModelo: { 
     id: number; 
@@ -31,18 +36,18 @@ export default function IngresarModeloForm({ onSuccess, onClose, defaultMarcaId 
     nombre: "",
     marcaId: defaultMarcaId || null
   });
-  const [errors, setErrors] = React.useState<Partial<FormData>>({});
+  const [errors, setErrors] = React.useState<FormErrors>({});
   const [loading, setLoading] = React.useState(false);
 
   const handleChange = (field: keyof FormData, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
+    if (errors[field as keyof FormErrors]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
   };
 
   const validateFields = () => {
-    const newErrors: Partial<FormData> = {};
+    const newErrors: FormErrors = {};
 
     if (!formData.nombre.trim()) {
       newErrors.nombre = "El nombre del modelo es requerido";

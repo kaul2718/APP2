@@ -737,6 +737,9 @@ export default function OrdenListLayout() {
             setIsPresupuestoDetailsModalOpen(false);
             setPresupuestoDetails(null);
           }}
+          onSuccess={() => {
+            fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
+          }}
           presupuesto={presupuestoDetails.presupuesto}
           resumen={presupuestoDetails.resumen}
         />

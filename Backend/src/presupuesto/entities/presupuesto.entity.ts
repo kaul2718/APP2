@@ -1,7 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, OneToMany, DeleteDateColumn } from 'typeorm';
 import { Order } from 'src/orders/entities/order.entity';
 import { EstadoPresupuesto } from '../../estado-presupuesto/entities/estado-presupuesto.entity';
-import { DetalleManoObra } from 'src/detalle-mano-obra/entities/detalle-mano-obra.entity';
 import { DetallePresupuestoItem } from 'src/detalle-presupuesto-item/entities/detalle-presupuesto-item.entity';
 
 @Entity()
@@ -27,8 +26,6 @@ export class Presupuesto {
   estadoId: number;
 
 
-  @OneToMany(() => DetalleManoObra, detalle => detalle.presupuesto)
-  detallesManoObra: DetalleManoObra[];
 
   @OneToMany(() => DetallePresupuestoItem, detalle => detalle.presupuesto)
   detallesPresupuestoItems: DetallePresupuestoItem[];

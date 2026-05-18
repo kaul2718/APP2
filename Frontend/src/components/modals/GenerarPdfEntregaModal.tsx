@@ -41,11 +41,14 @@ export default function GenerarPdfEntregaModal({ isOpen, onClose, order }: Props
 
   // Calcular total del presupuesto si existe
   const presupuestoItems = order.presupuesto?.detallesPresupuestoItems || [];
-  const manoObraItems = order.presupuesto?.detallesManoObra || [];
 
-  const totalItems = presupuestoItems.reduce((sum, item) => sum + Number(item.subtotal), 0);
-  const totalManoObra = manoObraItems.reduce((sum, item) => sum + Number(item.costoTotal), 0);
-  const totalPresupuesto = totalItems + totalManoObra;
+  // Separar repuestos de servicios
+  const repuestos = presupuestoItems.filter(item => item.parte?.unidadMedida !== 'Servicio');
+  const servicios = presupuestoItems.filter(item => item.parte?.unidadMedida === 'Servicio');
+
+  const totalRepuestos = repuestos.reduce((sum, item) => sum + Number(item.subtotal), 0);
+  const totalServicios = servicios.reduce((sum, item) => sum + Number(item.subtotal), 0);
+  const totalPresupuesto = totalRepuestos + totalServicios;
 
   return (
     <Modal
@@ -268,7 +271,7 @@ export default function GenerarPdfEntregaModal({ isOpen, onClose, order }: Props
           <h3 className="text-sm font-bold uppercase tracking-wider text-gray-900 mb-4 border-b-2 border-gray-200 pb-2">
             Detalle de Costos y Presupuesto
           </h3>
-          {(presupuestoItems.length > 0 || manoObraItems.length > 0) ? (
+          {presupuestoItems.length > 0 ? (
             <div className="border border-gray-200 rounded-xl overflow-hidden print:border-gray-400">
               <table className="w-full text-left text-sm">
                 <thead className="bg-gray-100 text-gray-700 text-xs uppercase font-semibold print:bg-gray-200">
@@ -280,21 +283,21 @@ export default function GenerarPdfEntregaModal({ isOpen, onClose, order }: Props
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {/* Mano de Obra */}
-                  {manoObraItems.map((item: any) => (
-                    <tr key={`mo-${item.id}`}>
+                  {/* Servicios */}
+                  {servicios.map((item: any) => (
+                    <tr key={`service-${item.id}`}>
                       <td className="p-3 text-gray-800 font-medium">
-                        {item.tipoManoObra?.nombre || 'Mano de Obra'}
-                        <span className="text-xs bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400 ml-2 px-2 py-0.5 rounded">Mano de obra</span>
+                        {item.parte?.nombre || 'Servicio / Mano de Obra'}
+                        <span className="text-xs bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400 ml-2 px-2 py-0.5 rounded">Servicio</span>
                       </td>
                       <td className="p-3 text-center text-gray-600">{item.cantidad}</td>
-                      <td className="p-3 text-right text-gray-600">${Number(item.costoUnitario).toFixed(2)}</td>
-                      <td className="p-3 text-right font-semibold text-gray-900">${Number(item.costoTotal).toFixed(2)}</td>
+                      <td className="p-3 text-right text-gray-600">${Number(item.precioUnitario).toFixed(2)}</td>
+                      <td className="p-3 text-right font-semibold text-gray-900">${Number(item.subtotal).toFixed(2)}</td>
                     </tr>
                   ))}
                   {/* Repuestos */}
-                  {presupuestoItems.map((item: any) => (
-                    <tr key={`item-${item.id}`}>
+                  {repuestos.map((item: any) => (
+                    <tr key={`repuesto-${item.id}`}>
                       <td className="p-3 text-gray-800 font-medium">
                         {item.parte?.nombre || 'Ítem de repuesto'}
                         {item.parte?.codigoInterno && <span className="text-xs text-gray-500 ml-1">({item.parte.codigoInterno})</span>}

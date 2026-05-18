@@ -10,7 +10,6 @@ import { useEstadoPresupuesto } from "@/hooks/useEstadoPresupuesto";
 import { useOrders } from "@/hooks/useOrders";
 import { DocumentTextIcon, CalendarIcon, CheckIcon, ClockIcon, XMarkIcon, WrenchScrewdriverIcon, CubeIcon, TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Presupuesto } from "@/hooks/usePresupuesto";
-import AgregarManoObraModal from "./AgregarManoObraModal ";
 import AgregarItemsPresupuestoModal from "./AgregarItemsPresupuestoModal";
 import { apiRequest } from "@/lib/api";
 import ConfirmDialog from "./ConfirmDialog";
@@ -32,20 +31,25 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
     const [cargando, setCargando] = React.useState(false);
     const [errores, setErrores] = React.useState<Record<string, string>>({});
 
+    const formatCurrency = (value?: number) =>
+        new Intl.NumberFormat("es-AR", {
+            style: "currency",
+            currency: "ARS",
+        }).format(Number(value || 0));
+
     // Estados para sub-modales
-    const [isManoObraOpen, setIsManoObraOpen] = React.useState(false);
     const [isItemsOpen, setIsItemsOpen] = React.useState(false);
 
     // Estados para confirmación de eliminación
     const [deleteConfig, setDeleteConfig] = React.useState<{
         isOpen: boolean;
-        type: 'manoObra' | 'item';
+        type: 'item';
         id: number;
         title: string;
         description: string;
     }>({
         isOpen: false,
-        type: 'manoObra',
+        type: 'item',
         id: 0,
         title: '',
         description: ''
@@ -57,7 +61,6 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
             // Filtrar elementos inactivos o borrados antes de ponerlos en el estado editable
             const presupuestoFiltrado = {
                 ...presupuesto,
-                detallesManoObra: presupuesto.detallesManoObra?.filter(mo => mo.estado !== false && !mo.deletedAt) || [],
                 detallesPresupuestoItems: presupuesto.detallesPresupuestoItems?.filter(item => item.estado !== false && !item.deletedAt) || []
             };
             setEditando(presupuestoFiltrado);
@@ -125,23 +128,13 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
         onClose();
     };
 
-    const handleDeleteManoObra = (mo: any) => {
-        setDeleteConfig({
-            isOpen: true,
-            type: 'manoObra',
-            id: mo.id,
-            title: 'Eliminar Servicio',
-            description: `¿Estás seguro de eliminar el servicio "${mo.tipoManoObra?.nombre}"?`
-        });
-    };
-
     const handleDeleteItem = (item: any) => {
         setDeleteConfig({
             isOpen: true,
             type: 'item',
             id: item.id,
-            title: 'Eliminar Repuesto',
-            description: `¿Estás seguro de eliminar el repuesto "${item.parte?.nombre}"?`
+            title: 'Eliminar Elemento',
+            description: `¿Estás seguro de eliminar "${item.parte?.nombre}" del presupuesto?`
         });
     };
 
@@ -149,33 +142,24 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
         if (cargando || !deleteConfig.id) return;
         setCargando(true);
         try {
-            const endpoint = deleteConfig.type === 'manoObra' 
-                ? `/detalles-mano-obra/${deleteConfig.id}`
-                : `/detalles-presupuesto-item/${deleteConfig.id}`;
+            const endpoint = `/detalles-presupuesto-item/${deleteConfig.id}`;
             
             await apiRequest(endpoint, { method: 'DELETE' }, session);
-            toast.success(deleteConfig.type === 'manoObra' ? "Servicio eliminado" : "Repuesto eliminado");
+            toast.success("Elemento eliminado");
             
             // Actualizar estado local inmediatamente para feedback instantáneo
             setEditando(prev => {
                 if (!prev) return null;
-                if (deleteConfig.type === 'manoObra') {
-                    return {
-                        ...prev,
-                        detallesManoObra: prev.detallesManoObra?.filter(mo => mo.id !== deleteConfig.id)
-                    };
-                } else {
-                    return {
-                        ...prev,
-                        detallesPresupuestoItems: prev.detallesPresupuestoItems?.filter(item => item.id !== deleteConfig.id)
-                    };
-                }
+                return {
+                    ...prev,
+                    detallesPresupuestoItems: prev.detallesPresupuestoItems?.filter(item => item.id !== deleteConfig.id)
+                };
             });
 
             // Cerrar el diálogo y resetear ID
             setDeleteConfig({
                 isOpen: false,
-                type: 'manoObra',
+                type: 'item',
                 id: 0,
                 title: '',
                 description: ''
@@ -335,33 +319,19 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                 <div>
                                     <h5 className="text-sm font-black uppercase tracking-widest text-gray-400 mb-4">Mano de Obra / Servicios</h5>
                                     <div className="space-y-2">
-                                        {/* Legacy Labor */}
-                                        {editando?.detallesManoObra?.filter(mo => mo.estado !== false && !mo.deletedAt).map((mo) => (
-                                            <div key={`mo-${mo.id}`} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
-                                                <div className="flex items-center gap-3">
-                                                    <WrenchScrewdriverIcon className="h-4 w-4 text-brand-500" />
-                                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                        {mo.cantidad}x {mo.tipoManoObra?.nombre || `Servicio #${mo.id}`}
-                                                    </span>
-                                                </div>
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => handleDeleteManoObra(mo)}
-                                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                                >
-                                                    <TrashIcon className="h-4 w-4" />
-                                                </button>
-                                            </div>
-                                        ))}
-
-                                        {/* New Catalog Services */}
+                                        {/* Catalog Services */}
                                         {editando?.detallesPresupuestoItems?.filter(item => item.estado !== false && !item.deletedAt && item.parte?.unidadMedida === 'Servicio').map((item) => (
-                                            <div key={`item-service-${item.id}`} className="flex items-center justify-between p-3 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30">
+                                            <div key={`item-service-${item.id}`} className="flex items-center justify-between p-3 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 animate-fadeIn">
                                                 <div className="flex items-center gap-3">
                                                     <WrenchScrewdriverIcon className="h-4 w-4 text-blue-500" />
-                                                    <span className="text-sm font-bold text-blue-900 dark:text-blue-300">
-                                                        {item.cantidad}x {item.parte?.nombre || `Servicio #${item.id}`}
-                                                    </span>
+                                                    <div>
+                                                        <span className="text-sm font-bold text-blue-900 dark:text-blue-300">
+                                                            {item.cantidad}x {item.parte?.nombre || `Servicio #${item.id}`}
+                                                        </span>
+                                                        <div className="text-[10px] text-blue-500 dark:text-blue-400 mt-0.5 font-semibold">
+                                                            Precio Unit: {formatCurrency(item.precioUnitario)} | Subtotal: {formatCurrency(item.subtotal)}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                                 <button 
                                                     type="button"
@@ -373,14 +343,11 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                             </div>
                                         ))}
 
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsManoObraOpen(true)}
-                                            className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:bg-brand-50/50 transition-all text-xs font-bold text-gray-500 hover:text-brand-600"
-                                        >
-                                            <PlusIcon className="h-4 w-4" />
-                                            AÑADIR SERVICIO (LEGADO)
-                                        </button>
+                                        {editando?.detallesPresupuestoItems?.filter(item => item.estado !== false && !item.deletedAt && item.parte?.unidadMedida === 'Servicio').length === 0 && (
+                                            <div className="text-xs text-gray-400 text-center py-2 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                                                No hay servicios registrados en este presupuesto.
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -388,12 +355,17 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                     <h5 className="text-sm font-black uppercase tracking-widest text-gray-400 mb-4">Repuestos / Ítems</h5>
                                     <div className="space-y-2">
                                         {editando?.detallesPresupuestoItems?.filter(item => item.estado !== false && !item.deletedAt && item.parte?.unidadMedida !== 'Servicio').map((item) => (
-                                            <div key={`item-prod-${item.id}`} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+                                            <div key={`item-prod-${item.id}`} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 animate-fadeIn">
                                                 <div className="flex items-center gap-3">
                                                     <CubeIcon className="h-4 w-4 text-brand-500" />
-                                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                        {item.cantidad}x {item.parte?.nombre || `Ítem #${item.id}`}
-                                                    </span>
+                                                    <div>
+                                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                            {item.cantidad}x {item.parte?.nombre || `Ítem #${item.id}`}
+                                                        </span>
+                                                        <div className="text-[10px] text-gray-500 mt-0.5 font-semibold">
+                                                            Precio Unit: {formatCurrency(item.precioUnitario)} | Subtotal: {formatCurrency(item.subtotal)}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                                 <button 
                                                     type="button"
@@ -404,36 +376,57 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                                 </button>
                                             </div>
                                         ))}
+
+                                        {editando?.detallesPresupuestoItems?.filter(item => item.estado !== false && !item.deletedAt && item.parte?.unidadMedida !== 'Servicio').length === 0 && (
+                                            <div className="text-xs text-gray-400 text-center py-2 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                                                No hay repuestos registrados en este presupuesto.
+                                            </div>
+                                        )}
+
                                         <button
                                             type="button"
                                             onClick={() => setIsItemsOpen(true)}
-                                            className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:bg-brand-50/50 transition-all text-xs font-bold text-gray-500 hover:text-brand-600"
+                                            className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:bg-brand-50/50 transition-all text-xs font-bold text-gray-500 hover:text-brand-600 mt-2"
                                         >
                                             <PlusIcon className="h-4 w-4" />
                                             AÑADIR ITEM / SERVICIO
                                         </button>
                                     </div>
                                 </div>
+
+                                {/* Resumen de Totales en Tiempo Real */}
+                                {(() => {
+                                    const totalServicios = editando.detallesPresupuestoItems
+                                        ?.filter(item => item.estado !== false && !item.deletedAt && item.parte?.unidadMedida === 'Servicio')
+                                        .reduce((sum, item) => sum + Number(item.subtotal || 0), 0) || 0;
+
+                                    const totalProductos = editando.detallesPresupuestoItems
+                                        ?.filter(item => item.estado !== false && !item.deletedAt && item.parte?.unidadMedida !== 'Servicio')
+                                        .reduce((sum, item) => sum + Number(item.subtotal || 0), 0) || 0;
+
+                                    const totalGeneral = totalServicios + totalProductos;
+
+                                    return (
+                                        <div className="bg-gray-100 dark:bg-gray-850 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 flex items-center justify-between mt-4">
+                                            <div>
+                                                <span className="text-[10px] text-gray-500 uppercase font-black tracking-wider block">Total General Acumulado</span>
+                                                <span className="text-2xl font-black text-gray-900 dark:text-white">
+                                                    {formatCurrency(totalGeneral)}
+                                                </span>
+                                            </div>
+                                            <div className="text-right text-[11px] text-gray-500 space-y-0.5 font-semibold">
+                                                <div>Servicios: {formatCurrency(totalServicios)}</div>
+                                                <div>Repuestos: {formatCurrency(totalProductos)}</div>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
                     </div>
                 </form>
 
                 {/* Sub-modales para gestión profunda - FUERA del form para evitar anidamiento */}
-                {isManoObraOpen && (
-                    <AgregarManoObraModal
-                        isOpen={isManoObraOpen}
-                        onClose={() => {
-                            setIsManoObraOpen(false);
-                        }}
-                        onSuccess={() => {
-                            onSave(editando!, false); // Refrescar datos sin cerrar modal
-                            setIsManoObraOpen(false);
-                        }}
-                        presupuestoId={editando.id}
-                    />
-                )}
-
                 {isItemsOpen && (
                     <AgregarItemsPresupuestoModal
                         isOpen={isItemsOpen}

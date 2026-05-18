@@ -53,21 +53,7 @@ export interface OrderPresupuesto {
   };
   estadoId: number;
   detallesPresupuestoItems?: OrderDetallePresupuestoItem[];
-  detallesManoObra?: OrderDetalleManoObra[];
   deletedAt?: string | null;
-}
-
-export interface OrderDetalleManoObra {
-  id: number;
-  cantidad: number;
-  costoUnitario: number;
-  costoTotal: number;
-  estado?: boolean;
-  deletedAt?: string | null;
-  tipoManoObra?: {
-    id: number;
-    nombre: string;
-  };
 }
 
 export interface OrderDetallePresupuestoItem {

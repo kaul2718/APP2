@@ -19,8 +19,9 @@ export function useUserData() {
   const [user, setUser] = useState<UserProfileData | null>(null);
 
   useEffect(() => {
-    if (session?.user?.user) {
-      const { nombre, correo, ciudad, direccion, telefono, role: rol } = session.user.user;
+    const sessionUser = (session?.user as any)?.user;
+    if (sessionUser) {
+      const { nombre, correo, ciudad, direccion, telefono, role: rol } = sessionUser;
       setUser({
         nombre,
         correo,

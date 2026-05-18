@@ -36,7 +36,7 @@ export default function UserAddressCard() {
                 País
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {usuario.country || "Ecuador"} {/* Ajusta si tienes ese campo */}
+                {(usuario as any).country || "Ecuador"} {/* Ajusta si tienes ese campo */}
               </p>
             </div>
 

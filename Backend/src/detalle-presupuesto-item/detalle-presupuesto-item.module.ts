@@ -5,10 +5,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { DetallePresupuestoItem } from './entities/detalle-presupuesto-item.entity';
 import { Presupuesto } from 'src/presupuesto/entities/presupuesto.entity';
 import { Parte } from 'src/parte/entities/parte.entity';
+import { NotificacionModule } from 'src/notificacion/notificacion.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([DetallePresupuestoItem, Presupuesto, Parte]),
+    NotificacionModule,
   ],
   controllers: [DetallePresupuestoItemController],
   providers: [DetallePresupuestoItemService],
