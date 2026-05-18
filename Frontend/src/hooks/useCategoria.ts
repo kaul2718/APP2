@@ -25,7 +25,7 @@ interface UpdateCategoriaDto {
     estado?: boolean;
 }
 
-export function useCategoria() {
+export function useCategoria(autoFetch: boolean = true) {
     const { data: session, status } = useSession();
     const {
         items: categorias,
@@ -74,10 +74,10 @@ export function useCategoria() {
     const restoreCategoria = restoreItem;
 
     useEffect(() => {
-        if (status === "authenticated") {
+        if (autoFetch && status === "authenticated") {
             fetchCategorias(1, 10, searchTerm, showInactive);
         }
-    }, [status, session, searchTerm, showInactive]);
+    }, [status, session, searchTerm, showInactive, autoFetch]);
 
     return {
         categorias,

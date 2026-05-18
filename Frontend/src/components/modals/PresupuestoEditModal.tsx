@@ -335,8 +335,9 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                 <div>
                                     <h5 className="text-sm font-black uppercase tracking-widest text-gray-400 mb-4">Mano de Obra / Servicios</h5>
                                     <div className="space-y-2">
+                                        {/* Legacy Labor */}
                                         {editando?.detallesManoObra?.filter(mo => mo.estado !== false && !mo.deletedAt).map((mo) => (
-                                            <div key={mo.id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+                                            <div key={`mo-${mo.id}`} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
                                                 <div className="flex items-center gap-3">
                                                     <WrenchScrewdriverIcon className="h-4 w-4 text-brand-500" />
                                                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -352,13 +353,33 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                                 </button>
                                             </div>
                                         ))}
+
+                                        {/* New Catalog Services */}
+                                        {editando?.detallesPresupuestoItems?.filter(item => item.estado !== false && !item.deletedAt && item.parte?.unidadMedida === 'Servicio').map((item) => (
+                                            <div key={`item-service-${item.id}`} className="flex items-center justify-between p-3 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30">
+                                                <div className="flex items-center gap-3">
+                                                    <WrenchScrewdriverIcon className="h-4 w-4 text-blue-500" />
+                                                    <span className="text-sm font-bold text-blue-900 dark:text-blue-300">
+                                                        {item.cantidad}x {item.parte?.nombre || `Servicio #${item.id}`}
+                                                    </span>
+                                                </div>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => handleDeleteItem(item)}
+                                                    className="p-1.5 text-blue-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                >
+                                                    <TrashIcon className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+
                                         <button
                                             type="button"
                                             onClick={() => setIsManoObraOpen(true)}
                                             className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:bg-brand-50/50 transition-all text-xs font-bold text-gray-500 hover:text-brand-600"
                                         >
                                             <PlusIcon className="h-4 w-4" />
-                                            AÑADIR SERVICIO
+                                            AÑADIR SERVICIO (LEGADO)
                                         </button>
                                     </div>
                                 </div>
@@ -366,8 +387,8 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                 <div>
                                     <h5 className="text-sm font-black uppercase tracking-widest text-gray-400 mb-4">Repuestos / Ítems</h5>
                                     <div className="space-y-2">
-                                        {editando?.detallesPresupuestoItems?.filter(item => item.estado !== false && !item.deletedAt).map((item) => (
-                                            <div key={item.id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+                                        {editando?.detallesPresupuestoItems?.filter(item => item.estado !== false && !item.deletedAt && item.parte?.unidadMedida !== 'Servicio').map((item) => (
+                                            <div key={`item-prod-${item.id}`} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
                                                 <div className="flex items-center gap-3">
                                                     <CubeIcon className="h-4 w-4 text-brand-500" />
                                                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -389,7 +410,7 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                             className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:bg-brand-50/50 transition-all text-xs font-bold text-gray-500 hover:text-brand-600"
                                         >
                                             <PlusIcon className="h-4 w-4" />
-                                            AÑADIR REPUESTO
+                                            AÑADIR ITEM / SERVICIO
                                         </button>
                                     </div>
                                 </div>

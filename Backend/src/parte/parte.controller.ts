@@ -29,8 +29,11 @@ export class ParteController {
     @Query('limit') limit: any = 10,
     @Query('search') search?: string,
     @Query('includeInactive') includeInactive?: any,
+    @Query('unidadMedida') unidadMedida?: string,
+    @Query('isNotServicio') isNotServicio?: any,
   ) {
     const isIncludeInactive = includeInactive === 'true' || includeInactive === true;
+    const isNotServ = isNotServicio === 'true' || isNotServicio === true;
     const limitNum = Number(limit) || 10;
     const pageNum = Number(page) || 1;
 
@@ -39,6 +42,8 @@ export class ParteController {
       limitNum,
       search,
       isIncludeInactive,
+      unidadMedida,
+      isNotServ,
     );
 
     return {

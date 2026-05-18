@@ -11,9 +11,9 @@ import { HashtagIcon, TagIcon, CheckIcon, MagnifyingGlassIcon, ArchiveBoxIcon, C
 import { ItemAlmacen, useAlmacen } from "@/hooks/useAlmacen";
 
 interface FormData {
-    presupuestoId: number | string;
-    parteId: number | string;
-    cantidad: number | string;
+    presupuestoId: number;
+    parteId: string;
+    cantidad: number;
     comentario?: string;
 }
 
@@ -88,7 +88,7 @@ export default function AgregarItemsPresupuestoModal({
         );
 
     const handleChange = (field: keyof FormData, value: any) => {
-        setFormData(prev => ({ ...prev, [field]: value } as FormData));
+        setFormData(prev => ({ ...prev, [field]: value }));
         if (errors[field]) {
             setErrors(prev => {
                 const newErrors = { ...prev };
@@ -99,9 +99,9 @@ export default function AgregarItemsPresupuestoModal({
     };
 
     const formatCurrency = (value?: number) =>
-        new Intl.NumberFormat("es-AR", {
+        new Intl.NumberFormat("es-EC", {
             style: "currency",
-            currency: "ARS",
+            currency: "USD",
         }).format(Number(value || 0));
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -159,7 +159,7 @@ export default function AgregarItemsPresupuestoModal({
             <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
                     <Label>Seleccionar Ítem del Almacén *</Label>
-                    <Combobox value={formData.parteId} onChange={(val) => handleChange("parteId", val)}>
+                    <Combobox value={formData.parteId} onChange={(val: string) => handleChange("parteId", val)}>
                         <div className="relative">
                             <div className="relative w-full">
                                 <TagIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
@@ -176,10 +176,24 @@ export default function AgregarItemsPresupuestoModal({
 
                             <Combobox.Options className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white py-1 shadow-2xl ring-1 ring-black/5 focus:outline-none dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
                                 {filteredPartes.map((p) => (
-                                    <Combobox.Option key={p.id} value={p.id} className={({ active }) => `relative cursor-default select-none py-3 pl-10 pr-4 text-sm ${active ? 'bg-brand-500 text-white' : 'text-gray-900 dark:text-gray-300'}`}>
-                                        <div className="flex flex-col">
-                                            <span className="font-bold">{p.nombre}</span>
-                                            <span className="text-[10px] opacity-70">Stock: {p.stock} {p.unidadMedida} | PVP: {formatCurrency(p.precio1)}</span>
+                                    <Combobox.Option key={p.id} value={String(p.id)} className={({ active }) => `relative cursor-default select-none py-3 pl-10 pr-4 text-sm ${active ? 'bg-brand-500 text-white' : 'text-gray-900 dark:text-gray-300'}`}>
+                                        <div className="flex flex-col gap-1">
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-bold">{p.nombre}</span>
+                                                <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${
+                                                    p.unidadMedida === 'Servicio' 
+                                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' 
+                                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                                                }`}>
+                                                    {p.unidadMedida === 'Servicio' ? 'Servicio' : 'Producto'}
+                                                </span>
+                                            </div>
+                                            <span className="text-[10px] opacity-70">
+                                                {p.unidadMedida === 'Servicio' 
+                                                    ? `Precio: ${formatCurrency(p.precio1)}`
+                                                    : `Stock: ${p.stock} ${p.unidadMedida} | PVP: ${formatCurrency(p.precio1)}`
+                                                }
+                                            </span>
                                         </div>
                                     </Combobox.Option>
                                 ))}
@@ -194,7 +208,7 @@ export default function AgregarItemsPresupuestoModal({
                         <Label>Cantidad *</Label>
                         <div className="relative">
                             <HashtagIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                            <Input type="number" min="1" value={formData.cantidad} onChange={(e) => handleChange("cantidad", e.target.value)} className="pl-10 font-bold" />
+                            <Input type="number" min="1" value={formData.cantidad} onChange={(e) => handleChange("cantidad", Number(e.target.value))} className="pl-10 font-bold" />
                         </div>
                     </div>
                     {selectedParte && (

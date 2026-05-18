@@ -65,11 +65,11 @@ export class Parte {
   @Column()
   categoriaId: number;
 
-  @ManyToOne(() => Marca)
+  @ManyToOne(() => Marca, { nullable: true })
   @JoinColumn({ name: 'marcaId' })
   marca: Marca;
 
-  @Column()
+  @Column({ nullable: true })
   marcaId: number;
 
   /*CONTROL */

@@ -677,11 +677,11 @@ export default function PerfilOrdenPage() {
                       </p>
                     </div>
                     
-                    {/* Items loop if exist */}
-                    {order.presupuesto.detallesPresupuestoItems && order.presupuesto.detallesPresupuestoItems.filter(i => i.estado !== false && !i.deletedAt).length > 0 && (
+                    {/* Items loop (Only Products) */}
+                    {order.presupuesto.detallesPresupuestoItems && order.presupuesto.detallesPresupuestoItems.filter(i => i.estado !== false && !i.deletedAt && i.parte?.unidadMedida !== 'Servicio').length > 0 && (
                       <div className="space-y-2 border-y border-gray-100 py-3 dark:border-gray-700">
-                        {order.presupuesto.detallesPresupuestoItems.filter(i => i.estado !== false && !i.deletedAt).map((item) => (
-                          <div key={item.id} className="flex justify-between text-xs">
+                        {order.presupuesto.detallesPresupuestoItems.filter(i => i.estado !== false && !i.deletedAt && i.parte?.unidadMedida !== 'Servicio').map((item) => (
+                          <div key={`side-item-${item.id}`} className="flex justify-between text-xs">
                             <span className="text-gray-500">{item.cantidad}x {item.parte?.nombre}</span>
                             <span className="font-medium text-gray-900 dark:text-white">
                               ${Number(item.subtotal || 0).toFixed(2)}
@@ -691,14 +691,27 @@ export default function PerfilOrdenPage() {
                       </div>
                     )}
 
-                    {/* Mano de obra loop if exist */}
-                    {order.presupuesto.detallesManoObra && order.presupuesto.detallesManoObra.filter(i => i.estado !== false && !i.deletedAt).length > 0 && (
+                    {/* Mano de obra loop (Legacy + New Services) */}
+                    {(
+                      (order.presupuesto.detallesManoObra?.filter(i => i.estado !== false && !i.deletedAt).length || 0) > 0 || 
+                      (order.presupuesto.detallesPresupuestoItems?.filter(i => i.estado !== false && !i.deletedAt && i.parte?.unidadMedida === 'Servicio').length || 0) > 0
+                    ) && (
                       <div className="space-y-2 pb-3">
-                        {order.presupuesto.detallesManoObra.filter(i => i.estado !== false && !i.deletedAt).map((mo) => (
-                          <div key={mo.id} className="flex justify-between text-xs">
+                        {/* Legacy Labor */}
+                        {order.presupuesto.detallesManoObra?.filter(i => i.estado !== false && !i.deletedAt).map((mo) => (
+                          <div key={`side-mo-${mo.id}`} className="flex justify-between text-xs">
                             <span className="text-gray-500">{mo.cantidad}x {mo.tipoManoObra?.nombre}</span>
                             <span className="font-medium text-gray-900 dark:text-white">
                               ${Number(mo.costoTotal || 0).toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                        {/* New Catalog Services */}
+                        {order.presupuesto.detallesPresupuestoItems?.filter(i => i.estado !== false && !i.deletedAt && i.parte?.unidadMedida === 'Servicio').map((item) => (
+                          <div key={`side-service-${item.id}`} className="flex justify-between text-xs border-l-2 border-blue-400 pl-2 ml-1">
+                            <span className="text-blue-600 dark:text-blue-400 font-medium">{item.cantidad}x {item.parte?.nombre}</span>
+                            <span className="font-bold text-blue-700 dark:text-blue-300">
+                              ${Number(item.subtotal || 0).toFixed(2)}
                             </span>
                           </div>
                         ))}

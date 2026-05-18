@@ -11,7 +11,8 @@ import {
   ExclamationTriangleIcon,
   CurrencyDollarIcon,
   ShoppingBagIcon,
-  TruckIcon
+  TruckIcon,
+  CogIcon
 } from "@heroicons/react/24/outline";
 import AlmacenTable from "@/components/tables/almacenTable";
 import AgregarAlmacenModal from "@/components/modals/AgregarAlmacenModal";
@@ -21,8 +22,18 @@ import { apiRequest } from "@/lib/api";
 export default function AlmacenComponent() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [tableRefreshKey, setTableRefreshKey] = useState(0);
-    const hook = useAlmacen();
+    const [activeFilter, setActiveFilter] = useState<"all" | "productos" | "servicios">("productos");
+    const hook = useAlmacen(false);
     const [allItemsForStats, setAllItemsForStats] = useState<ItemAlmacen[]>([]);
+
+    // Fetch for the main table data
+    useEffect(() => {
+        const filters: any = {};
+        if (activeFilter === "servicios") filters.unidadMedida = "Servicio";
+        if (activeFilter === "productos") filters.isNotServicio = "true";
+        
+        hook.fetchItems(1, 10, hook.searchTerm, hook.showInactive, filters);
+    }, [activeFilter, tableRefreshKey]);
 
     // Fetch all for stats
     const { data: session } = useSession();
@@ -30,7 +41,14 @@ export default function AlmacenComponent() {
         const loadAllForStats = async () => {
             if (!session?.accessToken) return;
             try {
-                const data = await apiRequest<any>('/partes/all?limit=1000&page=1&includeInactive=true', {}, session);
+                let url = '/partes/all?limit=1000&page=1&includeInactive=true';
+                if (activeFilter === "servicios") {
+                    url += '&unidadMedida=Servicio';
+                } else if (activeFilter === "productos") {
+                    url += '&isNotServicio=true';
+                }
+
+                const data = await apiRequest<any>(url, {}, session);
                 if (data && Array.isArray(data.items)) {
                     setAllItemsForStats(data.items);
                 }
@@ -39,7 +57,20 @@ export default function AlmacenComponent() {
             }
         };
         loadAllForStats();
-    }, [session, tableRefreshKey]);
+    }, [session, tableRefreshKey, activeFilter]);
+
+    // Handle filter changes
+    useEffect(() => {
+        if (session?.accessToken) {
+            const extraFilters: any = {};
+            if (activeFilter === "servicios") {
+                extraFilters.unidadMedida = "Servicio";
+            } else if (activeFilter === "productos") {
+                extraFilters.isNotServicio = "true"; // Backend should handle this or similar
+            }
+            hook.fetchItems(1, 10, hook.searchTerm, hook.showInactive, extraFilters);
+        }
+    }, [activeFilter, session]);
 
     // Stats calculations
     const stats = useMemo(() => {
@@ -70,41 +101,73 @@ export default function AlmacenComponent() {
             {/* Quick Stats Section */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard 
-                    icon={<ArchiveBoxIcon className="w-6 h-6 text-brand-500" />} 
-                    label="Items en Catálogo" 
+                    icon={activeFilter === "servicios" ? <CogIcon className="w-6 h-6 text-brand-500" /> : <ArchiveBoxIcon className="w-6 h-6 text-brand-500" />} 
+                    label={activeFilter === "all" ? "Items en Catálogo" : activeFilter === "servicios" ? "Servicios Registrados" : "Productos en Catálogo"} 
                     value={stats.totalItems} 
                     delay={0.1}
                 />
-                <StatCard 
-                    icon={<TruckIcon className="w-6 h-6 text-blue-500" />} 
-                    label="Stock Físico Total" 
-                    value={formatStock(stats.totalPhysicalStock)} 
-                    delay={0.2}
-                />
-                <StatCard 
-                    icon={<ExclamationTriangleIcon className="w-6 h-6 text-amber-500" />} 
-                    label="Items Stock Bajo" 
-                    value={stats.lowStockItems} 
-                    colorClass="text-amber-600"
-                    delay={0.3}
-                />
+                
+                {activeFilter !== "servicios" ? (
+                    <>
+                        <StatCard 
+                            icon={<TruckIcon className="w-6 h-6 text-blue-500" />} 
+                            label="Stock Físico Total" 
+                            value={formatStock(stats.totalPhysicalStock)} 
+                            delay={0.2}
+                        />
+                        <StatCard 
+                            icon={<ExclamationTriangleIcon className="w-6 h-6 text-amber-500" />} 
+                            label="Items Stock Bajo" 
+                            value={stats.lowStockItems} 
+                            colorClass="text-amber-600"
+                            delay={0.3}
+                        />
+                    </>
+                ) : (
+                    <div className="hidden lg:block lg:col-span-2"></div>
+                )}
+
                 <StatCard 
                     icon={<CurrencyDollarIcon className="w-6 h-6 text-green-500" />} 
-                    label="Valor del Inventario" 
+                    label={activeFilter === "servicios" ? "Valor de Servicios" : "Valor del Inventario"} 
                     value={formatCurrency(stats.totalStockValue)} 
                     delay={0.4}
                 />
             </div>
 
-            {/* Main Section Header */}
+            {/* Main Section Header with Filters */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-brand-500/10 rounded-lg">
-                        <ShoppingBagIcon className="h-5 w-5 text-brand-500" />
+                <div className="flex flex-col md:flex-row md:items-center gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-brand-500/10 rounded-lg">
+                            <ShoppingBagIcon className="h-5 w-5 text-brand-500" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Inventario Unificado</h2>
+                            <p className="text-[10px] text-gray-500 uppercase tracking-wider">Productos y Servicios</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Inventario Unificado</h2>
-                        <p className="text-xs text-gray-500">Control de precios, costos y existencias reales</p>
+
+                    {/* Filter Tabs */}
+                    <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit">
+                        {[
+                            { id: "all", label: "Todos", icon: null },
+                            { id: "productos", label: "Productos", icon: <ArchiveBoxIcon className="w-4 h-4" /> },
+                            { id: "servicios", label: "Servicios", icon: <CogIcon className="w-4 h-4" /> }
+                        ].map((filter) => (
+                            <button
+                                key={filter.id}
+                                onClick={() => setActiveFilter(filter.id as any)}
+                                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                    activeFilter === filter.id
+                                    ? "bg-white dark:bg-gray-700 text-brand-600 dark:text-white shadow-sm"
+                                    : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                }`}
+                            >
+                                {filter.icon}
+                                {filter.label}
+                            </button>
+                        ))}
                     </div>
                 </div>
 
@@ -117,7 +180,7 @@ export default function AlmacenComponent() {
                         className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 shadow-lg shadow-brand-500/20"
                     >
                         <PlusCircleIcon className="w-5 h-5" />
-                        <span>Nuevo Producto</span>
+                        <span>Nuevo Item</span>
                     </Button>
                 </motion.div>
             </div>
@@ -133,6 +196,13 @@ export default function AlmacenComponent() {
                     <AlmacenTable 
                         key={tableRefreshKey} 
                         almacenHook={hook}
+                        extraFilters={
+                            activeFilter === "servicios" 
+                            ? { unidadMedida: "Servicio" } 
+                            : activeFilter === "productos" 
+                            ? { isNotServicio: "true" } 
+                            : {}
+                        }
                         onDataChange={() => setTableRefreshKey(prev => prev + 1)}
                     />
                 </div>
@@ -143,7 +213,6 @@ export default function AlmacenComponent() {
                 onClose={() => setIsAddModalOpen(false)}
                 onSuccess={() => {
                     setTableRefreshKey((prev) => prev + 1);
-                    hook.fetchItems(1, 10);
                 }}
             />
         </div>

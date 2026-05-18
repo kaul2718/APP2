@@ -19,13 +19,15 @@ import {
   MapPinIcon
 } from "@heroicons/react/24/outline";
 import ExclamationTriangleIcon from "@heroicons/react/24/solid/ExclamationTriangleIcon";
+import CogIcon from "@heroicons/react/24/solid/CogIcon";
 
 interface AlmacenTableProps {
   almacenHook?: any;
   onDataChange?: () => void;
+  extraFilters?: Record<string, any>;
 }
 
-export default function AlmacenTable({ almacenHook, onDataChange }: AlmacenTableProps) {
+export default function AlmacenTable({ almacenHook, onDataChange, extraFilters = {} }: AlmacenTableProps) {
   const internalHook = useAlmacen();
   const hook = almacenHook || internalHook;
 
@@ -66,7 +68,7 @@ export default function AlmacenTable({ almacenHook, onDataChange }: AlmacenTable
 
   const handleSaveItem = (itemActualizado: ItemAlmacen) => {
     setItems((prev: ItemAlmacen[]) => prev.map((p) => (p.id === itemActualizado.id ? itemActualizado : p)));
-    fetchItems(currentPage, 10, searchTerm, showInactive);
+    fetchItems(currentPage, 10, searchTerm, showInactive, extraFilters);
     onDataChange?.();
   };
 
@@ -84,7 +86,7 @@ export default function AlmacenTable({ almacenHook, onDataChange }: AlmacenTable
     try {
       await toggleItemStatus(item.id);
       toast.success(`Item ${estaActivo ? "deshabilitado" : "habilitado"} correctamente`);
-      fetchItems(currentPage, 10, searchTerm, showInactive);
+      fetchItems(currentPage, 10, searchTerm, showInactive, extraFilters);
       onDataChange?.();
     } catch (error) {
       console.error(`Error al ${accion} el item:`, error);
@@ -136,6 +138,7 @@ export default function AlmacenTable({ almacenHook, onDataChange }: AlmacenTable
         const isZero = stockValue <= 0;
         const isLow = stockValue <= minStock && !isZero;
         const isNearLow = stockValue <= (minStock + 5) && !isLow && !isZero;
+        const isService = unidad === "Servicio";
 
         // Format stock value
         const displayStock = (unidad === "Unidad" || unidad === "Servicio")
@@ -150,32 +153,43 @@ export default function AlmacenTable({ almacenHook, onDataChange }: AlmacenTable
         return (
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <span className={`text-sm font-bold ${
-                  isZero ? 'text-red-600' :
-                  isLow ? 'text-amber-600' :
-                  isNearLow ? 'text-yellow-600' :
-                  'text-gray-900 dark:text-white'
-                }`}>
-                {displayStock} <span className="text-[10px] font-medium text-gray-500 uppercase">{displayUnidad}</span>
-              </span>
+              {isService ? (
+                <div className="flex items-center gap-2 bg-brand-50 dark:bg-brand-900/20 px-3 py-1 rounded-full border border-brand-100 dark:border-brand-900/30 animate-fadeIn">
+                  <CogIcon className="w-4 h-4 text-brand-600 animate-spin-slow" />
+                  <span className="text-xs font-black text-brand-700 dark:text-brand-400 tracking-wider">SERVICIO</span>
+                </div>
+              ) : (
+                <>
+                  <span className={`text-sm font-bold ${
+                      isZero ? 'text-red-600' :
+                      isLow ? 'text-amber-600' :
+                      isNearLow ? 'text-yellow-600' :
+                      'text-gray-900 dark:text-white'
+                    }`}>
+                    {displayStock} <span className="text-[10px] font-medium text-gray-500 uppercase">{displayUnidad}</span>
+                  </span>
 
-              {isZero ? (
-                <Badge size="sm" color="error" variant="light" className="animate-pulse">Agotado</Badge>
-              ) : isLow ? (
-                <Badge size="sm" color="warning" variant="light" className="flex items-center gap-1">
-                  <ExclamationTriangleIcon className="w-3 h-3 text-amber-500" />
-                  Crítico
-                </Badge>
-              ) : isNearLow ? (
-                <Badge size="sm" color="warning" variant="light" className="opacity-80">
-                  Por Agotarse
-                </Badge>
-              ) : null}
+                  {isZero ? (
+                    <Badge size="sm" color="error" variant="light" className="animate-pulse">Agotado</Badge>
+                  ) : isLow ? (
+                    <Badge size="sm" color="warning" variant="light" className="flex items-center gap-1">
+                      <ExclamationTriangleIcon className="w-3 h-3 text-amber-500" />
+                      Crítico
+                    </Badge>
+                  ) : isNearLow ? (
+                    <Badge size="sm" color="warning" variant="light" className="opacity-80">
+                      Por Agotarse
+                    </Badge>
+                  ) : null}
+                </>
+              )}
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5">
-              <MapPinIcon className="h-3 w-3" />
-              {item.ubicacion || 'No asignada'}
-            </div>
+            {!isService && (
+              <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-1 animate-fadeIn">
+                <MapPinIcon className="h-3 w-3" />
+                {item.ubicacion || 'No asignada'}
+              </div>
+            )}
           </div>
         );
       }
@@ -264,18 +278,18 @@ export default function AlmacenTable({ almacenHook, onDataChange }: AlmacenTable
         searchTerm={searchTerm}
         onSearchChange={(term) => {
           setSearchTerm(term);
-          fetchItems(1, 10, term, showInactive);
+          fetchItems(1, 10, term, showInactive, extraFilters);
         }}
         showInactive={showInactive}
         onToggleInactive={() => {
           const nextValue = !showInactive;
           setShowInactive(nextValue);
-          fetchItems(1, 10, searchTerm, nextValue);
+          fetchItems(1, 10, searchTerm, nextValue, extraFilters);
         }}
         totalItems={totalItems}
         currentPage={currentPage}
         totalPages={totalPages}
-        onPageChange={(page) => fetchItems(page, 10, searchTerm, showInactive)}
+        onPageChange={(page) => fetchItems(page, 10, searchTerm, showInactive, extraFilters)}
         actions={rowActions}
         getRowKey={(item) => item.id}
       />

@@ -165,6 +165,8 @@ export class ParteService {
     limit: any,
     search?: string,
     includeInactive = false,
+    unidadMedida?: string,
+    isNotServicio?: boolean,
   ): Promise<{ data: Parte[]; total: number }> {
     const limitNum = Number(limit) || 10;
     const pageNum = Number(page) || 1;
@@ -186,6 +188,14 @@ export class ParteService {
                  OR LOWER(parte.descripcion) LIKE LOWER(:search))`,
                 { search: `%${search}%` }
             );
+        }
+
+        if (unidadMedida) {
+            query.andWhere('parte.unidadMedida = :unidadMedida', { unidadMedida });
+        }
+
+        if (isNotServicio) {
+            query.andWhere('parte.unidadMedida != :serv', { serv: 'Servicio' });
         }
 
         if (!includeInactive) {

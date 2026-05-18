@@ -23,10 +23,10 @@ export class CreateParteDto {
   @Type(() => Number)
   categoriaId: number;
 
+  @IsOptional()
   @IsInt({ message: 'La marca debe ser un número entero' })
-  @Min(1, { message: 'ID de marca inválido' })
   @Type(() => Number)
-  marcaId: number;
+  marcaId?: number;
 
   @IsNumber({}, { message: 'El costo debe ser un número' })
   @Min(0)

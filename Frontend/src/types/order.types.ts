@@ -81,6 +81,7 @@ export interface OrderDetallePresupuestoItem {
     id: number;
     nombre: string;
     codigoInterno?: string;
+    unidadMedida?: string;
   };
 }
 

@@ -29,6 +29,7 @@ export interface Parte {
   nombre: string;
   codigoInterno?: string | null;
   precioReferencia?: number;
+  unidadMedida?: string;
 }
 
 export interface Presupuesto {

@@ -13,7 +13,7 @@ export interface Marca {
   updatedAt: string;
 }
 
-export function useMarcas() {
+export function useMarcas(autoFetch: boolean = true) {
   const { status } = useSession();
   const {
     items: marcas,
@@ -45,10 +45,10 @@ export function useMarcas() {
   };
 
   useEffect(() => {
-    if (status === "authenticated") {
+    if (autoFetch && status === "authenticated") {
       fetchMarcas(1, 10, searchTerm, showDisabled);
     }
-  }, [status, searchTerm, showDisabled]);
+  }, [status, searchTerm, showDisabled, autoFetch]);
 
   return {
     marcas,

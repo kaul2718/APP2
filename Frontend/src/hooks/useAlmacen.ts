@@ -53,7 +53,7 @@ interface CreateItemDto {
   estado?: boolean;
 }
 
-export function useAlmacen() {
+export function useAlmacen(autoFetch: boolean = true) {
   const { data: session, status } = useSession();
   const {
     items,
@@ -91,10 +91,10 @@ export function useAlmacen() {
   });
 
   useEffect(() => {
-    if (status === "authenticated") {
+    if (autoFetch && status === "authenticated") {
       fetchItems(1, 10, searchTerm, showInactive);
     }
-  }, [status, searchTerm, showInactive]);
+  }, [status, searchTerm, showInactive, autoFetch]);
 
   return {
     items,
