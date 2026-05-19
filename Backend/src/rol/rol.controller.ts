@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
 import { RolService } from './rol.service';
 import { CreateRolDto } from './dto/create-rol.dto';
 import { UpdateRolDto } from './dto/update-rol.dto';
@@ -56,5 +56,27 @@ export class RolController {
   @Roles('admin')
   getPermissions(@Param('roleId') roleId: string) {
     return this.rolService.getPermissions(+roleId);
+  }
+
+  /** Bulk-replace all permissions for a role (used by matrix UI) */
+  @Put(':roleId/permissions')
+  @Roles('admin')
+  async setPermissions(
+    @Param('roleId') roleId: string,
+    @Body() body: { permissionIds: number[] },
+  ) {
+    await this.rolService.setPermissions(+roleId, body.permissionIds);
+    return { message: 'Permisos actualizados correctamente' };
+  }
+
+  /** Remove a single permission from a role */
+  @Delete(':roleId/permissions/:permissionId')
+  @Roles('admin')
+  async removePermission(
+    @Param('roleId') roleId: string,
+    @Param('permissionId') permissionId: string,
+  ) {
+    await this.rolService.removePermission(+roleId, +permissionId);
+    return { message: 'Permiso eliminado del rol correctamente' };
   }
 }

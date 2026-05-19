@@ -6,28 +6,21 @@ import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import { ChevronDownIcon, HorizontaLDots } from "../icons/index";
 import SidebarWidget from "./SidebarWidget";
-import { NavItem, navItems } from "@/data/sidebar/navItems";
-import { useUserRole } from "@/data/sidebar/navItems";
+import { NavItem, navItems, getFilteredNavItems } from "@/data/sidebar/navItems";
+import { useSession } from "next-auth/react";
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
-  const role = useUserRole();
+  
+  const { data: session } = useSession();
+  const role = session?.user?.role || null;
+  const permissions = session?.user?.permissions || [];
 
-  // Filtrar los items de navegación según el rol del usuario
+  // Filtrar los items de navegación según el rol y los permisos dinámicos
   const filteredNavItems = React.useMemo(() => {
-    if (!role) return [];
-    return navItems
-      .filter(item => item.roles.includes(role))
-      .map(item => {
-        const filteredSubItems = item.subItems?.filter(subItem => subItem.roles.includes(role));
-
-        return {
-          ...item,
-          subItems: filteredSubItems && filteredSubItems.length > 0 ? filteredSubItems : undefined,
-        };
-      });
-  }, [role]);
+    return getFilteredNavItems(role, permissions);
+  }, [role, permissions]);
 
   const renderMenuItems = (
     items: NavItem[],

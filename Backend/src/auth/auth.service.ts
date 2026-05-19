@@ -98,6 +98,11 @@ export class AuthService {
       ? user.userRoles[0].rol.slug 
       : 'user'; // fallback a 'user' si no tiene roles
 
+    // ✅ Obtener los permisos asociados a su rol en el login
+    const permissionsSlugs = user.userRoles && user.userRoles.length > 0 && user.userRoles[0].rol.rolePermissions
+      ? user.userRoles[0].rol.rolePermissions.map((rp) => rp.permission?.slug).filter(Boolean)
+      : [];
+
     return {
       token,
       user: {
@@ -110,6 +115,7 @@ export class AuthService {
         direccion: user.direccion,
         ciudad: user.ciudad,
         role: userRole,
+        permissions: permissionsSlugs, // ✅ Retornar los slugs de permisos
       },
     };
   }

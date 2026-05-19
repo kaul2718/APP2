@@ -16,6 +16,8 @@ import {
   CpuChipIcon,
   SwatchIcon,
   ArrowTopRightOnSquareIcon,
+  ShieldCheckIcon,
+  KeyIcon,
 } from "@heroicons/react/24/outline";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -99,6 +101,17 @@ const adminGroups: AdminGroup[] = [
     icon: <BellAlertIcon className="w-3.5 h-3.5" />,
     items: [
       { label: "Tipos de Notificación", description: "Categorías de alertas", path: "/ver-tipo-notificacion", icon: <BellAlertIcon className="w-3.5 h-3.5" /> },
+    ],
+  },
+  {
+    id: "seguridad",
+    title: "Seguridad y Accesos",
+    color: "text-amber-500",
+    dotColor: "bg-amber-500",
+    icon: <ShieldCheckIcon className="w-3.5 h-3.5" />,
+    items: [
+      { label: "Gestión de Roles", description: "Administrar roles de usuarios y sus accesos", path: "/ver-roles", icon: <ShieldCheckIcon className="w-3.5 h-3.5" /> },
+      { label: "Catálogo de Permisos", description: "Administrar permisos de módulos del sistema", path: "/ver-permisos", icon: <KeyIcon className="w-3.5 h-3.5" /> },
     ],
   },
 ];

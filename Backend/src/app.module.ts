@@ -34,6 +34,8 @@ import { ChecklistTemplateModule } from './checklist-template/checklist-template
 import { AjusteInventarioModule } from './ajuste-inventario/ajuste-inventario.module';
 import { ProveedorModule } from './proveedor/proveedor.module';
 import { CompraModule } from './compra/compra.module';
+import { ReportsModule } from './reports/reports.module';
+import { SriModule } from './sri/sri.module';
 
 @Module({
   imports: [
@@ -92,12 +94,10 @@ import { CompraModule } from './compra/compra.module';
     AjusteInventarioModule,
     ProveedorModule,
     CompraModule,
+    ReportsModule,
+    SriModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule { }
-
-// El módulo es quien dice qué controllers y servicios trabajan juntos.
-// Es como armar un grupo de panas con una misión específica, como manejar los clientes o los pedidos.
-

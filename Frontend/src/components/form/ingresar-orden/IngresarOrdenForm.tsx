@@ -155,10 +155,15 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     // Manejar creación de cliente
     const handleClienteCreado = async (nuevoCliente: any) => {
         // Inyectar el nuevo cliente inmediatamente en la lista local para que aparezca al instante
-        setUsuarios(prev => [nuevoCliente, ...prev]);
-        setFormData(prev => ({ ...prev, clientId: nuevoCliente.id }));
+        const clientWithFields = {
+            ...nuevoCliente,
+            role: nuevoCliente.role || Role.CLIENT,
+            estado: nuevoCliente.estado !== undefined ? nuevoCliente.estado : true
+        };
+        setUsuarios(prev => [clientWithFields, ...prev]);
+        setFormData(prev => ({ ...prev, clientId: clientWithFields.id }));
         setClientSearch(""); // Limpiar búsqueda para que el Combobox muestre el valor seleccionado
-        await refetchUsuarios(); // Actualiza la lista de usuarios completa en segundo plano
+        await fetchUsuarios(1, 200, "", false); // Mantener la lista de 200 usuarios actualizada
     };
 
     // Manejar creación de equipo

@@ -53,11 +53,11 @@ export function useUsuarioForm({ initialData, mode }: UseUsuarioFormProps) {
     const validateFields = useCallback((): boolean => {
         const newErrors: UsuarioFormErrors = {};
 
-        // Validación de cédula (10 dígitos)
+        // Validación de cédula o RUC (10 o 13 dígitos)
         if (!formData.cedula.trim()) {
-            newErrors.cedula = "La cédula es requerida";
-        } else if (!/^\d{10}$/.test(formData.cedula)) {
-            newErrors.cedula = "La cédula debe tener 10 dígitos";
+            newErrors.cedula = "La identificación es requerida";
+        } else if (!/^\d{10}$|^\d{13}$/.test(formData.cedula)) {
+            newErrors.cedula = "Debe ser Cédula (10 dígitos) o RUC (13 dígitos)";
         }
 
         // Validación de nombre

@@ -29,7 +29,7 @@ const handler = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user }: any) {
       if (user) {
         token.accessToken = user.token;      // Guarda el token JWT del backend
         token.user = user.user;              // Guarda el objeto usuario con datos claros
@@ -37,7 +37,7 @@ const handler = NextAuth({
 
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: any) {
       console.log("JWT CALLBACK token.user:", token.user); // Verifica si el role llega bien
 
       session.user = token.user;             // Session solo tiene los datos usuario limpios

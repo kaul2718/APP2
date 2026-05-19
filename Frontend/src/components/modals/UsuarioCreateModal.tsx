@@ -34,6 +34,28 @@ export default function UsuarioCreateModal({ isOpen, onClose, onSave }: Props) {
         confirmPassword: "",
     };
 
+    const enviarCorreoInvitacion = async (correo: string) => {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/enviar-invitacion`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ correo }),
+        });
+
+        if (!res.ok) {
+            let msg = "Error al enviar la invitación por correo";
+            try {
+                const data = await res.json();
+                msg = data.message || msg;
+            } catch (_) {}
+            throw new Error(msg);
+        }
+
+        return await res.json();
+    };
+
     const handleSubmit = async (formData: UsuarioFormData) => {
         if (!token) {
             toast.error("No hay sesión activa");
@@ -90,7 +112,15 @@ export default function UsuarioCreateModal({ isOpen, onClose, onSave }: Props) {
 
             const data = await response.json();
             onSave(data);
-            toast.success("Usuario creado correctamente");
+
+            // Si no se proporcionó contraseña, enviar correo de invitación
+            if (!formData.password) {
+                await enviarCorreoInvitacion(formData.correo);
+                toast.success("Usuario creado. Se envió un correo de invitación para que establezca su contraseña ✅");
+            } else {
+                toast.success("Usuario creado correctamente");
+            }
+
             onClose();
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Error al crear usuario");

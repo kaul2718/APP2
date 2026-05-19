@@ -41,21 +41,86 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
     });
     const [errors, setErrors] = React.useState<Partial<FormData>>({});
     const [loading, setLoading] = React.useState(false);
+    const [buscandoSri, setBuscandoSri] = React.useState(false);
+    const [mensajeSri, setMensajeSri] = React.useState<{ tipo: "exito" | "error" | "cargando"; texto: string } | null>(null);
 
-    const handleChange = (field: keyof FormData, value: string | Role) => {
+    const handleChange = React.useCallback((field: keyof FormData, value: string | Role) => {
         setFormData(prev => ({ ...prev, [field]: value }));
-        if (errors[field]) {
-            setErrors(prev => ({ ...prev, [field]: undefined }));
+        setErrors(prev => ({ ...prev, [field]: undefined }));
+    }, []);
+
+    const consultarDocumentoSri = React.useCallback(async (doc: string) => {
+        if (!doc || (doc.length !== 10 && doc.length !== 13)) return;
+        const token = session?.accessToken;
+        if (!token) return;
+
+        setBuscandoSri(true);
+        setMensajeSri({ tipo: "cargando", texto: "⏳ Consultando datos de Registro Civil / SRI..." });
+
+        try {
+            const response = await fetch(
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/sri/consultar/${doc}`,
+                {
+                    method: "GET",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error("No se encontraron registros");
+            }
+
+            const data = await response.json();
+            if (data && data.success) {
+                setMensajeSri({ tipo: "exito", texto: "✅ Datos encontrados" });
+                
+                const partes = data.name.trim().split(/\s+/);
+                if (partes.length >= 4) {
+                    handleChange("nombre", `${partes[2]} ${partes[3] || ""}`.trim());
+                    handleChange("apellido", `${partes[0]} ${partes[1]}`.trim());
+                } else if (partes.length === 3) {
+                    handleChange("nombre", partes[2]);
+                    handleChange("apellido", `${partes[0]} ${partes[1]}`);
+                } else if (partes.length === 2) {
+                    handleChange("nombre", partes[1]);
+                    handleChange("apellido", partes[0]);
+                } else {
+                    handleChange("nombre", data.name);
+                    handleChange("apellido", ".");
+                }
+
+                if (data.address) {
+                    handleChange("direccion", data.address);
+                    handleChange("ciudad", data.city || "QUITO");
+                }
+            } else {
+                setMensajeSri({ tipo: "error", texto: "❌ No se encontró información" });
+            }
+        } catch (error) {
+            setMensajeSri({ tipo: "error", texto: "❌ No se encontró información" });
+        } finally {
+            setBuscandoSri(false);
         }
-    };
+    }, [session?.accessToken, handleChange]);
+
+    React.useEffect(() => {
+        if (formData.cedula.length === 10 || formData.cedula.length === 13) {
+            consultarDocumentoSri(formData.cedula);
+        } else {
+            setMensajeSri(null);
+        }
+    }, [formData.cedula, consultarDocumentoSri]);
 
     const validateFields = () => {
         const newErrors: Partial<FormData> = {};
 
         if (!formData.cedula.trim()) {
-            newErrors.cedula = "La cédula es requerida";
-        } else if (!/^\d{10}$/.test(formData.cedula)) {
-            newErrors.cedula = "La cédula debe tener 10 dígitos";
+            newErrors.cedula = "La cédula o RUC es requerido";
+        } else if (!/^\d{10}$|^\d{13}$/.test(formData.cedula)) {
+            newErrors.cedula = "El documento debe tener 10 o 13 dígitos";
         }
 
         if (!formData.nombre.trim()) {
@@ -178,6 +243,7 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
                 ciudad: "",
                 role: Role.CLIENT
             });
+            setMensajeSri(null);
 
             onClose();
             if (onSuccess) onSuccess(nuevoUsuario);
@@ -208,17 +274,26 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
                         <div className="grid grid-cols-1 gap-x-4 gap-y-4 lg:grid-cols-2">
                             {/* Cédula */}
                             <div>
-                                <Label>Cédula *</Label>
+                                <Label>Cédula / RUC *</Label>
                                 <div className="relative">
                                     <IdentificationIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                                     <Input
                                         value={formData.cedula}
                                         onChange={(e) => handleChange("cedula", e.target.value)}
-                                        placeholder="Ej: 1234567890"
-                                        maxLength={10}
+                                        placeholder="Ej: 1234567890 o RUC"
+                                        maxLength={13}
                                         className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
                                     />
                                 </div>
+                                {mensajeSri && (
+                                    <p className={`text-xs mt-1 font-medium ${
+                                        mensajeSri.tipo === "exito" ? "text-green-600 dark:text-green-400" :
+                                        mensajeSri.tipo === "error" ? "text-red-500" :
+                                        "text-blue-500 dark:text-blue-400 animate-pulse"
+                                    }`}>
+                                        {mensajeSri.texto}
+                                    </p>
+                                )}
                                 {errors.cedula && <p className="text-sm text-red-500 mt-1">{errors.cedula}</p>}
                             </div>
 

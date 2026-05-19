@@ -188,7 +188,12 @@ export class UsersService {
 
     const options: any = {
       where: { correo: email, estado: true },
-      relations: ['userRoles', 'userRoles.rol'],
+      relations: [
+        'userRoles',
+        'userRoles.rol',
+        'userRoles.rol.rolePermissions',
+        'userRoles.rol.rolePermissions.permission'
+      ],
     };
 
     if (withPassword) {

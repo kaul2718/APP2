@@ -6,6 +6,7 @@ import {
   ClipboardDocumentListIcon,
   ArchiveBoxIcon,
   Cog8ToothIcon,
+  ChartBarIcon,
 } from "@heroicons/react/24/outline";
 
 export type SubNavItem = {
@@ -14,6 +15,7 @@ export type SubNavItem = {
   pro?: boolean;
   new?: boolean;
   roles: string[];
+  permission?: string; // Nuevo campo opcional para autorizar por permisos de base de datos
 };
 
 export type NavItem = {
@@ -22,6 +24,7 @@ export type NavItem = {
   path?: string;
   subItems?: SubNavItem[];
   roles: string[];
+  permission?: string; // Nuevo campo opcional para autorizar por permisos de base de datos
 };
 
 export const navItems: NavItem[] = [
@@ -39,8 +42,9 @@ export const navItems: NavItem[] = [
       {
         name: "Usuarios",
         path: "/ver-usuario",
-        roles: ["admin"]
-      },
+        roles: ["admin"],
+        permission: "users.view",
+      }
     ],
   },
   {
@@ -51,7 +55,8 @@ export const navItems: NavItem[] = [
       {
         name: "Órdenes",
         path: "/ver-orden",
-        roles: ["admin", "tech", "client"]
+        roles: ["admin", "tech", "client"],
+        permission: "orders.view",
       },
     ],
   },
@@ -64,33 +69,89 @@ export const navItems: NavItem[] = [
         name: "Catálogo e Inventario",
         path: "/items",
         roles: ["admin", "tech"],
+        permission: "almacen.view",
       },
       {
         name: "Ajuste de Inventario",
         path: "/items/ajuste",
         roles: ["admin", "tech"],
+        permission: "almacen.manage",
         new: true,
       },
       {
         name: "Compras y Facturación",
         path: "/items/compras",
         roles: ["admin", "tech"],
+        permission: "almacen.manage",
         new: true,
       },
       {
         name: "Proveedores",
         path: "/items/compras/proveedores",
         roles: ["admin", "tech"],
+        permission: "almacen.manage",
       },
       {
         name: "Categorías",
         path: "/ver-categoria",
-        roles: ["admin", "tech"]
+        roles: ["admin", "tech"],
+        permission: "almacen.view",
       },
       {
         name: "Checklists (Peritaje)",
         path: "/ver-checklist",
-        roles: ["admin"]
+        roles: ["admin"],
+        permission: "orders.view",
+      },
+    ],
+  },
+  {
+    icon: <ChartBarIcon className="w-5 h-5" />,
+    name: "Reportes",
+    roles: ["admin"],
+    permission: "reportes.view",
+    subItems: [
+      {
+        name: "Clientes",
+        path: "/reportes/clientes",
+        roles: ["admin"],
+        permission: "reportes.view",
+      },
+      {
+        name: "Inventario",
+        path: "/reportes/inventario",
+        roles: ["admin"],
+        permission: "reportes.view",
+      },
+      {
+        name: "Compras",
+        path: "/reportes/compras",
+        roles: ["admin"],
+        permission: "reportes.view",
+      },
+      {
+        name: "Presupuestos",
+        path: "/reportes/presupuestos",
+        roles: ["admin"],
+        permission: "reportes.view",
+      },
+      {
+        name: "Órdenes de Servicio",
+        path: "/reportes/ordenes",
+        roles: ["admin"],
+        permission: "reportes.view",
+      },
+      {
+        name: "Técnicos",
+        path: "/reportes/tecnicos",
+        roles: ["admin"],
+        permission: "reportes.view",
+      },
+      {
+        name: "Equipos",
+        path: "/reportes/equipos",
+        roles: ["admin"],
+        permission: "reportes.view",
       },
     ],
   },
@@ -99,6 +160,7 @@ export const navItems: NavItem[] = [
     name: "Administración",
     path: "/admin",
     roles: ["admin"],
+    permission: "roles.manage",
   },
 ];
 
@@ -110,14 +172,49 @@ export const useUserRole = () => {
   return session?.user?.role || null;
 };
 
-// Función para filtrar los items de navegación según el rol
-export const getFilteredNavItems = (role: string | null) => {
+// Función para filtrar los items de navegación según el rol y los permisos en tiempo real
+export const getFilteredNavItems = (role: string | null, permissions: string[] = []) => {
   if (!role) return [];
 
+  const isAdmin = role === "admin";
+
   return navItems
-    .filter(item => item.roles.includes(role))
-    .map(item => ({
-      ...item,
-      subItems: item.subItems?.filter(subItem => subItem.roles.includes(role)) || undefined
-    }));
+    .filter(item => {
+      // 1. Si el item requiere un permiso específico, verificar si el usuario lo tiene (o es admin)
+      if (item.permission) {
+        return isAdmin || permissions.includes(item.permission);
+      }
+
+      // 2. Si es un menú contenedor (con subItems), mostrarlo si al menos un subItem es visible
+      if (item.subItems) {
+        const hasVisibleSubItem = item.subItems.some(sub => {
+          if (sub.permission) {
+            return isAdmin || permissions.includes(sub.permission);
+          }
+          return sub.roles.includes(role);
+        });
+        return hasVisibleSubItem;
+      }
+
+      // 3. Fallback a validación por roles
+      return item.roles.includes(role);
+    })
+    .map(item => {
+      // Filtrar los subItems internos del item de acuerdo a sus permisos individuales
+      if (item.subItems) {
+        const filteredSub = item.subItems.filter(sub => {
+          if (sub.permission) {
+            return isAdmin || permissions.includes(sub.permission);
+          }
+          return sub.roles.includes(role);
+        });
+
+        return {
+          ...item,
+          subItems: filteredSub.length > 0 ? filteredSub : undefined,
+        };
+      }
+
+      return item;
+    });
 };

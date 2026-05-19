@@ -10,6 +10,7 @@ declare module "next-auth" {
             // añade más campos si los tienes
             role?: string;
             id?: number;
+            permissions?: string[];
         };
     }
 }

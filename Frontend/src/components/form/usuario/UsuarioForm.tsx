@@ -7,6 +7,7 @@ import Button from "@/components/ui/button/Button";
 import { useUsuarioForm } from "./useUsuarioForm";
 import { UsuarioFormData, UsuarioFormMode } from "./types";
 import { useRoles } from "@/hooks/useRoles";
+import { useSession } from "next-auth/react";
 import {
     UserIcon,
     IdentificationIcon,
@@ -38,6 +39,75 @@ export default function UsuarioForm({
     const { formData, errors, handleChange, validateFields, camposModificados } =
         useUsuarioForm({ initialData, mode });
     const { roles } = useRoles();
+    const { data: session } = useSession();
+    const token = session?.accessToken || null;
+
+    const [buscandoSri, setBuscandoSri] = React.useState(false);
+    const [mensajeSri, setMensajeSri] = React.useState<{ tipo: "exito" | "error" | "cargando"; texto: string } | null>(null);
+
+    const consultarDocumentoSri = React.useCallback(async (doc: string) => {
+        if (!doc || (doc.length !== 10 && doc.length !== 13)) return;
+        if (!token) return;
+
+        setBuscandoSri(true);
+        setMensajeSri({ tipo: "cargando", texto: "⏳ Consultando datos de Registro Civil / SRI..." });
+
+        try {
+            const response = await fetch(
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/sri/consultar/${doc}`,
+                {
+                    method: "GET",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error("No se encontraron registros");
+            }
+
+            const data = await response.json();
+            if (data && data.success) {
+                setMensajeSri({ tipo: "exito", texto: "✅ Datos encontrados" });
+                
+                const partes = data.name.trim().split(/\s+/);
+                if (partes.length >= 4) {
+                    handleChange("nombre", `${partes[2]} ${partes[3] || ""}`.trim());
+                    handleChange("apellido", `${partes[0]} ${partes[1]}`.trim());
+                } else if (partes.length === 3) {
+                    handleChange("nombre", partes[2]);
+                    handleChange("apellido", `${partes[0]} ${partes[1]}`);
+                } else if (partes.length === 2) {
+                    handleChange("nombre", partes[1]);
+                    handleChange("apellido", partes[0]);
+                } else {
+                    handleChange("nombre", data.name);
+                    handleChange("apellido", ".");
+                }
+
+                if (data.address) {
+                    handleChange("direccion", data.address);
+                    handleChange("ciudad", data.city || "QUITO");
+                }
+            } else {
+                setMensajeSri({ tipo: "error", texto: "❌ No se encontró información" });
+            }
+        } catch (error) {
+            setMensajeSri({ tipo: "error", texto: "❌ No se encontró información" });
+        } finally {
+            setBuscandoSri(false);
+        }
+    }, [token, handleChange]);
+
+    React.useEffect(() => {
+        if (mode === "create" && (formData.cedula.length === 10 || formData.cedula.length === 13)) {
+            consultarDocumentoSri(formData.cedula);
+        } else {
+            setMensajeSri(null);
+        }
+    }, [formData.cedula, mode, consultarDocumentoSri]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -94,19 +164,27 @@ export default function UsuarioForm({
 
                 {/* Cédula */}
                 <div>
-                    <Label>Cédula {!isEditMode && "*"}</Label>
+                    <Label>Cédula o RUC {!isEditMode && "*"}</Label>
                     <div className="relative">
                         <IdentificationIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                         <Input
                             value={formData.cedula}
                             onChange={(e) => handleChange("cedula", e.target.value)}
-                            placeholder="Ej: 1234567890"
-                            maxLength={10}
-                            disabled={isLoading}
+                            placeholder="Ej: 0601234567"
+                            maxLength={13}
+                            disabled={isLoading || buscandoSri}
                             className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
                         />
                     </div>
-                    {errors.cedula && (
+                    {mensajeSri && (
+                        <p className={`text-sm mt-1.5 font-medium ${
+                            mensajeSri.tipo === "cargando" ? "text-blue-600 dark:text-blue-400 animate-pulse" :
+                            mensajeSri.tipo === "exito" ? "text-green-600 dark:text-green-400" : "text-red-500"
+                        }`}>
+                            {mensajeSri.texto}
+                        </p>
+                    )}
+                    {errors.cedula && !mensajeSri && (
                         <p className="text-sm text-red-500 mt-1">{errors.cedula}</p>
                     )}
                     {isEditMode && camposModificados.has("cedula") && (

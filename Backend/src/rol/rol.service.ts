@@ -219,5 +219,42 @@ export class RolService {
     const permissions = await this.getPermissions(roleId);
     return permissions.includes(permissionSlug);
   }
+
+  /** Bulk-replace ALL permissions for a role (accepts empty array to clear all) */
+  async setPermissions(roleId: number, permissionIds: number[]): Promise<void> {
+    // Validate the role exists
+    await this.rolRepository.findOneOrFail({ where: { id: roleId } }).catch(() => {
+      throw new NotFoundException(`Rol con ID ${roleId} no encontrado`);
+    });
+
+    // Remove all existing permissions
+    await this.rolePermissionRepository.delete({ roleId });
+
+    if (!permissionIds || permissionIds.length === 0) return;
+
+    // Validate no duplicates
+    const unique = [...new Set(permissionIds)];
+
+    for (const permissionId of unique) {
+      await this.permissionsService.findOne(permissionId);
+      const rp = this.rolePermissionRepository.create({ roleId, permissionId });
+      await this.rolePermissionRepository.save(rp);
+    }
+  }
+
+  /** Remove a single permission from a role */
+  async removePermission(roleId: number, permissionId: number): Promise<void> {
+    const rp = await this.rolePermissionRepository.findOne({
+      where: { roleId, permissionId },
+    });
+
+    if (!rp) {
+      throw new NotFoundException(
+        `El rol ${roleId} no tiene asignado el permiso ${permissionId}`,
+      );
+    }
+
+    await this.rolePermissionRepository.remove(rp);
+  }
 }
 
