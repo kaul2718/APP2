@@ -111,7 +111,9 @@ export class OrderService {
       fechaPrometidaEntrega: createDto.fechaPrometidaEntrega || null,
       estadoOrden,
       tipoOrden: createDto.tipoOrden,
-      checklistData: createDto.checklistData
+      checklistData: createDto.checklistData,
+      esperaRepuesto: createDto.esperaRepuesto || false,
+      tiempoEstimadoReparacion: createDto.tiempoEstimadoReparacion || 0
     });
 
     const ordenGuardada = await this.orderRepository.save(nuevaOrden);
@@ -462,6 +464,16 @@ export class OrderService {
       cambiosHistorial.push('Datos de peritaje actualizados');
     }
 
+    if (updateDto.esperaRepuesto !== undefined) {
+      orden.esperaRepuesto = updateDto.esperaRepuesto;
+      cambiosHistorial.push(`Orden marcada en espera de repuestos: ${updateDto.esperaRepuesto ? 'Sí' : 'No'}`);
+    }
+
+    if (updateDto.tiempoEstimadoReparacion !== undefined) {
+      orden.tiempoEstimadoReparacion = updateDto.tiempoEstimadoReparacion;
+      cambiosHistorial.push(`Tiempo estimado de reparación actualizado a ${updateDto.tiempoEstimadoReparacion} horas`);
+    }
+
     // Validación coherencia estado y casillero
     if (orden.estadoOrden && orden.estadoOrden.nombre.toLowerCase().includes('almacén') && !orden.casillero) {
       throw new BadRequestException('Para estados de almacén se requiere asignar un casillero');
@@ -482,6 +494,8 @@ export class OrderService {
       technician: orden.technician,
       tipoOrden: orden.tipoOrden,
       checklistData: orden.checklistData,
+      esperaRepuesto: orden.esperaRepuesto,
+      tiempoEstimadoReparacion: orden.tiempoEstimadoReparacion,
     });
 
     // Registrar cambios adicionales en historial si los hay
@@ -564,6 +578,17 @@ export class OrderService {
 
     const skip = (validatedPage - 1) * validatedLimit;
 
+    let sortOrder: 'ASC' | 'DESC' = 'ASC';
+    if (estadoOrdenId && estadoOrdenId > 0) {
+      const estado = await this.estadoOrdenRepository.findOne({ where: { id: estadoOrdenId } });
+      if (estado) {
+        const nombreBajo = estado.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        if (nombreBajo.includes('archiv') || nombreBajo.includes('entreg')) {
+          sortOrder = 'DESC';
+        }
+      }
+    }
+
     const query = this.orderRepository.createQueryBuilder('order')
       .leftJoinAndSelect('order.client', 'client')
       .leftJoinAndSelect('order.technician', 'technician')
@@ -576,7 +601,7 @@ export class OrderService {
       .leftJoinAndSelect('presupuesto.detallesPresupuestoItems', 'detallesItems')
       .leftJoinAndSelect('detallesItems.parte', 'parteDetalle')
       .leftJoinAndSelect('order.casillero', 'casillero')
-      .orderBy('order.createdAt', 'DESC');
+      .orderBy('order.createdAt', sortOrder);
 
     // Manejo de la búsqueda corregido
     if (search && search.trim()) {
@@ -829,12 +854,25 @@ export class OrderService {
         estado: true,
         deletedAt: null,
       },
-      relations: ['client', 'technician', 'estadoOrden', 'actividades', 'actividades.tipoActividad'],
+      relations: [
+        'client',
+        'technician',
+        'estadoOrden',
+        'actividades',
+        'actividades.tipoActividad',
+        'equipo',
+        'equipo.tipoEquipo',
+        'equipo.marca',
+        'equipo.modelo',
+        'presupuesto',
+        'presupuesto.estado',
+        'casillero'
+      ],
       order: { createdAt: 'DESC' }
     });
   }
 
-  async findOrdersByTechnician(technicianId: number): Promise<Order[]> {
+  async findOrdersByTechnician(technicianId: number, estadoOrdenId?: number, search?: string): Promise<Order[]> {
     if (!technicianId || technicianId <= 0) {
       throw new BadRequestException('technicianId debe ser un número positivo');
     }
@@ -848,17 +886,36 @@ export class OrderService {
       throw new NotFoundException(`Técnico con ID ${technicianId} no encontrado`);
     }
 
-    return this.orderRepository.createQueryBuilder('order')
+    const query = this.orderRepository.createQueryBuilder('order')
       .leftJoinAndSelect('order.client', 'client')
       .leftJoinAndSelect('order.technician', 'technician')
       .leftJoinAndSelect('order.estadoOrden', 'estadoOrden')
+      .leftJoinAndSelect('order.equipo', 'equipo')
+      .leftJoinAndSelect('equipo.tipoEquipo', 'tipoEquipo')
+      .leftJoinAndSelect('equipo.marca', 'marca')
+      .leftJoinAndSelect('equipo.modelo', 'modelo')
       .leftJoinAndSelect('order.actividades', 'actividades')
       .leftJoinAndSelect('actividades.tipoActividad', 'tipoActividad')
+      .leftJoinAndSelect('order.presupuesto', 'presupuesto')
+      .leftJoinAndSelect('presupuesto.estado', 'estadoPresupuesto')
+      .leftJoinAndSelect('order.casillero', 'casillero')
       .where('technician.id = :technicianId', { technicianId })
       .andWhere('order.estado = :estado', { estado: true })
-      .andWhere('order.deletedAt IS NULL')
-      .orderBy('order.createdAt', 'DESC')
-      .getMany();
+      .andWhere('order.deletedAt IS NULL');
+
+    if (estadoOrdenId && estadoOrdenId > 0) {
+      query.andWhere('order.estadoOrdenId = :estadoOrdenId', { estadoOrdenId });
+    }
+
+    if (search && search.trim()) {
+      query.andWhere(
+        '(LOWER(order.workOrderNumber) LIKE LOWER(:search) OR ' +
+        'LOWER(client.nombre) LIKE LOWER(:search))',
+        { search: `%${search.trim()}%` }
+      );
+    }
+
+    return query.orderBy('order.createdAt', 'DESC').getMany();
   }
 
   async findPublicOrder(cedula: string, workOrderNumber: string): Promise<any> {
@@ -909,6 +966,69 @@ export class OrderService {
         nombre: order.estadoOrden?.nombre || 'Recepción',
       }
     };
+  }
+
+  async getTechniciansAvailability(): Promise<any[]> {
+    const techs = await this.userRepository.createQueryBuilder('user')
+      .leftJoinAndSelect('user.userRoles', 'userRoles')
+      .leftJoinAndSelect('userRoles.rol', 'rol')
+      .where('rol.slug = :role', { role: 'tech' })
+      .andWhere('user.estado = :estado', { estado: true })
+      .orderBy('user.nombre', 'ASC')
+      .getMany();
+
+    const availability = [];
+
+    for (const tech of techs) {
+      const activeOrders = await this.orderRepository.createQueryBuilder('order')
+        .leftJoinAndSelect('order.estadoOrden', 'estadoOrden')
+        .where('order.technicianId = :techId', { techId: tech.id })
+        .andWhere('order.estado = :estado', { estado: true })
+        .andWhere('order.deletedAt IS NULL')
+        .andWhere('LOWER(estadoOrden.nombre) NOT IN (:...excludedStates)', {
+          excludedStates: ['archivados', 'entrega', 'entregado']
+        })
+        .getMany();
+
+      const totalActive = activeOrders.length;
+      const waitingForParts = activeOrders.filter(o => o.esperaRepuesto).length;
+      const workingActive = totalActive - waitingForParts;
+
+      let nextAvailableDate: Date | null = null;
+      let estimationReason = '';
+
+      const workingActiveOrders = activeOrders.filter(o => !o.esperaRepuesto);
+
+      if (totalActive === 0) {
+        estimationReason = 'Disponibilidad inmediata (Sin órdenes asignadas)';
+      } else if (workingActive === 0 && waitingForParts > 0) {
+        estimationReason = `Disponibilidad inmediata (Órdenes asignadas en espera de repuestos: ${waitingForParts})`;
+      } else {
+        const totalHours = workingActiveOrders.reduce((sum, o) => {
+          const hours = o.tiempoEstimadoReparacion > 0 ? o.tiempoEstimadoReparacion : 3;
+          return sum + hours;
+        }, 0);
+
+        const workingHoursPerDay = 8;
+        const daysToEstimate = Math.ceil(totalHours / workingHoursPerDay);
+        const estimatedDate = new Date();
+        estimatedDate.setDate(estimatedDate.getDate() + daysToEstimate);
+        nextAvailableDate = estimatedDate;
+        estimationReason = `Estimado: ${totalHours} horas de trabajo (${daysToEstimate} días aprox.)`;
+      }
+
+      availability.push({
+        technicianId: tech.id,
+        nombreCompleto: `${tech.nombre} ${tech.apellido}`,
+        totalActive,
+        waitingForParts,
+        workingActive,
+        nextAvailableDate,
+        estimationReason
+      });
+    }
+
+    return availability;
   }
 }
 

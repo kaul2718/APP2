@@ -18,6 +18,8 @@ export default function SignUpForm() {
     handleSubmit,
     errors,
     isSubmitting,
+    buscandoSri,
+    mensajeSri,
   } = useSignUpFormHandler();
 
   return (
@@ -34,29 +36,44 @@ export default function SignUpForm() {
           <div className="space-y-5">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
-                <Label>Cédula*</Label>
-                <Input type="text" name="cedula" value={formData.cedula} onChange={handleChange} autoComplete="off" />
+                <Label>Cédula o RUC*</Label>
+                <Input type="text" name="cedula" value={formData.cedula} onChange={handleChange} autoComplete="off" maxLength={13} />
+                {mensajeSri && (
+                  <p className={`text-xs mt-1 font-medium ${
+                    mensajeSri.tipo === "cargando" ? "text-amber-500 animate-pulse" :
+                    mensajeSri.tipo === "exito" ? "text-emerald-500" :
+                    "text-red-500"
+                  }`}>
+                    {mensajeSri.texto}
+                  </p>
+                )}
               </div>
               <div>
-                <Label>Nombre*</Label>
-                <Input type="text" name="nombre" value={formData.nombre} onChange={handleChange} autoComplete="given-name" />
+                <Label>Teléfono*</Label>
+                <Input type="text" name="telefono" value={formData.telefono} onChange={handleChange} autoComplete="tel" maxLength={16} placeholder="Ej: 099 123 4567" />
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
-                <Label>Teléfono*</Label>
-                <Input type="text" name="telefono" value={formData.telefono} onChange={handleChange} autoComplete="tel" />
+                <Label>Nombre*</Label>
+                <Input type="text" name="nombre" value={formData.nombre} onChange={handleChange} autoComplete="given-name" disabled={buscandoSri} />
               </div>
               <div>
-                <Label>Ciudad*</Label>
-                <Input type="text" name="ciudad" value={formData.ciudad} onChange={handleChange} autoComplete="address-level2" />
+                <Label>Apellido*</Label>
+                <Input type="text" name="apellido" value={formData.apellido} onChange={handleChange} autoComplete="family-name" disabled={buscandoSri} />
               </div>
             </div>
 
-            <div>
-              <Label>Dirección*</Label>
-              <Input type="text" name="direccion" value={formData.direccion} onChange={handleChange} autoComplete="street-address" />
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div>
+                <Label>Ciudad*</Label>
+                <Input type="text" name="ciudad" value={formData.ciudad} onChange={handleChange} autoComplete="address-level2" disabled={buscandoSri} />
+              </div>
+              <div>
+                <Label>Dirección*</Label>
+                <Input type="text" name="direccion" value={formData.direccion} onChange={handleChange} autoComplete="street-address" disabled={buscandoSri} />
+              </div>
             </div>
 
             <div>

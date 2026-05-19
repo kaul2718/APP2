@@ -32,6 +32,7 @@ interface FormData {
     currentAccessory: string;
     tipoOrden: OrderType;
     checklistData: ChecklistItemResult[] | null;
+    tiempoEstimadoReparacion?: number;
 }
 
 interface FormErrors {
@@ -49,7 +50,7 @@ interface IngresarOrdenFormProps {
 
 export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = false }: IngresarOrdenFormProps) {
     const router = useRouter();
-    const { createOrder } = useOrders();
+    const { createOrder, getTechniciansAvailability } = useOrders();
 
     // Estados para controlar los modales
     const [isClienteModalOpen, setIsClienteModalOpen] = React.useState(false);
@@ -58,11 +59,18 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     // Estado adicional para búsqueda
     const [clientSearch, setClientSearch] = React.useState('')
     const [equipoSearch, setEquipoSearch] = React.useState('')
+    const [techAvailability, setTechAvailability] = React.useState<any[]>([]);
 
     // Hooks para obtener datos necesarios
-    const { usuarios = [], loading: loadingUsuarios, refetch: refetchUsuarios, fetchUsuarios, setUsuarios } = useUsuario();
+    const { usuarios = [], loading: loadingUsuarios, refetch: refetchUsuarios, fetchUsuarios, setUsuarios } = useUsuario({ defaultLimit: 1000 });
     const { equipos = [], loading: loadingEquipos, refetch: refetchEquipos } = useEquipos();
     const { estadosOrden } = useEstadoOrden();
+
+    React.useEffect(() => {
+        getTechniciansAvailability().then(data => {
+            setTechAvailability(data || []);
+        });
+    }, []);
 
     // Filtrar clientes (usuarios con rol 'CLIENT')
     const clientes = React.useMemo(() =>
@@ -108,7 +116,8 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
         estadoOrdenId: null,
         currentAccessory: "",
         tipoOrden: OrderType.EXPRESS,
-        checklistData: null
+        checklistData: null,
+        tiempoEstimadoReparacion: 0
     });
 
     const [errors, setErrors] = React.useState<FormErrors>({});
@@ -265,6 +274,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                 technicianId: formData.technicianId ? Number(formData.technicianId) : undefined,
                 tipoOrden: formData.tipoOrden,
                 checklistData: formData.checklistData ? { results: formData.checklistData, fechaPeritaje: new Date().toISOString() } : undefined,
+                tiempoEstimadoReparacion: Number(formData.tiempoEstimadoReparacion) || 0,
                 ...(formData.estadoOrdenId && { estadoOrdenId: Number(formData.estadoOrdenId) })
             };
 
@@ -298,7 +308,8 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                 estadoOrdenId: null,
                 currentAccessory: "",
                 tipoOrden: OrderType.EXPRESS,
-                checklistData: null
+                checklistData: null,
+                tiempoEstimadoReparacion: 0
             });
 
             if (!embeddedMode) {
@@ -593,16 +604,32 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                 )}
             </div>
 
-            {/* Fecha prometida de entrega */}
-            <div className="mb-3">
-                <Label className="mb-1 block">Fecha Prometida de Entrega</Label>
-                <input
-                    type="datetime-local"
-                    value={formData.fechaPrometidaEntrega}
-                    onChange={(e) => handleChange("fechaPrometidaEntrega", e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 bg-white p-2 text-black dark:border-gray-700 dark:bg-gray-800 dark:text-white [&::-webkit-calendar-picker-indicator]:block [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Selecciona la fecha y hora de compromiso de entrega.</p>
+            {/* Grid para Tiempo Estimado de Reparación y Fecha Estimada de Entrega */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-3">
+                {/* Tiempo estimado de reparación */}
+                <div>
+                    <Label>Horas Estimadas de Reparación</Label>
+                    <input
+                        type="number"
+                        value={formData.tiempoEstimadoReparacion !== undefined ? formData.tiempoEstimadoReparacion : ""}
+                        onChange={(e) => handleChange("tiempoEstimadoReparacion", e.target.value ? Number(e.target.value) : 0)}
+                        min="0"
+                        step="0.5"
+                        placeholder="Ej: 2.5"
+                        className="w-full rounded-lg border border-gray-300 bg-white p-2 text-black dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    />
+                </div>
+
+                {/* Fecha prometida de entrega */}
+                <div>
+                    <Label className="mb-1 block">Fecha Estimada de Entrega</Label>
+                    <input
+                        type="datetime-local"
+                        value={formData.fechaPrometidaEntrega}
+                        onChange={(e) => handleChange("fechaPrometidaEntrega", e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 bg-white p-2 text-black dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:[color-scheme:dark] [&::-webkit-calendar-picker-indicator]:block [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-70 [&::-webkit-calendar-picker-indicator]:hover:opacity-100"
+                    />
+                </div>
             </div>
 
             {/* Selección de técnico */}
@@ -611,14 +638,28 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                 <select
                     value={formData.technicianId || ""}
                     onChange={(e) => handleChange("technicianId", e.target.value ? Number(e.target.value) : null)}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-black dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-black dark:border-gray-700 dark:bg-gray-800 dark:text-white font-medium"
                 >
-                    <option value="" disabled>Seleccione un técnico</option>
-                    {tecnicos.map((tecnico) => (
-                        <option key={tecnico.id} value={tecnico.id}>
-                            {tecnico.nombre} {tecnico.apellido}
-                        </option>
-                    ))}
+                    <option value="">Seleccione un técnico</option>
+                    {tecnicos.map((tecnico) => {
+                        const availability = techAvailability.find(a => a.technicianId === tecnico.id);
+                        let label = `${tecnico.nombre} ${tecnico.apellido}`;
+                        if (availability) {
+                            const partsStr = availability.waitingForParts > 0 ? ` (${availability.waitingForParts} en espera de repuestos)` : '';
+                            label += ` (Órdenes activas: ${availability.workingActive}${partsStr}`;
+                            if (availability.nextAvailableDate) {
+                                const estDate = new Date(availability.nextAvailableDate);
+                                label += `, Disponible aprox: ${estDate.toLocaleDateString()})`;
+                            } else {
+                                label += `, Disp. inmediata)`;
+                            }
+                        }
+                        return (
+                            <option key={tecnico.id} value={tecnico.id}>
+                                {label}
+                            </option>
+                        );
+                    })}
                 </select>
                 {!loadingUsuarios && tecnicos.length === 0 && (
                     <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">No se encontraron técnicos activos en la lista actual.</p>

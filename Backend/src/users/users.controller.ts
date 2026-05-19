@@ -30,7 +30,7 @@ export class UsersController {
     @Query('includeInactive') includeInactive?: boolean,
     @Query('role') role?: string,
   ) {
-    const ALLOWED_LIMITS = [10, 25, 50, 100, 200];
+    const ALLOWED_LIMITS = [10, 25, 50, 100, 200, 1000, 10000];
     
     // Convertir y validar page
     const pageNum = page ? parseInt(page, 10) : 1;

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { useOrders } from "@/hooks/useOrders";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useEstadoOrden } from "@/hooks/useEstadoOrden";
 import { usePresupuesto } from "@/hooks/usePresupuesto";
 import { useClientes } from "@/hooks/useClientes";
@@ -48,6 +49,8 @@ interface UpdateOrderData {
   accesorios?: string[];
   casilleroId?: number | null;
   userId?: number;
+  esperaRepuesto?: boolean;
+  tiempoEstimadoReparacion?: number;
 }
 
 export default function OrdenListLayout() {
@@ -81,10 +84,10 @@ export default function OrdenListLayout() {
   const { equipos } = useEquipos();
 
   const { data: session } = useSession();
+  const { hasPermission } = usePermissions();
   const { estadosOrden } = useEstadoOrden();
-  const userRole = session?.user?.role;
-  const canOperateOrders = userRole === "admin" || userRole === "tech" || userRole === "recep";
-  const canDeleteOrders = userRole === "admin";
+  const canOperateOrders = hasPermission("orders.update");
+  const canDeleteOrders = hasPermission("orders.delete");
   
   const sortedEstadosOrden = React.useMemo(() => {
     const normalizeString = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -227,9 +230,12 @@ export default function OrdenListLayout() {
         accesorios: updatedData.accesorios,
         casilleroId: updatedData.casilleroId,
         userId: updatedData.userId,
+        esperaRepuesto: updatedData.esperaRepuesto,
+        tiempoEstimadoReparacion: updatedData.tiempoEstimadoReparacion,
       });
 
-      await fetchOrders();
+      updateLastModifiedOrder(selectedOrder.id);
+      await fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
       return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error al guardar cambios");
@@ -609,7 +615,7 @@ export default function OrdenListLayout() {
             const displayOrders = [...orders].sort((a, b) => {
               if (a.id === lastModifiedOrderId) return -1;
               if (b.id === lastModifiedOrderId) return 1;
-              return 0;
+              return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
             });
 
             return displayOrders.map((order) => {
@@ -624,8 +630,8 @@ export default function OrdenListLayout() {
                   order={order} 
                   actions={buildActions(order)} 
                   primaryActionsCount={6}
-                  onAdvance={!isLastState ? () => handleAdvanceClick(order) : undefined}
-                  onRetroceder={!isFirstState && currentIndex !== -1 ? () => handleRetrocederClick(order) : undefined}
+                  onAdvance={!isLastState && canOperateOrders ? () => handleAdvanceClick(order) : undefined}
+                  onRetroceder={!isFirstState && currentIndex !== -1 && canOperateOrders ? () => handleRetrocederClick(order) : undefined}
                   isLastState={isLastState}
                   isFirstState={isFirstState}
                   isHighlighted={order.id === lastModifiedOrderId}
@@ -725,6 +731,7 @@ export default function OrdenListLayout() {
           }}
           orderId={selectedOrderId}
           onSuccess={() => {
+            if (selectedOrderId) updateLastModifiedOrder(selectedOrderId);
             fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
           }}
         />
@@ -738,6 +745,11 @@ export default function OrdenListLayout() {
             setPresupuestoDetails(null);
           }}
           onSuccess={() => {
+            if (presupuestoDetails.presupuesto?.orderId) {
+              updateLastModifiedOrder(presupuestoDetails.presupuesto.orderId);
+            } else if (selectedOrder) {
+              updateLastModifiedOrder(selectedOrder.id);
+            }
             fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
           }}
           presupuesto={presupuestoDetails.presupuesto}
@@ -778,7 +790,10 @@ export default function OrdenListLayout() {
             setSelectedOrder(null);
           }}
           onSuccess={() => {
-            // Sin accion adicional por ahora.
+            if (selectedOrder) {
+              updateLastModifiedOrder(selectedOrder.id);
+              fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
+            }
           }}
           orderId={selectedOrder?.id || 0}
         />

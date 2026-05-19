@@ -13,8 +13,11 @@ import AgregarEvidenciaTecnicaModal from "@/components/modals/AgregarEvidenciaTe
 import ConfirmDialog from "@/components/modals/ConfirmDialog";
 import GenerarPdfIngresoModal from "@/components/modals/GenerarPdfIngresoModal";
 
+import { usePermissions } from "@/hooks/usePermissions";
+
 export default function OrdenComponent() {
     const router = useRouter();
+    const { hasPermission, loading } = usePermissions();
     const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = React.useState(false);
     const [createdOrderForEvidence, setCreatedOrderForEvidence] = React.useState<{ id: number; workOrderNumber: string } | null>(null);
     const [orderToPrint, setOrderToPrint] = React.useState<any | null>(null);
@@ -28,6 +31,25 @@ export default function OrdenComponent() {
         router.refresh();
     };
 
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-brand-500"></div>
+            </div>
+        );
+    }
+
+    if (!hasPermission("orders.view")) {
+        return (
+            <div className="p-10 text-center bg-white dark:bg-gray-900 rounded-lg border border-gray-150 dark:border-gray-800 shadow-theme-xs">
+                <h2 className="text-lg font-bold text-red-500">Acceso Denegado</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    No tienes los permisos asignados por el administrador para ver el módulo de Órdenes de Servicio.
+                </p>
+            </div>
+        );
+    }
+
     return (
         <div>
             <PageBreadcrumb pageTitle="Ordenes" />
@@ -36,14 +58,16 @@ export default function OrdenComponent() {
                     title={
                         <div className="flex justify-between items-center w-full">
                             <span>Lista de ordenes registradas</span>
-                            <Button
-                                onClick={() => setIsCreateOrderModalOpen(true)}
-                                className="flex items-center gap-1"
-                                size="sm"
-                            >
-                                <PlusCircleIcon className="w-4 h-4" />
-                                Agregar Orden
-                            </Button>
+                            {hasPermission("orders.create") && (
+                                <Button
+                                    onClick={() => setIsCreateOrderModalOpen(true)}
+                                    className="flex items-center gap-1"
+                                    size="sm"
+                                >
+                                    <PlusCircleIcon className="w-4 h-4" />
+                                    Agregar Orden
+                                </Button>
+                            )}
                         </div>
                     }
                 >

@@ -53,20 +53,22 @@ export function useOrders() {
       let isRoleSpecificEndpoint = false;
 
       if (session.user.role === 'tech') {
-        endpoint = 'tecnico/mis-ordenes';
+        endpoint = 'orders/tecnico/mis-ordenes';
         isRoleSpecificEndpoint = true;
       } else if (session.user.role === 'client') {
-        endpoint = 'cliente/mis-ordenes';
+        endpoint = 'orders/cliente/mis-ordenes';
         isRoleSpecificEndpoint = true;
       }
 
       let url = `/${endpoint}`;
 
-      // Solo agregamos parámetros de consulta para el endpoint general
-      if (!isRoleSpecificEndpoint) {
+      // Agregamos parámetros de consulta para el endpoint general y el de técnico
+      if (!isRoleSpecificEndpoint || session.user.role === 'tech') {
         const queryParams = new URLSearchParams();
-        queryParams.append('page', page.toString());
-        queryParams.append('limit', limit.toString());
+        if (!isRoleSpecificEndpoint) {
+          queryParams.append('page', page.toString());
+          queryParams.append('limit', limit.toString());
+        }
 
         if (search) {
           queryParams.append('search', search);
@@ -184,6 +186,8 @@ export function useOrders() {
     accesorios?: string[];
     casilleroId?: number | null;
     userId?: number;
+    esperaRepuesto?: boolean;
+    tiempoEstimadoReparacion?: number;
   }) => {
     try {
       if (!session?.accessToken || !session.user?.id) {
@@ -305,60 +309,72 @@ export function useOrders() {
     }
   };
 
-  // Efecto para cargar órdenes cuando cambian los filtros
-  useEffect(() => {
-    if (status === "authenticated") {
-      fetchOrders(
-        1,
-        10,
-        searchTerm,
-        showInactive,
-        estadoOrdenId,
-        technicianId,
-        clientId,
-        fechaInicio,
-        fechaFin
-      );
-    }
-  }, [
-    status,
-    session,
-    searchTerm,
-    showInactive,
-    estadoOrdenId,
-    technicianId,
-    clientId,
-    fechaInicio,
-    fechaFin
-  ]);
+  const getTechniciansAvailability = async () => {
+      try {
+        if (!session?.accessToken) {
+          throw new Error("Token de sesión no disponible");
+        }
+        return await apiRequest<any[]>('/orders/tecnicos/disponibilidad', {}, session);
+      } catch (error) {
+        return [];
+      }
+    };
 
-  return {
-    orders,
-    loading,
-    totalPages,
-    totalItems,
-    currentPage,
-    searchTerm,
-    showInactive,
-    estadoOrdenId,
-    technicianId,
-    clientId,
-    fechaInicio,
-    fechaFin,
-    fetchOrders,
-    createOrder,
-    updateOrder,
-    toggleOrderStatus,
-    deleteOrder,
-    restoreOrder,
-    changeOrderStatus,
-    addActivity,
-    setSearchTerm,
-    setShowInactive,
-    setEstadoOrdenId,
-    setTechnicianId,
-    setClientId,
-    setFechaInicio,
-    setFechaFin,
-  };
-}
+    // Efecto para cargar órdenes cuando cambian los filtros
+    useEffect(() => {
+      if (status === "authenticated") {
+        fetchOrders(
+          1,
+          10,
+          searchTerm,
+          showInactive,
+          estadoOrdenId,
+          technicianId,
+          clientId,
+          fechaInicio,
+          fechaFin
+        );
+      }
+    }, [
+      status,
+      session,
+      searchTerm,
+      showInactive,
+      estadoOrdenId,
+      technicianId,
+      clientId,
+      fechaInicio,
+      fechaFin
+    ]);
+
+    return {
+      orders,
+      loading,
+      totalPages,
+      totalItems,
+      currentPage,
+      searchTerm,
+      showInactive,
+      estadoOrdenId,
+      technicianId,
+      clientId,
+      fechaInicio,
+      fechaFin,
+      fetchOrders,
+      createOrder,
+      updateOrder,
+      toggleOrderStatus,
+      deleteOrder,
+      restoreOrder,
+      changeOrderStatus,
+      addActivity,
+      setSearchTerm,
+      setShowInactive,
+      setEstadoOrdenId,
+      setTechnicianId,
+      setClientId,
+      setFechaInicio,
+      setFechaFin,
+      getTechniciansAvailability,
+    };
+  }

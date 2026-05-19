@@ -56,6 +56,13 @@ export class CreateOrderDto {
   tipoOrden?: OrderType;
 
   @IsOptional()
+  @IsBoolean({ message: 'esperaRepuesto debe ser un valor booleano' })
+  esperaRepuesto?: boolean;
+
+  @IsOptional()
   @IsObject()
   checklistData?: any;
+
+  @IsOptional()
+  tiempoEstimadoReparacion?: number;
 }

@@ -45,7 +45,7 @@ export function useRegister() {
         return;
       }
 
-      router.push("/profile");
+      router.push("/dashboard");
     } catch (error) {
       setErrors(["Ocurrió un error inesperado"]);
     } finally {

@@ -89,6 +89,7 @@ export default function PerfilOrdenPage() {
     try {
       if (!order) return false;
       await updateOrder(order.id, updatedData);
+      sessionStorage.setItem('lastModifiedOrderId', order.id.toString());
       await fetchOrder();
       return true;
     } catch (error) {
@@ -124,6 +125,7 @@ export default function PerfilOrdenPage() {
         });
       }
       
+      sessionStorage.setItem('lastModifiedOrderId', order.id.toString());
       await fetchOrder();
       
       if (shouldClose) {
@@ -200,6 +202,52 @@ export default function PerfilOrdenPage() {
   // Si no se encuentra, pero la orden existe, al menos mostrar el primer paso
   const activeIndex = isArchived ? STATUS_STEPS.length - 1 : (currentStepIndex === -1 ? 0 : currentStepIndex);
 
+  const getWaitingTimeDetails = () => {
+    if (!order || isArchived) return null;
+    if (order.esperaRepuesto) {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider bg-yellow-100 text-yellow-800 border border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800/30">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeWidth={3} />
+          </svg>
+          Pausado (Repuestos)
+        </span>
+      );
+    }
+    const referenceDate = new Date(order.createdAt);
+    const now = new Date();
+    const diffMs = now.getTime() - referenceDate.getTime();
+    if (diffMs < 0) return null;
+
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    let label = '';
+    let classes = '';
+
+    if (diffDays > 0) {
+      label = `${diffDays} ${diffDays === 1 ? 'día' : 'días'}`;
+      classes = diffDays >= 3 
+        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800/30' 
+        : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800/30';
+    } else if (diffHours > 0) {
+      label = `${diffHours} ${diffHours === 1 ? 'hora' : 'horas'}`;
+      classes = 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800/30';
+    } else {
+      label = `${diffMins} ${diffMins === 1 ? 'min' : 'mins'}`;
+      classes = 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700';
+    }
+
+    return (
+      <span className={`inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${classes}`}>
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 animate-pulse text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Taller: {label}
+      </span>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-12">
@@ -223,6 +271,7 @@ export default function PerfilOrdenPage() {
                 }`}>
                   {order.estadoOrden?.nombre || 'Sin estado'}
                 </span>
+                {getWaitingTimeDetails()}
               </h1>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Creada por Recepción • {formatDate(order.createdAt)}
@@ -814,6 +863,7 @@ export default function PerfilOrdenPage() {
         orderId={order.id}
         onSuccess={() => {
           setIsActividadModalOpen(false);
+          sessionStorage.setItem('lastModifiedOrderId', order.id.toString());
           fetchOrder();
         }}
       />
@@ -824,6 +874,7 @@ export default function PerfilOrdenPage() {
         orderId={order.id}
         onSuccess={() => {
           setIsEvidenciaModalOpen(false);
+          sessionStorage.setItem('lastModifiedOrderId', order.id.toString());
           fetchOrder();
         }}
       />
@@ -846,6 +897,7 @@ export default function PerfilOrdenPage() {
         orderId={order.id}
         onSuccess={() => {
           setIsPresupuestoModalOpen(false);
+          sessionStorage.setItem('lastModifiedOrderId', order.id.toString());
           fetchOrder();
         }}
       />

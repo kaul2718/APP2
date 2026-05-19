@@ -149,6 +149,7 @@ const Calendar: React.FC = () => {
         isOpen={isOpen}
         onClose={closeModal}
         className="max-w-[700px] p-6 lg:p-10"
+        title={selectedEvent ? "Edit Event" : "Add Event"}
       >
         <div className="flex flex-col px-2 overflow-y-auto custom-scrollbar">
           <div>

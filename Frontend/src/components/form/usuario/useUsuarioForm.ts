@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { UsuarioFormData, UsuarioFormErrors, UsuarioFormMode } from "./types";
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 interface UseUsuarioFormProps {
     initialData?: UsuarioFormData;
@@ -84,8 +85,11 @@ export function useUsuarioForm({ initialData, mode }: UseUsuarioFormProps) {
         // Validación de teléfono
         if (!formData.telefono.trim()) {
             newErrors.telefono = "El teléfono es requerido";
-        } else if (!/^\d{10}$/.test(formData.telefono)) {
-            newErrors.telefono = "El teléfono debe tener 10 dígitos";
+        } else {
+            const parsedPhone = parsePhoneNumberFromString(formData.telefono, 'EC');
+            if (!parsedPhone || !parsedPhone.isValid()) {
+                newErrors.telefono = "Teléfono de Ecuador no válido (Celular o Fijo)";
+            }
         }
 
         // Validación de dirección

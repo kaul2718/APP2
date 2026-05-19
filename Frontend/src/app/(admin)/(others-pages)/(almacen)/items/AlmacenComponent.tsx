@@ -19,9 +19,11 @@ import AgregarAlmacenModal from "@/components/modals/AgregarAlmacenModal";
 import { useAlmacen, ItemAlmacen } from "@/hooks/useAlmacen";
 import { apiRequest } from "@/lib/api";
 import { useSearchParams, useRouter } from "next/navigation";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function AlmacenComponent() {
     const router = useRouter();
+    const { hasPermission, loading } = usePermissions();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [tableRefreshKey, setTableRefreshKey] = useState(0);
     const [activeFilter, setActiveFilter] = useState<"all" | "productos" | "servicios">("productos");
@@ -95,6 +97,25 @@ export default function AlmacenComponent() {
         
         return { totalItems, totalStockValue, lowStockItems, totalPhysicalStock };
     }, [allItemsForStats]);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-brand-500"></div>
+            </div>
+        );
+    }
+
+    if (!hasPermission("almacen.view")) {
+        return (
+            <div className="p-10 text-center bg-white dark:bg-gray-900 rounded-lg border border-gray-150 dark:border-gray-800 shadow-theme-xs">
+                <h2 className="text-lg font-bold text-red-500">Acceso Denegado</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    No tienes los permisos asignados por el administrador para ver el módulo de Almacén. Por favor, contacta al administrador del sistema.
+                </p>
+            </div>
+        );
+    }
 
     const formatCurrency = (value: number) =>
         new Intl.NumberFormat("es-EC", {
@@ -185,49 +206,51 @@ export default function AlmacenComponent() {
                     </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                    <motion.div
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="w-full sm:w-auto"
-                    >
-                        <Button
-                            onClick={() => router.push("/items/compras")}
-                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800 shadow-lg shadow-blue-500/20 border-none h-11"
+                {hasPermission("almacen.manage") && (
+                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                        <motion.div
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="w-full sm:w-auto"
                         >
-                            <TruckIcon className="w-5 h-5" />
-                            <span>Compras y Proveedores</span>
-                        </Button>
-                    </motion.div>
+                            <Button
+                                onClick={() => router.push("/items/compras")}
+                                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800 shadow-lg shadow-blue-500/20 border-none h-11"
+                            >
+                                <TruckIcon className="w-5 h-5" />
+                                <span>Compras y Proveedores</span>
+                            </Button>
+                        </motion.div>
 
-                    <motion.div
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="w-full sm:w-auto"
-                    >
-                        <Button
-                            onClick={() => router.push("/items/ajuste")}
-                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-700 dark:hover:bg-amber-800 shadow-lg shadow-amber-500/20 border-none h-11"
+                        <motion.div
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="w-full sm:w-auto"
                         >
-                            <ArchiveBoxIcon className="w-5 h-5" />
-                            <span>Ajuste de Inventario</span>
-                        </Button>
-                    </motion.div>
+                            <Button
+                                onClick={() => router.push("/items/ajuste")}
+                                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 bg-amber-600 hover:bg-amber-700 text-white dark:bg-amber-700 dark:hover:bg-amber-800 shadow-lg shadow-amber-500/20 border-none h-11"
+                            >
+                                <ArchiveBoxIcon className="w-5 h-5" />
+                                <span>Ajuste de Inventario</span>
+                            </Button>
+                        </motion.div>
 
-                    <motion.div
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="w-full sm:w-auto"
-                    >
-                        <Button
-                            onClick={() => setIsAddModalOpen(true)}
-                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 shadow-lg shadow-brand-500/20 h-11"
+                        <motion.div
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="w-full sm:w-auto"
                         >
-                            <PlusCircleIcon className="w-5 h-5" />
-                            <span>Nuevo Item</span>
-                        </Button>
-                    </motion.div>
-                </div>
+                            <Button
+                                onClick={() => setIsAddModalOpen(true)}
+                                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 shadow-lg shadow-brand-500/20 h-11"
+                            >
+                                <PlusCircleIcon className="w-5 h-5" />
+                                <span>Nuevo Item</span>
+                            </Button>
+                        </motion.div>
+                    </div>
+                )}
             </div>
 
             {/* Main Table Section */}

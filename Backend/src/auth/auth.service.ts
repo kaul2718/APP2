@@ -32,6 +32,7 @@ export class AuthService {
       telefono,
       direccion,
       ciudad,
+      roleIds,
     } = registerDto;
 
     const existingUser = await this.usersService.findByEmail(correo);
@@ -58,6 +59,7 @@ export class AuthService {
       direccion,
       ciudad,
       password: hashedPassword,
+      role: (roleIds && roleIds.length > 0) ? roleIds[0] : 'client',
     });
 
     return {
@@ -121,7 +123,31 @@ export class AuthService {
   }
 
   async profile({ correo }: { correo: string }) {
-    return this.usersService.findByEmail(correo);
+    const user = await this.usersService.findByEmail(correo);
+    if (!user) {
+      throw new UnauthorizedException('Usuario no encontrado');
+    }
+
+    const userRole = user.userRoles && user.userRoles.length > 0 
+      ? user.userRoles[0].rol.slug 
+      : 'user';
+
+    const permissionsSlugs = user.userRoles && user.userRoles.length > 0 && user.userRoles[0].rol.rolePermissions
+      ? user.userRoles[0].rol.rolePermissions.map((rp) => rp.permission?.slug).filter(Boolean)
+      : [];
+
+    return {
+      id: user.id,
+      cedula: user.cedula,
+      nombre: user.nombre,
+      apellido: user.apellido,
+      correo: user.correo,
+      telefono: user.telefono,
+      direccion: user.direccion,
+      ciudad: user.ciudad,
+      role: userRole,
+      permissions: permissionsSlugs,
+    };
   }
 
   async enviarInvitacion(dto: EnviarInvitacionDto) {

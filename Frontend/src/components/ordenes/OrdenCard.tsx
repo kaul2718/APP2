@@ -49,6 +49,70 @@ export default function OrdenCard({
     return [...order.historialEstados].sort((a, b) => new Date(b.fechaCambio).getTime() - new Date(a.fechaCambio).getTime())[0];
   }, [order.historialEstados]);
 
+  const isArchived = React.useMemo(() => {
+    const statusName = order.estadoOrden?.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") || '';
+    return statusName.includes('archivad') || statusName.includes('entregad') || statusName.includes('completad');
+  }, [order.estadoOrden]);
+
+  const waitingTimeBadge = React.useMemo(() => {
+    if (isArchived) return null;
+
+    if (order.esperaRepuesto) {
+      return (
+        <Badge 
+          size="sm" 
+          color="warning" 
+          className="flex items-center gap-1 font-semibold border dark:border-white/5 bg-amber-500/10 text-amber-500 border-amber-500/20"
+          startIcon={
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" strokeWidth={3} />
+            </svg>
+          }
+        >
+          Pausado (En Repuestos)
+        </Badge>
+      );
+    }
+
+    const referenceDate = new Date(order.createdAt);
+    const now = new Date();
+    const diffMs = now.getTime() - referenceDate.getTime();
+    if (diffMs < 0) return null;
+
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    let label = '';
+    let badgeColor: 'error' | 'warning' | 'info' | 'light' = 'light';
+
+    if (diffDays > 0) {
+      label = `${diffDays} ${diffDays === 1 ? 'día' : 'días'}`;
+      badgeColor = diffDays >= 3 ? 'error' : 'warning';
+    } else if (diffHours > 0) {
+      label = `${diffHours} ${diffHours === 1 ? 'hora' : 'horas'}`;
+      badgeColor = 'info';
+    } else {
+      label = `${diffMins} ${diffMins === 1 ? 'min' : 'mins'}`;
+      badgeColor = 'light';
+    }
+
+    return (
+      <Badge 
+        size="sm" 
+        color={badgeColor} 
+        className="flex items-center gap-1 font-semibold border dark:border-white/5"
+        startIcon={
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 animate-pulse text-current" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        }
+      >
+        Taller: {label}
+      </Badge>
+    );
+  }, [order.createdAt, order.esperaRepuesto]);
+
   // Cerrar menú al hacer clic fuera
   React.useEffect(() => {
     if (!isMenuOpen) return;
@@ -82,6 +146,7 @@ export default function OrdenCard({
             <Badge size="sm" color={getEstadoColor(order.estadoOrden?.nombre || '')}>
               {order.estadoOrden?.nombre || 'Sin estado'}
             </Badge>
+            {waitingTimeBadge}
             {order.presupuesto?.estado && (
               <Badge 
                 size="sm" 

@@ -7,15 +7,13 @@ import { useSidebar } from "../context/SidebarContext";
 import { ChevronDownIcon, HorizontaLDots } from "../icons/index";
 import SidebarWidget from "./SidebarWidget";
 import { NavItem, navItems, getFilteredNavItems } from "@/data/sidebar/navItems";
-import { useSession } from "next-auth/react";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
   
-  const { data: session } = useSession();
-  const role = session?.user?.role || null;
-  const permissions = session?.user?.permissions || [];
+  const { role, permissions } = usePermissions();
 
   // Filtrar los items de navegación según el rol y los permisos dinámicos
   const filteredNavItems = React.useMemo(() => {

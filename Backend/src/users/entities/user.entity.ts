@@ -25,7 +25,7 @@ export class User {
   correo: string;
 
   @Column({ nullable: false })
-  @Matches(/^[0-9]{10}$/, { message: 'El número de teléfono debe tener 10 dígitos.' })
+  @Matches(/^[0-9]{9,10}$/, { message: 'El número de teléfono debe tener entre 9 y 10 dígitos.' })
   telefono: string;
 
   @Column()

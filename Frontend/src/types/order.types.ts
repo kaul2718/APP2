@@ -116,4 +116,6 @@ export interface Order {
   historialEstados?: OrderHistorialEstado[];
   tipoOrden: OrderType;
   checklistData?: any;
+  esperaRepuesto?: boolean;
+  tiempoEstimadoReparacion?: number;
 }

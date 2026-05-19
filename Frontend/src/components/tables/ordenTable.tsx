@@ -19,6 +19,7 @@ import { getEstadoColor } from "@/utils/badge-utils";
 import { formatDate, formatUserName } from "@/lib/formatters";
 import { useEstadoOrden } from "@/hooks/useEstadoOrden";
 import { DataTable, ColumnDef } from "./DataTable";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface UpdateOrderData {
   technicianId?: number | null;
@@ -28,6 +29,8 @@ interface UpdateOrderData {
   accesorios?: string[];
   casilleroId?: number | null;
   userId?: number;
+  esperaRepuesto?: boolean;
+  tiempoEstimadoReparacion?: number;
 }
 
 export default function OrdenTable() {
@@ -51,9 +54,7 @@ export default function OrdenTable() {
 
   const { data: session } = useSession();
   const { estadosOrden } = useEstadoOrden();
-  const userRole = session?.user?.role;
-  const canOperateOrders = userRole === "admin" || userRole === "tech" || userRole === "recep";
-  const canDeleteOrders = userRole === "admin";
+  const { hasPermission } = usePermissions();
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -115,9 +116,11 @@ export default function OrdenTable() {
         accesorios: updatedData.accesorios,
         casilleroId: updatedData.casilleroId,
         userId: updatedData.userId,
+        esperaRepuesto: updatedData.esperaRepuesto,
+        tiempoEstimadoReparacion: updatedData.tiempoEstimadoReparacion,
       });
 
-      await fetchOrders();
+      await fetchOrders(currentPage, 10, searchTerm, showInactive, estadoOrdenId);
       return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error al guardar cambios");
@@ -328,7 +331,7 @@ export default function OrdenTable() {
               },
             ];
 
-            if (tienePresupuesto) {
+            if (tienePresupuesto && hasPermission("presupuestos.view")) {
               actions.push({
                 key: "view-budget",
                 label: "Ver presupuesto",
@@ -346,7 +349,7 @@ export default function OrdenTable() {
                 "rounded border border-cyan-300 px-2 py-1 text-xs text-cyan-700 hover:bg-cyan-50 dark:border-cyan-700 dark:text-cyan-300 dark:hover:bg-cyan-900/20",
             });
 
-            if (canOperateOrders) {
+            if (hasPermission("orders.update")) {
               actions.push(
                 {
                   key: "edit",
@@ -379,7 +382,7 @@ export default function OrdenTable() {
                 },
               );
 
-              if (!tienePresupuesto) {
+              if (!tienePresupuesto && hasPermission("presupuestos.create")) {
                 actions.push({
                   key: "budget",
                   label: "Crear presupuesto",
@@ -390,7 +393,7 @@ export default function OrdenTable() {
               }
             }
 
-            if (canDeleteOrders) {
+            if (hasPermission("orders.delete")) {
               actions.push({
                 key: "delete",
                 label: "Eliminar",

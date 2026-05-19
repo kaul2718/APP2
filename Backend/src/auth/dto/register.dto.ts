@@ -23,7 +23,7 @@ export class RegisterDto {
 
   @Transform(({ value }) => value.trim())
   @IsNotEmpty()
-  @Matches(/^\d{10}$/, { message: 'El teléfono debe tener 10 dígitos.' })
+  @Matches(/^[0-9\s\-+()]{9,16}$/, { message: 'El número de teléfono debe tener entre 9 y 16 caracteres.' })
   telefono: string;
 
   @Transform(({ value }) => value.trim())

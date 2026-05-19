@@ -8,6 +8,7 @@ import AlmacenEditModal from "../modals/AlmacenEditModal";
 import { toast } from "react-toastify";
 import { ItemAlmacen, useAlmacen } from "@/hooks/useAlmacen";
 import { DataTable, ColumnDef, ActionDef } from "./DataTable";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   EyeIcon,
   PencilSquareIcon,
@@ -30,6 +31,7 @@ interface AlmacenTableProps {
 export default function AlmacenTable({ almacenHook, onDataChange, extraFilters = {} }: AlmacenTableProps) {
   const internalHook = useAlmacen();
   const hook = almacenHook || internalHook;
+  const { hasPermission } = usePermissions();
 
   const {
     items,
@@ -240,33 +242,42 @@ export default function AlmacenTable({ almacenHook, onDataChange, extraFilters =
     },
   ];
 
-  const rowActions = (item: ItemAlmacen): ActionDef[] => [
-    {
-      key: "view",
-      label: <EyeIcon className="h-4 w-4" />,
-      text: "Ficha técnica",
-      onClick: () => handleViewClick(item),
-      className:
-        "flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors",
-    },
-    {
-      key: "edit",
-      label: <PencilSquareIcon className="h-4 w-4" />,
-      text: "Editar precios/stock",
-      onClick: () => handleEditClick(item),
-      className:
-        "flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors",
-    },
-    {
-      key: "toggle",
-      label: item.estado ? <NoSymbolIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />,
-      text: item.estado ? "Deshabilitar" : "Habilitar",
-      onClick: () => handleToggleEstado(item),
-      className: item.estado
-        ? "flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors"
-        : "flex h-8 w-8 items-center justify-center rounded-lg border border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors",
-    },
-  ];
+  const rowActions = (item: ItemAlmacen): ActionDef[] => {
+    const actions: ActionDef[] = [
+      {
+        key: "view",
+        label: <EyeIcon className="h-4 w-4" />,
+        text: "Ficha técnica",
+        onClick: () => handleViewClick(item),
+        className:
+          "flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors",
+      },
+    ];
+
+    if (hasPermission("almacen.manage")) {
+      actions.push(
+        {
+          key: "edit",
+          label: <PencilSquareIcon className="h-4 w-4" />,
+          text: "Editar precios/stock",
+          onClick: () => handleEditClick(item),
+          className:
+            "flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors",
+        },
+        {
+          key: "toggle",
+          label: item.estado ? <NoSymbolIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />,
+          text: item.estado ? "Deshabilitar" : "Habilitar",
+          onClick: () => handleToggleEstado(item),
+          className: item.estado
+            ? "flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+            : "flex h-8 w-8 items-center justify-center rounded-lg border border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors",
+        }
+      );
+    }
+
+    return actions;
+  };
 
   return (
     <>

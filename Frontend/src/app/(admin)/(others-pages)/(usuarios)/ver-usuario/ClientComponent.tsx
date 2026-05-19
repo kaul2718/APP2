@@ -15,6 +15,7 @@ import {
 import UsuarioNuevoTable from "@/components/tables/usuarioNuevoTable";
 import UsuarioCreateModal from "@/components/modals/UsuarioCreateModal";
 import { useUsuario } from "@/hooks/useUsuario";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const ROLES = [
   { id: 'all', nombre: 'Todos', icon: <UsersIcon className="w-4 h-4" /> },
@@ -28,6 +29,7 @@ export default function ClientComponent() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [tableRefreshKey, setTableRefreshKey] = useState(0);
     const usuarioHook = useUsuario();
+    const { hasPermission, loading } = usePermissions();
     const { 
         usuarios, 
         totalItems, 
@@ -42,6 +44,25 @@ export default function ClientComponent() {
         const techs = usuarios.filter(u => u.role === 'tech').length;
         return { admins, techs };
     }, [usuarios]);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-brand-500"></div>
+            </div>
+        );
+    }
+
+    if (!hasPermission("users.view")) {
+        return (
+            <div className="p-10 text-center bg-white dark:bg-gray-900 rounded-lg border border-gray-150 dark:border-gray-800 shadow-theme-xs">
+                <h2 className="text-lg font-bold text-red-500">Acceso Denegado</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    No tienes los permisos asignados por el administrador para ver el módulo de Gestión de Usuarios. Por favor, contacta al administrador del sistema.
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -88,20 +109,22 @@ export default function ClientComponent() {
                     ))}
                 </div>
 
-                <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="flex-shrink-0"
-                >
-                    <Button
-                        onClick={() => setIsCreateModalOpen(true)}
-                        className="w-full xl:w-auto flex items-center justify-center gap-2 px-6 shadow-lg shadow-brand-500/20"
-                        size="md"
+                {hasPermission("users.create") && (
+                    <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="flex-shrink-0"
                     >
-                        <PlusCircleIcon className="w-5 h-5" />
-                        <span>Nuevo Usuario</span>
-                    </Button>
-                </motion.div>
+                        <Button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="w-full xl:w-auto flex items-center justify-center gap-2 px-6 shadow-lg shadow-brand-500/20"
+                            size="md"
+                        >
+                            <PlusCircleIcon className="w-5 h-5" />
+                            <span>Nuevo Usuario</span>
+                        </Button>
+                    </motion.div>
+                )}
             </div>
 
             {/* Main Table Section */}

@@ -63,45 +63,45 @@ export const navItems: NavItem[] = [
   {
     icon: <ArchiveBoxIcon className="w-5 h-5" />,
     name: "Almacén",
-    roles: ["admin", "tech"],
+    roles: ["admin", "tech", "recep"],
     subItems: [
       {
         name: "Catálogo e Inventario",
         path: "/items",
-        roles: ["admin", "tech"],
+        roles: ["admin", "tech", "recep"],
         permission: "almacen.view",
       },
       {
         name: "Ajuste de Inventario",
         path: "/items/ajuste",
-        roles: ["admin", "tech"],
+        roles: ["admin", "tech", "recep"],
         permission: "almacen.manage",
         new: true,
       },
       {
         name: "Compras y Facturación",
         path: "/items/compras",
-        roles: ["admin", "tech"],
+        roles: ["admin", "tech", "recep"],
         permission: "almacen.manage",
         new: true,
       },
       {
         name: "Proveedores",
         path: "/items/compras/proveedores",
-        roles: ["admin", "tech"],
+        roles: ["admin", "tech", "recep"],
         permission: "almacen.manage",
       },
       {
         name: "Categorías",
         path: "/ver-categoria",
-        roles: ["admin", "tech"],
+        roles: ["admin", "tech", "recep"],
         permission: "almacen.view",
       },
       {
         name: "Checklists (Peritaje)",
         path: "/ver-checklist",
-        roles: ["admin"],
-        permission: "orders.view",
+        roles: ["admin", "tech", "recep"],
+        permission: "checklists.view",
       },
     ],
   },
@@ -172,7 +172,7 @@ export const useUserRole = () => {
   return session?.user?.role || null;
 };
 
-// Función para filtrar los items de navegación según el rol y los permisos en tiempo real
+// Función para filtrar los items de navegación según los permisos en tiempo real
 export const getFilteredNavItems = (role: string | null, permissions: string[] = []) => {
   if (!role) return [];
 
@@ -182,31 +182,33 @@ export const getFilteredNavItems = (role: string | null, permissions: string[] =
     .filter(item => {
       // 1. Si el item requiere un permiso específico, verificar si el usuario lo tiene (o es admin)
       if (item.permission) {
-        return isAdmin || permissions.includes(item.permission);
+        const hasPerm = isAdmin || permissions.includes(item.permission);
+        if (!hasPerm) return false;
       }
 
       // 2. Si es un menú contenedor (con subItems), mostrarlo si al menos un subItem es visible
       if (item.subItems) {
         const hasVisibleSubItem = item.subItems.some(sub => {
           if (sub.permission) {
-            return isAdmin || permissions.includes(sub.permission);
+            const hasPerm = isAdmin || permissions.includes(sub.permission);
+            return hasPerm;
           }
-          return sub.roles.includes(role);
+          return true;
         });
         return hasVisibleSubItem;
       }
 
-      // 3. Fallback a validación por roles
-      return item.roles.includes(role);
+      return true;
     })
     .map(item => {
       // Filtrar los subItems internos del item de acuerdo a sus permisos individuales
       if (item.subItems) {
         const filteredSub = item.subItems.filter(sub => {
           if (sub.permission) {
-            return isAdmin || permissions.includes(sub.permission);
+            const hasPerm = isAdmin || permissions.includes(sub.permission);
+            return hasPerm;
           }
-          return sub.roles.includes(role);
+          return true;
         });
 
         return {

@@ -6,6 +6,7 @@ import { Order } from '@/interfaces/order';
 import { useUsuario } from '@/hooks/useUsuario';
 import { useEstadoOrden } from '@/hooks/useEstadoOrden';
 import { useCasillero } from '@/hooks/useCasillero';
+import { useOrders } from '@/hooks/useOrders';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
 import { Role } from '@/types/role';
@@ -24,15 +25,19 @@ interface Props {
     fechaPrometidaEntrega?: string | null;
     accesorios?: string[];
     casilleroId?: number | null;
+    esperaRepuesto?: boolean;
+    tiempoEstimadoReparacion?: number;
   }) => Promise<boolean>;
 }
 
 export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props) {
   const { data: session } = useSession();
   const token = session?.accessToken || null;
-  const { usuarios, loading: loadingUsuarios } = useUsuario();
+  const { usuarios, loading: loadingUsuarios } = useUsuario({ defaultLimit: 1000 });
   const { estadosOrden, loading: loadingEstados } = useEstadoOrden();
   const { casilleros, fetchAvailableCasilleros, loading: loadingCasilleros } = useCasillero();
+  const { getTechniciansAvailability } = useOrders();
+  const [techAvailability, setTechAvailability] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     technicianId: '',
@@ -40,7 +45,9 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
     problemaReportado: '',
     fechaPrometidaEntrega: '',
     accesorios: '',
-    casilleroId: ''
+    casilleroId: '',
+    esperaRepuesto: false,
+    tiempoEstimadoReparacion: '0'
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,12 +62,17 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
           ? format(new Date(order.fechaPrometidaEntrega), "yyyy-MM-dd'T'HH:mm")
           : '',
         accesorios: order.accesorios?.join(', ') || '',
-        casilleroId: order.casillero?.id?.toString() || ''
+        casilleroId: order.casillero?.id?.toString() || '',
+        esperaRepuesto: order.esperaRepuesto || false,
+        tiempoEstimadoReparacion: order.tiempoEstimadoReparacion?.toString() || '0'
       });
 
       // Cargar casilleros disponibles al abrir el modal
       if (isOpen) {
         fetchAvailableCasilleros();
+        getTechniciansAvailability().then(data => {
+          setTechAvailability(data || []);
+        });
       }
     }
   }, [order, isOpen]);
@@ -87,8 +99,10 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
         accesorios: formData.accesorios
           ? formData.accesorios.split(',').map(item => item.trim()).filter(item => item)
           : undefined,
-        technicianId: formData.technicianId ? parseInt(formData.technicianId) : undefined,
+        technicianId: formData.technicianId ? parseInt(formData.technicianId) : null,
         casilleroId: formData.casilleroId ? parseInt(formData.casilleroId) : undefined,
+        esperaRepuesto: formData.esperaRepuesto,
+        tiempoEstimadoReparacion: parseFloat(formData.tiempoEstimadoReparacion) || 0,
       };
 
       const success = await onSave(updatedData);
@@ -135,24 +149,90 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
       </div>
       <form onSubmit={handleSubmit} className="p-6 space-y-6">
         {/* Técnico asignado */}
-        <div>
-          <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
-            Técnico Asignado
+        {session?.user?.role !== 'tech' && (
+          <div>
+            <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+              Técnico Asignado
+            </label>
+            <select
+              name="technicianId"
+              value={formData.technicianId}
+              onChange={handleChange}
+              className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white font-medium"
+              disabled={loadingUsuarios}
+            >
+              <option value="">Seleccione un técnico</option>
+              {tecnicos.map(tecnico => {
+                const availability = techAvailability.find(a => a.technicianId === tecnico.id);
+                let label = `${tecnico.nombre} ${tecnico.apellido}`;
+                if (availability) {
+                  const partsStr = availability.waitingForParts > 0 ? ` (${availability.waitingForParts} en espera de repuestos)` : '';
+                  label += ` (Órdenes activas: ${availability.workingActive}${partsStr}`;
+                  if (availability.nextAvailableDate) {
+                    const estDate = new Date(availability.nextAvailableDate);
+                    label += `, Disponible aprox: ${estDate.toLocaleDateString()})`;
+                  } else {
+                    label += `, Disp. inmediata)`;
+                  }
+                }
+                return (
+                  <option key={tecnico.id} value={tecnico.id}>
+                    {label}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        )}
+
+        {/* En espera de repuestos */}
+        <div className="flex items-center space-x-3 bg-amber-50 dark:bg-amber-950/20 p-3 rounded-lg border border-amber-200 dark:border-amber-900/30">
+          <input
+            type="checkbox"
+            id="esperaRepuesto"
+            name="esperaRepuesto"
+            checked={formData.esperaRepuesto}
+            onChange={(e) => setFormData(prev => ({ ...prev, esperaRepuesto: e.target.checked }))}
+            className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+          />
+          <label htmlFor="esperaRepuesto" className="font-medium text-amber-800 dark:text-amber-400 text-sm cursor-pointer select-none">
+            Marcar ODS en "Espera de Repuestos" (Pausa el conteo del tiempo de espera y libera la agenda del técnico)
           </label>
-          <select
-            name="technicianId"
-            value={formData.technicianId}
-            onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            disabled={loadingUsuarios}
-          >
-            <option value="">Seleccione un técnico</option>
-            {tecnicos.map(tecnico => (
-              <option key={tecnico.id} value={tecnico.id}>
-                {tecnico.nombre} {tecnico.apellido}
-              </option>
-            ))}
-          </select>
+        </div>
+
+        {/* Tiempo estimado de reparación y Fecha Estimada de Entrega */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Tiempo estimado de reparación */}
+          <div>
+            <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+              Horas Estimadas de Reparación
+            </label>
+            <input
+              type="number"
+              name="tiempoEstimadoReparacion"
+              value={formData.tiempoEstimadoReparacion}
+              onChange={handleChange}
+              min="0"
+              step="0.5"
+              className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              placeholder="Ej: 2.5"
+            />
+          </div>
+
+          {/* Fecha prometida de entrega */}
+          <div>
+            <Label className="mb-2 block">Fecha Estimada de Entrega</Label>
+            <div className="relative">
+              <CalendarIcon className="w-5 h-5 text-gray-400 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <input
+                type="datetime-local"
+                name="fechaPrometidaEntrega"
+                value={formData.fechaPrometidaEntrega}
+                onChange={(e) => handleChange(e)}
+                className="w-full pl-10 p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-black dark:text-white dark:[color-scheme:dark]"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Estado de la orden (Eliminado para respetar el flujo estricto) */}        {/* Casillero - Siempre visible */}
@@ -194,21 +274,6 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
             className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white min-h-[100px]"
             required
           />
-        </div>
-
-        {/* Fecha prometida de entrega */}
-        <div className="mb-4">
-          <Label className="mb-1 block">Fecha Prometida de Entrega</Label>
-          <div className="relative">
-            <CalendarIcon className="w-5 h-5 text-gray-800 dark:text-gray-200 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-            <input
-              type="datetime-local"
-              name="fechaPrometidaEntrega"
-              value={formData.fechaPrometidaEntrega}
-              onChange={(e) => handleChange(e)}
-              className="w-full pl-10 p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-black dark:text-white"
-            />
-          </div>
         </div>
 
 

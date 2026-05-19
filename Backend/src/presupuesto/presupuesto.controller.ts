@@ -55,7 +55,7 @@ export class PresupuestoController {
     return this.presupuestoService.findAll(includeDeleted);
   }
 
-  @Auth('tech')
+  @Auth('admin', 'tech', 'recep')
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -96,14 +96,14 @@ export class PresupuestoController {
     }
   }
 
-  @Auth('tech')
+  @Auth('admin', 'tech', 'recep')
   @Patch(':id/restore')
   async restore(@Param('id', ParseIntPipe) id: number) {
     await this.presupuestoService.restore(id);
     return this.presupuestoService.findOne(id);
   }
 
-  @Auth('client')
+  @Auth('admin', 'tech', 'recep', 'client')
   @Get(':id/resumen')
   getResumen(@Param('id', ParseIntPipe) id: number) {
     return this.presupuestoService.getResumenPresupuesto(id);

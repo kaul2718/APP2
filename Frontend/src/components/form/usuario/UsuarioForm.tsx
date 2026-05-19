@@ -17,7 +17,10 @@ import {
     MapIcon,
     LockClosedIcon,
     ExclamationTriangleIcon,
+    EyeIcon,
+    EyeSlashIcon,
 } from "@heroicons/react/24/outline";
+import { AsYouType } from 'libphonenumber-js';
 
 interface UsuarioFormProps {
     mode: UsuarioFormMode;
@@ -44,6 +47,14 @@ export default function UsuarioForm({
 
     const [buscandoSri, setBuscandoSri] = React.useState(false);
     const [mensajeSri, setMensajeSri] = React.useState<{ tipo: "exito" | "error" | "cargando"; texto: string } | null>(null);
+
+    const [showPassword, setShowPassword] = React.useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+
+    const handleTelefonoChange = React.useCallback((value: string) => {
+        const formatted = new AsYouType('EC').input(value);
+        handleChange("telefono", formatted);
+    }, [handleChange]);
 
     const consultarDocumentoSri = React.useCallback(async (doc: string) => {
         if (!doc || (doc.length !== 10 && doc.length !== 13)) return;
@@ -267,9 +278,9 @@ export default function UsuarioForm({
                         <Input
                             autoComplete="tel"
                             value={formData.telefono}
-                            onChange={(e) => handleChange("telefono", e.target.value)}
-                            placeholder="Ej: 0987654321"
-                            maxLength={10}
+                            onChange={(e) => handleTelefonoChange(e.target.value)}
+                            placeholder="Ej: 099 123 4567"
+                            maxLength={16}
                             disabled={isLoading}
                             className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
                         />
@@ -384,14 +395,25 @@ export default function UsuarioForm({
                             <div className="relative">
                                 <LockClosedIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                                 <Input
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     autoComplete="new-password"
                                     value={formData.password}
                                     onChange={(e) => handleChange("password", e.target.value)}
                                     placeholder="Mín. 8 caracteres, 1 mayúscula, 1 número, 1 especial"
                                     disabled={isLoading}
-                                    className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
+                                    className="pl-10 pr-10 bg-white dark:bg-gray-800 text-black dark:text-white"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white focus:outline-none z-10"
+                                >
+                                    {showPassword ? (
+                                        <EyeSlashIcon className="w-5 h-5" />
+                                    ) : (
+                                        <EyeIcon className="w-5 h-5" />
+                                    )}
+                                </button>
                             </div>
                             {errors.password && (
                                 <p className="text-sm text-red-500 mt-1">{errors.password}</p>
@@ -403,14 +425,25 @@ export default function UsuarioForm({
                             <div className="relative">
                                 <LockClosedIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                                 <Input
-                                    type="password"
+                                    type={showConfirmPassword ? "text" : "password"}
                                     autoComplete="new-password"
                                     value={formData.confirmPassword}
                                     onChange={(e) => handleChange("confirmPassword", e.target.value)}
                                     placeholder="Confirma la contraseña"
                                     disabled={isLoading}
-                                    className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
+                                    className="pl-10 pr-10 bg-white dark:bg-gray-800 text-black dark:text-white"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white focus:outline-none z-10"
+                                >
+                                    {showConfirmPassword ? (
+                                        <EyeSlashIcon className="w-5 h-5" />
+                                    ) : (
+                                        <EyeIcon className="w-5 h-5" />
+                                    )}
+                                </button>
                             </div>
                             {errors.confirmPassword && (
                                 <p className="text-sm text-red-500 mt-1">{errors.confirmPassword}</p>

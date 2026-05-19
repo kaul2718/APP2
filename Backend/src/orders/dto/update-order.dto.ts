@@ -34,7 +34,14 @@ export class UpdateOrderDto {
   @ValidateIf(o => o.casilleroId !== null && o.casilleroId !== undefined)
   @IsInt({ message: 'El ID del casillero debe ser un número entero' })
   @Min(1, { message: 'El ID del casillero debe ser mayor o igual a 1' })
-  casilleroId?: number | null; G
+  casilleroId?: number | null;
+
+  @IsOptional()
+  @IsBoolean({ message: 'esperaRepuesto debe ser un valor booleano' })
+  esperaRepuesto?: boolean;
+
+  @IsOptional()
+  tiempoEstimadoReparacion?: number;
 
   @IsOptional()
   @IsInt({ message: 'El ID del cliente debe ser un número entero' })

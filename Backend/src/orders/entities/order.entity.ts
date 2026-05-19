@@ -129,6 +129,12 @@ export class Order {
     @DeleteDateColumn({ type: 'timestamp', nullable: true })
     deletedAt: Date | null;
 
+    @Column({ default: false })
+    esperaRepuesto: boolean;
+
+    @Column({ type: 'float', default: 0 })
+    tiempoEstimadoReparacion: number;
+
     @CreateDateColumn({ type: 'timestamp' })
     createdAt: Date;
 

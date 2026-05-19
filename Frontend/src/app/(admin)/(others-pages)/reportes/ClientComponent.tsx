@@ -20,6 +20,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 import Link from 'next/link';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 interface KPIStats {
@@ -114,6 +115,7 @@ interface ClientComponentProps {
 
 export default function ClientComponent({ initialTab, standalone = false }: ClientComponentProps) {
   const { data: session } = useSession();
+  const { hasPermission, loading: permissionsLoading } = usePermissions();
   const token = session?.accessToken;
 
   // ─── State ──────────────────────────────────────────────────────────────────
@@ -373,6 +375,25 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
     };
     return labelMap[activeTab];
   };
+
+  if (permissionsLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-brand-500"></div>
+      </div>
+    );
+  }
+
+  if (!hasPermission("reportes.view")) {
+    return (
+      <div className="p-10 text-center bg-white dark:bg-gray-900 rounded-lg border border-gray-150 dark:border-gray-800 shadow-theme-xs">
+        <h2 className="text-lg font-bold text-red-500">Acceso Denegado</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+          No tienes los permisos asignados por el administrador para ver el módulo de Reportes. Por favor, contacta al administrador del sistema.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10 space-y-6">

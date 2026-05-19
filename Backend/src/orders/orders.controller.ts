@@ -18,6 +18,7 @@ import { OrderService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { Auth } from 'src/auth/decorators/auth.decorator';
+import { RequirePermissions } from 'src/decorators/permissions.decorator';
 
 import { Order } from './entities/order.entity';
 import { CreateActividadTecnicaDto } from 'src/actividad-tecnica/dto/create-actividad-tecnica.dto';
@@ -33,12 +34,14 @@ export class OrderController {
   constructor(private readonly orderService: OrderService) { }
 
   @Auth('admin', 'tech', 'recep')
+  @RequirePermissions('orders.create')
   @Post()
   create(@Body() dto: CreateOrderDto): Promise<Order> {
     return this.orderService.create(dto);
   }
 
   @Auth('admin', 'tech', 'recep')
+  @RequirePermissions('orders.view')
   @Get()
   async findAll(
     @Query('page') page?: string,
@@ -107,7 +110,13 @@ export class OrderController {
     };
   }
 
-  @Auth('client')
+  @Auth('admin', 'recep', 'tech')
+  @Get('tecnicos/disponibilidad')
+  async getTechniciansAvailability() {
+    return this.orderService.getTechniciansAvailability();
+  }
+
+  @Auth('admin', 'tech', 'recep', 'client')
   @Get(':id')
   findOne(
     @Param('id') id: string,
@@ -223,15 +232,21 @@ export class OrderController {
   }
 
   @Auth('tech')
+  @RequirePermissions('orders.view')
   @Get('tecnico/mis-ordenes')
-  async getOrdersForTechnician(@CurrentUser() user: any) { // Usa CurrentUser como decorador
-    return this.orderService.findOrdersByTechnician(user.sub);
+  async getOrdersForTechnician(
+    @CurrentUser() user: any,
+    @Query('estadoOrdenId') estadoOrdenId?: string,
+    @Query('search') search?: string,
+  ) {
+    const parsedEstadoId = estadoOrdenId ? parseInt(estadoOrdenId, 10) : undefined;
+    return this.orderService.findOrdersByTechnician(user.id, parsedEstadoId, search);
   }
 
   @Auth('client')
   @Get('cliente/mis-ordenes')
   async getOrdersForClient(@CurrentUser() user: any) {  // Usa any temporalmente para debug
-    return this.orderService.findOrdersByClient(user.sub); // Usa user.sub en lugar de user.id
+    return this.orderService.findOrdersByClient(user.id); // Usa user.id en lugar de user.sub
   }
 
   @Get('public/consulta')

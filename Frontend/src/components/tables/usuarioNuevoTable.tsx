@@ -10,6 +10,7 @@ import { toast } from "react-toastify";
 import { Usuario, useUsuario, UseUsuarioReturn } from "@/hooks/useUsuario";
 import { useRoles } from "@/hooks/useRoles";
 import { ActionDef, ColumnDef, DataTable } from "./DataTable";
+import { usePermissions } from "@/hooks/usePermissions";
 import { 
   EyeIcon, 
   PencilSquareIcon, 
@@ -52,6 +53,7 @@ export default function UsuarioNuevoTable({
 
   const { roles } = useRoles();
   const { data: session } = useSession();
+  const { hasPermission } = usePermissions();
   const token = session?.accessToken || "";
   const isAdmin = session?.user?.role === "admin";
 
@@ -192,7 +194,7 @@ export default function UsuarioNuevoTable({
       },
     ];
 
-    if (!isDeleted) {
+    if (!isDeleted && hasPermission("users.update")) {
       items.push(
         {
           key: "edit",
@@ -214,7 +216,7 @@ export default function UsuarioNuevoTable({
       );
     }
 
-    if (isAdmin) {
+    if (hasPermission("users.delete")) {
       if (isDeleted) {
         items.push({
           key: "restore",

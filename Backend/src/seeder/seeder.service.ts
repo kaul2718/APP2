@@ -50,6 +50,10 @@ export class SeederService {
       { nombre: 'Ver Almacén', slug: 'almacen.view' },
       { nombre: 'Gestionar Almacén', slug: 'almacen.manage' },
 
+      // Checklists
+      { nombre: 'Ver Checklists', slug: 'checklists.view' },
+      { nombre: 'Gestionar Checklists', slug: 'checklists.manage' },
+
       // Reportes
       { nombre: 'Ver Reportes', slug: 'reportes.view' },
       { nombre: 'Exportar Reportes', slug: 'reportes.export' },
@@ -96,6 +100,8 @@ export class SeederService {
           'presupuestos.approve',
           'almacen.view',
           'almacen.manage',
+          'checklists.view',
+          'checklists.manage',
           'reportes.view',
           'reportes.export',
           'notificaciones.send',
@@ -110,7 +116,6 @@ export class SeederService {
           'orders.view',
           'orders.update',
           'presupuestos.view',
-          'almacen.view',
           'notificaciones.view',
         ],
       },
@@ -123,6 +128,7 @@ export class SeederService {
           'orders.create',
           'users.view',
           'presupuestos.view',
+          'checklists.view',
           'notificaciones.send',
           'notificaciones.view',
         ],
@@ -148,37 +154,43 @@ export class SeederService {
     ];
 
     for (const roleData of rolePermissions) {
-      const existing = await this.rolRepository.findOne({
+      let rol = await this.rolRepository.findOne({
         where: { slug: roleData.slug },
       });
 
-      if (!existing) {
-        const rol = this.rolRepository.create({
+      if (!rol) {
+        rol = this.rolRepository.create({
           nombre: roleData.nombre,
           slug: roleData.slug,
           descripcion: roleData.descripcion,
         });
-
-        const savedRole = await this.rolRepository.save(rol);
-
-        // Asignar permisos
-        for (const permissionSlug of roleData.permissions) {
-          const permission = await this.permissionRepository.findOne({
-            where: { slug: permissionSlug },
-          });
-
-          if (permission) {
-            const rolePermission = this.rolePermissionRepository.create({
-              roleId: savedRole.id,
-              permissionId: permission.id,
-            });
-
-            await this.rolePermissionRepository.save(rolePermission);
-          }
-        }
-
+        rol = await this.rolRepository.save(rol);
         console.log(`✓ Rol creado: ${roleData.nombre}`);
+      } else {
+        rol.nombre = roleData.nombre;
+        rol.descripcion = roleData.descripcion;
+        rol = await this.rolRepository.save(rol);
       }
+
+      // Sincronizar permisos del rol
+      // 1. Eliminar asociaciones viejas para este rol
+      await this.rolePermissionRepository.delete({ roleId: rol.id });
+
+      // 2. Insertar nuevas asociaciones
+      for (const permissionSlug of roleData.permissions) {
+        const permission = await this.permissionRepository.findOne({
+          where: { slug: permissionSlug },
+        });
+
+        if (permission) {
+          const rolePermission = this.rolePermissionRepository.create({
+            roleId: rol.id,
+            permissionId: permission.id,
+          });
+          await this.rolePermissionRepository.save(rolePermission);
+        }
+      }
+      console.log(`✓ Permisos sincronizados para el rol: ${roleData.nombre}`);
     }
   }
 }

@@ -17,10 +17,12 @@ import CategoriaTable from "@/components/tables/categoriaTable";
 import AgregarCategoriaModal from "@/components/modals/AgregarCategoriaModal";
 import { useCategoria, Categoria } from "@/hooks/useCategoria";
 import { apiRequest } from "@/lib/api";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function CategoriaComponent() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [tableRefreshKey, setTableRefreshKey] = useState(0);
+    const { hasPermission, loading } = usePermissions();
     const hook = useCategoria();
     const { fetchCategorias } = hook;
     const [allCategoriasForStats, setAllCategoriasForStats] = useState<Categoria[]>([]);
@@ -49,6 +51,25 @@ export default function CategoriaComponent() {
         const inactive = allCategoriasForStats.filter(c => !c.estado).length;
         return { total, active, inactive };
     }, [allCategoriasForStats]);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-brand-500"></div>
+            </div>
+        );
+    }
+
+    if (!hasPermission("almacen.view")) {
+        return (
+            <div className="p-10 text-center bg-white dark:bg-gray-900 rounded-lg border border-gray-150 dark:border-gray-800 shadow-theme-xs">
+                <h2 className="text-lg font-bold text-red-500">Acceso Denegado</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    No tienes los permisos asignados por el administrador para ver el módulo de Categorías. Por favor, contacta al administrador del sistema.
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -85,18 +106,20 @@ export default function CategoriaComponent() {
                     <h2 className="text-lg font-bold text-gray-900 dark:text-white">Clasificación de Productos</h2>
                 </div>
 
-                <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                >
-                    <Button
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 shadow-lg shadow-brand-500/20"
+                {hasPermission("almacen.manage") && (
+                    <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                     >
-                        <PlusCircleIcon className="w-5 h-5" />
-                        <span>Nueva Categoría</span>
-                    </Button>
-                </motion.div>
+                        <Button
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 shadow-lg shadow-brand-500/20"
+                        >
+                            <PlusCircleIcon className="w-5 h-5" />
+                            <span>Nueva Categoría</span>
+                        </Button>
+                    </motion.div>
+                )}
             </div>
 
             {/* Main Table Section */}

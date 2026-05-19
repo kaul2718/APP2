@@ -40,8 +40,6 @@ const QUICK_ACTIONS: Record<string, Array<{ label: string; path: string; icon: R
   ],
   tech: [
     { label: "Mis Órdenes", path: "/ver-orden", icon: <ClipboardDocumentCheckIcon className="w-4 h-4" /> },
-    { label: "Actividades", path: "/ver-actividad-tecnica", icon: <BoltIcon className="w-4 h-4" /> },
-    { label: "Reportes", path: "/ver-presupuesto", icon: <ChartBarIcon className="w-4 h-4" /> },
   ],
   recep: [
     { label: "Nueva Orden", path: "/ver-orden", icon: <PlusIcon className="w-4 h-4" /> },

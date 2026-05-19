@@ -9,6 +9,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { UserIcon, IdentificationIcon, EnvelopeIcon, PhoneIcon, HomeIcon, MapIcon } from "@heroicons/react/24/outline";
 import { Role } from "@/types/role";
+import { AsYouType, parsePhoneNumberFromString } from 'libphonenumber-js';
 
 interface FormData {
     cedula: string;
@@ -48,6 +49,12 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
         setFormData(prev => ({ ...prev, [field]: value }));
         setErrors(prev => ({ ...prev, [field]: undefined }));
     }, []);
+
+    const handleTelefonoChange = React.useCallback((value: string) => {
+        // Formatear dinámicamente con AsYouType para Ecuador
+        const formatted = new AsYouType('EC').input(value);
+        handleChange("telefono", formatted);
+    }, [handleChange]);
 
     const consultarDocumentoSri = React.useCallback(async (doc: string) => {
         if (!doc || (doc.length !== 10 && doc.length !== 13)) return;
@@ -137,8 +144,11 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
 
         if (!formData.telefono.trim()) {
             newErrors.telefono = "El teléfono es requerido";
-        } else if (!/^\d{10}$/.test(formData.telefono)) {
-            newErrors.telefono = "El teléfono debe tener 10 dígitos";
+        } else {
+            const parsedPhone = parsePhoneNumberFromString(formData.telefono, 'EC');
+            if (!parsedPhone || !parsedPhone.isValid()) {
+                newErrors.telefono = "Teléfono de Ecuador no válido (Celular o Fijo)";
+            }
         }
 
         if (!formData.direccion.trim()) {
@@ -350,9 +360,9 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
                                     <PhoneIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                                     <Input
                                         value={formData.telefono}
-                                        onChange={(e) => handleChange("telefono", e.target.value)}
-                                        placeholder="Ej: 0987654321"
-                                        maxLength={10}
+                                        onChange={(e) => handleTelefonoChange(e.target.value)}
+                                        placeholder="Ej: 099 123 4567"
+                                        maxLength={16}
                                         className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
                                     />
                                 </div>

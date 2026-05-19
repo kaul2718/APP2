@@ -45,7 +45,7 @@ export function useLogin() {
     }
 
     if (response?.ok) {
-      router.push("/profile"); // Redirige solo si login fue exitoso
+      router.push("/dashboard"); // Redirige solo si login fue exitoso
     } else {
       setErrors(["Credenciales incorrectas o usuario no encontrado."]);
     }

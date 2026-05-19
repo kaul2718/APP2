@@ -8,8 +8,8 @@ import * as bcrypt from 'bcryptjs';
 import { BrevoService } from 'src/auth/brevo.service';
 import { JwtService } from '@nestjs/jwt';
 import { UsuarioRolService } from 'src/usuario-rol/usuario-rol.service';
-
 import { RolService } from 'src/rol/rol.service';
+import parsePhoneNumberFromString from 'libphonenumber-js';
 
 @Injectable()
 export class UsersService {
@@ -47,10 +47,13 @@ export class UsersService {
       throw new BadRequestException('La cédula debe tener exactamente 10 dígitos');
     }
 
-    // ✅ Validar formato de teléfono (10 dígitos)
-    if (!/^\d{10}$/.test(createDto.telefono)) {
-      throw new BadRequestException('El teléfono debe tener exactamente 10 dígitos');
+    // ✅ Validar formato de teléfono (usando libphonenumber-js para celulares y convencionales en EC)
+    const parsedPhone = parsePhoneNumberFromString(createDto.telefono, 'EC');
+    if (!parsedPhone || !parsedPhone.isValid()) {
+      throw new BadRequestException('El teléfono ingresado no es un número de Ecuador válido (Celular o Fijo)');
     }
+    // Guardar el número limpio en formato nacional sin espacios (ej: 0991234567 o 022123456)
+    createDto.telefono = parsedPhone.formatNational().replace(/\s+/g, '');
 
     // ✅ Validar formato de correo
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -168,7 +171,12 @@ export class UsersService {
     const user = await this.userRepository.findOne({
       where: { id },
       withDeleted: includeInactive,
-      relations: ['userRoles', 'userRoles.rol'],
+      relations: [
+        'userRoles',
+        'userRoles.rol',
+        'userRoles.rol.rolePermissions',
+        'userRoles.rol.rolePermissions.permission'
+      ],
     });
 
     if (!user || (!includeInactive && !user.estado)) {
@@ -221,9 +229,13 @@ export class UsersService {
       throw new BadRequestException('El correo no puede estar vacío');
     }
 
-    // ✅ Validar formato de teléfono
-    if (updateDto.telefono && !/^\d{10}$/.test(updateDto.telefono)) {
-      throw new BadRequestException('El teléfono debe tener exactamente 10 dígitos');
+    // ✅ Validar formato de teléfono (usando libphonenumber-js para celulares y convencionales en EC)
+    if (updateDto.telefono) {
+      const parsedPhone = parsePhoneNumberFromString(updateDto.telefono, 'EC');
+      if (!parsedPhone || !parsedPhone.isValid()) {
+        throw new BadRequestException('El teléfono ingresado no es un número de Ecuador válido (Celular o Fijo)');
+      }
+      updateDto.telefono = parsedPhone.formatNational().replace(/\s+/g, '');
     }
 
     // ✅ Validar formato de correo

@@ -5,6 +5,7 @@ import { useChecklistTemplate } from "@/hooks/useChecklistTemplate";
 import { TrashIcon, PencilSquareIcon, DocumentTextIcon, Squares2X2Icon, TagIcon } from "@heroicons/react/24/outline";
 import type { ChecklistTemplate } from "@/types/checklist.types";
 import ConfirmDialog from "@/components/modals/ConfirmDialog";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface Props {
     onEdit: (template: ChecklistTemplate) => void;
@@ -12,6 +13,7 @@ interface Props {
 
 export default function ChecklistTemplateTable({ onEdit }: Props) {
     const { templates, loading, deleteTemplate } = useChecklistTemplate();
+    const { hasPermission } = usePermissions();
     const [confirmDeleteId, setConfirmDeleteId] = React.useState<{ id: number, nombre: string } | null>(null);
 
     const handleConfirmDelete = (id: number, nombre: string) => {
@@ -32,6 +34,8 @@ export default function ChecklistTemplateTable({ onEdit }: Props) {
         </div>
     );
 
+    const canManage = hasPermission("checklists.manage");
+
     return (
         <div className="overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm">
             <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
@@ -40,7 +44,9 @@ export default function ChecklistTemplateTable({ onEdit }: Props) {
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Plantilla</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipo de Equipo</th>
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Puntos de Revisión</th>
-                        <th className="px-6 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-widest">Acciones</th>
+                        {canManage && (
+                            <th className="px-6 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-widest">Acciones</th>
+                        )}
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -78,29 +84,31 @@ export default function ChecklistTemplateTable({ onEdit }: Props) {
                                     )}
                                 </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right">
-                                <div className="flex justify-end gap-2 transition-opacity">
-                                    <button
-                                        onClick={() => onEdit(template)}
-                                        className="p-2 text-gray-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 rounded-lg transition-all"
-                                        title="Editar plantilla"
-                                    >
-                                        <PencilSquareIcon className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                        onClick={() => handleConfirmDelete(template.id, template.nombre)}
-                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
-                                        title="Eliminar plantilla"
-                                    >
-                                        <TrashIcon className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            </td>
+                            {canManage && (
+                                <td className="px-6 py-4 whitespace-nowrap text-right">
+                                    <div className="flex justify-end gap-2 transition-opacity">
+                                        <button
+                                            onClick={() => onEdit(template)}
+                                            className="p-2 text-gray-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 rounded-lg transition-all"
+                                            title="Editar plantilla"
+                                        >
+                                            <PencilSquareIcon className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleConfirmDelete(template.id, template.nombre)}
+                                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
+                                            title="Eliminar plantilla"
+                                        >
+                                            <TrashIcon className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                </td>
+                            )}
                         </tr>
                     ))}
                     {templates.length === 0 && (
                         <tr>
-                            <td colSpan={4} className="px-6 py-12 text-center">
+                            <td colSpan={canManage ? 4 : 3} className="px-6 py-12 text-center">
                                 <div className="flex flex-col items-center justify-center space-y-3">
                                     <Squares2X2Icon className="w-12 h-12 text-gray-200 dark:text-gray-700" />
                                     <p className="text-sm text-gray-500">No hay plantillas registradas aún.</p>

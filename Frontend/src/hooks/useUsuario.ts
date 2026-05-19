@@ -77,7 +77,17 @@ export interface UseUsuarioReturn {
   setRoleFilter: React.Dispatch<React.SetStateAction<string>>;
 }
 
-export function useUsuario(): UseUsuarioReturn {
+export interface UseUsuarioOptions {
+  autoFetch?: boolean;
+  defaultLimit?: number;
+  defaultRole?: string;
+}
+
+export function useUsuario(options?: UseUsuarioOptions): UseUsuarioReturn {
+  const autoFetch = options?.autoFetch ?? true;
+  const defaultLimit = options?.defaultLimit ?? 10;
+  const defaultRole = options?.defaultRole ?? "all";
+
   const { data: session, status } = useSession();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -86,7 +96,7 @@ export function useUsuario(): UseUsuarioReturn {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [showInactive, setShowInactive] = useState<boolean>(false);
-  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [roleFilter, setRoleFilter] = useState<string>(defaultRole);
 
   const fetchUsuarios = async (
     page: number = 1,
@@ -296,10 +306,10 @@ export function useUsuario(): UseUsuarioReturn {
   };
 
   useEffect(() => {
-    if (status === "authenticated") {
-      fetchUsuarios(1, 10, searchTerm, showInactive, roleFilter);
+    if (status === "authenticated" && autoFetch) {
+      fetchUsuarios(1, defaultLimit, searchTerm, showInactive, roleFilter);
     }
-  }, [status, session, searchTerm, showInactive, roleFilter]);
+  }, [status, session, searchTerm, showInactive, roleFilter, autoFetch, defaultLimit]);
 
   return {
     usuarios,
