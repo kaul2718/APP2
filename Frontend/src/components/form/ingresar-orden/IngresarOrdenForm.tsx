@@ -62,9 +62,14 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     const [techAvailability, setTechAvailability] = React.useState<any[]>([]);
 
     // Hooks para obtener datos necesarios
-    const { usuarios = [], loading: loadingUsuarios, refetch: refetchUsuarios, fetchUsuarios, setUsuarios } = useUsuario({ defaultLimit: 1000 });
+    const { usuarios: clientUsuarios = [], loading: loadingUsuarios, refetch: refetchUsuarios, fetchUsuarios, setUsuarios } = useUsuario({ defaultLimit: 1000, defaultRole: Role.CLIENT });
+    const { usuarios: techUsuarios = [] } = useUsuario({ defaultLimit: 1000, defaultRole: Role.TECH });
     const { equipos = [], loading: loadingEquipos, refetch: refetchEquipos } = useEquipos();
     const { estadosOrden } = useEstadoOrden();
+
+    // Listas locales para nuevos registros creados al instante (resuelven problemas de paginación)
+    const [extraClientes, setExtraClientes] = React.useState<any[]>([]);
+    const [extraEquipos, setExtraEquipos] = React.useState<any[]>([]);
 
     React.useEffect(() => {
         getTechniciansAvailability().then(data => {
@@ -72,19 +77,22 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
         });
     }, []);
 
-    // Filtrar clientes (usuarios con rol 'CLIENT')
-    const clientes = React.useMemo(() =>
-        usuarios.filter(
-            (usuario) =>
-                usuario.role === Role.CLIENT &&
-                usuario.estado,
-        ),
-        [usuarios]
-    );
+    // Filtrar clientes (usuarios con rol 'CLIENT'), combinando con los creados localmente
+    const clientes = React.useMemo(() => {
+        const list = [...extraClientes, ...clientUsuarios];
+        const seen = new Set();
+        return list.filter(
+            (usuario) => {
+                if (seen.has(usuario.id)) return false;
+                seen.add(usuario.id);
+                return (usuario.role === Role.CLIENT || usuario.role === undefined) && usuario.estado;
+            }
+        );
+    }, [clientUsuarios, extraClientes]);
 
     const tecnicos = React.useMemo(() =>
-        usuarios.filter(usuario => usuario.role === Role.TECH && usuario.estado),
-        [usuarios]
+        techUsuarios.filter(usuario => usuario.role === Role.TECH && usuario.estado),
+        [techUsuarios]
     );
 
     // Filtrar clientes según búsqueda
@@ -96,10 +104,21 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                 .includes(clientSearch.toLowerCase())
         )
 
+    // Equipos combinados con equipos creados al instante
+    const combinedEquipos = React.useMemo(() => {
+        const list = [...extraEquipos, ...equipos];
+        const seen = new Set();
+        return list.filter(equipo => {
+            if (seen.has(equipo.id)) return false;
+            seen.add(equipo.id);
+            return equipo.estado;
+        });
+    }, [equipos, extraEquipos]);
+
     // Filtrar equipos según búsqueda
     const filteredEquipos = equipoSearch === ''
-        ? equipos
-        : equipos.filter(equipo =>
+        ? combinedEquipos
+        : combinedEquipos.filter(equipo =>
             `${equipo.tipoEquipo?.nombre} ${equipo.marca?.nombre} ${equipo.modelo?.nombre} ${equipo.numeroSerie}`
                 .toLowerCase()
                 .includes(equipoSearch.toLowerCase())
@@ -128,14 +147,14 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     React.useEffect(() => {
         if (hasLoadedExtendedUsers.current) return;
         hasLoadedExtendedUsers.current = true;
-        void fetchUsuarios(1, 200, "", false);
+        void fetchUsuarios(1, 200, "", false, Role.CLIENT);
     }, [fetchUsuarios]);
 
     // Cargar plantilla cuando cambia el equipo
     React.useEffect(() => {
         const fetchTemplate = async () => {
             if (formData.equipoId && formData.tipoOrden === OrderType.COMPLETA) {
-                const equipo = equipos.find(e => e.id === Number(formData.equipoId)) as any;
+                const equipo = combinedEquipos.find(e => e.id === Number(formData.equipoId)) as any;
                 const tipoEquipoId = equipo?.tipoEquipo?.id || equipo?.tipoEquipoId;
                 
                 // Solo cargar si el tipo de equipo cambió y no es la plantilla que ya tenemos
@@ -152,7 +171,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
             }
         };
         fetchTemplate();
-    }, [formData.equipoId, formData.tipoOrden, equipos, getTemplateByTipoEquipo, selectedTemplate]);
+    }, [formData.equipoId, formData.tipoOrden, combinedEquipos, getTemplateByTipoEquipo, selectedTemplate]);
 
     const handleChange = (field: keyof FormData, value: string | number | string[] | ChecklistItemResult[] | null) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -169,16 +188,20 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
             role: nuevoCliente.role || Role.CLIENT,
             estado: nuevoCliente.estado !== undefined ? nuevoCliente.estado : true
         };
+        setExtraClientes(prev => [clientWithFields, ...prev]);
         setUsuarios(prev => [clientWithFields, ...prev]);
         setFormData(prev => ({ ...prev, clientId: clientWithFields.id }));
         setClientSearch(""); // Limpiar búsqueda para que el Combobox muestre el valor seleccionado
-        await fetchUsuarios(1, 200, "", false); // Mantener la lista de 200 usuarios actualizada
+        await fetchUsuarios(1, 200, "", false, Role.CLIENT); // Mantener la lista de 200 usuarios actualizada
     };
 
     // Manejar creación de equipo
-    const handleEquipoCreado = async (nuevoEquipoId: number) => {
-        await refetchEquipos(); // Actualiza la lista de equipos
-        setFormData(prev => ({ ...prev, equipoId: nuevoEquipoId }));
+    const handleEquipoCreado = async (nuevoEquipo: any) => {
+        // Inyectar el nuevo equipo inmediatamente en la lista local para que aparezca al instante
+        setExtraEquipos(prev => [nuevoEquipo, ...prev]);
+        setFormData(prev => ({ ...prev, equipoId: nuevoEquipo.id }));
+        setEquipoSearch(""); // Limpiar búsqueda para que el Combobox muestre el valor seleccionado
+        await refetchEquipos(); // Actualiza la lista de equipos en segundo plano
     };
 
     const addAccessory = () => {
@@ -430,7 +453,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                                     id="equipo-select"
                                     className={`w-full rounded-lg border bg-white p-2 pl-10 text-black dark:bg-gray-800 dark:text-white ${loadingEquipos ? "cursor-not-allowed opacity-50" : ""} ${errors.equipoId ? "border-red-500" : "border-gray-300 dark:border-gray-700"}`}
                                     displayValue={(value) => {
-                                        const equipo = equipos.find((e) => e.id === value);
+                                        const equipo = combinedEquipos.find((e) => e.id === value);
                                         return equipo
                                             ? `${equipo.tipoEquipo?.nombre} - ${equipo.marca?.nombre} ${equipo.modelo?.nombre} (${equipo.numeroSerie})`
                                             : "";

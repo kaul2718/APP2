@@ -212,8 +212,21 @@ export class UsersService {
     return this.userRepository.findOne(options);
   }
 
-  async update(id: number, updateDto: UpdateUserDto): Promise<User> {
+  async update(id: number, updateDto: UpdateUserDto, currentUserRole?: string): Promise<User> {
     const user = await this.findOne(id, true);
+
+    if (currentUserRole === 'recep') {
+      const userAny = user as any;
+      if (userAny.role !== 'client') {
+        throw new BadRequestException('Un recepcionista solo puede editar usuarios con rol cliente');
+      }
+      if (updateDto.roleIds) {
+        const clientRole = await this.rolService.findBySlug('client');
+        if (clientRole) {
+          updateDto.roleIds = [clientRole.id];
+        }
+      }
+    }
 
     // ✅ Validar campos no estén vacíos si se proporcionan
     if (updateDto.nombre !== undefined && updateDto.nombre.trim() === '') {

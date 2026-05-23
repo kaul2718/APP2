@@ -36,16 +36,10 @@ export const navItems: NavItem[] = [
   },
   {
     icon: <UserCircleIcon className="w-5 h-5" />,
-    name: "Clientes",
+    name: "Usuarios",
+    path: "/ver-usuario",
     roles: ["admin"],
-    subItems: [
-      {
-        name: "Usuarios",
-        path: "/ver-usuario",
-        roles: ["admin"],
-        permission: "users.view",
-      }
-    ],
+    permission: "users.view",
   },
   {
     icon: <ClipboardDocumentListIcon className="w-5 h-5" />,

@@ -66,7 +66,7 @@ export default function UsuarioEditModal({ isOpen, onClose, usuario, onSave }: P
                     // Si es role, mapear directamente a roleIds
                     if (campo === 'role' && typeof valor === 'number' && valor > 0) {
                         cambios['roleIds'] = [valor];
-                    } else if (campo !== 'role') {
+                    } else if (campo !== 'role' && campo !== 'confirmPassword') {
                         // Enviar otros campos tal cual
                         cambios[campo] = valor;
                     }

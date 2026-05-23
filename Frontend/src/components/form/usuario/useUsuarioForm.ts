@@ -8,8 +8,8 @@ interface UseUsuarioFormProps {
 }
 
 export function useUsuarioForm({ initialData, mode }: UseUsuarioFormProps) {
-    const [formData, setFormData] = useState<UsuarioFormData>(
-        initialData || {
+    const [formData, setFormData] = useState<UsuarioFormData>(() => {
+        const defaults = {
             cedula: "",
             nombre: "",
             apellido: "",
@@ -20,8 +20,9 @@ export function useUsuarioForm({ initialData, mode }: UseUsuarioFormProps) {
             role: 0,
             password: "",
             confirmPassword: "",
-        }
-    );
+        };
+        return initialData ? { ...defaults, ...initialData } : defaults;
+    });
 
     const [errors, setErrors] = useState<UsuarioFormErrors>({});
     const [camposModificados, setCamposModificados] = useState<Set<string>>(new Set());
@@ -32,7 +33,12 @@ export function useUsuarioForm({ initialData, mode }: UseUsuarioFormProps) {
 
             // Track modified fields for edit mode
             if (mode === "edit" && initialData) {
-                if (initialData[field] !== value) {
+                const isPasswordChange = field === "password" || field === "confirmPassword";
+                const isModified = isPasswordChange 
+                    ? !!value 
+                    : initialData[field] !== value;
+
+                if (isModified) {
                     setCamposModificados((prev) => new Set(prev).add(field));
                 } else {
                     setCamposModificados((prev) => {
@@ -107,8 +113,8 @@ export function useUsuarioForm({ initialData, mode }: UseUsuarioFormProps) {
             newErrors.role = "El rol es requerido";
         }
 
-        // Password validations only in CREATE mode
-        if (mode === "create") {
+        // Password validations
+        if (mode === "create" || (mode === "edit" && formData.password)) {
             if (formData.password) {
                 if (formData.password.length < 8) {
                     newErrors.password = "La contraseña debe tener al menos 8 caracteres";
@@ -132,7 +138,19 @@ export function useUsuarioForm({ initialData, mode }: UseUsuarioFormProps) {
 
     const reset = useCallback(() => {
         if (initialData) {
-            setFormData(initialData);
+            const defaults = {
+                cedula: "",
+                nombre: "",
+                apellido: "",
+                correo: "",
+                telefono: "",
+                direccion: "",
+                ciudad: "",
+                role: 0,
+                password: "",
+                confirmPassword: "",
+            };
+            setFormData({ ...defaults, ...initialData });
         } else {
             setFormData({
                 cedula: "",

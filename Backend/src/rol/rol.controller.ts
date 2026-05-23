@@ -19,7 +19,7 @@ export class RolController {
   }
 
   @Get()
-  @Roles('admin')
+  @Roles('admin', 'recep', 'tech')
   findAll() {
     return this.rolService.findAll();
   }

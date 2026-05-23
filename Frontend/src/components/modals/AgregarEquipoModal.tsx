@@ -41,7 +41,7 @@ interface Modelo {
 interface Props {
     isOpen: boolean;
     onClose: () => void;
-    onSuccess?: (id: number) => void;
+    onSuccess?: (equipo: any) => void;
 }
 
 function generarNumeroSerie(length = 10) {
@@ -259,8 +259,8 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
 
             onClose(); // Cierra el modal
 
-            // Llama a onSuccess con el ID del nuevo equipo
-            if (onSuccess) onSuccess(nuevoEquipo.id);
+            // Llama a onSuccess con el nuevo equipo
+            if (onSuccess) onSuccess(nuevoEquipo);
 
         } catch (error) {
             console.error(error);

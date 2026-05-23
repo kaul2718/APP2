@@ -8,6 +8,7 @@ import { useUsuarioForm } from "./useUsuarioForm";
 import { UsuarioFormData, UsuarioFormMode } from "./types";
 import { useRoles } from "@/hooks/useRoles";
 import { useSession } from "next-auth/react";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
     UserIcon,
     IdentificationIcon,
@@ -42,6 +43,7 @@ export default function UsuarioForm({
     const { formData, errors, handleChange, validateFields, camposModificados } =
         useUsuarioForm({ initialData, mode });
     const { roles } = useRoles();
+    const { role: currentUserRole } = usePermissions();
     const { data: session } = useSession();
     const token = session?.accessToken || null;
 
@@ -349,11 +351,18 @@ export default function UsuarioForm({
                             className="pl-10 pr-4 py-2 w-full rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                         >
                             <option value="">Seleccionar un rol</option>
-                            {roles.map((rol) => (
-                                <option key={rol.id} value={rol.id}>
-                                    {rol.nombre}
-                                </option>
-                            ))}
+                             {roles
+                                .filter((rol) => {
+                                    if (currentUserRole === 'recep') {
+                                        return rol.slug === 'client';
+                                    }
+                                    return true;
+                                })
+                                .map((rol) => (
+                                    <option key={rol.id} value={rol.id}>
+                                        {rol.nombre}
+                                    </option>
+                                ))}
                         </select>
                     </div>
                     {errors.role && (
@@ -387,70 +396,69 @@ export default function UsuarioForm({
                     </div>
                 )}
 
-                {/* Contraseña - Solo en create mode */}
-                {!isEditMode && (
-                    <>
-                        <div>
-                            <Label>Contraseña (Opcional)</Label>
-                            <div className="relative">
-                                <LockClosedIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                <Input
-                                    type={showPassword ? "text" : "password"}
-                                    autoComplete="new-password"
-                                    value={formData.password}
-                                    onChange={(e) => handleChange("password", e.target.value)}
-                                    placeholder="Mín. 8 caracteres, 1 mayúscula, 1 número, 1 especial"
-                                    disabled={isLoading}
-                                    className="pl-10 pr-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white focus:outline-none z-10"
-                                >
-                                    {showPassword ? (
-                                        <EyeSlashIcon className="w-5 h-5" />
-                                    ) : (
-                                        <EyeIcon className="w-5 h-5" />
-                                    )}
-                                </button>
-                            </div>
-                            {errors.password && (
-                                <p className="text-sm text-red-500 mt-1">{errors.password}</p>
+                {/* Contraseña */}
+                <div>
+                    <Label>{isEditMode ? "Nueva Contraseña (Opcional)" : "Contraseña (Opcional)"}</Label>
+                    <div className="relative">
+                        <LockClosedIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                        <Input
+                            type={showPassword ? "text" : "password"}
+                            autoComplete="new-password"
+                            value={formData.password || ""}
+                            onChange={(e) => handleChange("password", e.target.value)}
+                            placeholder={isEditMode ? "Dejar en blanco para no cambiar" : "Mín. 8 caracteres, 1 mayúscula, 1 número, 1 especial"}
+                            disabled={isLoading}
+                            className="pl-10 pr-10 bg-white dark:bg-gray-800 text-black dark:text-white"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white focus:outline-none z-10"
+                        >
+                            {showPassword ? (
+                                <EyeSlashIcon className="w-5 h-5" />
+                            ) : (
+                                <EyeIcon className="w-5 h-5" />
                             )}
-                        </div>
+                        </button>
+                    </div>
+                    {errors.password && (
+                        <p className="text-sm text-red-500 mt-1">{errors.password}</p>
+                    )}
+                    {isEditMode && camposModificados.has("password") && (
+                        <ModifiedIndicator field="contraseña" />
+                    )}
+                </div>
 
-                        <div>
-                            <Label>Confirmar Contraseña (Opcional)</Label>
-                            <div className="relative">
-                                <LockClosedIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                                <Input
-                                    type={showConfirmPassword ? "text" : "password"}
-                                    autoComplete="new-password"
-                                    value={formData.confirmPassword}
-                                    onChange={(e) => handleChange("confirmPassword", e.target.value)}
-                                    placeholder="Confirma la contraseña"
-                                    disabled={isLoading}
-                                    className="pl-10 pr-10 bg-white dark:bg-gray-800 text-black dark:text-white"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white focus:outline-none z-10"
-                                >
-                                    {showConfirmPassword ? (
-                                        <EyeSlashIcon className="w-5 h-5" />
-                                    ) : (
-                                        <EyeIcon className="w-5 h-5" />
-                                    )}
-                                </button>
-                            </div>
-                            {errors.confirmPassword && (
-                                <p className="text-sm text-red-500 mt-1">{errors.confirmPassword}</p>
+                <div>
+                    <Label>{isEditMode ? "Confirmar Nueva Contraseña" : "Confirmar Contraseña (Opcional)"}</Label>
+                    <div className="relative">
+                        <LockClosedIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                        <Input
+                            type={showConfirmPassword ? "text" : "password"}
+                            autoComplete="new-password"
+                            value={formData.confirmPassword || ""}
+                            onChange={(e) => handleChange("confirmPassword", e.target.value)}
+                            placeholder="Confirma la contraseña"
+                            disabled={isLoading}
+                            className="pl-10 pr-10 bg-white dark:bg-gray-800 text-black dark:text-white"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white focus:outline-none z-10"
+                        >
+                            {showConfirmPassword ? (
+                                <EyeSlashIcon className="w-5 h-5" />
+                            ) : (
+                                <EyeIcon className="w-5 h-5" />
                             )}
-                        </div>
-                    </>
-                )}
+                        </button>
+                    </div>
+                    {errors.confirmPassword && (
+                        <p className="text-sm text-red-500 mt-1">{errors.confirmPassword}</p>
+                    )}
+                </div>
             </>
         );
     }

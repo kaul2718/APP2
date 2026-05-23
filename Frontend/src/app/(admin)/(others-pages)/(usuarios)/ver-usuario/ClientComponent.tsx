@@ -29,7 +29,7 @@ export default function ClientComponent() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [tableRefreshKey, setTableRefreshKey] = useState(0);
     const usuarioHook = useUsuario();
-    const { hasPermission, loading } = usePermissions();
+    const { hasPermission, loading, role: currentUserRole } = usePermissions();
     const { 
         usuarios, 
         totalItems, 
@@ -37,6 +37,15 @@ export default function ClientComponent() {
         setRoleFilter, 
         showInactive 
     } = usuarioHook;
+
+    const visibleRoles = useMemo(() => {
+        return ROLES.filter(r => {
+            if (currentUserRole === 'recep') {
+                return r.id !== 'admin' && r.id !== 'recep' && r.id !== 'tech';
+            }
+            return true;
+        });
+    }, [currentUserRole]);
 
     // Stats calculations
     const stats = useMemo(() => {
@@ -64,6 +73,8 @@ export default function ClientComponent() {
         );
     }
 
+    const isRecep = currentUserRole === 'recep';
+
     return (
         <div className="space-y-6">
             <PageBreadcrumb pageTitle="Gestión de Usuarios" />
@@ -72,28 +83,32 @@ export default function ClientComponent() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 <StatCard 
                     icon={<UsersIcon className="w-6 h-6 text-brand-500" />} 
-                    label="Total Usuarios" 
+                    label={isRecep ? "Total Clientes" : "Total Usuarios"} 
                     value={totalItems} 
                     delay={0.1}
                 />
-                <StatCard 
-                    icon={<ShieldCheckIcon className="w-6 h-6 text-amber-500" />} 
-                    label="Administradores" 
-                    value={stats.admins} 
-                    delay={0.2}
-                />
-                <StatCard 
-                    icon={<UserGroupIcon className="w-6 h-6 text-blue-500" />} 
-                    label="Técnicos" 
-                    value={stats.techs} 
-                    delay={0.3}
-                />
+                {!isRecep && (
+                    <>
+                        <StatCard 
+                            icon={<ShieldCheckIcon className="w-6 h-6 text-amber-500" />} 
+                            label="Administradores" 
+                            value={stats.admins} 
+                            delay={0.2}
+                        />
+                        <StatCard 
+                            icon={<UserGroupIcon className="w-6 h-6 text-blue-500" />} 
+                            label="Técnicos" 
+                            value={stats.techs} 
+                            delay={0.3}
+                        />
+                    </>
+                )}
             </div>
 
             {/* Main Section Header with Filters & Action */}
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
                 <div className="flex items-center gap-2 overflow-x-auto pb-2 xl:pb-0 no-scrollbar">
-                    {ROLES.map((role) => (
+                    {visibleRoles.map((role) => (
                         <button
                             key={role.id}
                             onClick={() => setRoleFilter(role.id)}
@@ -141,7 +156,7 @@ export default function ClientComponent() {
                         </div>
                         <div>
                             <h2 className="text-lg font-bold text-gray-900 dark:text-white">Lista de Personal</h2>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Filtrando por: <span className="font-bold text-brand-500 capitalize">{ROLES.find(r => r.id === roleFilter)?.nombre}</span></p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Filtrando por: <span className="font-bold text-brand-500 capitalize">{visibleRoles.find(r => r.id === roleFilter)?.nombre || roleFilter}</span></p>
                         </div>
                     </div>
                 </div>
@@ -157,7 +172,7 @@ export default function ClientComponent() {
             <UsuarioCreateModal
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
-                onSave={() => setTableRefreshKey((prev) => prev + 1)}
+                onSave={() => usuarioHook.refetch()}
             />
         </div>
     );

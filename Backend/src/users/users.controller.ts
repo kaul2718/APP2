@@ -3,6 +3,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Auth } from '../auth/decorators/auth.decorator';
+import { CurrentUser } from '../auth/decorators/user.decorator';
 
 import { User } from './entities/user.entity';
 import { UpdatePasswordDto } from './dto/update-password.dto';
@@ -17,13 +18,21 @@ export class UsersController {
 
   @Auth('admin', 'recep', 'tech')
   @Post()
-  create(@Body() dto: CreateUserDto): Promise<User> {
+  create(
+    @CurrentUser() user: any,
+    @Body() dto: CreateUserDto
+  ): Promise<User> {
+    if (user.role === 'recep') {
+      dto.role = 'client';
+      dto.roleIds = undefined;
+    }
     return this.usersService.create(dto);
   }
 
   @Auth('admin', 'recep', 'tech')
   @Get('all')
   async findAll(
+    @CurrentUser() user: any,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
@@ -44,12 +53,20 @@ export class UsersController {
       limitNum = 10; // Default seguro
     }
 
+    // Si es recepcionista, obligar a filtrar únicamente por rol de cliente o técnico (para asignar órdenes)
+    let finalRole = role;
+    if (user.role === 'recep') {
+      if (role !== 'client' && role !== 'tech') {
+        finalRole = 'client';
+      }
+    }
+
     const result = await this.usersService.findAllPaginated(
       pageNum,
       limitNum,
       search,
       includeInactive,
-      role,
+      finalRole,
     );
 
     return {
@@ -80,10 +97,11 @@ export class UsersController {
   @Auth('admin', 'recep', 'tech', 'client')
   @Patch(':id')
   update(
+    @CurrentUser() user: any,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserDto,
   ): Promise<User> {
-    return this.usersService.update(id, dto);
+    return this.usersService.update(id, dto, user.role);
   }
 
   @Auth('admin')
@@ -100,7 +118,17 @@ export class UsersController {
 
   @Auth('admin', 'recep', 'tech')
   @Patch(':id/toggle-status')
-  async toggleStatus(@Param('id', ParseIntPipe) id: number): Promise<User> {
+  async toggleStatus(
+    @CurrentUser() user: any,
+    @Param('id', ParseIntPipe) id: number
+  ): Promise<User> {
+    if (user.role === 'recep') {
+      const userToToggle = await this.usersService.findOne(id, true);
+      const userToToggleAny = userToToggle as any;
+      if (userToToggleAny.role !== 'client') {
+        throw new BadRequestException('Un recepcionista solo puede cambiar el estado de usuarios con rol cliente');
+      }
+    }
     return this.usersService.toggleStatus(id);
   }
 

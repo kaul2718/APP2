@@ -33,7 +33,7 @@ interface Props {
 export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props) {
   const { data: session } = useSession();
   const token = session?.accessToken || null;
-  const { usuarios, loading: loadingUsuarios } = useUsuario({ defaultLimit: 1000 });
+  const { usuarios, loading: loadingUsuarios } = useUsuario({ defaultLimit: 1000, defaultRole: Role.TECH });
   const { estadosOrden, loading: loadingEstados } = useEstadoOrden();
   const { casilleros, fetchAvailableCasilleros, loading: loadingCasilleros } = useCasillero();
   const { getTechniciansAvailability } = useOrders();
