@@ -1,5 +1,6 @@
 "use client";
 import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
+import { FontSizeToggleButton } from "@/components/common/FontSizeToggleButton";
 import NotificationDropdown from "@/components/header/NotificationDropdown";
 import UserDropdown from "@/components/header/UserDropdown";
 import { useSidebar } from "@/context/SidebarContext";
@@ -132,6 +133,10 @@ const AppHeader: React.FC = () => {
             {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}
+
+            {/* <!-- Font Size Toggler --> */}
+            <FontSizeToggleButton />
+            {/* <!-- Font Size Toggler --> */}
 
             <NotificationDropdown />
             {/* <!-- Notification Menu Area --> */}
