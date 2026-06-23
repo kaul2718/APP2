@@ -22,6 +22,13 @@ export default function EstadoOrdenEditModal({ isOpen, onClose, estadoOrden, onS
     const [cargando, setCargando] = React.useState(false);
     const [estadoModificado, setEstadoModificado] = React.useState<boolean | null>(null);
 
+    const idInputId = React.useId();
+    const nombreInputId = React.useId();
+    const descTextareaId = React.useId();
+    const fechaCreacionInputId = React.useId();
+    const fechaActualizacionInputId = React.useId();
+    const ordenesInputId = React.useId();
+
     React.useEffect(() => {
         setEditando(estadoOrden);
         setEstadoModificado(null);
@@ -112,12 +119,13 @@ export default function EstadoOrdenEditModal({ isOpen, onClose, estadoOrden, onS
                     <div className="custom-scrollbar h-[400px] overflow-y-auto">
                         <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                             <div>
-                                <Label>ID</Label>
-                                <Input name="id" value={editando.id} disabled />
+                                <Label htmlFor={idInputId}>ID</Label>
+                                <Input id={idInputId} name="id" value={editando.id} disabled />
                             </div>
                             <div>
-                                <Label>Nombre *</Label>
+                                <Label htmlFor={nombreInputId}>Nombre *</Label>
                                 <Input
+                                    id={nombreInputId}
                                     name="nombre"
                                     value={editando.nombre}
                                     onChange={handleInputChange}
@@ -126,8 +134,9 @@ export default function EstadoOrdenEditModal({ isOpen, onClose, estadoOrden, onS
                                 />
                             </div>
                             <div className="lg:col-span-2">
-                                <Label>Descripción</Label>
+                                <Label htmlFor={descTextareaId}>Descripción</Label>
                                 <textarea
+                                    id={descTextareaId}
                                     name="descripcion"
                                     value={editando.descripcion || ""}
                                     onChange={handleInputChange}
@@ -141,15 +150,17 @@ export default function EstadoOrdenEditModal({ isOpen, onClose, estadoOrden, onS
                                 </p>
                             </div>
                             <div>
-                                <Label>Fecha de creación</Label>
+                                <Label htmlFor={fechaCreacionInputId}>Fecha de creación</Label>
                                 <Input
+                                    id={fechaCreacionInputId}
                                     value={new Date(editando.createdAt).toLocaleString()}
                                     disabled
                                 />
                             </div>
                             <div>
-                                <Label>Última actualización</Label>
+                                <Label htmlFor={fechaActualizacionInputId}>Última actualización</Label>
                                 <Input
+                                    id={fechaActualizacionInputId}
                                     value={new Date(editando.updatedAt).toLocaleString()}
                                     disabled
                                 />
@@ -188,8 +199,9 @@ export default function EstadoOrdenEditModal({ isOpen, onClose, estadoOrden, onS
                                 </div>
                             </div>
                             <div className="lg:col-span-2">
-                                <Label>Órdenes asociadas</Label>
+                                <Label htmlFor={ordenesInputId}>Órdenes asociadas</Label>
                                 <Input
+                                    id={ordenesInputId}
                                     value={editando.ordenes?.length || 0}
                                     disabled
                                 />

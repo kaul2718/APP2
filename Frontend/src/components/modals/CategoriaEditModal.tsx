@@ -83,6 +83,12 @@ export default function CategoriaEditModal({ isOpen, onClose, categoria, onSave 
         }
     };
 
+    const idInputId = React.useId();
+    const nombreInputId = React.useId();
+    const descInputId = React.useId();
+    const createdInputId = React.useId();
+    const updatedInputId = React.useId();
+
     if (!editando) return null;
 
     return (
@@ -112,12 +118,13 @@ export default function CategoriaEditModal({ isOpen, onClose, categoria, onSave 
                     <div className="custom-scrollbar h-[400px] overflow-y-auto">
                         <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                             <div>
-                                <Label>ID</Label>
-                                <Input name="id" value={editando.id} disabled />
+                                <Label htmlFor={idInputId}>ID</Label>
+                                <Input id={idInputId} name="id" value={editando.id} disabled />
                             </div>
                             <div>
-                                <Label>Nombre *</Label>
+                                <Label htmlFor={nombreInputId}>Nombre *</Label>
                                 <Input
+                                    id={nombreInputId}
                                     name="nombre"
                                     value={editando.nombre}
                                     onChange={handleInputChange}
@@ -126,8 +133,9 @@ export default function CategoriaEditModal({ isOpen, onClose, categoria, onSave 
                                 />
                             </div>
                             <div className="lg:col-span-2">
-                                <Label>Descripción</Label>
+                                <Label htmlFor={descInputId}>Descripción</Label>
                                 <textarea
+                                    id={descInputId}
                                     name="descripcion"
                                     value={editando.descripcion}
                                     onChange={handleInputChange}
@@ -137,15 +145,17 @@ export default function CategoriaEditModal({ isOpen, onClose, categoria, onSave 
                                 />
                             </div>
                             <div>
-                                <Label>Fecha de creación</Label>
+                                <Label htmlFor={createdInputId}>Fecha de creación</Label>
                                 <Input
+                                    id={createdInputId}
                                     value={new Date(editando.createdAt).toLocaleString()}
                                     disabled
                                 />
                             </div>
                             <div>
-                                <Label>Última actualización</Label>
+                                <Label htmlFor={updatedInputId}>Última actualización</Label>
                                 <Input
+                                    id={updatedInputId}
                                     value={new Date(editando.updatedAt).toLocaleString()}
                                     disabled
                                 />

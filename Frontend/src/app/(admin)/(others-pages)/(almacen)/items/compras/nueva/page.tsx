@@ -263,6 +263,7 @@ export default function NuevaCompraPage() {
         <button
           onClick={() => router.push("/items/compras")}
           className="flex items-center justify-center h-9 w-9 rounded-full bg-white border border-gray-200 text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all dark:bg-gray-900 dark:border-gray-800 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800"
+          aria-label="Volver a compras"
         >
           <ChevronLeftIcon className="h-5 w-5" />
         </button>
@@ -274,16 +275,17 @@ export default function NuevaCompraPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Header invoice metadata */}
           <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-4">
-            <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider">Cabecera de Factura</h3>
+            <h2 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider">Cabecera de Factura</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Supplier Selection */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
+                <label htmlFor="proveedor-select" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
                   Proveedor *
                 </label>
                 <div className="flex gap-2">
                   <select
+                    id="proveedor-select"
                     value={selectedProveedorId}
                     onChange={(e) => setSelectedProveedorId(e.target.value)}
                     className="flex-1 px-3 py-2 rounded-xl border border-gray-200 outline-none text-sm bg-gray-50 focus:border-brand-500 focus:bg-white dark:border-gray-800 dark:bg-gray-950 dark:focus:border-brand-500 dark:text-white transition-all"
@@ -298,6 +300,7 @@ export default function NuevaCompraPage() {
                     onClick={() => setIsSupplierModalOpen(true)}
                     className="px-3 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100 flex items-center justify-center dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900/50 transition-colors"
                     title="Añadir Nuevo Proveedor Rápido"
+                    aria-label="Añadir nuevo proveedor"
                   >
                     <UserPlusIcon className="w-4 h-4" />
                   </button>
@@ -306,10 +309,11 @@ export default function NuevaCompraPage() {
 
               {/* Invoice Number */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
+                <label htmlFor="numero-factura-input" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
                   Nº Factura de Proveedor *
                 </label>
                 <input
+                  id="numero-factura-input"
                   type="text"
                   placeholder="Ej: 001-002-00012345"
                   value={numeroFactura}
@@ -320,10 +324,11 @@ export default function NuevaCompraPage() {
 
               {/* Issue Date */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
+                <label htmlFor="fecha-emision-input" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
                   Fecha de Emisión *
                 </label>
                 <input
+                  id="fecha-emision-input"
                   type="date"
                   value={fecha}
                   max={new Date().toISOString().split("T")[0]}
@@ -334,10 +339,11 @@ export default function NuevaCompraPage() {
 
               {/* Tax rate select (0, 5, 8, 15) */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
+                <label htmlFor="porcentaje-iva-select" className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
                   Porcentaje de IVA *
                 </label>
                 <select
+                  id="porcentaje-iva-select"
                   value={ivaPorcentaje}
                   onChange={(e) => setIvaPorcentaje(Number(e.target.value))}
                   className="w-full px-3 py-2 rounded-xl border border-gray-200 outline-none text-sm bg-gray-50 focus:border-brand-500 focus:bg-white dark:border-gray-800 dark:bg-gray-950 dark:focus:border-brand-500 dark:text-white transition-all"
@@ -350,12 +356,11 @@ export default function NuevaCompraPage() {
               </div>
             </div>
           </div>
-
-          {/* Autocomplete Product search and selection */}
+                     {/* Autocomplete Product search and selection */}
           <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider">Listado de Repuestos</h3>
-              <span className="text-[10px] bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400 font-bold px-2 py-0.5 rounded-md uppercase tracking-wider">
+              <h2 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider">Listado de Repuestos</h2>
+              <span className="text-xs bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400 font-bold px-2 py-0.5 rounded-md uppercase tracking-wider">
                 Excluye Servicios
               </span>
             </div>
@@ -369,6 +374,7 @@ export default function NuevaCompraPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50/50 focus:border-brand-500 focus:bg-white transition-all text-sm outline-none dark:border-gray-800 dark:bg-gray-950 dark:focus:border-brand-500 dark:text-white"
+                  aria-label="Buscar repuesto por nombre o código"
                 />
                 <MagnifyingGlassIcon className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400" />
                 {searchLoading && (
@@ -422,14 +428,14 @@ export default function NuevaCompraPage() {
               ) : (
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-gray-50/50 dark:bg-gray-950/20 border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                    <tr className="bg-gray-50/50 dark:bg-gray-950/20 border-b border-gray-100 dark:border-gray-800 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       <th className="px-4 py-3">Repuesto / Producto</th>
                       <th className="px-4 py-3 text-center w-[80px]">Stock Act.</th>
                       <th className="px-4 py-3 text-center w-[100px]">Cant. Comprar</th>
                       <th className="px-4 py-3 text-center w-[120px]">Precio Compra</th>
                       <th className="px-4 py-3 text-center w-[120px]">Actualizar Costo</th>
                       <th className="px-4 py-3 text-right w-[100px]">Subtotal</th>
-                      <th className="px-4 py-3 text-center w-[50px]"></th>
+                      <th className="px-4 py-3 text-center w-[50px]"><span className="sr-only">Acciones</span></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -440,7 +446,7 @@ export default function NuevaCompraPage() {
                           {/* Name & Code */}
                           <td className="px-4 py-3">
                             <p className="font-bold text-xs text-gray-800 dark:text-gray-200">{line.parte.nombre}</p>
-                            <p className="text-[9px] text-gray-400 mt-0.5 font-mono">Cód: {line.parte.codigoInterno}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-mono">Cód: {line.parte.codigoInterno}</p>
                           </td>
 
                           {/* Current Stock */}
@@ -457,6 +463,7 @@ export default function NuevaCompraPage() {
                               value={line.cantidad === 0 ? "" : line.cantidad}
                               onChange={(e) => handleLineQtyChange(line.parte.id, e.target.value)}
                               className="w-full text-center px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-800 bg-transparent text-xs font-bold focus:border-brand-500 outline-none dark:text-white"
+                              aria-label={`Cantidad a comprar para ${line.parte.nombre}`}
                             />
                           </td>
 
@@ -471,6 +478,7 @@ export default function NuevaCompraPage() {
                                 value={line.precioUnitario === 0 ? "" : line.precioUnitario}
                                 onChange={(e) => handleLinePriceChange(line.parte.id, e.target.value)}
                                 className="w-full text-center pl-5 pr-2 py-1 rounded-lg border border-gray-200 dark:border-gray-800 bg-transparent text-xs font-bold focus:border-brand-500 outline-none dark:text-white"
+                                aria-label={`Precio de compra para ${line.parte.nombre}`}
                               />
                             </div>
                           </td>
@@ -480,13 +488,13 @@ export default function NuevaCompraPage() {
                             <button
                               type="button"
                               onClick={() => handleLineToggleCosto(line.parte.id)}
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-bold border transition-colors ${
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border transition-colors ${
                                 line.actualizarCosto
-                                  ? "bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-400"
+                                  ? "bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-300"
                                   : "bg-gray-100 border-gray-200 text-gray-400 dark:bg-gray-800 dark:border-gray-800 dark:text-gray-500"
                               }`}
                             >
-                              <CheckIcon className={`w-3 h-3 ${line.actualizarCosto ? "opacity-100" : "opacity-0"}`} />
+                              <CheckIcon className={`w-3.5 h-3.5 ${line.actualizarCosto ? "opacity-100" : "opacity-0"}`} />
                               <span>{line.actualizarCosto ? "Sí (Actualizar)" : "No (Conservar)"}</span>
                             </button>
                           </td>
@@ -502,6 +510,7 @@ export default function NuevaCompraPage() {
                               type="button"
                               onClick={() => handleRemoveLine(line.parte.id)}
                               className="p-1 rounded text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                              aria-label={`Eliminar ${line.parte.nombre} de la lista`}
                             >
                               <TrashIcon className="w-4 h-4" />
                             </button>
@@ -520,8 +529,9 @@ export default function NuevaCompraPage() {
         <div className="space-y-6">
           {/* Notes and comments */}
           <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-3">
-            <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider">Observaciones de Compra</h3>
+            <label htmlFor="observaciones-textarea" className="block text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider">Observaciones de Compra</label>
             <textarea
+              id="observaciones-textarea"
               placeholder="Detalles sobre la entrega, transporte, o créditos de factura..."
               value={comentario}
               onChange={(e) => setComentario(e.target.value)}
@@ -532,7 +542,7 @@ export default function NuevaCompraPage() {
 
           {/* Checkout/Calculations panel */}
           <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-4">
-            <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider">Caja de Liquidación</h3>
+            <h2 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider">Caja de Liquidación</h2>
             
             <div className="space-y-3 border-b border-gray-100 dark:border-gray-800 pb-4">
               <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">

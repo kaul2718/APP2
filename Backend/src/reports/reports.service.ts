@@ -319,11 +319,13 @@ export class ReportsService {
     const { from, to } = this.getDateRange(range, startDate, endDate);
 
     const equipmentRaw = await this.orderRepository.createQueryBuilder('o')
-      .select('o.brand', 'brand')
+      .leftJoin('o.equipo', 'eq')
+      .leftJoin('eq.marca', 'm')
+      .select('m.nombre', 'brand')
       .addSelect('COUNT(o.id)', 'count')
       .where('o.deletedAt IS NULL AND o.createdAt >= :from AND o.createdAt <= :to', { from, to })
-      .andWhere('o.brand IS NOT NULL AND o.brand != :empty', { empty: '' })
-      .groupBy('o.brand')
+      .andWhere('m.nombre IS NOT NULL AND m.nombre != :empty', { empty: '' })
+      .groupBy('m.nombre')
       .orderBy('COUNT(o.id)', 'DESC')
       .getRawMany();
 

@@ -33,10 +33,15 @@ export function useChecklistTemplate() {
         deleteItem,
         setSearchTerm,
         setShowInactive,
+        totalPages,
+        totalItems,
+        currentPage,
+        showInactive,
+        searchTerm,
     } = useCrud<ChecklistTemplate, CreateChecklistTemplateDto, UpdateChecklistTemplateDto>(
         '/checklist-template',
         {
-            defaultLimit: 100,
+            defaultLimit: 10,
             messages: {
                 created: 'Plantilla creada exitosamente',
                 updated: 'Plantilla actualizada exitosamente',
@@ -82,7 +87,7 @@ export function useChecklistTemplate() {
 
     useEffect(() => {
         if (status === "authenticated") {
-            fetchTemplates(1, 100, "", false);
+            fetchTemplates(1, 10, "", false);
         }
     }, [status, session]);
 
@@ -98,5 +103,10 @@ export function useChecklistTemplate() {
         getTemplateByTipoEquipo,
         setSearchTerm,
         setShowInactive,
+        totalPages,
+        totalItems,
+        currentPage,
+        showInactive,
+        searchTerm,
     };
 }

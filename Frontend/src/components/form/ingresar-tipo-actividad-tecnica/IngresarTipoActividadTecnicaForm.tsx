@@ -107,13 +107,17 @@ export default function IngresarTipoActividadTecnicaForm({
         }
     };
 
+    const nombreInputId = React.useId();
+    const descripcionInputId = React.useId();
+
     const formContent = (
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
             <div>
-                <Label>Nombre del Tipo de Actividad</Label>
+                <Label htmlFor={nombreInputId}>Nombre del Tipo de Actividad</Label>
                 <div className="relative">
                     <ClipboardDocumentIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                     <Input
+                        id={nombreInputId}
                         value={formData.nombre}
                         onChange={(e) => handleChange("nombre", e.target.value)}
                         placeholder="Ej: Mantenimiento preventivo, Reparación, Calibración"
@@ -124,8 +128,9 @@ export default function IngresarTipoActividadTecnicaForm({
             </div>
 
             <div>
-                <Label>Descripción (Opcional)</Label>
+                <Label htmlFor={descripcionInputId}>Descripción (Opcional)</Label>
                 <TextArea
+                    id={descripcionInputId}
                     value={formData.descripcion}
                     onChange={(e) => handleChange("descripcion", e.target.value)}
                     placeholder="Descripción detallada del tipo de actividad..."

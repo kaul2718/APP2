@@ -169,6 +169,7 @@ export default function ProveedoresPage() {
         <button
           onClick={() => router.push("/items/compras")}
           className="flex items-center justify-center h-9 w-9 rounded-full bg-white border border-gray-200 text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all dark:bg-gray-900 dark:border-gray-800 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800"
+          aria-label="Volver a compras"
         >
           <ChevronLeftIcon className="h-5 w-5" />
         </button>
@@ -184,6 +185,7 @@ export default function ProveedoresPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50/50 focus:border-brand-500 focus:bg-white transition-all text-sm outline-none dark:border-gray-800 dark:bg-gray-950 dark:focus:border-brand-500 dark:text-white"
+            aria-label="Buscar proveedor por nombre o RUC"
           />
           <MagnifyingGlassIcon className="absolute left-3.5 top-3 w-4 h-4 text-gray-400" />
         </div>
@@ -217,7 +219,7 @@ export default function ProveedoresPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                <tr className="border-b border-gray-100 dark:border-gray-800 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   <th className="px-6 py-4">Proveedor</th>
                   <th className="px-6 py-4">RUC / Identificación</th>
                   <th className="px-6 py-4">Contacto</th>
@@ -235,7 +237,7 @@ export default function ProveedoresPage() {
                     </td>
 
                     {/* Tax ID */}
-                    <td className="px-6 py-4 font-mono text-xs text-gray-600 dark:text-gray-450">
+                    <td className="px-6 py-4 font-mono text-xs text-gray-600 dark:text-gray-400">
                       {p.ruc_nit}
                     </td>
 
@@ -245,16 +247,16 @@ export default function ProveedoresPage() {
                         <p className="text-xs text-gray-600 dark:text-gray-300">{p.correo}</p>
                       )}
                       {p.telefono && (
-                        <p className="text-[10px] text-gray-400 mt-0.5">{p.telefono}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{p.telefono}</p>
                       )}
                       {!p.correo && !p.telefono && (
-                        <span className="text-xs text-gray-450 italic">Sin contacto</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 italic">Sin contacto</span>
                       )}
                     </td>
 
                     {/* Address */}
-                    <td className="px-6 py-4 text-xs text-gray-500 dark:text-gray-450 max-w-xs truncate">
-                      {p.direccion || <span className="italic text-gray-450">Sin dirección</span>}
+                    <td className="px-6 py-4 text-xs text-gray-500 dark:text-gray-400 max-w-xs truncate">
+                      {p.direccion || <span className="italic text-gray-500 dark:text-gray-400">Sin dirección</span>}
                     </td>
 
                     {/* State dot badge */}
@@ -262,11 +264,12 @@ export default function ProveedoresPage() {
                       <button
                         type="button"
                         onClick={() => handleToggleState(p)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border transition-colors ${
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-colors ${
                           p.estado
-                            ? "bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-950/30 dark:border-emerald-900 dark:text-emerald-400"
-                            : "bg-gray-50 border-gray-200 text-gray-450 dark:bg-gray-800 dark:border-gray-800 dark:text-gray-500"
+                            ? "bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-900 dark:text-emerald-300"
+                            : "bg-gray-50 border-gray-200 text-gray-500 dark:bg-gray-800 dark:border-gray-800 dark:text-gray-400"
                         }`}
+                        aria-label={`Cambiar estado de ${p.nombre}. Actual: ${p.estado ? 'Activo' : 'Inactivo'}`}
                       >
                         <span className={`w-1.5 h-1.5 rounded-full ${p.estado ? "bg-emerald-500" : "bg-gray-400"}`} />
                         {p.estado ? "Activo" : "Inactivo"}
@@ -279,6 +282,7 @@ export default function ProveedoresPage() {
                         onClick={() => handleOpenEdit(p)}
                         className="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-all"
                         title="Editar Proveedor"
+                        aria-label={`Editar proveedor ${p.nombre}`}
                       >
                         <PencilIcon className="w-4 h-4" />
                       </button>
@@ -287,6 +291,7 @@ export default function ProveedoresPage() {
                           onClick={() => handleDeactivate(p.id, p.nombre)}
                           className="p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all"
                           title="Desactivar Proveedor"
+                          aria-label={`Desactivar proveedor ${p.nombre}`}
                         >
                           <TrashIcon className="w-4 h-4" />
                         </button>
@@ -342,6 +347,7 @@ export default function ProveedoresPage() {
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 font-bold"
+                  aria-label="Cerrar modal"
                 >
                   ✕
                 </button>
@@ -351,8 +357,9 @@ export default function ProveedoresPage() {
                 <div className="grid grid-cols-1 gap-4">
                   {/* Name */}
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Nombre Comercial *</label>
+                    <label htmlFor="nombre-comercial-input" className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Nombre Comercial *</label>
                     <input
+                      id="nombre-comercial-input"
                       type="text"
                       required
                       placeholder="Ej: Computación Mayorista S.A."
@@ -364,8 +371,9 @@ export default function ProveedoresPage() {
 
                   {/* RUC / TAX ID */}
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">RUC / Cédula / Identificación *</label>
+                    <label htmlFor="ruc-input" className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">RUC / Cédula / Identificación *</label>
                     <input
+                      id="ruc-input"
                       type="text"
                       required
                       placeholder="Ej: 1792345678001"
@@ -378,8 +386,9 @@ export default function ProveedoresPage() {
                   {/* Email & Phone side by side */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Correo Electrónico</label>
+                      <label htmlFor="correo-input" className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Correo Electrónico</label>
                       <input
+                        id="correo-input"
                         type="email"
                         placeholder="ventas@proveedor.com"
                         value={correo}
@@ -388,8 +397,9 @@ export default function ProveedoresPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Teléfono</label>
+                      <label htmlFor="telefono-input" className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Teléfono</label>
                       <input
+                        id="telefono-input"
                         type="text"
                         placeholder="0998765432"
                         value={telefono}
@@ -401,8 +411,9 @@ export default function ProveedoresPage() {
 
                   {/* Address */}
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Dirección Física</label>
+                    <label htmlFor="direccion-textarea" className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Dirección Física</label>
                     <textarea
+                      id="direccion-textarea"
                       placeholder="Av. 10 de Agosto N34-21 y Rumipamba"
                       value={direccion}
                       onChange={(e) => setDireccion(e.target.value)}
@@ -414,15 +425,16 @@ export default function ProveedoresPage() {
                   {/* State Toggle inside form (only on edit mode) */}
                   {editingProveedor && (
                     <div className="flex items-center justify-between pt-2">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Habilitar Proveedor:</span>
+                      <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Habilitar Proveedor:</span>
                       <button
                         type="button"
                         onClick={() => setEstado(!estado)}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border transition-colors ${
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-colors ${
                           estado
-                            ? "bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-950/30 dark:border-emerald-900 dark:text-emerald-400"
-                            : "bg-gray-50 border-gray-200 text-gray-450 dark:bg-gray-800 dark:border-gray-800 dark:text-gray-500"
+                            ? "bg-emerald-50 border-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-900 dark:text-emerald-300"
+                            : "bg-gray-50 border-gray-200 text-gray-500 dark:bg-gray-800 dark:border-gray-800 dark:text-gray-450"
                         }`}
+                        aria-label={`Habilitar proveedor. Actual: ${estado ? 'Activo' : 'Inactivo'}`}
                       >
                         <span className={`w-1.5 h-1.5 rounded-full ${estado ? "bg-emerald-500" : "bg-gray-400"}`} />
                         {estado ? "Activo" : "Inactivo"}

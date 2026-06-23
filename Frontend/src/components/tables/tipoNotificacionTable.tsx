@@ -8,6 +8,12 @@ import TipoNotificacionEditModal from "../modals/TipoNotificacionEditModal";
 import { toast } from "react-toastify";
 import { TipoNotificacion, useTipoNotificacion } from "@/hooks/useTipoNotificacion";
 import { DataTable, ColumnDef, ActionDef } from "./DataTable";
+import { 
+  EyeIcon, 
+  PencilSquareIcon, 
+  CheckCircleIcon, 
+  NoSymbolIcon 
+} from "@heroicons/react/24/outline";
 
 export default function TipoNotificacionTable() {
   const {
@@ -91,25 +97,28 @@ export default function TipoNotificacionTable() {
   const rowActions = (tipo: TipoNotificacion): ActionDef[] => [
     {
       key: "view",
-      label: "Ver",
+      label: <EyeIcon className="h-4 w-4" />,
+      text: "Ver detalles",
       onClick: () => handleViewClick(tipo),
       className:
-        "rounded border border-blue-300 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors",
     },
     {
       key: "edit",
-      label: "Editar",
+      label: <PencilSquareIcon className="h-4 w-4" />,
+      text: "Editar tipo",
       onClick: () => handleEditClick(tipo),
       className:
-        "rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors",
     },
     {
       key: "toggle",
-      label: tipo.estado ? "Deshabilitar" : "Habilitar",
+      label: tipo.estado ? <NoSymbolIcon className="h-4 w-4" /> : <CheckCircleIcon className="h-4 w-4" />,
+      text: tipo.estado ? "Deshabilitar" : "Habilitar",
       onClick: () => handleToggleEstado(tipo),
       className: tipo.estado
-        ? "rounded border border-red-300 px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
-        : "rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20",
+        ? "flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+        : "flex h-8 w-8 items-center justify-center rounded-lg border border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors",
     },
   ];
 

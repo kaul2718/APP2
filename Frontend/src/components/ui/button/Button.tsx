@@ -1,6 +1,6 @@
 import React, { ReactNode } from "react";
 
-interface ButtonProps {
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode; // Button text or content
   size?: "sm" | "md"; // Button size
   variant?: "primary" | "outline"; // Button variant
@@ -10,7 +10,6 @@ interface ButtonProps {
   disabled?: boolean; // Disabled state
   className?: string; // Additional classes
   loading?: boolean; // ✅ Añadido
-
   type?: "button" | "submit" | "reset"; // Tipo de botón
 }
 
@@ -24,6 +23,8 @@ const Button: React.FC<ButtonProps> = ({
   className = "",
   disabled = false,
   type = "button", // valor por defecto
+  loading,
+  ...rest
 }) => {
   // Size Classes
   const sizeClasses = {
@@ -47,6 +48,7 @@ const Button: React.FC<ButtonProps> = ({
         } ${className}`}
       onClick={onClick}
       disabled={disabled}
+      {...rest}
     >
       {startIcon && <span className="flex items-center">{startIcon}</span>}
       {children}

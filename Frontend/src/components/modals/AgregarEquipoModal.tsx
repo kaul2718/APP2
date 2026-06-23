@@ -485,7 +485,7 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
                                             onClick={() => setIsModeloModalOpen(true)}
                                             disabled={!formData.marcaId}
                                             aria-label="Agregar nuevo modelo"
-                                            className={`text-xs flex items-center gap-1 ${formData.marcaId ? 'text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300' : 'text-gray-400 dark:text-gray-500 cursor-not-allowed'}`}
+                                            className={`text-xs flex items-center gap-1 ${formData.marcaId ? 'text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300' : 'text-gray-500 dark:text-gray-400 cursor-not-allowed'}`}
                                         >
                                             <PlusIcon className="h-3 w-3" aria-hidden="true" />
                                             Agregar nuevo

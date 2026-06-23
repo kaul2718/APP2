@@ -179,7 +179,7 @@ function AccordionGroup({
                 <span className="block text-sm font-medium text-gray-700 dark:text-gray-200 leading-snug">
                   {item.label}
                 </span>
-                <span className="block text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                <span className="block text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
                   {item.description}
                 </span>
               </div>
@@ -225,7 +225,7 @@ export default function AdminPage() {
           <h1 className="text-base font-bold text-gray-900 dark:text-white">
             Administración
           </h1>
-          <p className="text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             {adminGroups.length} secciones &middot; {adminGroups.reduce((a, g) => a + g.items.length, 0)} configuraciones
           </p>
         </div>
@@ -266,7 +266,7 @@ export default function AdminPage() {
       ) : (
         <div className="text-center py-10">
           <MagnifyingGlassIcon className="w-7 h-7 text-gray-200 dark:text-gray-700 mx-auto mb-2" />
-          <p className="text-xs font-medium text-gray-400 dark:text-gray-500">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
             Sin resultados para &ldquo;{search}&rdquo;
           </p>
           <button

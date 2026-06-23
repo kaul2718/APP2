@@ -143,13 +143,17 @@ export default function IngresarCasilleroForm({
         }
     };
 
+    const codigoInputId = React.useId();
+    const descripcionInputId = React.useId();
+
     const formContent = (
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
             <div>
-                <Label>Código del Casillero</Label>
+                <Label htmlFor={codigoInputId}>Código del Casillero</Label>
                 <div className="relative">
                     <ArchiveBoxIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                     <Input
+                        id={codigoInputId}
                         value={formData.codigo}
                         onChange={(e) => handleChange("codigo", e.target.value)}
                         placeholder="Ej: A1, B2, C3"
@@ -160,10 +164,11 @@ export default function IngresarCasilleroForm({
             </div>
 
             <div>
-                <Label>Descripción</Label>
+                <Label htmlFor={descripcionInputId}>Descripción</Label>
                 <div className="relative">
                     <ArchiveBoxIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                     <Input
+                        id={descripcionInputId}
                         value={formData.descripcion}
                         onChange={(e) => handleChange("descripcion", e.target.value)}
                         placeholder="Ej: Casillero principal, Casillero de reparación rápida"

@@ -43,6 +43,11 @@ export default function EquipoEditModal({ isOpen, onClose, equipo, onSave }: Pro
     const [marcaModificada, setMarcaModificada] = React.useState<number | null>(null);
     const [modeloModificado, setModeloModificado] = React.useState<number | null>(null);
 
+    const idInputId = React.useId();
+    const serieInputId = React.useId();
+    const fechaCreacionInputId = React.useId();
+    const fechaActualizacionInputId = React.useId();
+
     // Filtrar modelos según la marca seleccionada
     const modelosFiltrados = React.useMemo(() => {
         const marcaId = marcaModificada !== null ? marcaModificada : editando?.marca?.id;
@@ -215,12 +220,13 @@ export default function EquipoEditModal({ isOpen, onClose, equipo, onSave }: Pro
                     <div className="custom-scrollbar h-[500px] overflow-y-auto">
                         <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                             <div>
-                                <Label>ID</Label>
-                                <Input name="id" value={editando.id} disabled />
+                                <Label htmlFor={idInputId}>ID</Label>
+                                <Input id={idInputId} name="id" value={editando.id} disabled />
                             </div>
                             <div>
-                                <Label>Número de Serie *</Label>
+                                <Label htmlFor={serieInputId}>Número de Serie *</Label>
                                 <Input
+                                    id={serieInputId}
                                     name="numeroSerie"
                                     value={editando.numeroSerie}
                                     onChange={handleInputChange}
@@ -323,15 +329,17 @@ export default function EquipoEditModal({ isOpen, onClose, equipo, onSave }: Pro
                             </div>
 
                             <div>
-                                <Label>Fecha de creación</Label>
+                                <Label htmlFor={fechaCreacionInputId}>Fecha de creación</Label>
                                 <Input
+                                    id={fechaCreacionInputId}
                                     value={new Date(editando.createdAt).toLocaleString()}
                                     disabled
                                 />
                             </div>
                             <div>
-                                <Label>Última actualización</Label>
+                                <Label htmlFor={fechaActualizacionInputId}>Última actualización</Label>
                                 <Input
+                                    id={fechaActualizacionInputId}
                                     value={new Date(editando.updatedAt).toLocaleString()}
                                     disabled
                                 />

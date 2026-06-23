@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Modal } from "@/components/ui/modal";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Button from "@/components/ui/button/Button";
 import { useRolesPermisos, Rol, Permission } from "@/hooks/useRolesPermisos";
@@ -32,14 +33,14 @@ import Input from "@/components/form/input/InputField";
 
 // Helpers for pretty category names with high-quality Heroicons SVG components
 const CATEGORY_MAP: Record<string, { label: string; icon: React.ComponentType<any>; color: string; bg: string }> = {
-  orders: { label: "Órdenes", icon: ClipboardDocumentCheckIcon, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20" },
-  users: { label: "Usuarios", icon: UsersIcon, color: "text-brand-600 dark:text-brand-400", bg: "bg-brand-50 dark:bg-brand-900/20" },
-  roles: { label: "Roles", icon: ShieldCheckIcon, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20" },
-  permissions: { label: "Permisos", icon: KeyIcon, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
-  presupuestos: { label: "Presupuestos", icon: BanknotesIcon, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/20" },
-  almacen: { label: "Almacén", icon: Square3Stack3DIcon, color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-900/20" },
-  reportes: { label: "Reportes", icon: ChartBarIcon, color: "text-rose-600 dark:text-rose-400", bg: "bg-rose-50 dark:bg-rose-900/20" },
-  notificaciones: { label: "Notificaciones", icon: BellAlertIcon, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20" },
+  orders: { label: "Órdenes", icon: ClipboardDocumentCheckIcon, color: "text-blue-700 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/20" },
+  users: { label: "Usuarios", icon: UsersIcon, color: "text-brand-700 dark:text-brand-400", bg: "bg-brand-50 dark:bg-brand-900/20" },
+  roles: { label: "Roles", icon: ShieldCheckIcon, color: "text-amber-800 dark:text-amber-400", bg: "bg-amber-100 dark:bg-amber-900/20" },
+  permissions: { label: "Permisos", icon: KeyIcon, color: "text-emerald-700 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
+  presupuestos: { label: "Presupuestos", icon: BanknotesIcon, color: "text-purple-700 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-900/20" },
+  almacen: { label: "Almacén", icon: Square3Stack3DIcon, color: "text-orange-700 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-900/20" },
+  reportes: { label: "Reportes", icon: ChartBarIcon, color: "text-rose-700 dark:text-rose-400", bg: "bg-rose-50 dark:bg-rose-900/20" },
+  notificaciones: { label: "Notificaciones", icon: BellAlertIcon, color: "text-indigo-700 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-900/20" },
 };
 
 export default function ClientComponent() {
@@ -57,6 +58,9 @@ export default function ClientComponent() {
     isSystemRole,
   } = useRolesPermisos();
 
+  const roleNombreId = React.useId();
+  const roleSlugId = React.useId();
+  const roleDescId = React.useId();
   // UX Layout States
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
   const [permissionSearch, setPermissionSearch] = useState("");
@@ -68,8 +72,6 @@ export default function ClientComponent() {
   const [roleForm, setRoleForm] = useState({ nombre: "", slug: "", descripcion: "" });
 
   const [isPermCatalogOpen, setIsPermCatalogOpen] = useState(false);
-  const [isNewPermModalOpen, setIsNewPermModalOpen] = useState(false);
-  const [permForm, setPermForm] = useState({ nombre: "", slug: "", descripcion: "" });
 
   // Get currently selected role object
   const activeRole = useMemo(() => {
@@ -185,38 +187,6 @@ export default function ClientComponent() {
     }
   };
 
-  // Handle permission creation submission
-  const handlePermSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!permForm.nombre.trim() || !permForm.slug.trim()) {
-      toast.error("Nombre y Slug de permiso son obligatorios");
-      return;
-    }
-
-    // slug validation
-    if (!permForm.slug.includes(".")) {
-      toast.warning("Se recomienda usar el formato 'modulo.accion' (ej: equipos.crear)");
-    }
-
-    const payload = {
-      nombre: permForm.nombre.trim(),
-      slug: permForm.slug.trim().toLowerCase(),
-      descripcion: permForm.descripcion.trim(),
-    };
-
-    const res = await createPermission(payload);
-    if (res) {
-      setIsNewPermModalOpen(false);
-      setPermForm({ nombre: "", slug: "", descripcion: "" });
-    }
-  };
-
-  const handleDeletePermission = async (p: Permission) => {
-    if (window.confirm(`¿Estás completamente seguro de eliminar el permiso "${p.nombre}"? Esto afectará a todos los roles que lo tengan asignado.`)) {
-      await deletePermission(p.id);
-    }
-  };
-
   return (
     <div className="space-y-6">
       <PageBreadcrumb pageTitle="Accesos, Roles y Permisos" />
@@ -233,23 +203,24 @@ export default function ClientComponent() {
           <div className="lg:col-span-4 space-y-4">
             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
                   <UserGroupIcon className="w-5 h-5 text-brand-500" />
                   Roles Disponibles
-                </h3>
-                <button
+                </h2>
+                <Button
+                  size="sm"
                   onClick={openCreateRoleModal}
-                  className="p-1 text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/30 rounded-lg transition-colors"
-                  title="Crear Nuevo Rol"
+                  className="flex items-center gap-1.5"
                 >
-                  <PlusCircleIcon className="w-5 h-5" />
-                </button>
+                  <PlusCircleIcon className="w-4 h-4" />
+                  <span>Nuevo Rol</span>
+                </Button>
               </div>
 
               <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1 no-scrollbar">
                 {roles.map((role) => {
                   const isSelected = activeRole?.id === role.id;
-                  const totalActivePerms = role.rolePermissions.length;
+                  const totalActivePerms = role.rolePermissions?.length || 0;
 
                   return (
                     <motion.button
@@ -267,21 +238,21 @@ export default function ClientComponent() {
                             {role.nombre}
                           </span>
                           {isSystemRole(role.slug) && (
-                            <span className="text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-400">
+                            <span className="text-xs font-bold uppercase px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
                               Sistema
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 line-clamp-1">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
                           {role.descripcion || "Sin descripción"}
                         </p>
                       </div>
 
                       <div className="flex items-center gap-2 z-10">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                           isSelected 
                             ? "bg-brand-500 text-white"
-                            : "bg-gray-100 dark:bg-gray-800 text-gray-500"
+                            : "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
                         }`}>
                           {totalActivePerms} perms
                         </span>
@@ -295,7 +266,7 @@ export default function ClientComponent() {
             {/* Quick Actions Card */}
             <div className="bg-gradient-to-tr from-brand-600/90 to-brand-500/95 text-white rounded-2xl p-5 shadow-md space-y-4">
               <div className="space-y-1">
-                <h4 className="font-bold text-sm uppercase tracking-wide">Permisos del Sistema</h4>
+                <h2 className="font-bold text-sm uppercase tracking-wide">Permisos del Sistema</h2>
                 <p className="text-xs text-brand-100">
                   ¿Necesitas una nueva acción en el sistema? Puedes extender el catálogo global de permisos.
                 </p>
@@ -327,7 +298,7 @@ export default function ClientComponent() {
                       <div>
                         <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
                           {activeRole.nombre}
-                          <span className="text-xs font-mono text-gray-400 dark:text-gray-500 font-normal bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-lg">
+                          <span className="text-xs font-mono text-gray-500 dark:text-gray-400 font-normal bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-lg">
                             {activeRole.slug}
                           </span>
                         </h2>
@@ -364,6 +335,7 @@ export default function ClientComponent() {
                       placeholder="Buscar permisos por nombre o slug..."
                       value={permissionSearch}
                       onChange={(e) => setPermissionSearch(e.target.value)}
+                      aria-label="Buscar permisos por nombre o slug"
                       className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:bg-white transition-all border border-transparent"
                     />
                   </div>
@@ -397,7 +369,7 @@ export default function ClientComponent() {
                         >
                           <IconComponent className="w-4 h-4 flex-shrink-0" />
                           <span>{catInfo.label}</span>
-                          <span className="opacity-75 font-normal text-[10px]">({count})</span>
+                          <span className="text-xs font-normal opacity-90">({count})</span>
                         </button>
                       );
                     })}
@@ -409,9 +381,9 @@ export default function ClientComponent() {
                   {filteredPermissions.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {filteredPermissions.map((perm) => {
-                        const hasPerm = activeRole.rolePermissions.some(
+                        const hasPerm = activeRole.rolePermissions?.some(
                           (rp) => rp.permissionId === perm.id
-                        );
+                        ) || false;
                         const parts = perm.slug.split(".");
                         const cat = parts[0];
                         const catInfo = CATEGORY_MAP[cat] || {
@@ -431,9 +403,12 @@ export default function ClientComponent() {
                                 : "bg-gray-50/40 dark:bg-gray-800/10 border-gray-100 dark:border-gray-800/80"
                             }`}
                           >
-                            {/* Toggle Switch */}
+                             {/* Toggle Switch */}
                             <button
                               onClick={() => togglePermission(activeRole.id, perm.id)}
+                              aria-label={`Permiso ${perm.nombre}`}
+                              aria-checked={hasPerm}
+                              role="switch"
                               className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-all focus:outline-none mt-1 ${
                                 hasPerm
                                   ? "bg-brand-500 hover:bg-brand-600 shadow-sm"
@@ -453,14 +428,14 @@ export default function ClientComponent() {
                                 <span className="text-sm font-bold text-gray-800 dark:text-white">
                                   {perm.nombre}
                                 </span>
-                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${catInfo.bg} ${catInfo.color}`}>
+                                <span className={`text-xs font-bold px-1.5 py-0.5 rounded uppercase ${catInfo.bg} ${catInfo.color}`}>
                                   {cat}
                                 </span>
                               </div>
-                              <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed font-medium">
+                              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed font-medium">
                                 {perm.descripcion || "Permite realizar acciones asociadas al módulo."}
                               </p>
-                              <span className="block text-[10px] font-mono text-gray-400/80">
+                              <span className="block text-xs font-mono text-gray-500 dark:text-gray-400">
                                 {perm.slug}
                               </span>
                             </div>
@@ -492,91 +467,83 @@ export default function ClientComponent() {
       )}
 
       {/* Role Creation / Modification Modal */}
-      <AnimatePresence>
-        {isRoleModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="relative w-full max-w-[500px] overflow-hidden rounded-3xl bg-white p-6 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-xl"
-            >
-              <button
+      <Modal
+        isOpen={isRoleModalOpen}
+        onClose={() => setIsRoleModalOpen(false)}
+        title={modalMode === "create" ? "Crear Nuevo Rol" : "Editar Información del Rol"}
+        className="max-w-[500px]"
+      >
+        <div className="p-6">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+            <ShieldCheckIcon className="w-6 h-6 text-brand-500" />
+            {modalMode === "create" ? "Crear Nuevo Rol" : "Editar Información del Rol"}
+          </h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">
+            Completa los campos básicos. Los slugs de roles existentes no se pueden modificar.
+          </p>
+
+          <form onSubmit={handleRoleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor={roleNombreId}>Nombre del Rol *</Label>
+              <Input
+                id={roleNombreId}
+                value={roleForm.nombre}
+                onChange={(e) => setRoleForm({ ...roleForm, nombre: e.target.value })}
+                placeholder="Ej: Supervisor de Soporte"
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor={roleSlugId}>Slug identificador *</Label>
+              <Input
+                id={roleSlugId}
+                value={roleForm.slug}
+                onChange={(e) =>
+                  setRoleForm({
+                    ...roleForm,
+                    slug: e.target.value.toLowerCase().replace(/\s+/g, "-"),
+                  })
+                }
+                placeholder="Ej: supervisor-soporte"
+                disabled={modalMode === "edit"}
+                required
+              />
+              {modalMode === "create" && (
+                <p className="text-[10px] text-gray-400 mt-1 font-mono">
+                  Slug generado: {roleForm.slug || "ninguno"}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor={roleDescId}>Descripción breve</Label>
+              <textarea
+                id={roleDescId}
+                value={roleForm.descripcion}
+                onChange={(e) => setRoleForm({ ...roleForm, descripcion: e.target.value })}
+                placeholder="Describe las responsabilidades del rol..."
+                rows={3}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-950 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all text-sm resize-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => setIsRoleModalOpen(false)}
-                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg"
+                disabled={saving}
               >
-                <XMarkIcon className="w-5 h-5" />
-              </button>
-
-              <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                <ShieldCheckIcon className="w-6 h-6 text-brand-500" />
-                {modalMode === "create" ? "Crear Nuevo Rol" : "Editar Información del Rol"}
-              </h4>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">
-                Completa los campos básicos. Los slugs de roles existentes no se pueden modificar.
-              </p>
-
-              <form onSubmit={handleRoleSubmit} className="space-y-4">
-                <div>
-                  <Label>Nombre del Rol *</Label>
-                  <Input
-                    value={roleForm.nombre}
-                    onChange={(e) => setRoleForm({ ...roleForm, nombre: e.target.value })}
-                    placeholder="Ej: Supervisor de Soporte"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label>Slug identificador *</Label>
-                  <Input
-                    value={roleForm.slug}
-                    onChange={(e) =>
-                      setRoleForm({
-                        ...roleForm,
-                        slug: e.target.value.toLowerCase().replace(/\s+/g, "-"),
-                      })
-                    }
-                    placeholder="Ej: supervisor-soporte"
-                    disabled={modalMode === "edit"}
-                    required
-                  />
-                  {modalMode === "create" && (
-                    <p className="text-[10px] text-gray-400 mt-1 font-mono">
-                      Slug generado: {roleForm.slug || "ninguno"}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label>Descripción breve</Label>
-                  <textarea
-                    value={roleForm.descripcion}
-                    onChange={(e) => setRoleForm({ ...roleForm, descripcion: e.target.value })}
-                    placeholder="Describe las responsabilidades del rol..."
-                    rows={3}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-950 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all text-sm resize-none"
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsRoleModalOpen(false)}
-                    disabled={saving}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={saving} loading={saving}>
-                    {modalMode === "create" ? "Registrar Rol" : "Guardar Cambios"}
-                  </Button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={saving} loading={saving}>
+                {modalMode === "create" ? "Registrar Rol" : "Guardar Cambios"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </Modal>
 
       {/* Permission Catalog Modal Drawer */}
       <AnimatePresence>
@@ -596,11 +563,12 @@ export default function ClientComponent() {
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                       Catálogo de Permisos
                     </h3>
-                    <p className="text-xs text-gray-400">Total: {permissions.length} permisos registrados</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Total: {permissions.length} permisos registrados</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsPermCatalogOpen(false)}
+                  aria-label="Cerrar catálogo"
                   className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
                 >
                   <XMarkIcon className="w-5 h-5" />
@@ -609,25 +577,11 @@ export default function ClientComponent() {
 
               {/* Catalog Items list */}
               <div className="flex-1 overflow-y-auto p-6 space-y-3 custom-scrollbar">
-                <div className="flex items-center justify-between bg-brand-50 dark:bg-brand-950/20 p-4 rounded-2xl border border-brand-500/10">
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-semibold text-brand-850 dark:text-brand-300">¿Falta alguna acción?</p>
-                    <p className="text-[11px] text-gray-400">Agrega un permiso personalizado al catálogo global del sistema.</p>
-                  </div>
-                  <button
-                    onClick={() => setIsNewPermModalOpen(true)}
-                    className="py-1.5 px-3 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-sm"
-                  >
-                    <PlusCircleIcon className="w-4 h-4" />
-                    Nuevo Permiso
-                  </button>
-                </div>
-
                 <div className="divide-y divide-gray-100 dark:divide-gray-800/80">
                   {permissions.map((perm) => {
                     const parts = perm.slug.split(".");
                     const cat = parts[0] || "otro";
-                    const catInfo = CATEGORY_MAP[cat] || { icon: KeyIcon, color: "text-gray-500" };
+                    const catInfo = CATEGORY_MAP[cat] || { icon: KeyIcon, color: "text-gray-600" };
                     const ItemIcon = catInfo.icon;
 
                     return (
@@ -638,25 +592,14 @@ export default function ClientComponent() {
                             <span className="text-sm font-semibold text-gray-850 dark:text-white">
                               {perm.nombre}
                             </span>
-                            <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                            <span className="text-xs font-mono text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
                               {perm.slug}
                             </span>
                           </div>
-                          <p className="text-xs text-gray-400 dark:text-gray-500">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             {perm.descripcion || "Permite ejecutar la acción asociada en el módulo respectivo."}
                           </p>
                         </div>
-
-                        {/* We only allow deleting custom permissions to avoid breaking seeds */}
-                        {perm.id > 21 && (
-                          <button
-                            onClick={() => handleDeletePermission(perm)}
-                            className="p-1.5 text-gray-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/20 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
-                            title="Eliminar permiso"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        )}
                       </div>
                     );
                   })}
@@ -668,90 +611,6 @@ export default function ClientComponent() {
                   Cerrar Catálogo
                 </Button>
               </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* New Permission Creation Modal Popup */}
-      <AnimatePresence>
-        {isNewPermModalOpen && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="relative w-full max-w-[450px] overflow-hidden rounded-3xl bg-white p-6 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 shadow-xl"
-            >
-              <button
-                onClick={() => setIsNewPermModalOpen(false)}
-                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg"
-              >
-                <XMarkIcon className="w-5 h-5" />
-              </button>
-
-              <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-1.5">
-                <ShieldCheckIcon className="w-6 h-6 text-brand-500" />
-                Registrar Nuevo Permiso
-              </h4>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">
-                Define el nombre y un identificador único en formato "modulo.accion" (ej: inventario.eliminar).
-              </p>
-
-              <form onSubmit={handlePermSubmit} className="space-y-4">
-                <div>
-                  <Label>Nombre del Permiso *</Label>
-                  <Input
-                    value={permForm.nombre}
-                    onChange={(e) => setPermForm({ ...permForm, nombre: e.target.value })}
-                    placeholder="Ej: Registrar Ajustes"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label>Slug Identificador *</Label>
-                  <Input
-                    value={permForm.slug}
-                    onChange={(e) =>
-                      setPermForm({
-                        ...permForm,
-                        slug: e.target.value.toLowerCase().replace(/\s+/g, ""),
-                      })
-                    }
-                    placeholder="Ej: inventario.ajustes"
-                    required
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1 flex items-start gap-1 font-medium">
-                    <ExclamationTriangleIcon className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                    Ejemplo recomendado: modulo.accion
-                  </p>
-                </div>
-
-                <div>
-                  <Label>Descripción del Permiso</Label>
-                  <textarea
-                    value={permForm.descripcion}
-                    onChange={(e) => setPermForm({ ...permForm, descripcion: e.target.value })}
-                    placeholder="Explica qué acción permite este permiso..."
-                    rows={3}
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-950 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all text-sm resize-none"
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsNewPermModalOpen(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={saving} loading={saving}>
-                    Crear Permiso
-                  </Button>
-                </div>
-              </form>
             </motion.div>
           </div>
         )}

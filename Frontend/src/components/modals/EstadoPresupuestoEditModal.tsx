@@ -22,6 +22,12 @@ export default function EstadoPresupuestoEditModal({ isOpen, onClose, estado, on
     const [cargando, setCargando] = React.useState(false);
     const [estadoModificado, setEstadoModificado] = React.useState<boolean | null>(null);
 
+    const idInputId = React.useId();
+    const nombreInputId = React.useId();
+    const descTextareaId = React.useId();
+    const fechaCreacionInputId = React.useId();
+    const fechaActualizacionInputId = React.useId();
+
     React.useEffect(() => {
         setEditando(estado);
         setEstadoModificado(null);
@@ -95,7 +101,7 @@ export default function EstadoPresupuestoEditModal({ isOpen, onClose, estado, on
             onClose();
         } catch (error) {
             console.error("Error completo:", error);
-            toast.error(error instanceof Error ? error.message : "Error al actualizar el estado");
+            toast.error(error instanceof Error ? error.message : "Error al actualizar the estado");
         } finally {
             setCargando(false);
         }
@@ -130,12 +136,13 @@ export default function EstadoPresupuestoEditModal({ isOpen, onClose, estado, on
                     <div className="custom-scrollbar h-[400px] overflow-y-auto">
                         <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                             <div>
-                                <Label>ID</Label>
-                                <Input name="id" value={editando.id} disabled />
+                                <Label htmlFor={idInputId}>ID</Label>
+                                <Input id={idInputId} name="id" value={editando.id} disabled />
                             </div>
                             <div>
-                                <Label>Nombre *</Label>
+                                <Label htmlFor={nombreInputId}>Nombre *</Label>
                                 <Input
+                                    id={nombreInputId}
                                     name="nombre"
                                     value={editando.nombre}
                                     onChange={handleInputChange}
@@ -144,8 +151,9 @@ export default function EstadoPresupuestoEditModal({ isOpen, onClose, estado, on
                                 />
                             </div>
                             <div className="lg:col-span-2">
-                                <Label>Descripción *</Label>
+                                <Label htmlFor={descTextareaId}>Descripción *</Label>
                                 <textarea
+                                    id={descTextareaId}
                                     name="descripcion"
                                     value={editando.descripcion}
                                     onChange={handleInputChange}
@@ -174,15 +182,17 @@ export default function EstadoPresupuestoEditModal({ isOpen, onClose, estado, on
                                 )}
                             </div>
                             <div>
-                                <Label>Fecha de creación</Label>
+                                <Label htmlFor={fechaCreacionInputId}>Fecha de creación</Label>
                                 <Input
+                                    id={fechaCreacionInputId}
                                     value={new Date(editando.createdAt).toLocaleString()}
                                     disabled
                                 />
                             </div>
                             <div>
-                                <Label>Última actualización</Label>
+                                <Label htmlFor={fechaActualizacionInputId}>Última actualización</Label>
                                 <Input
+                                    id={fechaActualizacionInputId}
                                     value={new Date(editando.updatedAt).toLocaleString()}
                                     disabled
                                 />

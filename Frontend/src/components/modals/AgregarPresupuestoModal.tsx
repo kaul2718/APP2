@@ -592,7 +592,7 @@ export default function AgregarPresupuestoModal({
                                             }}
                                             placeholder="0.00"
                                             className={`w-full px-3 py-2 rounded-lg border text-xs focus:outline-none transition-all ${selectedParteDetails && !selectedParteDetails.permiteModificarPrecio
-                                                    ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed border-gray-200 dark:border-gray-600'
+                                                    ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed border-gray-200 dark:border-gray-600'
                                                     : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-blue-500'
                                                 }`}
                                         />

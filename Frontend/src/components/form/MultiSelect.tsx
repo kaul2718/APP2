@@ -106,6 +106,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
                   type="button"
                   onClick={toggleDropdown} 
                   className="w-5 h-5 text-gray-700 outline-hidden cursor-pointer focus:outline-hidden dark:text-gray-400"
+                  aria-label="Abrir menú de opciones"
                 >
                   <svg
                     className={`stroke-current ${isOpen ? "rotate-180" : ""}`}

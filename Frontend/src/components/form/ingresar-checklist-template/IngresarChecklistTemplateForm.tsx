@@ -21,6 +21,10 @@ export default function IngresarChecklistTemplateForm({ onSuccess, template }: P
     const [items, setItems] = useState<string[]>(template?.items || ["Enciende", "Imagen", "Teclado", "Touchpad", "Batería"]);
     const [newItem, setNewItem] = useState("");
 
+    const nameInputId = React.useId();
+    const tipoEquipoSelectId = React.useId();
+    const newItemInputId = React.useId();
+
     // Verificar si hay cambios respecto a los datos originales
     const hasChanges = React.useMemo(() => {
         if (!template) return true; // Si es creación siempre se permite
@@ -74,11 +78,12 @@ export default function IngresarChecklistTemplateForm({ onSuccess, template }: P
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Nombre de la Plantilla */}
                 <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                    <label htmlFor={nameInputId} className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
                         <ClipboardDocumentListIcon className="w-4 h-4 text-brand-500" />
                         Nombre de la Plantilla
                     </label>
                     <Input
+                        id={nameInputId}
                         placeholder="Ej: Laptop - Peritaje Completo"
                         value={nombre}
                         onChange={(e) => setNombre(e.target.value)}
@@ -89,11 +94,12 @@ export default function IngresarChecklistTemplateForm({ onSuccess, template }: P
 
                 {/* Tipo de Equipo */}
                 <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                    <label htmlFor={tipoEquipoSelectId} className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
                         <TagIcon className="w-4 h-4 text-brand-500" />
                         Tipo de Equipo
                     </label>
                     <select
+                        id={tipoEquipoSelectId}
                         className="w-full h-[46px] rounded-lg border-gray-200 bg-white px-4 text-sm dark:border-gray-700 dark:bg-gray-800/50 dark:text-white focus:border-brand-500 focus:ring-brand-500 transition-all outline-none"
                         value={tipoEquipoId}
                         onChange={(e) => setTipoEquipoId(Number(e.target.value))}
@@ -112,11 +118,11 @@ export default function IngresarChecklistTemplateForm({ onSuccess, template }: P
             {/* Sección de Ítems */}
             <div className="bg-gray-50 dark:bg-gray-900/30 rounded-2xl p-5 border border-gray-100 dark:border-gray-800 space-y-4">
                 <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                    <label htmlFor={newItemInputId} className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
                         <SquaresPlusIcon className="w-4 h-4 text-brand-500" />
                         Puntos de Revisión
                     </label>
-                    <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                    <span className="text-xs uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
                         {items.length} ítems definidos
                     </span>
                 </div>
@@ -124,6 +130,7 @@ export default function IngresarChecklistTemplateForm({ onSuccess, template }: P
                 <div className="flex gap-2 group">
                     <div className="relative flex-grow">
                         <Input
+                            id={newItemInputId}
                             placeholder="Agregar nuevo punto (Ej: Puerto HDMI, Batería...)"
                             value={newItem}
                             onChange={(e) => setNewItem(e.target.value)}
@@ -131,7 +138,7 @@ export default function IngresarChecklistTemplateForm({ onSuccess, template }: P
                             className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 pr-10"
                         />
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                           <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 border border-gray-200 dark:border-gray-700 rounded text-[10px] text-gray-400 font-sans">
+                           <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 border border-gray-200 dark:border-gray-700 rounded text-xs text-gray-500 dark:text-gray-400 font-sans">
                                Enter
                            </kbd>
                         </div>
@@ -140,6 +147,7 @@ export default function IngresarChecklistTemplateForm({ onSuccess, template }: P
                         type="button" 
                         onClick={handleAddItem} 
                         className="bg-brand-500 hover:bg-brand-600 shadow-md shadow-brand-500/20 px-4"
+                        aria-label="Agregar punto de revisión"
                     >
                         <PlusIcon className="w-5 h-5" />
                     </Button>
@@ -158,6 +166,7 @@ export default function IngresarChecklistTemplateForm({ onSuccess, template }: P
                                     type="button" 
                                     onClick={() => handleRemoveItem(index)}
                                     className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                                    aria-label={`Eliminar punto de revisión: ${item}`}
                                 >
                                     <TrashIcon className="w-3.5 h-3.5" />
                                 </button>

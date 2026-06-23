@@ -108,13 +108,17 @@ export default function IngresarEstadoPresupuestoForm({
     }
   };
 
+  const nombreInputId = React.useId();
+  const descTextareaId = React.useId();
+
   const formContent = (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
       <div>
-        <Label>Nombre del Estado</Label>
+        <Label htmlFor={nombreInputId}>Nombre del Estado</Label>
         <div className="relative">
           <DocumentTextIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
           <Input
+            id={nombreInputId}
             value={formData.nombre}
             onChange={(e) => handleChange("nombre", e.target.value)}
             placeholder="Ej: Pendiente, Aprobado, Rechazado"
@@ -125,8 +129,9 @@ export default function IngresarEstadoPresupuestoForm({
       </div>
 
       <div>
-        <Label>Descripción</Label>
+        <Label htmlFor={descTextareaId}>Descripción</Label>
         <textarea
+          id={descTextareaId}
           value={formData.descripcion}
           onChange={(e) => handleChange("descripcion", e.target.value)}
           placeholder="Descripción detallada del estado del presupuesto"

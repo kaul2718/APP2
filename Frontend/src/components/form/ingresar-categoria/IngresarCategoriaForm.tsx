@@ -107,14 +107,18 @@ export default function IngresarCategoriaForm({
         }
     };
 
+    const nameInputId = React.useId();
+    const descInputId = React.useId();
+
     const formContent = (
             <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
                 {/* Nombre de la categoría */}
                 <div>
-                    <Label>Nombre de la Categoría</Label>
+                    <Label htmlFor={nameInputId}>Nombre de la Categoría</Label>
                     <div className="relative">
                         <TagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                         <Input
+                            id={nameInputId}
                             value={formData.nombre}
                             onChange={(e) => handleChange("nombre", e.target.value)}
                             placeholder="Ej: Smartphones, Laptops, Accesorios"
@@ -126,8 +130,9 @@ export default function IngresarCategoriaForm({
 
                 {/* Descripción */}
                 <div>
-                    <Label>Descripción</Label>
+                    <Label htmlFor={descInputId}>Descripción</Label>
                     <textarea
+                        id={descInputId}
                         value={formData.descripcion}
                         onChange={(e) => handleChange("descripcion", e.target.value)}
                         placeholder="Ingrese una descripción detallada de la categoría"

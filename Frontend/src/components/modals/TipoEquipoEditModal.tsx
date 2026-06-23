@@ -29,6 +29,12 @@ export default function TipoEquipoEditModal({ isOpen, onClose, tipoEquipo, onSav
   const [cargando, setCargando] = React.useState(false);
   const [pendingEstado, setPendingEstado] = React.useState<boolean | null>(null);
 
+  const idInputId = React.useId();
+  const nombreInputId = React.useId();
+  const fechaCreacionInputId = React.useId();
+  const fechaActualizacionInputId = React.useId();
+  const estadoSelectId = React.useId();
+
   React.useEffect(() => {
     setEditando(tipoEquipo);
     setPendingEstado(null);
@@ -140,12 +146,13 @@ export default function TipoEquipoEditModal({ isOpen, onClose, tipoEquipo, onSav
           <div className="custom-scrollbar h-[400px] overflow-y-auto">
             <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
               <div>
-                <Label>ID</Label>
-                <Input name="id" value={editando.id} disabled />
+                <Label htmlFor={idInputId}>ID</Label>
+                <Input id={idInputId} name="id" value={editando.id} disabled />
               </div>
               <div>
-                <Label>Nombre *</Label>
+                <Label htmlFor={nombreInputId}>Nombre *</Label>
                 <Input
+                  id={nombreInputId}
                   name="nombre"
                   value={editando.nombre}
                   onChange={handleInputChange}
@@ -154,16 +161,17 @@ export default function TipoEquipoEditModal({ isOpen, onClose, tipoEquipo, onSav
                 />
               </div>
               <div>
-                <Label>Fecha de creación</Label>
-                <Input value={new Date(editando.createdAt).toLocaleString()} disabled />
+                <Label htmlFor={fechaCreacionInputId}>Fecha de creación</Label>
+                <Input id={fechaCreacionInputId} value={new Date(editando.createdAt).toLocaleString()} disabled />
               </div>
               <div>
-                <Label>Última actualización</Label>
-                <Input value={new Date(editando.updatedAt).toLocaleString()} disabled />
+                <Label htmlFor={fechaActualizacionInputId}>Última actualización</Label>
+                <Input id={fechaActualizacionInputId} value={new Date(editando.updatedAt).toLocaleString()} disabled />
               </div>
               <div className="lg:col-span-2">
-                <Label className="mb-1 block">Estado</Label>
+                <Label htmlFor={estadoSelectId} className="mb-1 block">Estado</Label>
                 <select
+                  id={estadoSelectId}
                   value={estaActivo ? "activo" : "inactivo"}
                   disabled={cargando}
                   onChange={(e) => {

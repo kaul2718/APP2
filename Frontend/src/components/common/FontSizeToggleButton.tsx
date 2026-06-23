@@ -97,7 +97,7 @@ export const FontSizeToggleButton: React.FC = () => {
         onClose={closeDropdown}
         className="absolute right-0 mt-2 w-48 rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl dark:border-gray-800 dark:bg-gray-dark"
       >
-        <div className="px-3 py-2 text-xs font-semibold text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-800 mb-1">
+        <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800 mb-1">
           Tamaño de letra
         </div>
         <ul className="flex flex-col gap-0.5">

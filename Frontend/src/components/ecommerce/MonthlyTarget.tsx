@@ -85,7 +85,7 @@ export default function MonthlyTarget() {
             </p>
           </div>
           <div className="relative inline-block">
-            <button onClick={toggleDropdown} className="dropdown-toggle">
+            <button onClick={toggleDropdown} className="dropdown-toggle" aria-label="Abrir opciones de objetivo mensual">
               <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" />
             </button>
             <Dropdown

@@ -137,7 +137,7 @@ export default function HeroSection() {
                   <div className="w-3 h-3 rounded-full bg-rose-500" />
                   <div className="w-3 h-3 rounded-full bg-amber-500" />
                   <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                  <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-2">Monitor Técnico</span>
+                  <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest ml-2">Monitor Técnico</span>
                 </div>
                 <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
                   <CheckCircleIcon className="w-4 h-4" />

@@ -119,6 +119,11 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
   const token = session?.accessToken;
 
   // ─── State ──────────────────────────────────────────────────────────────────
+  const startDateId = React.useId();
+  const endDateId = React.useId();
+  const techSelectId = React.useId();
+  const itemsPerPageId = React.useId();
+
   const [useCalendar, setUseCalendar] = useState<boolean>(false);
   const [range, setRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   
@@ -183,18 +188,20 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
       }
 
       // Query Params
-      let queryParams = '';
+      const params = new URLSearchParams();
       if (useCalendar) {
-        if (startDate) queryParams += `&startDate=${startDate}`;
-        if (endDate) queryParams += `&endDate=${endDate}`;
+        if (startDate) params.set('startDate', startDate);
+        if (endDate) params.set('endDate', endDate);
       } else {
-        queryParams += `&range=${range}`;
+        params.set('range', range);
       }
 
       // Filtrar por técnico seleccionado en vista de técnicos
       if (activeTab === 'techs' && selectedTechId) {
-        queryParams += `&technicianId=${selectedTechId}`;
+        params.set('technicianId', selectedTechId);
       }
+
+      const queryParams = params.toString();
 
       const [kpiRes, tabRes] = await Promise.all([
         fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/reports/dashboard?${queryParams}`, { headers }),
@@ -441,11 +448,11 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
       {/* Cabecera exclusiva para versión impresa / PDF */}
       <div className="hidden print:block text-center border-b pb-4 mb-6">
         <h1 className="text-2xl font-bold text-gray-900">HOSPITAL DEL COMPUTADOR</h1>
-        <p className="text-xs text-gray-500 font-semibold mt-1">Reporte Consolidado de Negocio y Operaciones</p>
-        <p className="text-[10px] text-gray-400 mt-0.5">
+        <p className="text-xs text-gray-600 dark:text-gray-400 font-semibold mt-1">Reporte Consolidado de Negocio y Operaciones</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
           Fecha de Emisión: {new Date().toLocaleDateString()} | Generado por: {session?.user?.name || 'Administrador'}
         </p>
-        <div className="text-[10px] text-gray-500 mt-2 font-mono">
+        <div className="text-xs text-gray-600 dark:text-gray-400 mt-2 font-mono">
           Módulo: {getBreadcrumbTitle()} | Rango: {useCalendar ? `Desde ${startDate || 'Inicio'} hasta ${endDate || 'Hoy'}` : range === '7d' ? 'Últimos 7 días' : range === '30d' ? 'Últimos 30 días' : range === '90d' ? 'Últimos 90 días' : 'Histórico completo'}
         </div>
       </div>
@@ -518,10 +525,11 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                   className="flex flex-col sm:flex-row items-center gap-3 w-full"
                 >
                   <div className="relative w-full sm:flex-1">
-                    <span className="absolute left-3 top-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider block pointer-events-none">
+                    <label htmlFor={startDateId} className="absolute left-3 top-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block pointer-events-none">
                       Desde
-                    </span>
+                    </label>
                     <input
+                      id={startDateId}
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
@@ -534,10 +542,11 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                     />
                   </div>
                   <div className="relative w-full sm:flex-1">
-                    <span className="absolute left-3 top-2.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider block pointer-events-none">
+                    <label htmlFor={endDateId} className="absolute left-3 top-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block pointer-events-none">
                       Hasta
-                    </span>
+                    </label>
                     <input
+                      id={endDateId}
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
@@ -564,8 +573,9 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
           {/* 🛠️ Dropdown Selector de Técnico (Se muestra sólo en la pestaña de Técnicos) */}
           {activeTab === 'techs' && (
             <div className="flex items-center gap-2 border-l pl-4 border-gray-100 dark:border-gray-800 w-full sm:w-auto">
-              <span className="text-xs text-gray-400 font-bold whitespace-nowrap">Técnico:</span>
+              <label htmlFor={techSelectId} className="text-xs text-gray-500 dark:text-gray-405 font-bold whitespace-nowrap">Técnico:</label>
               <select
+                id={techSelectId}
                 value={selectedTechId}
                 onChange={(e) => setSelectedTechId(e.target.value)}
                 className="w-full sm:w-auto px-3.5 py-2.5 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
@@ -586,7 +596,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-2xl shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs text-gray-500 font-semibold block">Total Ingresos</span>
+            <span className="text-xs text-gray-600 dark:text-gray-400 font-semibold block">Total Ingresos</span>
             <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1 block">
               ${kpi?.revenue?.toFixed(2) || '0.00'}
             </span>
@@ -598,7 +608,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
 
         <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-2xl shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs text-gray-500 font-semibold block">Total Egresos</span>
+            <span className="text-xs text-gray-600 dark:text-gray-400 font-semibold block">Total Egresos</span>
             <span className="text-2xl font-bold text-rose-600 dark:text-rose-400 mt-1 block">
               ${kpi?.expenses?.toFixed(2) || '0.00'}
             </span>
@@ -610,7 +620,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
 
         <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-2xl shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs text-gray-500 font-semibold block">Órdenes Generadas</span>
+            <span className="text-xs text-gray-600 dark:text-gray-400 font-semibold block">Órdenes Generadas</span>
             <span className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1 block">
               {kpi?.ordersCount || 0}
             </span>
@@ -622,7 +632,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
 
         <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-2xl shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs text-gray-500 font-semibold block">Clientes Activos</span>
+            <span className="text-xs text-gray-600 dark:text-gray-400 font-semibold block">Clientes Activos</span>
             <span className="text-2xl font-bold text-brand-600 dark:text-brand-400 mt-1 block">
               {kpi?.clientsCount || 0}
             </span>
@@ -688,6 +698,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
               placeholder="Buscar dentro de este reporte..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Buscar dentro de este reporte"
               className="w-full sm:max-w-xs px-4 py-2 text-xs border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-gray-700 dark:text-gray-300"
             />
             
@@ -732,7 +743,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                 {activeTab === 'clients' && (
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-400 font-bold">
+                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
                         <th className="py-3 px-4">Cliente</th>
                         <th className="py-3 px-4">Correo</th>
                         <th className="py-3 px-4">Teléfono</th>
@@ -760,7 +771,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                 {activeTab === 'inventory' && (
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-400 font-bold">
+                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
                         <th className="py-3 px-4">Código</th>
                         <th className="py-3 px-4">Artículo</th>
                         <th className="py-3 px-4">Categoría</th>
@@ -771,9 +782,9 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-800/60 text-gray-700 dark:text-gray-300">
                       {paginatedInventory.map(i => (
                         <tr key={i.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/10">
-                          <td className="py-3.5 px-4 font-mono text-gray-500">{i.codigo}</td>
+                          <td className="py-3.5 px-4 font-mono text-gray-500 dark:text-gray-400">{i.codigo}</td>
                           <td className="py-3.5 px-4 font-semibold">{i.nombre}</td>
-                          <td className="py-3.5 px-4 text-gray-500">{i.categoria}</td>
+                          <td className="py-3.5 px-4 text-gray-500 dark:text-gray-400">{i.categoria}</td>
                           <td className="py-3.5 px-4 text-right font-bold text-gray-900 dark:text-white">
                             ${i.precio.toFixed(2)}
                           </td>
@@ -798,7 +809,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                 {activeTab === 'purchases' && (
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-400 font-bold">
+                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
                         <th className="py-3 px-4">Factura No.</th>
                         <th className="py-3 px-4">Fecha</th>
                         <th className="py-3 px-4">Proveedor</th>
@@ -810,9 +821,9 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                       {paginatedPurchases.map(p => (
                         <tr key={p.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/10">
                           <td className="py-3.5 px-4 font-bold">{p.numeroFactura}</td>
-                          <td className="py-3.5 px-4 text-gray-500">{new Date(p.fecha).toLocaleDateString()}</td>
+                          <td className="py-3.5 px-4 text-gray-500 dark:text-gray-400">{new Date(p.fecha).toLocaleDateString()}</td>
                           <td className="py-3.5 px-4 font-semibold">{p.proveedor}</td>
-                          <td className="py-3.5 px-4 text-gray-500">{p.comprador}</td>
+                          <td className="py-3.5 px-4 text-gray-500 dark:text-gray-400">{p.comprador}</td>
                           <td className="py-3.5 px-4 text-right font-bold text-rose-600 dark:text-rose-400">
                             ${p.total.toFixed(2)}
                           </td>
@@ -826,7 +837,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                 {activeTab === 'budgets' && (
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-400 font-bold">
+                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
                         <th className="py-3 px-4">ID Presupuesto</th>
                         <th className="py-3 px-4">Asociado a</th>
                         <th className="py-3 px-4">Cliente</th>
@@ -837,7 +848,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-800/60 text-gray-700 dark:text-gray-300">
                       {paginatedBudgets.map(b => (
                         <tr key={b.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/10">
-                          <td className="py-3.5 px-4 font-mono text-gray-500">Pres. #{b.id}</td>
+                          <td className="py-3.5 px-4 font-mono text-gray-500 dark:text-gray-400">Pres. #{b.id}</td>
                           <td className="py-3.5 px-4 font-bold">{b.orden}</td>
                           <td className="py-3.5 px-4">{b.cliente}</td>
                           <td className="py-3.5 px-4">
@@ -858,7 +869,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                 {activeTab === 'orders' && (
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-400 font-bold">
+                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
                         <th className="py-3 px-4">Código ODS</th>
                         <th className="py-3 px-4">Cliente</th>
                         <th className="py-3 px-4">Técnico Asignado</th>
@@ -871,13 +882,13 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                         <tr key={o.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/10">
                           <td className="py-3.5 px-4 font-bold">ODS #{o.workOrderNumber}</td>
                           <td className="py-3.5 px-4">{o.cliente}</td>
-                          <td className="py-3.5 px-4 text-gray-500 font-semibold">{o.tecnico}</td>
+                          <td className="py-3.5 px-4 text-gray-500 dark:text-gray-400 font-semibold">{o.tecnico}</td>
                           <td className="py-3.5 px-4">
                             <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold rounded-md">
                               {o.estado}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 text-gray-500">{new Date(o.fechaIngreso).toLocaleDateString()}</td>
+                          <td className="py-3.5 px-4 text-gray-500 dark:text-gray-400">{new Date(o.fechaIngreso).toLocaleDateString()}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -891,7 +902,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                       /* ─── Detaillado (Trabajos por Técnico) ─── */
                       <table className="w-full text-left border-collapse text-xs">
                         <thead>
-                          <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-400 font-bold">
+                          <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
                             <th className="py-3 px-4">Código ODS</th>
                             <th className="py-3 px-4">Cliente</th>
                             <th className="py-3 px-4">Estado</th>
@@ -914,13 +925,13 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                               <td className="py-3.5 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
                                 ${to.servicesGenerated.toFixed(2)}
                               </td>
-                              <td className="py-3.5 px-4 text-right text-gray-500 font-semibold">
+                              <td className="py-3.5 px-4 text-right text-gray-500 dark:text-gray-400 font-semibold">
                                 ${to.partsGenerated.toFixed(2)}
                               </td>
                               <td className="py-3.5 px-4 text-right font-bold text-gray-900 dark:text-white">
                                 ${to.moneyGenerated.toFixed(2)}
                               </td>
-                              <td className="py-3.5 px-4 text-center text-gray-400">{new Date(to.fechaIngreso).toLocaleDateString()}</td>
+                              <td className="py-3.5 px-4 text-center text-gray-500 dark:text-gray-400">{new Date(to.fechaIngreso).toLocaleDateString()}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -929,7 +940,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                       /* ─── Resumen (Todos los Técnicos) ─── */
                       <table className="w-full text-left border-collapse text-xs">
                         <thead>
-                          <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-400 font-bold">
+                          <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
                             <th className="py-3 px-4">Código ID</th>
                             <th className="py-3 px-4">Técnico Responsable</th>
                             <th className="py-3 px-4 text-center">Órdenes Completadas</th>
@@ -941,12 +952,12 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                         <tbody className="divide-y divide-gray-50 dark:divide-gray-800/60 text-gray-700 dark:text-gray-300">
                           {paginatedTechs.map(t => (
                             <tr key={t.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/10">
-                              <td className="py-3.5 px-4 font-mono text-gray-500 font-semibold">TEC-{t.id}</td>
+                              <td className="py-3.5 px-4 font-mono text-gray-500 dark:text-gray-400 font-semibold">TEC-{t.id}</td>
                               <td className="py-3.5 px-4 font-bold text-gray-800 dark:text-gray-200">{t.nombreCompleto}</td>
                               <td className="py-3.5 px-4 text-center">
                                 <button
                                   onClick={() => setSelectedTechId(String(t.id))}
-                                  className="px-3 py-1 bg-brand-500/10 text-brand-600 dark:text-brand-400 hover:bg-brand-500 hover:text-white transition-all font-bold rounded-lg text-[10px]"
+                                  className="px-3 py-1 bg-brand-500/10 text-brand-600 dark:text-brand-400 hover:bg-brand-500 hover:text-white transition-all font-bold rounded-lg text-xs"
                                 >
                                   🔍 {t.totalAssigned} órdenes (Ver trabajos)
                                 </button>
@@ -954,7 +965,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                               <td className="py-3.5 px-4 text-right font-extrabold text-emerald-600 dark:text-emerald-400">
                                 ${t.servicesGenerated.toFixed(2)}
                               </td>
-                              <td className="py-3.5 px-4 text-right text-gray-500 font-semibold">
+                              <td className="py-3.5 px-4 text-right text-gray-500 dark:text-gray-400 font-semibold">
                                 ${t.partsGenerated.toFixed(2)}
                               </td>
                               <td className="py-3.5 px-4 text-right font-extrabold text-gray-900 dark:text-white text-sm">
@@ -972,7 +983,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                 {activeTab === 'equip' && (
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-400 font-bold">
+                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
                         <th className="py-3 px-4">Marca de Equipo</th>
                         <th className="py-3 px-4 text-center">Volumen de Ingresos</th>
                       </tr>
@@ -1002,8 +1013,9 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                     <div className="flex flex-wrap items-center gap-4">
                       {/* Por Página Selector */}
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400 font-medium">Por página:</span>
+                        <label htmlFor={itemsPerPageId} className="text-xs text-gray-500 dark:text-gray-400 font-medium">Por página:</label>
                         <select
+                          id={itemsPerPageId}
                           value={itemsPerPage}
                           onChange={(e) => {
                             setItemsPerPage(Number(e.target.value));

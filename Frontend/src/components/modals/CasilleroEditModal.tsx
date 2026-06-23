@@ -111,6 +111,14 @@ export default function CasilleroEditModal({ isOpen, onClose, casillero, onSave 
         }
     };
 
+    const idInputId = React.useId();
+    const codigoInputId = React.useId();
+    const descripcionInputId = React.useId();
+    const situacionInputId = React.useId();
+    const ordenInputId = React.useId();
+    const creadoInputId = React.useId();
+    const actualizadoInputId = React.useId();
+
     if (!editando) return null;
 
     return (
@@ -140,12 +148,13 @@ export default function CasilleroEditModal({ isOpen, onClose, casillero, onSave 
                     <div className="custom-scrollbar h-[400px] overflow-y-auto">
                         <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                             <div>
-                                <Label>ID</Label>
-                                <Input name="id" value={editando.id} disabled />
+                                <Label htmlFor={idInputId}>ID</Label>
+                                <Input id={idInputId} name="id" value={editando.id} disabled />
                             </div>
                             <div>
-                                <Label>Código *</Label>
+                                <Label htmlFor={codigoInputId}>Código *</Label>
                                 <Input
+                                    id={codigoInputId}
                                     name="codigo"
                                     value={editando.codigo}
                                     onChange={handleInputChange}
@@ -154,8 +163,9 @@ export default function CasilleroEditModal({ isOpen, onClose, casillero, onSave 
                                 />
                             </div>
                             <div className="lg:col-span-2">
-                                <Label>Descripción *</Label>
+                                <Label htmlFor={descripcionInputId}>Descripción *</Label>
                                 <Input
+                                    id={descripcionInputId}
                                     name="descripcion"
                                     value={editando.descripcion}
                                     onChange={handleInputChange}
@@ -164,29 +174,33 @@ export default function CasilleroEditModal({ isOpen, onClose, casillero, onSave 
                                 />
                             </div>
                             <div>
-                                <Label>Situación</Label>
+                                <Label htmlFor={situacionInputId}>Situación</Label>
                                 <Input
+                                    id={situacionInputId}
                                     value={editando.situacion}
                                     disabled
                                 />
                             </div>
                             <div>
-                                <Label>Orden Asignada</Label>
+                                <Label htmlFor={ordenInputId}>Orden Asignada</Label>
                                 <Input
+                                    id={ordenInputId}
                                     value={editando.order?.workOrderNumber || "Ninguna"}
                                     disabled
                                 />
                             </div>
                             <div>
-                                <Label>Fecha de creación</Label>
+                                <Label htmlFor={creadoInputId}>Fecha de creación</Label>
                                 <Input
+                                    id={creadoInputId}
                                     value={new Date(editando.createdAt).toLocaleString()}
                                     disabled
                                 />
                             </div>
                             <div>
-                                <Label>Última actualización</Label>
+                                <Label htmlFor={actualizadoInputId}>Última actualización</Label>
                                 <Input
+                                    id={actualizadoInputId}
                                     value={new Date(editando.updatedAt).toLocaleString()}
                                     disabled
                                 />
