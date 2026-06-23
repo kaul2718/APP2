@@ -147,9 +147,9 @@ export default function NotificationDropdown() {
         aria-label="Abrir notificaciones"
       >
         {unreadCount > 0 && (
-          <span className="absolute right-0 top-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white ring-2 ring-white dark:ring-gray-900">
+          <span className="absolute right-0 top-0.5 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-error-600 text-xs font-bold text-white ring-2 ring-white dark:ring-gray-900">
             {unreadCount}
-            <span className="absolute inline-flex w-full h-full bg-orange-400 rounded-full opacity-40 animate-ping z-[-1]"></span>
+            <span className="absolute inline-flex w-full h-full bg-error-400 rounded-full opacity-40 animate-ping z-[-1]"></span>
           </span>
         )}
         <svg

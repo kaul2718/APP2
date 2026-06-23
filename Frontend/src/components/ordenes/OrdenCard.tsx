@@ -174,9 +174,9 @@ export default function OrdenCard({
         </div>
 
         <div className="flex flex-col gap-1">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">
             {order.equipo?.numeroSerie || 'Equipo N/A'}
-          </h3>
+          </h2>
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
@@ -211,7 +211,6 @@ export default function OrdenCard({
       </div>
 
       <div className="flex items-center justify-end gap-2 md:pl-4">
-        {/* Actions */}
         <div className="flex flex-wrap items-center gap-2 justify-end">
           {primaryActions.map((action) => (
             <button
@@ -221,6 +220,7 @@ export default function OrdenCard({
               disabled={action.disabled}
               className={action.className || "rounded-full p-2 hover:bg-gray-100 text-gray-700 dark:hover:bg-gray-800 dark:text-gray-300 transition-colors"}
               title={action.label}
+              aria-label={action.label}
             >
               {action.icon ? action.icon : <span className="px-2">{action.label}</span>}
             </button>
@@ -233,6 +233,8 @@ export default function OrdenCard({
                 type="button"
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="rounded-full border border-gray-300 p-2 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+                title={overflowActionsLabel}
+                aria-label={overflowActionsLabel}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
@@ -266,17 +268,18 @@ export default function OrdenCard({
             <button 
               onClick={onRetroceder}
               title="Retroceder ODS"
+              aria-label="Retroceder ODS"
               className="flex items-center justify-center h-10 w-10 ml-2 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors shadow-sm dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               <ArrowLeftIcon className="h-5 w-5" />
             </button>
           )}
 
-          {/* Siguiente Paso button */}
           {onAdvance && !isLastState && (
             <button 
               onClick={onAdvance}
               title="Avanzar ODS"
+              aria-label="Avanzar ODS"
               className="flex items-center justify-center h-10 w-10 ml-2 rounded-full bg-brand-500 text-white hover:bg-brand-600 transition-colors shadow-sm dark:bg-brand-600 dark:hover:bg-brand-500"
             >
               <ArrowRightIcon className="h-5 w-5" />

@@ -18,6 +18,8 @@ interface Props {
 
 export default function IngresarTipoEquipoForm({ onSuccess, onClose }: Props) {
   const { data: session } = useSession();
+  const uid = React.useId();
+  const nombreId = `${uid}-nombre`;
   const [formData, setFormData] = React.useState<FormData>({
     nombre: ""
   });
@@ -98,17 +100,18 @@ export default function IngresarTipoEquipoForm({ onSuccess, onClose }: Props) {
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
         {/* Nombre del tipo de equipo */}
         <div>
-          <Label>Nombre del Tipo de Equipo</Label>
+          <Label htmlFor={nombreId} className="text-gray-700 dark:text-gray-200">Nombre del Tipo de Equipo *</Label>
           <div className="relative">
-            <CubeIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+            <CubeIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" aria-hidden="true" />
             <Input
+              id={nombreId}
               value={formData.nombre}
               onChange={(e) => handleChange("nombre", e.target.value)}
               placeholder="Ej: Laptop, Impresora, Servidor"
               className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
             />
           </div>
-          {errors.nombre && <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>}
+          {errors.nombre && <p className="text-sm text-red-500 mt-1" role="alert">{errors.nombre}</p>}
         </div>
 
         {/* Botones */}

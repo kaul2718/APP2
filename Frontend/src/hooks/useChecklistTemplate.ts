@@ -57,17 +57,28 @@ export function useChecklistTemplate() {
     const getTemplateByTipoEquipo = React.useCallback(async (tipoEquipoId: number) => {
         setLoadingTemplate(true);
         try {
+            // First check if we have it in our locally loaded templates
+            const localTemplate = templates.find(t => t.tipoEquipoId === tipoEquipoId);
+            if (localTemplate) {
+                setSelectedTemplate(localTemplate);
+                return localTemplate;
+            }
+
             const data = await apiRequest<ChecklistTemplate>(`/checklist-template/tipo-equipo/${tipoEquipoId}`, {}, session);
             setSelectedTemplate(data);
             return data;
-        } catch (error) {
-            console.error('Error al obtener plantilla por tipo de equipo:', error);
+        } catch (error: any) {
+            if (error?.status === 404) {
+                console.log(`No hay plantilla para el tipo de equipo ${tipoEquipoId}`);
+            } else {
+                console.error('Error al obtener plantilla por tipo de equipo:', error);
+            }
             setSelectedTemplate(null);
             return null;
         } finally {
             setLoadingTemplate(false);
         }
-    }, [session]);
+    }, [session, templates]);
 
     useEffect(() => {
         if (status === "authenticated") {

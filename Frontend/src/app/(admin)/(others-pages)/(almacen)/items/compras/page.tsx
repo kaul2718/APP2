@@ -95,9 +95,10 @@ export default function ComprasPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.push("/items")}
+          aria-label="Volver al inventario"
           className="flex items-center justify-center h-9 w-9 rounded-full bg-white border border-gray-200 text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all dark:bg-gray-900 dark:border-gray-800 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800"
         >
-          <ChevronLeftIcon className="h-5 w-5" />
+          <ChevronLeftIcon className="h-5 w-5" aria-hidden="true" />
         </button>
         <PageBreadcrumb pageTitle="Compras de Almacén" />
       </div>
@@ -105,24 +106,27 @@ export default function ComprasPage() {
       {/* Action panel */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
         <div className="relative max-w-sm w-full">
+          <label htmlFor="buscarFactura" className="sr-only">Buscar compra por número de factura</label>
           <input
+            id="buscarFactura"
             type="text"
             placeholder="Buscar por nº de factura..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50/50 focus:border-brand-500 focus:bg-white transition-all text-sm outline-none dark:border-gray-800 dark:bg-gray-950 dark:focus:border-brand-500 dark:focus:bg-gray-900 dark:text-white"
           />
-          <MagnifyingGlassIcon className="absolute left-3.5 top-3 w-4 h-4 text-gray-400" />
+          <MagnifyingGlassIcon className="absolute left-3.5 top-3 w-4 h-4 text-gray-400" aria-hidden="true" />
         </div>
 
         <div className="flex gap-3">
-          <Button
+          <button
+            type="button"
             onClick={() => router.push("/items/compras/proveedores")}
-            className="flex items-center gap-2 px-5 bg-gray-100 hover:bg-gray-250 text-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 border-none h-11 text-xs font-bold"
+            className="inline-flex items-center gap-2 px-5 h-11 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 text-xs font-bold transition-colors"
           >
-            <TruckIcon className="w-4 h-4" />
+            <TruckIcon className="w-4 h-4" aria-hidden="true" />
             <span>Proveedores</span>
-          </Button>
+          </button>
 
           <Button
             onClick={() => router.push("/items/compras/nueva")}
@@ -145,23 +149,23 @@ export default function ComprasPage() {
             <span className="text-xs font-medium">Cargando historial de compras...</span>
           </div>
         ) : compras.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[300px] text-center p-6 text-gray-400">
-            <TruckIcon className="w-12 h-12 text-gray-300 dark:text-gray-700 mb-3" />
-            <p className="font-bold text-sm">No se encontraron compras</p>
-            <p className="text-xs max-w-xs mt-1">Registra tu primera compra con proveedores usando el botón "Nueva Compra".</p>
+          <div className="flex flex-col items-center justify-center h-[300px] text-center p-6">
+            <TruckIcon className="w-12 h-12 text-gray-400 dark:text-gray-600 mb-3" aria-hidden="true" />
+            <p className="font-bold text-sm text-gray-600 dark:text-gray-400">No se encontraron compras</p>
+            <p className="text-xs max-w-xs mt-1 text-gray-600 dark:text-gray-400">Registra tu primera compra con proveedores usando el botón "Nueva Compra".</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                  <th className="px-6 py-4">Factura</th>
-                  <th className="px-6 py-4">Fecha Emisión</th>
-                  <th className="px-6 py-4">Proveedor</th>
-                  <th className="px-6 py-4">Registrado por</th>
-                  <th className="px-6 py-4 text-right">Total Factura</th>
-                  <th className="px-6 py-4 text-center">Estado</th>
-                  <th className="px-6 py-4 text-right w-[100px]">Acciones</th>
+                <tr className="border-b border-gray-100 dark:border-gray-800 text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-4" scope="col">Factura</th>
+                  <th className="px-6 py-4" scope="col">Fecha Emisión</th>
+                  <th className="px-6 py-4" scope="col">Proveedor</th>
+                  <th className="px-6 py-4" scope="col">Registrado por</th>
+                  <th className="px-6 py-4 text-right" scope="col">Total Factura</th>
+                  <th className="px-6 py-4 text-center" scope="col">Estado</th>
+                  <th className="px-6 py-4 text-right w-[100px]" scope="col">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -186,7 +190,7 @@ export default function ComprasPage() {
                       <p className="font-bold text-xs text-gray-700 dark:text-gray-300">
                         {compra.proveedor?.nombre || "S/P"}
                       </p>
-                      <p className="text-[10px] text-gray-400">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
                         RUC: {compra.proveedor?.ruc_nit}
                       </p>
                     </td>
@@ -204,10 +208,10 @@ export default function ComprasPage() {
                     {/* Status */}
                     <td className="px-6 py-4 text-center">
                       <span
-                        className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-[10px] font-bold ${
+                        className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold ${
                           compra.estado === "Completado"
-                            ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400"
-                            : "bg-rose-50 text-rose-600 dark:bg-rose-950/30 dark:text-rose-400"
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+                            : "bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400"
                         }`}
                       >
                         {compra.estado}
@@ -219,9 +223,9 @@ export default function ComprasPage() {
                       <button
                         onClick={() => handleViewDetail(compra.id)}
                         className="p-1.5 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-950/20 transition-all"
-                        title="Ver Detalles"
+                        aria-label={`Ver detalles de factura #${compra.numeroFactura}`}
                       >
-                        <EyeIcon className="w-4 h-4" />
+                        <EyeIcon className="w-4 h-4" aria-hidden="true" />
                       </button>
                     </td>
                   </tr>
@@ -234,7 +238,7 @@ export default function ComprasPage() {
         {/* Pagination */}
         {total > 10 && (
           <div className="p-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-950/10">
-            <span className="text-xs text-gray-400">Total: {total} compras</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">Total: {total} compras</span>
             <div className="flex gap-2">
               <button
                 disabled={currentPage === 1}
@@ -296,7 +300,7 @@ export default function ComprasPage() {
                         <DocumentTextIcon className="w-5 h-5 text-blue-500" />
                         Factura #{selectedCompra.numeroFactura}
                       </h3>
-                      <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">
                         Detalle de compra con Proveedores
                       </p>
                     </div>
@@ -306,9 +310,10 @@ export default function ComprasPage() {
                         setSelectedCompraId(null);
                         setSelectedCompra(null);
                       }}
+                      aria-label="Cerrar detalle de compra"
                       className="p-1 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-900"
                     >
-                      <XCircleIcon className="w-6 h-6" />
+                      <XCircleIcon className="w-6 h-6" aria-hidden="true" />
                     </button>
                   </div>
 
@@ -317,34 +322,34 @@ export default function ComprasPage() {
                     {/* General info */}
                     <div className="bg-gray-50 dark:bg-gray-900/20 p-4 rounded-xl border border-gray-100 dark:border-gray-900 space-y-3">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400 flex items-center gap-1"><CalendarIcon className="w-3.5 h-3.5" /> Fecha Factura:</span>
+                        <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1"><CalendarIcon className="w-3.5 h-3.5" aria-hidden="true" /> Fecha Factura:</span>
                         <span className="font-bold text-gray-800 dark:text-gray-200">{formatDate(selectedCompra.fecha)}</span>
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400 flex items-center gap-1"><TruckIcon className="w-3.5 h-3.5" /> Proveedor:</span>
+                        <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1"><TruckIcon className="w-3.5 h-3.5" aria-hidden="true" /> Proveedor:</span>
                         <span className="font-black text-gray-800 dark:text-gray-200">{selectedCompra.proveedor?.nombre}</span>
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400 flex items-center gap-1"><UserIcon className="w-3.5 h-3.5" /> Comprador:</span>
+                        <span className="text-gray-600 dark:text-gray-400 flex items-center gap-1"><UserIcon className="w-3.5 h-3.5" aria-hidden="true" /> Comprador:</span>
                         <span className="font-bold text-gray-800 dark:text-gray-200">{selectedCompra.usuario?.nombre}</span>
                       </div>
                     </div>
 
                     {/* Product rows detail */}
                     <div className="space-y-2">
-                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Productos Adquiridos</h4>
+                      <h4 className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Productos Adquiridos</h4>
                       <div className="border border-gray-100 dark:border-gray-900 rounded-xl divide-y divide-gray-100 dark:divide-gray-900 overflow-hidden">
                         {selectedCompra.detalles?.map((det) => (
                           <div key={det.id} className="p-3.5 flex items-center justify-between bg-white dark:bg-gray-950 hover:bg-gray-50/50">
                             <div>
                               <p className="text-xs font-bold text-gray-800 dark:text-gray-200">{det.parte?.nombre}</p>
-                              <p className="text-[10px] text-gray-400 mt-0.5 font-mono">Cód: {det.parte?.codigoInterno}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-mono">Cód: {det.parte?.codigoInterno}</p>
                             </div>
                             <div className="text-right">
                               <span className="text-xs font-black text-gray-800 dark:text-gray-200">
-                                {det.cantidad} <span className="text-[10px] text-gray-400 uppercase">{det.parte?.unidadMedida}</span>
+                                {det.cantidad} <span className="text-xs text-gray-500 dark:text-gray-400 uppercase">{det.parte?.unidadMedida}</span>
                               </span>
-                              <span className="text-[10px] text-gray-400 block mt-0.5">
+                              <span className="text-xs text-gray-500 dark:text-gray-400 block mt-0.5">
                                 x {formatCurrency(det.precioUnitario)}
                               </span>
                             </div>
@@ -356,7 +361,7 @@ export default function ComprasPage() {
                     {/* Observation comments */}
                     {selectedCompra.comentario && (
                       <div className="space-y-1.5">
-                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Observaciones</h4>
+                        <h4 className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Observaciones</h4>
                         <div className="p-3 rounded-xl border border-gray-100 dark:border-gray-900 bg-gray-50/50 dark:bg-gray-950/20 text-xs italic text-gray-500 leading-relaxed">
                           {selectedCompra.comentario}
                         </div>
@@ -366,11 +371,11 @@ export default function ComprasPage() {
                     {/* Tax breakdown & totals */}
                     <div className="p-4 bg-gray-50 dark:bg-gray-900/30 rounded-2xl border border-gray-100 dark:border-gray-900/50 space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400">Subtotal:</span>
+                        <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
                         <span className="font-semibold text-gray-700 dark:text-gray-300">{formatCurrency(selectedCompra.subtotal)}</span>
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400">IVA ({selectedCompra.ivaPorcentaje}%):</span>
+                        <span className="text-gray-600 dark:text-gray-400">IVA ({selectedCompra.ivaPorcentaje}%):</span>
                         <span className="font-semibold text-gray-700 dark:text-gray-300">{formatCurrency(selectedCompra.ivaMonto)}</span>
                       </div>
                       <div className="flex items-center justify-between text-sm pt-2 border-t border-gray-250/20">

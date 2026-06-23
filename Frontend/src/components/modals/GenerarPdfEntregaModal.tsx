@@ -85,6 +85,8 @@ export default function GenerarPdfEntregaModal({ isOpen, onClose, order }: Props
           <button
             type="button"
             onClick={onClose}
+            aria-label="Cerrar vista previa"
+            title="Cerrar vista previa"
             className="p-2 text-gray-500 rounded-lg hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 transition-colors"
           >
             <XMarkIcon className="h-5 w-5" />
@@ -219,7 +221,7 @@ export default function GenerarPdfEntregaModal({ isOpen, onClose, order }: Props
                   ))}
                 </tbody>
               </table>
-              <p className="text-[10px] text-gray-400 mt-2">
+              <p className="text-[10px] text-gray-600 mt-2">
                 * Este peritaje fue realizado al momento de recibir el equipo el día {new Date(order.createdAt).toLocaleDateString()}.
               </p>
             </div>
@@ -329,7 +331,7 @@ export default function GenerarPdfEntregaModal({ isOpen, onClose, order }: Props
 
         {/* Sección 4: Términos, Conformidad y Firma */}
         <div className="pt-8 border-t-2 border-gray-900 space-y-12">
-          <div className="text-xs text-gray-600 space-y-2 text-justify">
+          <div className="text-xs text-gray-600 space-y-2 text-left">
             <p className="font-bold uppercase text-gray-800">Conformidad del Servicio y Garantía:</p>
             <p>
               El cliente declara haber recibido el equipo especificado en el presente documento a su entera conformidad,
@@ -355,7 +357,7 @@ export default function GenerarPdfEntregaModal({ isOpen, onClose, order }: Props
         </div>
 
         {/* Pie de página de impresión */}
-        <div className="text-center text-xs text-gray-400 pt-6 border-t border-gray-200 print:block">
+        <div className="text-center text-xs text-gray-600 pt-6 border-t border-gray-200 print:block">
           Centro de Servicio Técnico - Sistema de Gestión de Órdenes ODS
         </div>
 

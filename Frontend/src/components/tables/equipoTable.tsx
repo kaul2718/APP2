@@ -102,7 +102,7 @@ export default function EquipoTable({ equipoHook }: EquipoTableProps) {
             <p className="font-bold text-gray-900 dark:text-white">
               {equipo.numeroSerie}
             </p>
-            <p className="text-xs text-gray-500">ID: #{equipo.id}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">ID: #{equipo.id}</p>
           </div>
         </div>
       ),

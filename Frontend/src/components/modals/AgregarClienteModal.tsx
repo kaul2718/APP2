@@ -30,6 +30,15 @@ interface Props {
 
 export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Props) {
     const { data: session } = useSession();
+    const cedulaInputId = React.useId();
+    const nombreInputId = React.useId();
+    const apellidoInputId = React.useId();
+    const correoInputId = React.useId();
+    const telefonoInputId = React.useId();
+    const direccionInputId = React.useId();
+    const ciudadInputId = React.useId();
+    const roleSelectId = React.useId();
+
     const [formData, setFormData] = React.useState<FormData>({
         cedula: "",
         nombre: "",
@@ -272,10 +281,10 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
     return (
         <Modal isOpen={isOpen} onClose={onClose} className="m-4 max-w-3xl" title="Registrar Nuevo Cliente">
             <div className="no-scrollbar relative w-full overflow-y-auto rounded-2xl bg-white p-5 dark:bg-gray-900 sm:p-6">
-                <h4 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white/90">
+                <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white/90">
                     Registrar nuevo cliente
-                </h4>
-                <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                </h2>
+                <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">
                     Complete los datos del cliente. Se enviará automáticamente un correo para que establezca su contraseña.
                 </p>
 
@@ -284,10 +293,11 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
                         <div className="grid grid-cols-1 gap-x-4 gap-y-4 lg:grid-cols-2">
                             {/* Cédula */}
                             <div>
-                                <Label>Cédula / RUC *</Label>
+                                <Label htmlFor={cedulaInputId}>Cédula / RUC *</Label>
                                 <div className="relative">
                                     <IdentificationIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                                     <Input
+                                        id={cedulaInputId}
                                         value={formData.cedula}
                                         onChange={(e) => handleChange("cedula", e.target.value)}
                                         placeholder="Ej: 1234567890 o RUC"
@@ -309,10 +319,11 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
 
                             {/* Nombre */}
                             <div>
-                                <Label>Nombre *</Label>
+                                <Label htmlFor={nombreInputId}>Nombre *</Label>
                                 <div className="relative">
                                     <UserIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                                     <Input
+                                        id={nombreInputId}
                                         value={formData.nombre}
                                         onChange={(e) => handleChange("nombre", e.target.value)}
                                         placeholder="Ej: Juan"
@@ -324,10 +335,11 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
 
                             {/* Apellido */}
                             <div>
-                                <Label>Apellido *</Label>
+                                <Label htmlFor={apellidoInputId}>Apellido *</Label>
                                 <div className="relative">
                                     <UserIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                                     <Input
+                                        id={apellidoInputId}
                                         value={formData.apellido}
                                         onChange={(e) => handleChange("apellido", e.target.value)}
                                         placeholder="Ej: Pérez"
@@ -339,10 +351,11 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
 
                             {/* Correo */}
                             <div>
-                                <Label>Correo Electrónico *</Label>
+                                <Label htmlFor={correoInputId}>Correo Electrónico *</Label>
                                 <div className="relative">
                                     <EnvelopeIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                                     <Input
+                                        id={correoInputId}
                                         type="email"
                                         value={formData.correo}
                                         onChange={(e) => handleChange("correo", e.target.value)}
@@ -355,10 +368,11 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
 
                             {/* Teléfono */}
                             <div>
-                                <Label>Teléfono *</Label>
+                                <Label htmlFor={telefonoInputId}>Teléfono *</Label>
                                 <div className="relative">
                                     <PhoneIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                                     <Input
+                                        id={telefonoInputId}
                                         value={formData.telefono}
                                         onChange={(e) => handleTelefonoChange(e.target.value)}
                                         placeholder="Ej: 099 123 4567"
@@ -371,10 +385,11 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
 
                             {/* Dirección */}
                             <div>
-                                <Label>Dirección *</Label>
+                                <Label htmlFor={direccionInputId}>Dirección *</Label>
                                 <div className="relative">
                                     <HomeIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                                     <Input
+                                        id={direccionInputId}
                                         value={formData.direccion}
                                         onChange={(e) => handleChange("direccion", e.target.value)}
                                         placeholder="Ej: Av. Principal 123"
@@ -386,10 +401,11 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
 
                             {/* Ciudad */}
                             <div>
-                                <Label>Ciudad *</Label>
+                                <Label htmlFor={ciudadInputId}>Ciudad *</Label>
                                 <div className="relative">
                                     <MapIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                                     <Input
+                                        id={ciudadInputId}
                                         value={formData.ciudad}
                                         onChange={(e) => handleChange("ciudad", e.target.value)}
                                         placeholder="Ej: Quito"
@@ -402,10 +418,11 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
                             {/* Rol (opcional si siempre será CLIENTE) */}
                             {formData.role !== Role.CLIENT && (
                                 <div>
-                                    <Label>Rol</Label>
+                                    <Label htmlFor={roleSelectId}>Rol</Label>
                                     <div className="relative">
                                         <UserIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                                         <select
+                                            id={roleSelectId}
                                             value={formData.role}
                                             onChange={(e) => handleChange("role", e.target.value as Role)}
                                             className="pl-10 pr-4 py-2 w-full rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"

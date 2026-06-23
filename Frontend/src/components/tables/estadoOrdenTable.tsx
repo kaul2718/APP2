@@ -100,7 +100,7 @@ export default function EstadoOrdenTable({ estadoOrdenHook }: EstadoOrdenTablePr
             <p className="font-bold text-gray-900 dark:text-white">
               {e.nombre}
             </p>
-            <p className="text-xs text-gray-500">ID: #{e.id}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">ID: #{e.id}</p>
           </div>
         </div>
       ),

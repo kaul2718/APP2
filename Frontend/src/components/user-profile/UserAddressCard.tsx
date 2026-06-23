@@ -8,7 +8,7 @@ export default function UserAddressCard() {
   if (cargando) {
     return (
       <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
-        <p className="text-center text-gray-500 dark:text-gray-400">Cargando dirección...</p>
+        <p className="text-center text-gray-600 dark:text-gray-400">Cargando dirección...</p>
       </div>
     );
   }
@@ -32,7 +32,7 @@ export default function UserAddressCard() {
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
             {/* Si tienes campo country en backend, úsalo, si no, puedes dejar un valor fijo o eliminar */}
             <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+              <p className="mb-2 text-xs leading-normal text-gray-600 dark:text-gray-400">
                 País
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
@@ -41,7 +41,7 @@ export default function UserAddressCard() {
             </div>
 
             <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+              <p className="mb-2 text-xs leading-normal text-gray-600 dark:text-gray-400">
                 Ciudad / Estado
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
@@ -50,7 +50,7 @@ export default function UserAddressCard() {
             </div>
 
             <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+              <p className="mb-2 text-xs leading-normal text-gray-600 dark:text-gray-400">
                 Dirección
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">

@@ -51,8 +51,8 @@ export default function ChecklistResultView({ data }: Props) {
                     </div>
                 </div>
                 {data.fechaPeritaje && (
-                    <div className="flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-full text-[10px] font-bold text-gray-500 dark:text-gray-400">
-                        <CalendarIcon className="w-3 h-3" />
+                    <div className="flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-full text-xs font-bold text-gray-500 dark:text-gray-400">
+                        <CalendarIcon className="w-3 h-3" aria-hidden="true" />
                         {formatDate(data.fechaPeritaje)}
                     </div>
                 )}
@@ -61,7 +61,7 @@ export default function ChecklistResultView({ data }: Props) {
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
                     <thead>
-                        <tr className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold border-b border-gray-50 dark:border-gray-800">
+                        <tr className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold border-b border-gray-50 dark:border-gray-800">
                             <th className="px-6 py-3">Componente / Punto</th>
                             <th className="px-6 py-3">Funcionamiento</th>
                             <th className="px-6 py-3">Estética / Físico</th>
@@ -77,7 +77,7 @@ export default function ChecklistResultView({ data }: Props) {
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-2">
                                         {getFuncionalIcon(result.funcional)}
-                                        <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300">
+                                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
                                             {formatStatus(result.funcional)}
                                         </span>
                                     </div>
@@ -85,7 +85,7 @@ export default function ChecklistResultView({ data }: Props) {
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-2">
                                         {getEsteticaIcon(result.estetica)}
-                                        <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300">
+                                        <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
                                             {formatStatus(result.estetica)}
                                         </span>
                                     </div>

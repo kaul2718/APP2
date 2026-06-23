@@ -202,22 +202,23 @@ export default function AgregarItemsPresupuestoModal({
         <div className="space-y-6 text-gray-700 dark:text-gray-300">
             <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30 flex items-center gap-4">
                 <div className="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm">
-                    <ArchiveBoxIcon className="w-6 h-6 text-blue-500" />
+                    <ArchiveBoxIcon className="w-6 h-6 text-blue-500" aria-hidden="true" />
                 </div>
                 <div>
-                    <h4 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Presupuesto Referencia</h4>
+                    <p className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Presupuesto Referencia</p>
                     <p className="text-xl font-black text-gray-900 dark:text-white">#{formData.presupuestoId}</p>
                 </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                    <Label className="mb-1 block font-medium">Seleccionar Ítem del Almacén *</Label>
+                    <Label htmlFor="item-almacen" className="mb-1 block font-medium">Seleccionar Ítem del Almacén *</Label>
                     <Combobox value={formData.parteId} onChange={handleCatalogSelect}>
                         <div className="relative">
                             <div className="relative w-full">
-                                <TagIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
+                                <TagIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" aria-hidden="true" />
                                 <Combobox.Input
+                                    id="item-almacen"
                                     className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 dark:border-white/[0.08] bg-gray-50/50 dark:bg-white/[0.03] text-sm focus:ring-2 focus:ring-blue-500 transition-all outline-none text-gray-900 dark:text-white"
                                     displayValue={(val: any) => {
                                         const p = partesDisponibles.find(x => String(x.id) === String(val));
@@ -237,7 +238,7 @@ export default function AgregarItemsPresupuestoModal({
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center justify-between">
                                                     <span className="font-bold">{p.nombre}</span>
-                                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${
+                                                    <span className={`px-2 py-0.5 rounded text-xs font-black uppercase tracking-widest ${
                                                         p.unidadMedida === 'Servicio' 
                                                         ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' 
                                                         : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
@@ -245,7 +246,7 @@ export default function AgregarItemsPresupuestoModal({
                                                         {p.unidadMedida === 'Servicio' ? 'Servicio' : 'Producto'}
                                                     </span>
                                                 </div>
-                                                <span className="text-[10px] opacity-70">
+                                                <span className="text-xs opacity-70">
                                                     {p.unidadMedida === 'Servicio' 
                                                         ? `Precio: ${formatCurrency(p.precio1)}`
                                                         : `Stock: ${p.stock} ${p.unidadMedida} | PVP: ${formatCurrency(p.precio1)}`
@@ -263,7 +264,7 @@ export default function AgregarItemsPresupuestoModal({
 
                 {selectedParte && selectedParte.unidadMedida !== 'Servicio' && (
                     <div className="bg-gray-50 dark:bg-gray-800/40 p-3 rounded-xl border border-gray-200 dark:border-gray-700 animate-fadeIn">
-                        <Label className="text-[10px] uppercase font-bold text-gray-500 mb-1.5 block">Nivel de Precio Seleccionado</Label>
+                        <p className="text-xs uppercase font-bold text-gray-600 mb-1.5 block">Nivel de Precio Seleccionado</p>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {[
                                 { key: 'p1', label: 'P1: Público (PVP)', value: selectedParte.precio1 },
@@ -278,14 +279,14 @@ export default function AgregarItemsPresupuestoModal({
                                         setActiveTier(tier.key as any);
                                         setItemPrice(String(tier.value || 0));
                                     }}
-                                    className={`px-2 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${
+                                    className={`px-2 py-1.5 rounded-lg border text-xs font-bold transition-all ${
                                         activeTier === tier.key
                                             ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/20'
                                             : 'bg-gray-50 border-gray-200 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700'
                                     }`}
                                 >
                                     <div className="opacity-90">{tier.label}</div>
-                                    <div className="text-[11px] mt-0.5">{formatCurrency(tier.value || 0)}</div>
+                                    <div className="text-xs mt-0.5">{formatCurrency(tier.value || 0)}</div>
                                 </button>
                             ))}
                         </div>
@@ -294,10 +295,11 @@ export default function AgregarItemsPresupuestoModal({
 
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                     <div className="md:col-span-4">
-                        <Label>Cantidad *</Label>
+                        <Label htmlFor="cantidad-input">Cantidad *</Label>
                         <div className="relative">
-                            <HashtagIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <HashtagIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
                             <input
+                                id="cantidad-input"
                                 type="number"
                                 min="1"
                                 value={formData.cantidad}
@@ -308,22 +310,23 @@ export default function AgregarItemsPresupuestoModal({
                     </div>
 
                     <div className="md:col-span-8">
-                        <Label className="text-xs flex items-center gap-1">
+                        <Label htmlFor="precio-input" className="text-xs flex items-center gap-1">
                             Precio Unit.
                             {selectedParte && (
                                 selectedParte.permiteModificarPrecio ? (
-                                    <span className="inline-flex items-center gap-0.5 text-[9px] text-green-500 font-bold bg-green-50 dark:bg-green-950/20 px-1 py-0.2 rounded border border-green-200 dark:border-green-800 animate-fadeIn">
-                                        <LockOpenIcon className="w-3 h-3" /> Editable
+                                    <span className="inline-flex items-center gap-0.5 text-xs text-green-600 font-bold bg-green-50 dark:bg-green-950/20 px-1 py-0.2 rounded border border-green-200 dark:border-green-800 animate-fadeIn">
+                                        <LockOpenIcon className="w-3 h-3" aria-hidden="true" /> Editable
                                     </span>
                                 ) : (
-                                    <span className="inline-flex items-center gap-0.5 text-[9px] text-red-500 font-bold bg-red-50 dark:bg-red-950/20 px-1 py-0.2 rounded border border-red-200 dark:border-red-800 animate-fadeIn">
-                                        <LockClosedIcon className="w-3 h-3" /> Bloqueado
+                                    <span className="inline-flex items-center gap-0.5 text-xs text-red-600 font-bold bg-red-50 dark:bg-red-950/20 px-1 py-0.2 rounded border border-red-200 dark:border-red-800 animate-fadeIn">
+                                        <LockClosedIcon className="w-3 h-3" aria-hidden="true" /> Bloqueado
                                     </span>
                                 )
                             )}
                         </Label>
                         <div className="relative">
                             <input
+                                id="precio-input"
                                 type="number"
                                 step="0.01"
                                 value={itemPrice}
@@ -346,20 +349,21 @@ export default function AgregarItemsPresupuestoModal({
                 {selectedParte && (
                     <div className="bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-between">
                         <div>
-                            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tighter">Subtotal Calculado</p>
+                            <p className="text-xs text-gray-600 uppercase font-bold tracking-tighter">Subtotal Calculado</p>
                             <p className="text-xl font-black text-gray-900 dark:text-white">
                                 {formatCurrency(Number(itemPrice) * Number(formData.cantidad))}
                             </p>
                         </div>
-                        <span className="text-[10px] text-gray-400">
+                        <span className="text-xs text-gray-500">
                             * {selectedParte.unidadMedida === 'Servicio' ? 'Servicio no resta stock' : `Stock disponible: ${selectedParte.stock}`}
                         </span>
                     </div>
                 )}
 
                 <div>
-                    <Label>Observación Interna</Label>
+                    <Label htmlFor="observacion-input">Observación Interna</Label>
                     <textarea
+                        id="observacion-input"
                         value={formData.comentario || ''}
                         onChange={(e) => handleChange("comentario", e.target.value)}
                         placeholder="Notas adicionales..."

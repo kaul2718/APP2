@@ -53,7 +53,9 @@ export async function apiRequest<T>(
       // Ignore JSON parse errors and keep the default message.
     }
 
-    throw new Error(message);
+    const error = new Error(message);
+    (error as any).status = response.status;
+    throw error;
   }
 
   if (response.status === 204) {

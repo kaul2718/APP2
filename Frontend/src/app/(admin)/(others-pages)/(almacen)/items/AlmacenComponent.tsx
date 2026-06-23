@@ -91,12 +91,23 @@ export default function AlmacenComponent() {
     // Stats calculations
     const stats = useMemo(() => {
         const totalItems = allItemsForStats.length;
-        const totalStockValue = allItemsForStats.reduce((acc, item) => acc + (Number(item.stock) * Number(item.costo)), 0);
-        const lowStockItems = allItemsForStats.filter(item => Number(item.stock) <= Number(item.stockMinimo)).length;
-        const totalPhysicalStock = allItemsForStats.reduce((acc, item) => acc + Number(item.stock), 0);
+        
+        const totalStockValue = allItemsForStats.reduce((acc, item) => {
+            if (item.unidadMedida === "Servicio") return acc; // Los servicios no tienen valor de inventario
+            return acc + (Number(item.stock || 0) * Number(item.costo || 0));
+        }, 0);
+
+        const lowStockItems = allItemsForStats.filter(item => 
+            item.unidadMedida !== "Servicio" && Number(item.stock || 0) <= Number(item.stockMinimo || 0)
+        ).length;
+        
+        const totalPhysicalStock = allItemsForStats.reduce((acc, item) => {
+            if (item.unidadMedida === "Servicio") return acc;
+            return acc + Number(item.stock || 0);
+        }, 0);
         
         return { totalItems, totalStockValue, lowStockItems, totalPhysicalStock };
-    }, [allItemsForStats]);
+    }, [allItemsForStats, activeFilter]);
 
     if (loading) {
         return (
@@ -134,6 +145,7 @@ export default function AlmacenComponent() {
             <PageBreadcrumb pageTitle="Gestión de Almacén e Inventario" />
 
             {/* Quick Stats Section */}
+            <h2 className="sr-only">Resumen de Estadísticas</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard 
                     icon={activeFilter === "servicios" ? <CogIcon className="w-6 h-6 text-brand-500" /> : <ArchiveBoxIcon className="w-6 h-6 text-brand-500" />} 
@@ -162,12 +174,14 @@ export default function AlmacenComponent() {
                     <div className="hidden lg:block lg:col-span-2"></div>
                 )}
 
-                <StatCard 
-                    icon={<CurrencyDollarIcon className="w-6 h-6 text-green-500" />} 
-                    label={activeFilter === "servicios" ? "Valor de Servicios" : "Valor del Inventario"} 
-                    value={formatCurrency(stats.totalStockValue)} 
-                    delay={0.4}
-                />
+                {activeFilter !== "servicios" && (
+                    <StatCard 
+                        icon={<CurrencyDollarIcon className="w-6 h-6 text-green-500" />} 
+                        label="Valor del Inventario" 
+                        value={formatCurrency(stats.totalStockValue)} 
+                        delay={0.4}
+                    />
+                )}
             </div>
 
             {/* Main Section Header with Filters */}
@@ -179,7 +193,7 @@ export default function AlmacenComponent() {
                         </div>
                         <div>
                             <h2 className="text-lg font-bold text-gray-900 dark:text-white">Inventario Unificado</h2>
-                            <p className="text-[10px] text-gray-500 uppercase tracking-wider">Productos y Servicios</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 uppercase tracking-wider">Productos y Servicios</p>
                         </div>
                     </div>
 
@@ -195,8 +209,8 @@ export default function AlmacenComponent() {
                                 onClick={() => setActiveFilter(filter.id as any)}
                                 className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
                                     activeFilter === filter.id
-                                    ? "bg-white dark:bg-gray-700 text-brand-600 dark:text-white shadow-sm"
-                                    : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                    ? "bg-white dark:bg-gray-700 text-brand-800 dark:text-white shadow-sm"
+                                    : "text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                                 }`}
                             >
                                 {filter.icon}
@@ -299,7 +313,7 @@ function StatCard({ icon, label, value, delay, colorClass = "text-gray-900 dark:
                 {icon}
             </div>
             <div>
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</p>
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">{label}</p>
                 <h3 className={`text-xl font-bold ${colorClass}`}>{value}</h3>
             </div>
         </motion.div>

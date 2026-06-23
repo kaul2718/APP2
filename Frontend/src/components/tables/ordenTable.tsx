@@ -300,7 +300,7 @@ export default function OrdenTable() {
               />
               Mostrar inactivos
             </label>
-            <div className="whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+            <div className="whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
               {orders.length} de {totalItems} ordenes
             </div>
           </div>

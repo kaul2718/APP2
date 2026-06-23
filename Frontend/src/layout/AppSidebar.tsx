@@ -30,6 +30,8 @@ const AppSidebar: React.FC = () => {
           {nav.subItems && nav.subItems.length > 0 ? (
             <button
               onClick={() => handleSubmenuToggle(index, menuType)}
+              aria-label={(!isExpanded && !isHovered && !isMobileOpen) ? nav.name : undefined}
+              title={(!isExpanded && !isHovered && !isMobileOpen) ? nav.name : undefined}
               className={`menu-item group  ${openSubmenu?.type === menuType && openSubmenu?.index === index
                 ? "menu-item-active"
                 : "menu-item-inactive"
@@ -63,6 +65,8 @@ const AppSidebar: React.FC = () => {
             nav.path && (
               <Link
                 href={nav.path}
+                aria-label={(!isExpanded && !isHovered && !isMobileOpen) ? nav.name : undefined}
+                title={(!isExpanded && !isHovered && !isMobileOpen) ? nav.name : undefined}
                 className={`menu-item group ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
                   }`}
               >
@@ -200,7 +204,7 @@ const AppSidebar: React.FC = () => {
               <Image
                 className="dark:hidden"
                 src="/images/logo/logo.svg"
-                alt="Logo"
+                alt="Logo de Hospital del Computador"
                 width={230}
                 height={40}
                 style={{ width: '100%', height: 'auto' }}
@@ -209,7 +213,7 @@ const AppSidebar: React.FC = () => {
               <Image
                 className="hidden dark:block"
                 src="/images/logo/logo.svg"
-                alt="Logo"
+                alt="Logo de Hospital del Computador"
                 width={230}
                 height={40}
                 style={{ width: '100%', height: 'auto' }}
@@ -219,7 +223,7 @@ const AppSidebar: React.FC = () => {
           ) : (
             <Image
               src="/images/logo/logo-icon.svg"
-              alt="Logo"
+              alt="Icono de Hospital del Computador"
               width={32}
               height={32}
               style={{ width: '100%', height: 'auto' }}
@@ -233,7 +237,8 @@ const AppSidebar: React.FC = () => {
           <div className="flex flex-col gap-4">
             <div>
               <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered
+                aria-label="Menú"
+                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-600 dark:text-gray-400 ${!isExpanded && !isHovered
                   ? "lg:justify-center"
                   : "justify-start"
                   }`}

@@ -56,6 +56,12 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     const [isClienteModalOpen, setIsClienteModalOpen] = React.useState(false);
     const [isEquipoModalOpen, setIsEquipoModalOpen] = React.useState(false);
 
+    // IDs de Accesibilidad
+    const accessoryInputId = React.useId();
+    const hoursInputId = React.useId();
+    const deliveryDateId = React.useId();
+    const technicianSelectId = React.useId();
+
     // Estado adicional para búsqueda
     const [clientSearch, setClientSearch] = React.useState('')
     const [equipoSearch, setEquipoSearch] = React.useState('')
@@ -359,7 +365,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
             {/* Selección de cliente */}
             <div className="mb-3">
                 <div className="mb-1 flex items-center justify-between gap-3">
-                    <Label>Cliente *</Label>
+                    <Label htmlFor="client-select">Cliente *</Label>
                     <button
                         type="button"
                         onClick={() => setIsClienteModalOpen(true)}
@@ -429,7 +435,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
             {/* Selección de equipo */}
             <div className="mb-3">
                 <div className="mb-1 flex items-center justify-between gap-3">
-                    <Label>Equipo *</Label>
+                    <Label htmlFor="equipo-select">Equipo *</Label>
                     <button
                         type="button"
                         onClick={() => setIsEquipoModalOpen(true)}
@@ -509,7 +515,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
 
             {/* Tipo de Orden y Peritaje */}
             <div className="mb-3">
-                <Label className="mb-3">Tipo de Orden de Servicio *</Label>
+                <span className="mb-3 block text-sm font-medium text-gray-700 dark:text-gray-400">Tipo de Orden de Servicio *</span>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <button
                         type="button"
@@ -521,7 +527,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                         </div>
                         <div className="text-left">
                             <p className="font-bold text-gray-900 dark:text-white">Orden Express</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Recepción rápida sin peritaje inicial.</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">Recepción rápida sin peritaje inicial.</p>
                         </div>
                     </button>
 
@@ -535,7 +541,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                         </div>
                         <div className="text-left">
                             <p className="font-bold text-gray-900 dark:text-white">Orden Completa</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Incluye revisión de periféricos y estética.</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">Incluye revisión de periféricos y estética.</p>
                         </div>
                     </button>
                 </div>
@@ -568,7 +574,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
 
             {/* Problema reportado */}
             <div className="mb-3">
-                <Label>Problema Reportado *</Label>
+                <Label htmlFor="problema-textarea">Problema Reportado *</Label>
                 <textarea
                     id="problema-textarea"
                     value={formData.problemaReportado}
@@ -583,11 +589,10 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
             {/* Accesorios */}
             <div className="mb-3">
                 <div className="mb-1 flex items-center justify-between gap-3">
-                    <Label>Accesorios</Label>
+                    <Label htmlFor={accessoryInputId}>Accesorios</Label>
                     <button
                         type="button"
                         onClick={addAccessory}
-                        title="Agregar accesorio"
                         className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 transition hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                     >
                         <PlusIcon className="h-3 w-3" />
@@ -596,6 +601,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                 </div>
                 <div className="flex items-start gap-2 sm:items-center">
                     <input
+                        id={accessoryInputId}
                         value={formData.currentAccessory}
                         onChange={(e) => setFormData((prev) => ({ ...prev, currentAccessory: e.target.value }))}
                         placeholder="Ej: Cargador, Funda, Cable USB"
@@ -617,6 +623,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                                         onClick={() => removeAccessory(index)}
                                         className="text-lg font-bold text-red-500 hover:text-red-700"
                                         title="Eliminar accesorio"
+                                        aria-label={`Eliminar accesorio ${accesorio}`}
                                     >
                                         ×
                                     </button>
@@ -631,8 +638,9 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-3">
                 {/* Tiempo estimado de reparación */}
                 <div>
-                    <Label>Horas Estimadas de Reparación</Label>
+                    <Label htmlFor={hoursInputId}>Horas Estimadas de Reparación</Label>
                     <input
+                        id={hoursInputId}
                         type="number"
                         value={formData.tiempoEstimadoReparacion !== undefined ? formData.tiempoEstimadoReparacion : ""}
                         onChange={(e) => handleChange("tiempoEstimadoReparacion", e.target.value ? Number(e.target.value) : 0)}
@@ -645,8 +653,9 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
 
                 {/* Fecha prometida de entrega */}
                 <div>
-                    <Label className="mb-1 block">Fecha Estimada de Entrega</Label>
+                    <Label htmlFor={deliveryDateId} className="mb-1 block">Fecha Estimada de Entrega</Label>
                     <input
+                        id={deliveryDateId}
                         type="datetime-local"
                         value={formData.fechaPrometidaEntrega}
                         onChange={(e) => handleChange("fechaPrometidaEntrega", e.target.value)}
@@ -657,8 +666,9 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
 
             {/* Selección de técnico */}
             <div className="mb-3">
-                <Label>Técnico Asignado (Opcional)</Label>
+                <Label htmlFor={technicianSelectId}>Técnico Asignado (Opcional)</Label>
                 <select
+                    id={technicianSelectId}
                     value={formData.technicianId || ""}
                     onChange={(e) => handleChange("technicianId", e.target.value ? Number(e.target.value) : null)}
                     className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-black dark:border-gray-700 dark:bg-gray-800 dark:text-white font-medium"

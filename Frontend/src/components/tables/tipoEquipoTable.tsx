@@ -115,7 +115,7 @@ export default function TipoEquipoTable({ tiposEquipoHook }: TipoEquipoTableProp
             <p className="font-bold text-gray-900 dark:text-white">
               {tipo.nombre}
             </p>
-            <p className="text-xs text-gray-500">ID: #{tipo.id}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">ID: #{tipo.id}</p>
           </div>
         </div>
       ),

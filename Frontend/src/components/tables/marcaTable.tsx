@@ -115,7 +115,7 @@ export default function MarcaTable({ marcasHook }: MarcaTableProps) {
             <p className="font-bold text-gray-900 dark:text-white">
               {marca.nombre}
             </p>
-            <p className="text-xs text-gray-500">ID: #{marca.id}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">ID: #{marca.id}</p>
           </div>
         </div>
       ),

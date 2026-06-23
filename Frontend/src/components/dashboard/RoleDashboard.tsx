@@ -157,7 +157,7 @@ export default function RoleDashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <PageBreadcrumb pageTitle={roleTitle} />
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 flex items-center gap-1">
             <ClockIcon className="w-4 h-4" />
             Última actualización: {formatDate(data.generatedAt)}
           </p>
@@ -170,8 +170,8 @@ export default function RoleDashboard() {
               onClick={() => void setRange(option.value)}
               className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 range === option.value 
-                ? 'bg-white dark:bg-gray-700 text-brand-500 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
               }`}
             >
               {option.label}
@@ -197,10 +197,10 @@ export default function RoleDashboard() {
                 {kpiIcons[kpi.key] || <BoltIcon className="w-6 h-6" />}
               </div>
               <div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{kpi.label}</p>
-                <h3 className="text-3xl font-black text-gray-900 dark:text-white mt-1">
+                <p className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">{kpi.label}</p>
+                <h2 className="text-3xl font-black text-gray-900 dark:text-white mt-1">
                   {kpi.value}
-                </h3>
+                </h2>
               </div>
             </div>
           </motion.div>
@@ -232,7 +232,7 @@ export default function RoleDashboard() {
                       <div className="mb-2 flex items-center justify-between">
                         <span className="text-sm font-bold text-gray-700 dark:text-gray-300 group-hover:text-amber-500 transition-colors">{category}</span>
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400 font-medium">{percentage}%</span>
+                            <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">{percentage}%</span>
                             <span className="text-sm font-black text-gray-900 dark:text-white">{value}</span>
                         </div>
                       </div>
@@ -249,7 +249,7 @@ export default function RoleDashboard() {
                 })}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+              <div className="flex flex-col items-center justify-center h-64 text-gray-600 dark:text-gray-400">
                 <BoltIcon className="w-12 h-12 opacity-20 mb-2" />
                 <p className="text-sm">No hay datos suficientes para generar el gráfico</p>
               </div>
@@ -332,10 +332,10 @@ export default function RoleDashboard() {
                     <table className="min-w-full divide-y divide-gray-50 dark:divide-gray-800">
                         <thead className="bg-gray-50/50 dark:bg-gray-800/50">
                         <tr>
-                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-400">Orden</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-400">Detalle</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-400">Estado</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-400">Fecha</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400">Orden</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400">Detalle</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400">Estado</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400">Fecha</th>
                         </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
@@ -343,7 +343,7 @@ export default function RoleDashboard() {
                             <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors group">
                                 <td className="px-6 py-5">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 font-bold text-xs border border-gray-100 dark:border-gray-700">
+                                        <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 font-bold text-xs border border-gray-100 dark:border-gray-700">
                                             #{item.title.split('#')[1] || '??'}
                                         </div>
                                         <span className="text-sm font-black text-gray-900 dark:text-white">{item.title}</span>
@@ -360,7 +360,7 @@ export default function RoleDashboard() {
                                 <td className="px-6 py-5">
                                     <div className="flex flex-col">
                                         <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{formatDate(item.createdAt).split(',')[0]}</span>
-                                        <span className="text-xs text-gray-400">{formatDate(item.createdAt).split(',')[1]}</span>
+                                        <span className="text-xs text-gray-600 dark:text-gray-400">{formatDate(item.createdAt).split(',')[1]}</span>
                                     </div>
                                 </td>
                             </tr>

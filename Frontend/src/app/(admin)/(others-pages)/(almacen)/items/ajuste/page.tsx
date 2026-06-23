@@ -277,9 +277,10 @@ export default function AjusteInventarioPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.push("/items")}
+          aria-label="Volver al inventario"
           className="flex items-center justify-center h-9 w-9 rounded-full bg-white border border-gray-200 text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all dark:bg-gray-900 dark:border-gray-800 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800"
         >
-          <ChevronLeftIcon className="h-5 w-5" />
+          <ChevronLeftIcon className="h-5 w-5" aria-hidden="true" />
         </button>
         <PageBreadcrumb pageTitle="Ajuste Rápido de Inventario" />
       </div>
@@ -289,17 +290,19 @@ export default function AjusteInventarioPage() {
         {/* Left Side: General Info & Autocomplete Search */}
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-5">
+            <h2 className="sr-only">Formulario de Ajuste de Inventario</h2>
             <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <ArchiveBoxIcon className="w-5 h-5 text-amber-500" />
+              <ArchiveBoxIcon className="w-5 h-5 text-amber-500" aria-hidden="true" />
               Datos del Ajuste
             </h3>
 
             {/* Motivo Select */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                Motivo del Ajuste <span className="text-red-500">*</span>
+              <label htmlFor="motivoAjuste" className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                Motivo del Ajuste <span className="text-red-500" aria-hidden="true">*</span>
               </label>
               <select
+                id="motivoAjuste"
                 value={motivo}
                 onChange={e => setMotivo(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50/50 focus:border-brand-500 focus:bg-white transition-all text-sm outline-none dark:border-gray-800 dark:bg-gray-950 dark:focus:border-brand-500 dark:focus:bg-gray-900 dark:text-white"
@@ -324,14 +327,15 @@ export default function AjusteInventarioPage() {
                 >
                   <div className="space-y-3 pt-1 border-t border-blue-100 dark:border-blue-900/30 mt-2">
                     <div className="flex items-center gap-1.5 mb-1">
-                      <TruckIcon className="w-4 h-4 text-blue-500" />
-                      <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">Datos de Factura de Compra</span>
+                      <TruckIcon className="w-4 h-4 text-blue-500" aria-hidden="true" />
+                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Datos de Factura de Compra</span>
                     </div>
 
                     {/* Proveedor */}
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Proveedor *</label>
+                      <label htmlFor="compraProveedor" className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Proveedor *</label>
                       <select
+                        id="compraProveedor"
                         value={compraProveedorId}
                         onChange={e => setCompraProveedorId(e.target.value)}
                         className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 focus:border-blue-500 focus:bg-white transition-all text-xs outline-none dark:border-gray-800 dark:bg-gray-950 dark:text-white"
@@ -345,8 +349,9 @@ export default function AjusteInventarioPage() {
 
                     {/* Nº Factura */}
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nº Factura *</label>
+                      <label htmlFor="compraFactura" className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Nº Factura *</label>
                       <input
+                        id="compraFactura"
                         type="text"
                         placeholder="Ej: 001-002-00012345"
                         value={compraNumFactura}
@@ -358,8 +363,9 @@ export default function AjusteInventarioPage() {
                     {/* Fecha + IVA side by side */}
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Fecha Emisión</label>
+                        <label htmlFor="compraFecha" className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Fecha Emisión</label>
                         <input
+                          id="compraFecha"
                           type="date"
                           value={compraFecha}
                           max={new Date().toISOString().split("T")[0]}
@@ -368,8 +374,9 @@ export default function AjusteInventarioPage() {
                         />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">% IVA</label>
+                        <label htmlFor="compraIva" className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">% IVA</label>
                         <select
+                          id="compraIva"
                           value={compraIva}
                           onChange={e => setCompraIva(Number(e.target.value))}
                           className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 focus:border-blue-500 focus:bg-white transition-all text-xs outline-none dark:border-gray-800 dark:bg-gray-950 dark:text-white"
@@ -382,7 +389,7 @@ export default function AjusteInventarioPage() {
                       </div>
                     </div>
 
-                    <p className="text-[10px] text-blue-400 italic">
+                    <p className="text-xs text-blue-600 dark:text-blue-400 italic">
                       💡 El proveedor y factura quedarán registrados en las observaciones del ajuste.
                     </p>
                   </div>
@@ -392,10 +399,11 @@ export default function AjusteInventarioPage() {
 
             {/* Comentario Input */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+              <label htmlFor="ajusteComentario" className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                 Observaciones / Comentarios
               </label>
               <textarea
+                id="ajusteComentario"
                 rows={3}
                 placeholder="Escribe comentarios adicionales u observaciones..."
                 value={comentario}
@@ -409,12 +417,14 @@ export default function AjusteInventarioPage() {
           <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-4">
             <div className="space-y-1">
               <h3 className="text-base font-bold text-gray-900 dark:text-white">Buscar Repuestos</h3>
-              <p className="text-xs text-gray-400">Escribe para buscar y añadir repuestos al tablero de ajuste.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Escribe para buscar y añadir repuestos al tablero de ajuste.</p>
             </div>
 
             <div className="relative" ref={dropdownRef}>
+              <label htmlFor="buscarRepuesto" className="sr-only">Buscar producto por nombre, código o modelo</label>
               <div className="relative">
                 <input
+                  id="buscarRepuesto"
                   type="text"
                   placeholder="Buscar por nombre, código o modelo..."
                   value={searchQuery}
@@ -450,10 +460,10 @@ export default function AjusteInventarioPage() {
                             {item.nombre}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-gray-500 font-mono">
+                            <span className="text-xs bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-gray-600 dark:text-gray-400 font-mono">
                               {item.codigoInterno || "SIN-COD"}
                             </span>
-                            <span className="text-[10px] text-gray-400 truncate">
+                            <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
                               Mod: {item.modelo || "Genérico"}
                             </span>
                           </div>
@@ -488,22 +498,22 @@ export default function AjusteInventarioPage() {
 
             <div className="flex-1 overflow-x-auto">
               {workbench.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center p-6 text-gray-400 dark:text-gray-500 space-y-3">
-                  <ArchiveBoxIcon className="w-12 h-12 text-gray-300 dark:text-gray-700 animate-pulse" />
+                <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center p-6 space-y-3">
+                  <ArchiveBoxIcon className="w-12 h-12 text-gray-400 dark:text-gray-600 animate-pulse" />
                   <div>
-                    <p className="font-bold text-sm">Tu tablero de ajuste está vacío</p>
-                    <p className="text-xs max-w-[300px] mt-1 mx-auto">Utiliza el buscador de la izquierda para seleccionar los productos que deseas corregir.</p>
+                    <p className="font-bold text-sm text-gray-600 dark:text-gray-400">Tu tablero de ajuste está vacío</p>
+                    <p className="text-xs max-w-[300px] mt-1 mx-auto text-gray-600 dark:text-gray-400">Utiliza el buscador de la izquierda para seleccionar los productos que deseas corregir.</p>
                   </div>
                 </div>
               ) : (
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                      <th className="px-5 py-3.5">Repuesto / Producto</th>
-                      <th className="px-5 py-3.5 text-center">Stock Sistema</th>
-                      <th className="px-5 py-3.5 text-center w-[120px]">{isComprasMotivo ? "Cant. a Comprar" : "Stock Físico"}</th>
-                      <th className="px-5 py-3.5 text-center w-[130px]">{isComprasMotivo ? "Precio Unitario" : "Diferencia (±)"}</th>
-                      <th className="px-5 py-3.5 text-right w-[60px]">Remover</th>
+                    <tr className="border-b border-gray-100 dark:border-gray-800 text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                      <th className="px-5 py-3.5" scope="col">Repuesto / Producto</th>
+                      <th className="px-5 py-3.5 text-center" scope="col">Stock Sistema</th>
+                      <th className="px-5 py-3.5 text-center w-[120px]" scope="col">{isComprasMotivo ? "Cant. a Comprar" : "Stock Físico"}</th>
+                      <th className="px-5 py-3.5 text-center w-[130px]" scope="col">{isComprasMotivo ? "Precio Unitario" : "Diferencia (±)"}</th>
+                      <th className="px-5 py-3.5 text-right w-[60px]" scope="col">Remover</th>
                     </tr>
                   </thead>
                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -519,19 +529,19 @@ export default function AjusteInventarioPage() {
                             <p className="font-bold text-sm text-gray-900 dark:text-white">
                               {parte.nombre}
                             </p>
-                            <div className="flex items-center gap-2 mt-0.5 text-[10px]">
-                              <span className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-gray-500 font-mono">
+                            <div className="flex items-center gap-2 mt-0.5 text-xs">
+                              <span className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-gray-600 dark:text-gray-400 font-mono">
                                 {parte.codigoInterno || "SIN-COD"}
                               </span>
-                              <span className="text-gray-400">
+                              <span className="text-gray-500 dark:text-gray-400">
                                 Mod: {parte.modelo || "S/M"}
                               </span>
                             </div>
                           </td>
 
                           {/* Current Stock */}
-                          <td className="px-5 py-3.5 text-center font-bold text-sm text-gray-500 dark:text-gray-400">
-                            {stockSis} <span className="text-[10px] text-gray-400 font-normal uppercase">{parte.unidadMedida}</span>
+                          <td className="px-5 py-3.5 text-center font-bold text-sm text-gray-600 dark:text-gray-300">
+                            {stockSis} <span className="text-xs text-gray-500 dark:text-gray-400 font-normal uppercase">{parte.unidadMedida}</span>
                           </td>
 
                           {/* Compras mode: direct qty input | Normal mode: stockFisico input */}
@@ -547,8 +557,8 @@ export default function AjusteInventarioPage() {
                                   onChange={e => handleCantidadCompraChange(parte.id, e.target.value)}
                                   className="w-full text-center px-3 py-1.5 rounded-lg border border-emerald-200 focus:border-emerald-500 outline-none text-sm font-bold bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-300 shadow-sm"
                                 />
-                                <p className="text-[9px] text-center text-gray-400">
-                                  Stock tras compra: <span className="font-bold text-emerald-600 dark:text-emerald-400">{stockTraCompra}</span>
+                                <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+                                   Stock tras compra: <span className="font-bold text-emerald-600 dark:text-emerald-400">{stockTraCompra}</span>
                                 </p>
                               </div>
                             ) : (
@@ -601,9 +611,9 @@ export default function AjusteInventarioPage() {
                             <button
                               onClick={() => handleRemoveItem(parte.id)}
                               className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all"
-                              title="Remover de la lista"
+                              aria-label={`Remover ${parte.nombre} del tablero`}
                             >
-                              <TrashIcon className="w-4 h-4" />
+                              <TrashIcon className="w-4 h-4" aria-hidden="true" />
                             </button>
                           </td>
                         </tr>
@@ -677,11 +687,11 @@ export default function AjusteInventarioPage() {
                     <div key={parte.id} className="p-3 flex items-center justify-between hover:bg-gray-50/50 dark:hover:bg-gray-950/30">
                       <div className="min-w-0 pr-2">
                         <p className="font-bold text-xs text-gray-800 dark:text-gray-200 truncate">{parte.nombre}</p>
-                        <p className="text-[10px] text-gray-400 font-mono mt-0.5">{parte.codigoInterno || "SIN-COD"}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">{parte.codigoInterno || "SIN-COD"}</p>
                       </div>
                       <div className="shrink-0 text-right flex items-center gap-3">
                         <div>
-                          <span className="text-[10px] text-gray-400 block">Nuevo Stock:</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 block">Nuevo Stock:</span>
                           <span className="text-xs font-black text-gray-700 dark:text-gray-300">{stockFisico}</span>
                         </div>
                         <span
@@ -704,12 +714,12 @@ export default function AjusteInventarioPage() {
               {/* Form Motivo summary */}
               <div className="bg-gray-50 dark:bg-gray-950/40 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 mb-6 space-y-2">
                 <div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Motivo:</span>
+                  <span className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider block">Motivo:</span>
                   <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{motivo}</span>
                 </div>
                 {comentario.trim() && (
                   <div>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Observaciones:</span>
+                    <span className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider block">Observaciones:</span>
                     <span className="text-xs text-gray-500 dark:text-gray-400 block italic leading-relaxed">{comentario}</span>
                   </div>
                 )}

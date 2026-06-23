@@ -57,7 +57,9 @@ export default function ConfirmDialog({
         aria-label="Cerrar dialogo"
         className="fixed inset-0 bg-black/40"
         onClick={onClose}
-      />
+      >
+        <span className="sr-only">Cerrar</span>
+      </button>
 
       <div
         role="alertdialog"

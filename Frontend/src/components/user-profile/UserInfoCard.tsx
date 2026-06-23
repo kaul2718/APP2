@@ -42,7 +42,7 @@ export default function UserInfoCard() {
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
             <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+              <p className="mb-2 text-xs leading-normal text-gray-600 dark:text-gray-400">
                 Nombre completo
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
@@ -52,7 +52,7 @@ export default function UserInfoCard() {
             </div>
 
             <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+              <p className="mb-2 text-xs leading-normal text-gray-600 dark:text-gray-400">
                 Correo electrónico
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
@@ -61,7 +61,7 @@ export default function UserInfoCard() {
             </div>
 
             <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+              <p className="mb-2 text-xs leading-normal text-gray-600 dark:text-gray-400">
                 Teléfono
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
@@ -69,7 +69,7 @@ export default function UserInfoCard() {
               </p>
             </div>
             <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+              <p className="mb-2 text-xs leading-normal text-gray-600 dark:text-gray-400">
                 Cédula
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">

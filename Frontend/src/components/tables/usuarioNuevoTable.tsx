@@ -142,7 +142,7 @@ export default function UsuarioNuevoTable({
             <p className="font-medium text-gray-900 dark:text-white">
               {usuario.nombre} {usuario.apellido}
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{usuario.cedula}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">{usuario.cedula}</p>
           </div>
         </div>
       ),
@@ -153,7 +153,7 @@ export default function UsuarioNuevoTable({
       render: (usuario) => (
         <div className="flex flex-col">
           <span className="text-sm text-gray-700 dark:text-gray-300">{usuario.correo}</span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">{usuario.telefono}</span>
+          <span className="text-xs text-gray-600 dark:text-gray-400">{usuario.telefono}</span>
         </div>
       ),
     },

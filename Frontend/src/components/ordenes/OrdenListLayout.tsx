@@ -26,6 +26,7 @@ import GenerarPdfIngresoModal from "@/components/modals/GenerarPdfIngresoModal";
 
 import StateTabsBar from "./StateTabsBar";
 import OrdenCard from "./OrdenCard";
+import Pagination from "@/components/tables/Pagination";
 import { 
   MagnifyingGlassIcon,
   EyeIcon,
@@ -55,6 +56,11 @@ interface UpdateOrderData {
 
 export default function OrdenListLayout() {
   const router = useRouter();
+  const fechaInicioId = React.useId();
+  const fechaFinId = React.useId();
+  const searchId = React.useId();
+  const limitId = React.useId();
+  const clientIdInputId = React.useId();
   const {
     orders,
     loading,
@@ -522,15 +528,19 @@ export default function OrdenListLayout() {
         {/* Fila 1: Filtros de Fecha */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex flex-1 items-center gap-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Fechas:</label>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Fechas:</span>
+            <label htmlFor={fechaInicioId} className="sr-only">Fecha Inicio</label>
             <input
+              id={fechaInicioId}
               type="date"
               className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               value={fechaInicio || ""}
               onChange={(e) => setFechaInicio(e.target.value || undefined)}
             />
             <span className="text-gray-500">-</span>
+            <label htmlFor={fechaFinId} className="sr-only">Fecha Fin</label>
             <input
+              id={fechaFinId}
               type="date"
               className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               value={fechaFin || ""}
@@ -540,7 +550,9 @@ export default function OrdenListLayout() {
           
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <span>Mostrar</span>
+            <label htmlFor={limitId} className="sr-only">Registros por página</label>
             <select 
+              id={limitId}
               value={limit}
               onChange={(e) => {
                 const newLimit = Number(e.target.value);
@@ -562,7 +574,9 @@ export default function OrdenListLayout() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center">
           <div className="relative flex-1 max-w-sm">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <label htmlFor={searchId} className="sr-only">Buscar órdenes</label>
             <input
+              id={searchId}
               type="text"
               placeholder="Buscar por ID, Cliente o Vehículo..."
               className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
@@ -571,7 +585,9 @@ export default function OrdenListLayout() {
             />
           </div>
           
+          <label htmlFor={clientIdInputId} className="sr-only">Filtrar por cliente</label>
           <select
+            id={clientIdInputId}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white md:w-48"
             value={clientId || ""}
             onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : undefined)}
@@ -645,42 +661,12 @@ export default function OrdenListLayout() {
       {/* 4. Paginación */}
       {totalItems > 0 && (
         <div className="flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-800">
-          <span className="text-sm text-gray-600 dark:text-gray-400">
-            Mostrando registros del {(currentPage - 1) * limit + 1} al {Math.min(currentPage * limit, totalItems)} de un total de {totalItems} registros
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => fetchOrders(1, limit, searchTerm, showInactive, estadoOrdenId)}
-              disabled={currentPage <= 1}
-              className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              Primero
-            </button>
-            <button
-              onClick={() => fetchOrders(currentPage - 1, limit, searchTerm, showInactive, estadoOrdenId)}
-              disabled={currentPage <= 1}
-              className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              Anterior
-            </button>
-            <span className="rounded bg-brand-500 px-3 py-1 text-sm font-medium text-white" style={{backgroundColor: '#c5f242', color: '#111827'}}>
-              {currentPage}
-            </span>
-            <button
-              onClick={() => fetchOrders(currentPage + 1, limit, searchTerm, showInactive, estadoOrdenId)}
-              disabled={currentPage >= totalPages}
-              className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              Siguiente
-            </button>
-            <button
-              onClick={() => fetchOrders(totalPages, limit, searchTerm, showInactive, estadoOrdenId)}
-              disabled={currentPage >= totalPages}
-              className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-            >
-              Último
-            </button>
-          </div>
+          <span className="text-sm text-gray-700 dark:text-gray-300">Total: {totalItems}</span>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={(page) => fetchOrders(page, limit, searchTerm, showInactive, estadoOrdenId)}
+          />
         </div>
       )}
 

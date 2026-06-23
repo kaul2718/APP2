@@ -53,7 +53,7 @@ export default function PeritajeForm({ template, onChange, initialResults }: Pro
                             Peritaje Técnico Inicial
                         </h3>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Evaluación de componentes para la plantilla: <span className="text-brand-500 font-semibold">{template.nombre}</span>
+                            Evaluación de componentes para la plantilla: <span className="text-brand-500 dark:text-brand-400 font-semibold">{template.nombre}</span>
                         </p>
                     </div>
                 </div>
@@ -61,7 +61,7 @@ export default function PeritajeForm({ template, onChange, initialResults }: Pro
 
             <div className="overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm bg-white dark:bg-gray-900">
                 <table className="w-full text-left text-sm border-collapse">
-                    <thead className="bg-gray-50/50 dark:bg-gray-800/50 text-gray-400 text-[10px] uppercase font-bold tracking-widest">
+                    <thead className="bg-gray-50/50 dark:bg-gray-800/50 text-gray-400 text-xs uppercase font-bold tracking-widest">
                         <tr>
                             <th className="px-6 py-4">Componente</th>
                             <th className="px-6 py-4 text-center">Estado Funcional</th>
@@ -86,6 +86,7 @@ export default function PeritajeForm({ template, onChange, initialResults }: Pro
                                                 onClick={() => updateResult(idx, 'funcional', opt.value)}
                                                 className={`p-2 rounded-xl transition-all duration-200 ring-1 ring-transparent ${res.funcional === opt.value ? `ring-offset-2 dark:ring-offset-gray-900 ${opt.activeClass}` : opt.inactiveClass}`}
                                                 title={opt.label}
+                                                aria-label={`${opt.label} para ${res.item}`}
                                             >
                                                 <opt.icon className="w-6 h-6" />
                                             </button>
@@ -97,7 +98,8 @@ export default function PeritajeForm({ template, onChange, initialResults }: Pro
                                         <select
                                             value={res.estetica}
                                             onChange={(e) => updateResult(idx, 'estetica', e.target.value)}
-                                            className={`text-[10px] font-extrabold rounded-full px-4 py-1.5 border-none focus:ring-0 cursor-pointer uppercase tracking-wider transition-all hover:scale-105 ${aestheticOptions.find(o => o.value === res.estetica)?.color}`}
+                                            className={`text-xs font-extrabold rounded-full px-4 py-1.5 border-none focus:ring-0 cursor-pointer uppercase tracking-wider transition-all hover:scale-105 ${aestheticOptions.find(o => o.value === res.estetica)?.color}`}
+                                            aria-label={`Estética para ${res.item}`}
                                         >
                                             {aestheticOptions.map(opt => (
                                                 <option key={opt.value} value={opt.value} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-normal uppercase">
@@ -116,6 +118,7 @@ export default function PeritajeForm({ template, onChange, initialResults }: Pro
                                             onChange={(e) => updateResult(idx, 'observaciones', e.target.value)}
                                             placeholder="Añadir nota técnica..."
                                             className="w-full bg-transparent border-none focus:ring-0 text-xs py-2 pl-6 placeholder:text-gray-300 dark:placeholder:text-gray-700 text-gray-600 dark:text-gray-400"
+                                            aria-label={`Observaciones para ${res.item}`}
                                         />
                                     </div>
                                 </td>

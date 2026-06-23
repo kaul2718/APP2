@@ -32,6 +32,9 @@ interface Props {
 export default function IngresarModeloForm({ onSuccess, onClose, defaultMarcaId }: Props) {
   const { data: session } = useSession();
   const { marcas, loading: loadingMarcas } = useMarcas();
+  const uid = React.useId();
+  const nombreId = `${uid}-nombre`;
+  const marcaSelectId = `${uid}-marca`;
   const [formData, setFormData] = React.useState<FormData>({
     nombre: "",
     marcaId: defaultMarcaId || null
@@ -113,27 +116,30 @@ export default function IngresarModeloForm({ onSuccess, onClose, defaultMarcaId 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6">
         {/* Nombre del modelo */}
         <div>
-          <Label>Nombre del Modelo</Label>
+          <Label htmlFor={nombreId} className="text-gray-700 dark:text-gray-200">Nombre del Modelo *</Label>
           <div className="relative">
-            <DevicePhoneMobileIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+            <DevicePhoneMobileIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" aria-hidden="true" />
             <Input
+              id={nombreId}
               value={formData.nombre}
               onChange={(e) => handleChange("nombre", e.target.value)}
               placeholder="Ej: iPhone 15, Galaxy S23, ThinkPad X1"
               className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
             />
           </div>
-          {errors.nombre && <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>}
+          {errors.nombre && <p className="text-sm text-red-500 mt-1" role="alert">{errors.nombre}</p>}
         </div>
 
         {/* Selección de marca */}
         <div>
-          <Label>Marca *</Label>
+          <Label htmlFor={marcaSelectId} className="text-gray-700 dark:text-gray-200">Marca *</Label>
           <Select
+            id={marcaSelectId}
             value={formData.marcaId || ""}
             onChange={(e) => handleChange("marcaId", Number(e.target.value))}
             disabled={loadingMarcas}
             className="w-full px-4 py-2 rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Seleccione una marca"
           >
             <option value="">Seleccione una marca</option>
             {marcas.map((marca) => (
@@ -142,7 +148,7 @@ export default function IngresarModeloForm({ onSuccess, onClose, defaultMarcaId 
               </option>
             ))}
           </Select>
-          {errors.marcaId && <p className="text-sm text-red-500 mt-1">{errors.marcaId}</p>}
+          {errors.marcaId && <p className="text-sm text-red-500 mt-1" role="alert">{errors.marcaId}</p>}
         </div>
 
         {/* Botón */}

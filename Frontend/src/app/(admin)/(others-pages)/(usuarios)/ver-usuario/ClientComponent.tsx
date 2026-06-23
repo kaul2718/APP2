@@ -56,19 +56,25 @@ export default function ClientComponent() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-brand-500"></div>
+            <div className="space-y-6">
+                <PageBreadcrumb pageTitle="Gestión de Usuarios" />
+                <div className="flex justify-center items-center h-64">
+                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-brand-500"></div>
+                </div>
             </div>
         );
     }
 
     if (!hasPermission("users.view")) {
         return (
-            <div className="p-10 text-center bg-white dark:bg-gray-900 rounded-lg border border-gray-150 dark:border-gray-800 shadow-theme-xs">
-                <h2 className="text-lg font-bold text-red-500">Acceso Denegado</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                    No tienes los permisos asignados por el administrador para ver el módulo de Gestión de Usuarios. Por favor, contacta al administrador del sistema.
-                </p>
+            <div className="space-y-6">
+                <PageBreadcrumb pageTitle="Gestión de Usuarios" />
+                <div className="p-10 text-center bg-white dark:bg-gray-900 rounded-lg border border-gray-150 dark:border-gray-800 shadow-theme-xs">
+                    <h2 className="text-lg font-bold text-red-500">Acceso Denegado</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                        No tienes los permisos asignados por el administrador para ver el módulo de Gestión de Usuarios. Por favor, contacta al administrador del sistema.
+                    </p>
+                </div>
             </div>
         );
     }
@@ -190,8 +196,8 @@ function StatCard({ icon, label, value, delay }: { icon: React.ReactNode, label:
                 {icon}
             </div>
             <div>
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</p>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{value}</h3>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{label}</p>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{value}</h2>
             </div>
         </motion.div>
     );

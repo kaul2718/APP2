@@ -257,9 +257,10 @@ export default function PerfilOrdenPage() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.back()}
+              aria-label="Volver atrás"
               className="group flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition-all hover:border-brand-500 hover:text-brand-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
             >
-              <ArrowLeftIcon className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
+              <ArrowLeftIcon className="h-5 w-5 transition-transform group-hover:-translate-x-1" aria-hidden="true" />
             </button>
             <div>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -357,7 +358,7 @@ export default function PerfilOrdenPage() {
                 <div className="hidden md:block">
                   <div className="flex flex-col items-end">
                     <span className="text-4xl font-black text-brand-600 dark:text-brand-400">100%</span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Nivel de Progreso</span>
+                    <span className="text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400">Nivel de Progreso</span>
                   </div>
                 </div>
               </div>
@@ -420,9 +421,9 @@ export default function PerfilOrdenPage() {
                     </div>
 
                     <div className="mt-4 flex flex-col items-center">
-                      <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${
+                      <span className={`text-xs font-black uppercase tracking-[0.2em] ${
                         isCurrent ? 'text-brand-600 dark:text-brand-400' : 
-                        isCompleted ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400'
+                        isCompleted ? 'text-gray-600 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'
                       }`}>
                         {step.name}
                       </span>
@@ -432,12 +433,13 @@ export default function PerfilOrdenPage() {
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           className="mt-1 flex items-center gap-1.5"
+                          aria-label="Paso actual"
                         >
-                          <span className="relative flex h-2 w-2">
+                          <span className="relative flex h-2 w-2" aria-hidden="true">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-500"></span>
                           </span>
-                          <span className="text-[8px] font-bold text-brand-500 uppercase tracking-tighter">Paso Actual</span>
+                          <span className="text-xs font-bold text-brand-500 uppercase tracking-tighter">Paso Actual</span>
                         </motion.span>
                       )}
                     </div>
@@ -460,9 +462,9 @@ export default function PerfilOrdenPage() {
                   <UserCircleIcon className="h-7 w-7" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Datos del Cliente</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">Datos del Cliente</p>
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">{formatUserName(order.client)}</h3>
-                  <p className="text-sm text-gray-500">{order.client.role === 'client' ? 'Cliente Externo' : 'Usuario Sistema'}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{order.client.role === 'client' ? 'Cliente Externo' : 'Usuario Sistema'}</p>
                 </div>
               </div>
               
@@ -471,11 +473,11 @@ export default function PerfilOrdenPage() {
                   <ComputerDesktopIcon className="h-7 w-7" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Equipo en Servicio</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">Equipo en Servicio</p>
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">
                     {order.equipo?.tipoEquipo?.nombre} {order.equipo?.marca?.nombre} {order.equipo?.modelo?.nombre}
                   </h3>
-                  <p className="text-sm text-gray-500 font-mono">SN: {order.equipo?.numeroSerie}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">SN: {order.equipo?.numeroSerie}</p>
                 </div>
               </div>
             </div>
@@ -489,7 +491,7 @@ export default function PerfilOrdenPage() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
-                  <label className="text-xs font-black uppercase tracking-widest text-gray-400">Problema Reportado</label>
+                  <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">Problema Reportado</p>
                   <div className="mt-2 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/50 min-h-[100px] border border-gray-100 dark:border-gray-800">
                     <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed italic">
                       "{order.problemaReportado || 'Sin descripción detallada'}"
@@ -498,7 +500,7 @@ export default function PerfilOrdenPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-black uppercase tracking-widest text-gray-400 block mb-3">Accesorios Entregados</label>
+                  <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 block mb-3">Accesorios Entregados</p>
                   <div className="flex flex-wrap gap-2">
                     {order.accesorios && order.accesorios.length > 0 ? (
                       order.accesorios.map((acc, idx) => (
@@ -508,7 +510,7 @@ export default function PerfilOrdenPage() {
                         </span>
                       ))
                     ) : (
-                      <span className="text-sm text-gray-400 italic">No se reportaron accesorios.</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400 italic">No se reportaron accesorios.</span>
                     )}
                   </div>
                 </div>
@@ -524,8 +526,9 @@ export default function PerfilOrdenPage() {
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-bold uppercase text-gray-400">Filtrar por estado:</span>
+                  <label htmlFor="filter-status-select" className="text-xs font-bold uppercase text-gray-600 dark:text-gray-400">Filtrar por estado:</label>
                   <select 
+                    id="filter-status-select"
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
                     className="text-xs font-semibold bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-brand-500 transition-all text-gray-900 dark:text-white"
@@ -558,27 +561,27 @@ export default function PerfilOrdenPage() {
                         <button 
                           onClick={() => setViewerImage(ev.archivoUrl || ev.urlImagen || null)}
                           className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-sm transition-all"
-                          title="Ver imagen"
+                          aria-label="Ver imagen"
                         >
-                          <EyeIcon className="h-6 w-6" />
+                          <EyeIcon className="h-6 w-6" aria-hidden="true" />
                         </button>
                         <button 
                           onClick={() => setDeleteConfig({ isOpen: true, id: ev.id })}
                           className="p-2 bg-red-500/20 hover:bg-red-500/40 rounded-full text-red-200 backdrop-blur-sm transition-all"
-                          title="Eliminar evidencia"
+                          aria-label="Eliminar evidencia"
                         >
-                          <TrashIcon className="h-6 w-6" />
+                          <TrashIcon className="h-6 w-6" aria-hidden="true" />
                         </button>
                       </div>
 
                       <div className="absolute top-2 left-2">
-                        <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-[8px] font-black uppercase tracking-widest text-white border border-white/10">
+                        <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-xs font-black uppercase tracking-widest text-white border border-white/10">
                           {ev.estadoOrden?.nombre || 'General'}
                         </span>
                       </div>
 
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                        <p className="text-[10px] text-white truncate">{ev.descripcion || 'Sin descripción'}</p>
+                        <p className="text-xs text-white truncate">{ev.descripcion || 'Sin descripción'}</p>
                       </div>
                     </div>
                   ))}
@@ -586,7 +589,7 @@ export default function PerfilOrdenPage() {
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-800">
                   <PhotoIcon className="h-12 w-12 text-gray-300 mb-2" />
-                  <p className="text-sm text-gray-500">No hay evidencias cargadas todavía.</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">No hay evidencias cargadas todavía.</p>
                 </div>
               )}
             </div>
@@ -629,20 +632,20 @@ export default function PerfilOrdenPage() {
                             <span className="inline-flex items-center rounded-lg bg-brand-50 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-brand-700 dark:bg-brand-900/30 dark:text-brand-400">
                               {act.tipoActividad?.nombre}
                             </span>
-                            <h4 className="mt-2 text-sm font-bold text-gray-900 dark:text-white">
+                            <p className="mt-2 text-sm font-bold text-gray-900 dark:text-white">
                               Realizado el {formatDate(act.fecha)}
-                            </h4>
+                            </p>
                           </div>
                         </div>
                         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                           <div className="space-y-1">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Diagnóstico</p>
+                            <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">Diagnóstico</p>
                             <p className="text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
                               {act.diagnostico}
                             </p>
                           </div>
                           <div className="space-y-1">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Trabajo Realizado</p>
+                            <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">Trabajo Realizado</p>
                             <p className="text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
                               {act.trabajoRealizado}
                             </p>
@@ -654,7 +657,7 @@ export default function PerfilOrdenPage() {
                 </div>
               ) : (
                 <div className="text-center py-12 rounded-xl bg-gray-50 dark:bg-gray-900/30 border border-gray-100 dark:border-gray-800">
-                  <p className="text-gray-500 italic">No hay registros de trabajo técnico para esta orden.</p>
+                  <p className="text-gray-600 dark:text-gray-400 italic">No hay registros de trabajo técnico para esta orden.</p>
                 </div>
               )}
             </div>
@@ -665,16 +668,16 @@ export default function PerfilOrdenPage() {
             
             {/* Quick Status Info */}
             <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
-              <h3 className="text-sm font-black uppercase tracking-widest text-gray-400 mb-4">Información de Entrega</h3>
+              <h3 className="text-sm font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 mb-4">Información de Entrega</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Promesa:</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Promesa:</span>
                   <span className="text-sm font-bold text-gray-900 dark:text-white">
                     {formatDate(order.fechaPrometidaEntrega) || 'Pendiente'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Técnico:</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Técnico:</span>
                   <span className="text-sm font-bold text-gray-900 dark:text-white">
                     {formatUserName(order.technician) || 'Sin Asignar'}
                   </span>
@@ -683,7 +686,7 @@ export default function PerfilOrdenPage() {
                   <div className="mt-4 flex items-center gap-3 rounded-xl bg-brand-50 p-4 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300 border border-brand-100 dark:border-brand-800/50">
                     <ArchiveBoxIcon className="h-8 w-8 opacity-50" />
                     <div>
-                      <p className="text-[10px] font-black uppercase">Casillero Asignado</p>
+                      <p className="text-xs font-black uppercase">Casillero Asignado</p>
                       <p className="text-xl font-black">{order.casillero.codigo}</p>
                     </div>
                   </div>
@@ -703,25 +706,26 @@ export default function PerfilOrdenPage() {
                 {order.presupuesto ? (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between mb-4">
-                      <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Resumen Financiero</p>
+                      <p className="text-xs font-black uppercase text-gray-600 dark:text-gray-400 tracking-widest">Resumen Financiero</p>
                       <button 
                         onClick={() => setIsEditPresupuestoModalOpen(true)}
-                        className="p-1.5 rounded-lg bg-gray-50 text-gray-400 hover:bg-brand-50 hover:text-brand-600 transition-colors dark:bg-gray-900"
+                        aria-label="Editar presupuesto"
+                        className="p-1.5 rounded-lg bg-gray-50 text-gray-500 hover:bg-brand-50 hover:text-brand-600 transition-colors dark:bg-gray-900"
                       >
-                        <PencilIcon className="h-3.5 w-3.5" />
+                        <PencilIcon className="h-3.5 w-3.5" aria-hidden="true" />
                       </button>
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase text-gray-400 tracking-tighter">Estado</span>
+                      <span className="text-xs font-bold uppercase text-gray-600 dark:text-gray-400 tracking-tighter">Estado</span>
                       <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
                         {order.presupuesto.estado?.nombre}
                       </span>
                     </div>
 
                     <div className="pt-2">
-                      <p className="text-[10px] font-black uppercase text-gray-400 mb-1">Descripción General</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed italic">
+                      <p className="text-xs font-black uppercase text-gray-600 dark:text-gray-400 mb-1">Descripción General</p>
+                      <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed italic">
                         {order.presupuesto.descripcion || 'Sin descripción adicional.'}
                       </p>
                     </div>
@@ -767,7 +771,7 @@ export default function PerfilOrdenPage() {
                   </div>
                 ) : (
                   <div className="text-center py-4">
-                    <p className="text-xs text-gray-500 italic">No hay presupuesto generado.</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 italic">No hay presupuesto generado.</p>
                     <button 
                       onClick={() => setIsPresupuestoModalOpen(true)}
                       className="mt-3 text-xs font-bold text-brand-600 hover:underline cursor-pointer"
@@ -781,7 +785,7 @@ export default function PerfilOrdenPage() {
 
             {/* Vertical Timeline (Detailed) */}
             <div className="rounded-2xl bg-white p-8 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
-              <h3 className="text-sm font-black uppercase tracking-widest text-gray-400 mb-8 flex items-center gap-2">
+              <h3 className="text-sm font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 mb-8 flex items-center gap-2">
                 <ArchiveBoxIcon className="h-4 w-4" />
                 Historial de Estados
               </h3>
@@ -796,18 +800,18 @@ export default function PerfilOrdenPage() {
                         <div className="relative flex space-x-4">
                           <div>
                             <span className={`flex h-8 w-8 items-center justify-center rounded-full ring-8 ring-white dark:ring-gray-900 ${
-                              eventIdx === 0 ? 'bg-brand-500 text-white shadow-md' : 'bg-gray-100 text-gray-400 dark:bg-gray-800'
+                              eventIdx === 0 ? 'bg-brand-500 text-white shadow-md' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'
                             }`}>
-                              {eventIdx === 0 ? <ChevronRightIcon className="h-4 w-4" /> : <div className="h-1.5 w-1.5 rounded-full bg-gray-300"></div>}
+                              {eventIdx === 0 ? <ChevronRightIcon className="h-4 w-4" /> : <div className="h-1.5 w-1.5 rounded-full bg-gray-400"></div>}
                             </span>
                           </div>
                           <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
                             <div>
-                              <p className={`text-sm font-bold ${eventIdx === 0 ? 'text-gray-900 dark:text-white' : 'text-gray-500'}`}>
+                              <p className={`text-sm font-bold ${eventIdx === 0 ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
                                 {h.estadoOrden?.nombre}
                               </p>
-                              <div className="mt-1 flex items-center gap-2 text-[10px] text-gray-400">
-                                <span className="font-bold text-gray-500 dark:text-gray-400 uppercase">{formatUserName(h.usuario)}</span>
+                              <div className="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                <span className="font-bold text-gray-600 dark:text-gray-400 uppercase">{formatUserName(h.usuario)}</span>
                                 <span>•</span>
                                 <span>{formatDate(h.fechaCambio)}</span>
                               </div>
@@ -835,8 +839,8 @@ export default function PerfilOrdenPage() {
                         </div>
                         <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
                           <div>
-                            <p className="text-sm font-medium text-gray-400">Orden Iniciada en el Sistema</p>
-                            <p className="text-[10px] text-gray-400">{formatDate(order.createdAt)}</p>
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Orden Iniciada en el Sistema</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(order.createdAt)}</p>
                           </div>
                         </div>
                       </div>
@@ -938,9 +942,10 @@ export default function PerfilOrdenPage() {
             >
               <button
                 onClick={() => setViewerImage(null)}
+                aria-label="Cerrar visor de imagen"
                 className="absolute -top-12 right-0 p-2 text-white/70 hover:text-white transition-colors"
               >
-                <XMarkIcon className="h-8 w-8" />
+                <XMarkIcon className="h-8 w-8" aria-hidden="true" />
               </button>
               <img
                 src={viewerImage}

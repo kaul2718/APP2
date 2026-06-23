@@ -301,8 +301,9 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label>Descripción General</Label>
+                                    <Label htmlFor="descripcion-edit">Descripción General</Label>
                                     <textarea
+                                        id="descripcion-edit"
                                         name="descripcion"
                                         value={editando.descripcion || ""}
                                         onChange={handleInputChange}
@@ -317,18 +318,18 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                             {/* Gestión de Contenido Técnico */}
                             <div className="space-y-6">
                                 <div>
-                                    <h5 className="text-sm font-black uppercase tracking-widest text-gray-400 mb-4">Mano de Obra / Servicios</h5>
+                                    <p className="text-sm font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 mb-4">Mano de Obra / Servicios</p>
                                     <div className="space-y-2">
                                         {/* Catalog Services */}
                                         {editando?.detallesPresupuestoItems?.filter(item => item.estado !== false && !item.deletedAt && item.parte?.unidadMedida === 'Servicio').map((item) => (
                                             <div key={`item-service-${item.id}`} className="flex items-center justify-between p-3 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 animate-fadeIn">
                                                 <div className="flex items-center gap-3">
-                                                    <WrenchScrewdriverIcon className="h-4 w-4 text-blue-500" />
+                                                    <WrenchScrewdriverIcon className="h-4 w-4 text-blue-500" aria-hidden="true" />
                                                     <div>
                                                         <span className="text-sm font-bold text-blue-900 dark:text-blue-300">
                                                             {item.cantidad}x {item.parte?.nombre || `Servicio #${item.id}`}
                                                         </span>
-                                                        <div className="text-[10px] text-blue-500 dark:text-blue-400 mt-0.5 font-semibold">
+                                                        <div className="text-xs text-blue-500 dark:text-blue-400 mt-0.5 font-semibold">
                                                             Precio Unit: {formatCurrency(item.precioUnitario)} | Subtotal: {formatCurrency(item.subtotal)}
                                                         </div>
                                                     </div>
@@ -336,15 +337,16 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                                 <button 
                                                     type="button"
                                                     onClick={() => handleDeleteItem(item)}
+                                                    aria-label="Eliminar servicio del presupuesto"
                                                     className="p-1.5 text-blue-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                                 >
-                                                    <TrashIcon className="h-4 w-4" />
+                                                    <TrashIcon className="h-4 w-4" aria-hidden="true" />
                                                 </button>
                                             </div>
                                         ))}
 
                                         {editando?.detallesPresupuestoItems?.filter(item => item.estado !== false && !item.deletedAt && item.parte?.unidadMedida === 'Servicio').length === 0 && (
-                                            <div className="text-xs text-gray-400 text-center py-2 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                                            <div className="text-xs text-gray-600 dark:text-gray-400 text-center py-2 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
                                                 No hay servicios registrados en este presupuesto.
                                             </div>
                                         )}
@@ -352,17 +354,17 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                 </div>
 
                                 <div>
-                                    <h5 className="text-sm font-black uppercase tracking-widest text-gray-400 mb-4">Repuestos / Ítems</h5>
+                                    <p className="text-sm font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 mb-4">Repuestos / Ítems</p>
                                     <div className="space-y-2">
                                         {editando?.detallesPresupuestoItems?.filter(item => item.estado !== false && !item.deletedAt && item.parte?.unidadMedida !== 'Servicio').map((item) => (
                                             <div key={`item-prod-${item.id}`} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 animate-fadeIn">
                                                 <div className="flex items-center gap-3">
-                                                    <CubeIcon className="h-4 w-4 text-brand-500" />
+                                                    <CubeIcon className="h-4 w-4 text-brand-500" aria-hidden="true" />
                                                     <div>
                                                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                                             {item.cantidad}x {item.parte?.nombre || `Ítem #${item.id}`}
                                                         </span>
-                                                        <div className="text-[10px] text-gray-500 mt-0.5 font-semibold">
+                                                        <div className="text-xs text-gray-500 mt-0.5 font-semibold">
                                                             Precio Unit: {formatCurrency(item.precioUnitario)} | Subtotal: {formatCurrency(item.subtotal)}
                                                         </div>
                                                     </div>
@@ -370,15 +372,16 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                                 <button 
                                                     type="button"
                                                     onClick={() => handleDeleteItem(item)}
+                                                    aria-label="Eliminar repuesto del presupuesto"
                                                     className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                                 >
-                                                    <TrashIcon className="h-4 w-4" />
+                                                    <TrashIcon className="h-4 w-4" aria-hidden="true" />
                                                 </button>
                                             </div>
                                         ))}
 
                                         {editando?.detallesPresupuestoItems?.filter(item => item.estado !== false && !item.deletedAt && item.parte?.unidadMedida !== 'Servicio').length === 0 && (
-                                            <div className="text-xs text-gray-400 text-center py-2 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                                            <div className="text-xs text-gray-600 dark:text-gray-400 text-center py-2 bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
                                                 No hay repuestos registrados en este presupuesto.
                                             </div>
                                         )}
@@ -386,9 +389,9 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                         <button
                                             type="button"
                                             onClick={() => setIsItemsOpen(true)}
-                                            className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:bg-brand-50/50 transition-all text-xs font-bold text-gray-500 hover:text-brand-600 mt-2"
+                                            className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 hover:border-brand-500 hover:bg-brand-50/50 transition-all text-xs font-bold text-gray-600 dark:text-gray-400 hover:text-brand-600 mt-2"
                                         >
-                                            <PlusIcon className="h-4 w-4" />
+                                            <PlusIcon className="h-4 w-4" aria-hidden="true" />
                                             AÑADIR ITEM / SERVICIO
                                         </button>
                                     </div>
@@ -409,12 +412,12 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                     return (
                                         <div className="bg-gray-100 dark:bg-gray-850 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 flex items-center justify-between mt-4">
                                             <div>
-                                                <span className="text-[10px] text-gray-500 uppercase font-black tracking-wider block">Total General Acumulado</span>
+                                                <span className="text-xs text-gray-500 uppercase font-black tracking-wider block">Total General Acumulado</span>
                                                 <span className="text-2xl font-black text-gray-900 dark:text-white">
                                                     {formatCurrency(totalGeneral)}
                                                 </span>
                                             </div>
-                                            <div className="text-right text-[11px] text-gray-500 space-y-0.5 font-semibold">
+                                            <div className="text-right text-xs text-gray-500 space-y-0.5 font-semibold">
                                                 <div>Servicios: {formatCurrency(totalServicios)}</div>
                                                 <div>Repuestos: {formatCurrency(totalProductos)}</div>
                                             </div>

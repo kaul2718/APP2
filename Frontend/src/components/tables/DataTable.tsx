@@ -185,6 +185,8 @@ export function DataTable<T>({
                                 action.onClick();
                               }}
                               disabled={action.disabled}
+                              aria-label={action.text || (typeof action.label === 'string' ? action.label : undefined)}
+                              title={action.text || (typeof action.label === 'string' ? action.label : undefined)}
                               className={
                                 action.className ??
                                 'rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700'
@@ -202,9 +204,10 @@ export function DataTable<T>({
                                 aria-haspopup="menu"
                                 aria-expanded={isMenuOpen}
                                 aria-controls={menuId}
-                                 onClick={() => setOpenActionsMenuRowKey(isMenuOpen ? null : rowKey)}
+                                onClick={() => setOpenActionsMenuRowKey(isMenuOpen ? null : rowKey)}
                                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
                                 title="Más acciones"
+                                aria-label="Más acciones"
                               >
                                 {overflowActionsLabel || (
                                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">

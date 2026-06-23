@@ -279,7 +279,7 @@ export default function NuevaCompraPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Supplier Selection */}
               <div>
-                <label className="block text-xs font-bold text-gray-400 dark:text-gray-500 mb-1.5 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
                   Proveedor *
                 </label>
                 <div className="flex gap-2">
@@ -306,7 +306,7 @@ export default function NuevaCompraPage() {
 
               {/* Invoice Number */}
               <div>
-                <label className="block text-xs font-bold text-gray-400 dark:text-gray-500 mb-1.5 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
                   Nº Factura de Proveedor *
                 </label>
                 <input
@@ -320,7 +320,7 @@ export default function NuevaCompraPage() {
 
               {/* Issue Date */}
               <div>
-                <label className="block text-xs font-bold text-gray-400 dark:text-gray-500 mb-1.5 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
                   Fecha de Emisión *
                 </label>
                 <input
@@ -334,7 +334,7 @@ export default function NuevaCompraPage() {
 
               {/* Tax rate select (0, 5, 8, 15) */}
               <div>
-                <label className="block text-xs font-bold text-gray-400 dark:text-gray-500 mb-1.5 uppercase tracking-wider">
+                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
                   Porcentaje de IVA *
                 </label>
                 <select
@@ -535,11 +535,11 @@ export default function NuevaCompraPage() {
             <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider">Caja de Liquidación</h3>
             
             <div className="space-y-3 border-b border-gray-100 dark:border-gray-800 pb-4">
-              <div className="flex items-center justify-between text-xs text-gray-400">
+              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                 <span>Subtotal Neto:</span>
                 <span className="font-bold text-gray-700 dark:text-gray-300">{formatCurrency(calculatedSubtotal)}</span>
               </div>
-              <div className="flex items-center justify-between text-xs text-gray-400">
+              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                 <span>IVA Compra ({ivaPorcentaje}%):</span>
                 <span className="font-bold text-gray-700 dark:text-gray-300">{formatCurrency(calculatedIva)}</span>
               </div>

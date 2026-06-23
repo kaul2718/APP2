@@ -178,7 +178,7 @@ export default function PresupuestoTable({ presupuestoHook }: PresupuestoTablePr
             <p className="font-bold text-gray-900 dark:text-white">
               PR-{String(presupuesto.id).padStart(4, '0')}
             </p>
-            <p className="text-xs text-gray-500">ID Interno: #{presupuesto.id}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">ID Interno: #{presupuesto.id}</p>
           </div>
         </div>
       ),
@@ -237,7 +237,7 @@ export default function PresupuestoTable({ presupuestoHook }: PresupuestoTablePr
       render: (presupuesto) => (
         <div className="flex items-center gap-2">
           <CalendarIcon className="h-4 w-4 text-gray-400" />
-          <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(presupuesto.fechaEmision)}</span>
+          <span className="text-xs text-gray-600 dark:text-gray-400">{formatDate(presupuesto.fechaEmision)}</span>
         </div>
       ),
     },

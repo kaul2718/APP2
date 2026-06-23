@@ -100,7 +100,7 @@ export default function TipoActividadTecnicaTable({ tipoActividadHook }: TipoAct
             <p className="font-bold text-gray-900 dark:text-white">
               {t.nombre}
             </p>
-            <p className="text-xs text-gray-500">ID: #{t.id}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">ID: #{t.id}</p>
           </div>
         </div>
       ),

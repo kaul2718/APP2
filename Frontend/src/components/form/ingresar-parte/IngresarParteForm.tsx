@@ -177,8 +177,8 @@ export default function IngresarParteForm({
                         type="button"
                         onClick={() => setActiveTab(tab as any)}
                         className={`px-6 py-3 text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab
-                                ? 'border-b-2 border-brand-500 text-brand-600 bg-brand-50/30 dark:bg-brand-900/10'
-                                : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                                ? 'border-b-2 border-brand-500 text-brand-800 dark:text-brand-400 bg-brand-50/30 dark:bg-brand-900/10'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                             }`}
                     >
                         {tab}
@@ -191,10 +191,10 @@ export default function IngresarParteForm({
                 {activeTab === "general" && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
                         <div className="md:col-span-2 bg-brand-50/50 dark:bg-brand-900/10 p-6 rounded-[2rem] border border-brand-100 dark:border-brand-900/30 mb-2">
-                             <Label className="text-brand-600 dark:text-brand-400 font-black text-[10px] uppercase tracking-widest mb-4 flex items-center gap-2">
+                             <p className="text-brand-600 dark:text-brand-400 font-black text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
                                 <ScaleIcon className="w-4 h-4" />
                                 Tipo de Item / Unidad de Medida *
-                             </Label>
+                             </p>
                              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                                 {["Unidad", "Metro", "Litro", "Kilo", "Servicio"].map((u) => (
                                     <button
@@ -216,10 +216,10 @@ export default function IngresarParteForm({
                                                 handleChange("unidadMedida", u);
                                             }
                                         }}
-                                        className={`py-3 px-2 rounded-2xl text-[10px] font-bold uppercase tracking-tighter transition-all border shadow-sm ${
+                                        className={`py-3 px-2 rounded-2xl text-xs font-bold uppercase tracking-tighter transition-all border shadow-sm ${
                                             formData.unidadMedida === u 
                                             ? 'bg-brand-500 border-brand-500 text-white shadow-brand-500/20 scale-105' 
-                                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 hover:border-brand-300'
+                                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:border-brand-300 dark:hover:border-brand-500'
                                         }`}
                                     >
                                         {u}
@@ -229,10 +229,11 @@ export default function IngresarParteForm({
                         </div>
 
                         <div className={formData.unidadMedida === "Servicio" ? "md:col-span-2" : ""}>
-                            <Label className="text-gray-700 dark:text-gray-300 font-bold mb-2">Nombre Comercial {formData.unidadMedida === "Servicio" ? "del Servicio" : "del Producto"} *</Label>
+                            <Label htmlFor="nombreItem" className="text-gray-700 dark:text-gray-300 font-bold mb-2">Nombre Comercial {formData.unidadMedida === "Servicio" ? "del Servicio" : "del Producto"} *</Label>
                             <div className="relative">
                                 <ArchiveBoxIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
                                 <Input
+                                    id="nombreItem"
                                     value={formData.nombre}
                                     onChange={(e) => handleChange("nombre", e.target.value)}
                                     className="pl-10 font-bold text-gray-900 dark:text-white py-3 shadow-sm"
@@ -245,18 +246,19 @@ export default function IngresarParteForm({
                         {formData.unidadMedida !== "Servicio" && (
                             <>
                                 <div>
-                                    <Label className="text-gray-600 dark:text-gray-400 font-bold">Modelo / Referencia</Label>
-                                    <Input value={formData.modelo} onChange={(e) => handleChange("modelo", e.target.value)} placeholder="Ej: KF432C16BB/16" className="bg-gray-50/50 dark:bg-gray-800/30" />
+                                    <Label htmlFor="modeloItem" className="text-gray-600 dark:text-gray-400 font-bold">Modelo / Referencia</Label>
+                                    <Input id="modeloItem" value={formData.modelo} onChange={(e) => handleChange("modelo", e.target.value)} placeholder="Ej: KF432C16BB/16" className="bg-gray-50/50 dark:bg-gray-800/30" />
                                 </div>
 
                                 <div>
-                                    <Label className="text-gray-600 dark:text-gray-400 font-bold">
+                                    <Label htmlFor="marcaItem" className="text-gray-600 dark:text-gray-400 font-bold">
                                         {formData.unidadMedida === "Servicio" ? "Marca (Referencial)" : "Marca *"}
                                     </Label>
                                     <Combobox value={formData.marcaId} onChange={(val) => handleChange("marcaId", val)}>
                                         <div className="relative">
                                             <div className="relative w-full cursor-default overflow-hidden rounded-xl bg-white dark:bg-gray-800 text-left border border-gray-300 dark:border-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
                                                 <Combobox.Input
+                                                    id="marcaItem"
                                                     className="w-full border-none py-3 pl-3 pr-10 text-sm leading-5 text-gray-900 dark:text-white bg-transparent outline-none font-medium"
                                                     displayValue={(id: number) => marcas.find(m => m.id === id)?.nombre || ""}
                                                     onChange={(e) => setMarcaSearch(e.target.value)}
@@ -284,22 +286,23 @@ export default function IngresarParteForm({
                                             </Combobox.Options>
                                         </div>
                                     </Combobox>
-                                    {errors.marcaId && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.marcaId}</p>}
+                                    {errors.marcaId && <p className="text-xs font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.marcaId}</p>}
                                 </div>
                             </>
                         )}
 
                         <div>
-                            <Label className="text-gray-600 dark:text-gray-400 font-bold">Código Interno / SKU</Label>
-                            <Input value={formData.codigoInterno} onChange={(e) => handleChange("codigoInterno", e.target.value)} placeholder="Ej: MEM-KIN-001" className="bg-gray-50/50 dark:bg-gray-800/30" />
+                            <Label htmlFor="codigoItem" className="text-gray-600 dark:text-gray-400 font-bold">Código Interno / SKU</Label>
+                            <Input id="codigoItem" value={formData.codigoInterno} onChange={(e) => handleChange("codigoInterno", e.target.value)} placeholder="Ej: MEM-KIN-001" className="bg-gray-50/50 dark:bg-gray-800/30" />
                         </div>
 
                         <div>
-                            <Label className="text-gray-600 dark:text-gray-400 font-bold">Categoría *</Label>
+                            <Label htmlFor="categoriaItem" className="text-gray-600 dark:text-gray-400 font-bold">Categoría *</Label>
                             <Combobox value={formData.categoriaId} onChange={(val) => handleChange("categoriaId", val)}>
                                 <div className="relative">
                                     <div className="relative w-full cursor-default overflow-hidden rounded-xl bg-white dark:bg-gray-800 text-left border border-gray-300 dark:border-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
                                         <Combobox.Input
+                                            id="categoriaItem"
                                             className="w-full border-none py-3 pl-3 pr-10 text-sm leading-5 text-gray-900 dark:text-white bg-transparent outline-none font-medium"
                                             displayValue={(id: number) => categorias.find(c => c.id === id)?.nombre || ""}
                                             onChange={(e) => setCategoriaSearch(e.target.value)}
@@ -327,12 +330,13 @@ export default function IngresarParteForm({
                                     </Combobox.Options>
                                 </div>
                             </Combobox>
-                            {errors.categoriaId && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.categoriaId}</p>}
+                            {errors.categoriaId && <p className="text-xs font-bold text-red-500 mt-1 uppercase tracking-wider">{errors.categoriaId}</p>}
                         </div>
 
                         <div className="md:col-span-2">
-                            <Label className="text-gray-600 dark:text-gray-400 font-bold">Descripción {formData.unidadMedida === "Servicio" ? "del Servicio" : "/ Notas Técnicas"}</Label>
+                            <Label htmlFor="descripcionItem" className="text-gray-600 dark:text-gray-400 font-bold">Descripción {formData.unidadMedida === "Servicio" ? "del Servicio" : "/ Notas Técnicas"}</Label>
                             <textarea
+                                id="descripcionItem"
                                 className="w-full rounded-2xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none transition-all shadow-sm"
                                 rows={3}
                                 value={formData.descripcion}
@@ -351,24 +355,25 @@ export default function IngresarParteForm({
                                 <div className="p-2 bg-brand-100 dark:bg-brand-900/30 rounded-lg">
                                     <CalculatorIcon className="w-5 h-5 text-brand-600" />
                                 </div>
-                                <h4 className="font-black text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300">
+                                <h3 className="font-black text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300">
                                     {formData.unidadMedida === "Servicio" ? "Costos y Tributos" : "Costo y Tributos"}
-                                </h4>
+                                </h3>
                             </div>
                             <div>
-                                <Label className="text-[11px] font-black uppercase text-gray-500 mb-1">
+                                <Label htmlFor="costoItem" className="text-xs font-black uppercase text-gray-500 dark:text-gray-400 mb-1">
                                     {formData.unidadMedida === "Servicio" ? "Costo Referencial de Realización" : "Costo Unitario de Adquisición"}
                                 </Label>
                                 <div className="relative">
                                     <CurrencyDollarIcon className="w-6 h-6 text-green-500 dark:text-green-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
-                                    <Input type="number" step={0.01} value={formData.costo} onChange={(e) => handleChange("costo", parseFloat(e.target.value) || 0)} className="pl-12 font-black text-2xl text-gray-900 dark:text-white py-4 rounded-2xl shadow-inner bg-white dark:bg-gray-900" />
+                                    <Input id="costoItem" type="number" step={0.01} value={formData.costo} onChange={(e) => handleChange("costo", parseFloat(e.target.value) || 0)} className="pl-12 font-black text-2xl text-gray-900 dark:text-white py-4 rounded-2xl shadow-inner bg-white dark:bg-gray-900" />
                                 </div>
-                                {errors.costo && <p className="text-[10px] font-bold text-red-500 mt-1 uppercase">{errors.costo}</p>}
-                                {formData.unidadMedida === "Servicio" && <p className="text-[9px] text-gray-400 mt-1 italic italic">Opcional: Lo que te cuesta realizar este servicio.</p>}
+                                {errors.costo && <p className="text-xs font-bold text-red-500 mt-1 uppercase">{errors.costo}</p>}
+                                {formData.unidadMedida === "Servicio" && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">Opcional: Lo que te cuesta realizar este servicio.</p>}
                             </div>
                             <div>
-                                <Label className="text-[11px] font-bold text-gray-500 mb-1">Tarifa IVA (%)</Label>
+                                <Label htmlFor="ivaTarifaItem" className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Tarifa IVA (%)</Label>
                                 <select
+                                    id="ivaTarifaItem"
                                     className="w-full rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-3.5 text-sm font-bold text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500"
                                     value={formData.ivaTarifa}
                                     onChange={(e) => handleChange("ivaTarifa", parseInt(e.target.value))}
@@ -398,32 +403,32 @@ export default function IngresarParteForm({
                                 <div className="p-2 bg-brand-100 dark:bg-brand-900/30 rounded-lg">
                                     <TagIcon className="w-5 h-5 text-brand-600" />
                                 </div>
-                                <h4 className="font-black text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300">
+                                <h3 className="font-black text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300">
                                     {formData.unidadMedida === "Servicio" ? "Valor de Venta" : "Escala de Precios"}
-                                </h4>
+                                </h3>
                             </div>
                             <div className="grid grid-cols-1 gap-5">
                                 <div className="p-5 bg-brand-50/50 dark:bg-brand-900/10 rounded-[2.5rem] border border-brand-100 dark:border-brand-900/30 shadow-lg shadow-brand-500/5">
-                                    <Label className="text-brand-700 dark:text-brand-400 font-black text-xs uppercase mb-1">
+                                    <Label htmlFor="precio1Item" className="text-brand-700 dark:text-brand-400 font-black text-xs uppercase mb-1">
                                         {formData.unidadMedida === "Servicio" ? "Precio del Servicio (PVP) *" : "Precio 1 - PVP (Público) *"}
                                     </Label>
-                                    <Input type="number" step={0.01} value={formData.precio1} onChange={(e) => handleChange("precio1", parseFloat(e.target.value) || 0)} className="border-brand-300 dark:border-brand-800 font-black text-3xl text-brand-700 dark:text-brand-300 bg-white/80 dark:bg-gray-900/80 py-6 rounded-3xl" />
-                                    {errors.precio1 && <p className="text-[10px] font-black text-red-500 mt-2 uppercase tracking-tight">{errors.precio1}</p>}
+                                    <Input id="precio1Item" type="number" step={0.01} value={formData.precio1} onChange={(e) => handleChange("precio1", parseFloat(e.target.value) || 0)} className="border-brand-300 dark:border-brand-800 font-black text-3xl text-brand-700 dark:text-brand-300 bg-white/80 dark:bg-gray-900/80 py-6 rounded-3xl" />
+                                    {errors.precio1 && <p className="text-xs font-black text-red-500 mt-2 uppercase tracking-tight">{errors.precio1}</p>}
                                 </div>
                                 
                                 {formData.unidadMedida !== "Servicio" && (
                                     <div className="grid grid-cols-2 gap-4 animate-fadeIn">
                                         <div className="bg-white dark:bg-gray-800/40 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                                            <Label className="text-[10px] font-bold text-gray-400 uppercase mb-1">P2 - Mayorista</Label>
-                                            <Input type="number" step={0.01} value={formData.precio2} onChange={(e) => handleChange("precio2", parseFloat(e.target.value) || 0)} className="border-none p-0 h-auto font-black text-xl bg-transparent focus:ring-0" />
+                                            <Label htmlFor="precio2Item" className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">P2 - Mayorista</Label>
+                                            <Input id="precio2Item" type="number" step={0.01} value={formData.precio2} onChange={(e) => handleChange("precio2", parseFloat(e.target.value) || 0)} className="border-none p-0 h-auto font-black text-xl bg-transparent focus:ring-0" />
                                         </div>
                                         <div className="bg-white dark:bg-gray-800/40 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                                            <Label className="text-[10px] font-bold text-gray-400 uppercase mb-1">P3 - Especial</Label>
-                                            <Input type="number" step={0.01} value={formData.precio3} onChange={(e) => handleChange("precio3", parseFloat(e.target.value) || 0)} className="border-none p-0 h-auto font-black text-xl bg-transparent focus:ring-0" />
+                                            <Label htmlFor="precio3Item" className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">P3 - Especial</Label>
+                                            <Input id="precio3Item" type="number" step={0.01} value={formData.precio3} onChange={(e) => handleChange("precio3", parseFloat(e.target.value) || 0)} className="border-none p-0 h-auto font-black text-xl bg-transparent focus:ring-0" />
                                         </div>
                                         <div className="col-span-2 bg-white dark:bg-gray-800/40 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                                            <Label className="text-[10px] font-bold text-gray-400 uppercase mb-1">P4 - Distribución / Remate</Label>
-                                            <Input type="number" step={0.01} value={formData.precio4} onChange={(e) => handleChange("precio4", parseFloat(e.target.value) || 0)} className="border-none p-0 h-auto font-black text-xl bg-transparent focus:ring-0" />
+                                            <Label htmlFor="precio4Item" className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">P4 - Distribución / Remate</Label>
+                                            <Input id="precio4Item" type="number" step={0.01} value={formData.precio4} onChange={(e) => handleChange("precio4", parseFloat(e.target.value) || 0)} className="border-none p-0 h-auto font-black text-xl bg-transparent focus:ring-0" />
                                         </div>
                                     </div>
                                 )}
@@ -440,7 +445,7 @@ export default function IngresarParteForm({
                                 <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                                     <ScaleIcon className="w-5 h-5 text-blue-600" />
                                 </div>
-                                <h4 className="font-black text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300">Medición Seleccionada</h4>
+                                <h3 className="font-black text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300">Medición Seleccionada</h3>
                             </div>
                             <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 flex items-center justify-between">
                                 <span className="text-sm font-bold text-gray-500">Unidad de Medida:</span>
@@ -465,7 +470,7 @@ export default function IngresarParteForm({
                                     />
                                     <div>
                                         <label htmlFor="frac" className="text-xs font-black text-blue-900 dark:text-blue-200 cursor-pointer block uppercase tracking-wide">Venta Fraccionada</label>
-                                        <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400">Permite ingresar cantidades con decimales</span>
+                                        <span className="text-xs font-medium text-blue-700 dark:text-blue-400">Permite ingresar cantidades con decimales</span>
                                     </div>
                                 </div>
                             )}
@@ -488,12 +493,13 @@ export default function IngresarParteForm({
                                         <div className="p-2 bg-brand-100 dark:bg-brand-900/30 rounded-lg">
                                             <MapPinIcon className="w-5 h-5 text-brand-600" />
                                         </div>
-                                        <h4 className="font-black text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300">Inventario Inicial</h4>
+                                        <h3 className="font-black text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300">Inventario Inicial</h3>
                                     </div>
                                     <div className="grid grid-cols-2 gap-6">
                                         <div className="bg-white dark:bg-gray-900 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
-                                            <Label className="text-[10px] font-black uppercase text-gray-400 mb-1">Stock Actual</Label>
+                                            <Label htmlFor="stockItem" className="text-xs font-black uppercase text-gray-500 dark:text-gray-400 mb-1">Stock Actual</Label>
                                             <Input 
+                                                id="stockItem"
                                                 type="number" 
                                                 step={formData.permiteFraccionar ? 0.001 : 1} 
                                                 value={formData.stock} 
@@ -505,8 +511,9 @@ export default function IngresarParteForm({
                                             />
                                         </div>
                                         <div className="bg-white dark:bg-gray-900 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
-                                            <Label className="text-[10px] font-black uppercase text-red-400 mb-1">Alerta Mínima</Label>
+                                            <Label htmlFor="stockMinimoItem" className="text-xs font-black uppercase text-red-500 mb-1">Alerta Mínima</Label>
                                             <Input 
+                                                id="stockMinimoItem"
                                                 type="number" 
                                                 step={formData.permiteFraccionar ? 0.001 : 1}
                                                 value={formData.stockMinimo} 
@@ -519,10 +526,10 @@ export default function IngresarParteForm({
                                         </div>
                                     </div>
                                     <div>
-                                        <Label className="text-xs font-bold text-gray-500 mb-2">Ubicación Física en Almacén</Label>
+                                        <Label htmlFor="ubicacionItem" className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">Ubicación Física en Almacén</Label>
                                         <div className="relative">
                                             <MapPinIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                                            <Input value={formData.ubicacion} onChange={(e) => handleChange("ubicacion", e.target.value)} placeholder="Ej: Sección B - Percha 4" className="pl-10 rounded-2xl py-3" />
+                                            <Input id="ubicacionItem" value={formData.ubicacion} onChange={(e) => handleChange("ubicacion", e.target.value)} placeholder="Ej: Sección B - Percha 4" className="pl-10 rounded-2xl py-3" />
                                         </div>
                                     </div>
                                 </div>

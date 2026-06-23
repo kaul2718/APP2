@@ -30,7 +30,7 @@ export default function ChecklistTemplateTable({ onEdit }: Props) {
     if (loading) return (
         <div className="flex flex-col items-center justify-center p-12 space-y-4">
             <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500 font-medium">Cargando plantillas de peritaje...</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Cargando plantillas de peritaje...</p>
         </div>
     );
 
@@ -41,11 +41,11 @@ export default function ChecklistTemplateTable({ onEdit }: Props) {
             <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
                 <thead>
                     <tr className="bg-gray-50/50 dark:bg-gray-800/50">
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Plantilla</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipo de Equipo</th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">Puntos de Revisión</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest">Plantilla</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Tipo de Equipo</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest">Puntos de Revisión</th>
                         {canManage && (
-                            <th className="px-6 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-widest">Acciones</th>
+                            <th className="px-6 py-4 text-right text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest">Acciones</th>
                         )}
                     </tr>
                 </thead>
@@ -91,6 +91,7 @@ export default function ChecklistTemplateTable({ onEdit }: Props) {
                                             onClick={() => onEdit(template)}
                                             className="p-2 text-gray-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 rounded-lg transition-all"
                                             title="Editar plantilla"
+                                            aria-label="Editar plantilla"
                                         >
                                             <PencilSquareIcon className="w-5 h-5" />
                                         </button>
@@ -98,6 +99,7 @@ export default function ChecklistTemplateTable({ onEdit }: Props) {
                                             onClick={() => handleConfirmDelete(template.id, template.nombre)}
                                             className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
                                             title="Eliminar plantilla"
+                                            aria-label="Eliminar plantilla"
                                         >
                                             <TrashIcon className="w-5 h-5" />
                                         </button>

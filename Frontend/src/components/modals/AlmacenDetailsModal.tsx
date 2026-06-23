@@ -60,7 +60,7 @@ export default function AlmacenDetailsModal({ isOpen, onClose, parte: item }: Pr
                                 <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
                                     {item.nombre}
                                 </h3>
-                                <Badge variant="light" color={item.estado ? "success" : "error"} className="font-black px-3 py-1 uppercase text-[10px]">
+                                <Badge variant="light" color={item.estado ? "success" : "error"} className="font-black px-3 py-1 uppercase text-xs">
                                     {item.estado ? "En Stock" : "Descontinuado"}
                                 </Badge>
                             </div>
@@ -86,7 +86,7 @@ export default function AlmacenDetailsModal({ isOpen, onClose, parte: item }: Pr
                                     Métricas Comerciales
                                 </h4>
                                 {item.permiteModificarPrecio && (
-                                    <span className="text-[9px] font-black bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full uppercase">Precio Variable</span>
+                                    <span className="text-xs font-black bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full uppercase">Precio Variable</span>
                                 )}
                             </div>
                             <div className="bg-white dark:bg-gray-900/40 rounded-2xl space-y-0">
@@ -98,7 +98,7 @@ export default function AlmacenDetailsModal({ isOpen, onClose, parte: item }: Pr
                                 <DetailRow icon={TagIcon} label="Especial (P3)" value={formatCurrency(item.precio3)} />
                                 <DetailRow icon={TagIcon} label="Remate / Dist (P4)" value={formatCurrency(item.precio4)} />
                                 <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl flex items-center justify-between">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase">Configuración de IVA</span>
+                                    <span className="text-xs font-black text-gray-600 dark:text-gray-400 uppercase">Configuración de IVA</span>
                                     <span className="text-sm font-black text-gray-700 dark:text-gray-300">{item.ivaTarifa}% Aplicado</span>
                                 </div>
                             </div>
@@ -119,7 +119,7 @@ export default function AlmacenDetailsModal({ isOpen, onClose, parte: item }: Pr
                                     : 'bg-green-50 border-green-100 dark:bg-green-900/10 dark:border-green-900/30'
                                 }`}>
                                     <div>
-                                        <p className="text-[10px] font-black uppercase text-gray-500 mb-1">Stock Disponible</p>
+                                        <p className="text-xs font-black uppercase text-gray-600 dark:text-gray-400 mb-1">Stock Disponible</p>
                                         <p className={`text-3xl font-black ${item.stock <= item.stockMinimo ? 'text-red-600' : 'text-green-600'}`}>
                                             {item.stock} <span className="text-sm font-bold opacity-70">{item.unidadMedida}</span>
                                         </p>
@@ -133,7 +133,7 @@ export default function AlmacenDetailsModal({ isOpen, onClose, parte: item }: Pr
                                 
                                 <div className="mt-4 flex items-center gap-4">
                                     <div className="flex-1 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-2xl border border-gray-100 dark:border-gray-800">
-                                        <p className="text-[9px] font-black text-gray-400 uppercase mb-1">Fraccionamiento</p>
+                                        <p className="text-xs font-black text-gray-600 dark:text-gray-400 uppercase mb-1">Fraccionamiento</p>
                                         <p className="text-xs font-bold">{item.permiteFraccionar ? "Habilitado (Decimales)" : "Deshabilitado (Enteros)"}</p>
                                     </div>
                                 </div>
@@ -143,14 +143,14 @@ export default function AlmacenDetailsModal({ isOpen, onClose, parte: item }: Pr
  
                     {/* Description Area */}
                     <div className="mt-10 p-6 bg-gray-50 dark:bg-gray-800/50 rounded-3xl border border-gray-100 dark:border-gray-800">
-                        <h5 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">
+                        <p className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 mb-3">
                             <InformationCircleIcon className="w-4 h-4" />
                             Notas Adicionales y Descripción
-                        </h5>
+                        </p>
                         <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed font-medium">
                             {item.descripcion || "Este producto no cuenta con especificaciones técnicas adicionales registradas en el sistema."}
                         </p>
-                        <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex items-center gap-4 text-[10px] font-bold text-gray-400 uppercase">
+                        <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex items-center gap-4 text-xs font-bold text-gray-600 dark:text-gray-400 uppercase">
                             <span className="flex items-center gap-1"><CalendarDaysIcon className="w-3.5 h-3.5" /> Alta: {new Date(item.createdAt).toLocaleDateString()}</span>
                             <span className="flex items-center gap-1"><CalendarDaysIcon className="w-3.5 h-3.5" /> Últ. Mov: {new Date(item.updatedAt).toLocaleDateString()}</span>
                         </div>

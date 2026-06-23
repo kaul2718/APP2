@@ -89,10 +89,10 @@ const InputDisplay = ({
     customDisplay?: React.ReactNode;
 }) => (
     <div className="space-y-1">
-        <label className="block text-[11px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
+        <p className="block text-xs font-black uppercase tracking-wider text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
             {icon}
             {label}
-        </label>
+        </p>
         {customDisplay ? (
             customDisplay
         ) : (
@@ -104,7 +104,7 @@ const InputDisplay = ({
 );
 
 const SectionHeader = ({ title }: { title: string }) => (
-    <h3 className="mb-4 text-xs font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-white/[0.05] pb-2">
+    <h3 className="mb-4 text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-white/[0.05] pb-2">
         {title}
     </h3>
 );
@@ -329,17 +329,18 @@ export default function PresupuestoDetailsModal({
                         </div>
 
                         <div className="space-y-2">
-                            <label className="block text-[11px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
+                            <p className="block text-xs font-black uppercase tracking-wider text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
                                 <Icon>
-                                    <DocumentTextIcon className="w-5 h-5" />
+                                    <DocumentTextIcon className="w-5 h-5" aria-hidden="true" />
                                 </Icon>
                                 Descripción / Notas
-                            </label>
+                            </p>
                             <textarea
+                                id="presupuesto-descripcion"
                                 readOnly
                                 value={presupuesto.descripcion || "Sin descripción"}
                                 className="w-full rounded-xl border border-gray-200 dark:border-white/[0.08] bg-gray-50/50 dark:bg-white/[0.03] px-4 py-3 text-sm font-semibold text-gray-805 dark:text-gray-100 h-[108px] resize-none outline-none"
-                                tabIndex={-1}
+                                aria-label="Descripción del presupuesto"
                             />
                         </div>
                     </div>
@@ -348,26 +349,26 @@ export default function PresupuestoDetailsModal({
                 {resumen && (
                     <CardContainer>
                         <div className="flex justify-between items-center mb-4 border-b border-gray-100 dark:border-white/[0.05] pb-2">
-                            <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                            <h3 className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">
                                 Resumen de Costos
                             </h3>
                             {!presupuesto.deletedAt && (
                                 <button
                                     type="button"
                                     onClick={() => setView('addItem')}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-md shadow-blue-500/20 text-[10px] uppercase tracking-wider transition-colors"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-md shadow-blue-500/20 text-xs uppercase tracking-wider transition-colors"
                                 >
-                                    <PlusIcon className="w-3.5 h-3.5" /> Agregar Ítems / Servicios
+                                    <PlusIcon className="w-3.5 h-3.5" aria-hidden="true" /> Agregar Ítems / Servicios
                                 </button>
                             )}
                         </div>
                         <div className="space-y-6">
                             {/* Mano de Obra y Servicios */}
                             <div>
-                                <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3 flex items-center gap-1.5">
-                                    <WrenchScrewdriverIcon className="h-4.5 w-4.5 text-blue-500" />
+                                <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 mb-3 flex items-center gap-1.5">
+                                    <WrenchScrewdriverIcon className="h-4 w-4 text-blue-500" aria-hidden="true" />
                                     Mano de Obra / Servicios
-                                </h4>
+                                </p>
 
                                 {resumen.detalleManoObra && resumen.detalleManoObra.length > 0 ? (
                                     <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
@@ -381,7 +382,7 @@ export default function PresupuestoDetailsModal({
                                                         <span className="text-sm font-bold text-blue-950 dark:text-blue-200">
                                                             {mo.nombre || mo.tipo}
                                                         </span>
-                                                        <div className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5 font-semibold">
+                                                        <div className="text-xs text-blue-600 dark:text-blue-400 mt-0.5 font-semibold">
                                                             Cantidad: {mo.cantidad} u. | Subtotal: {formatCurrency(mo.subtotal || mo.costoTotal)}
                                                         </div>
                                                     </div>
@@ -391,9 +392,10 @@ export default function PresupuestoDetailsModal({
                                                         type="button"
                                                         onClick={() => handleDeleteItem(mo.id, true)}
                                                         disabled={loadingDelete === mo.id}
+                                                        aria-label="Eliminar servicio del presupuesto"
                                                         className="p-1.5 text-blue-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                                     >
-                                                        <TrashIcon className="h-4 w-4" />
+                                                        <TrashIcon className="h-4 w-4" aria-hidden="true" />
                                                     </button>
                                                 )}
                                             </div>
@@ -409,10 +411,10 @@ export default function PresupuestoDetailsModal({
                             {/* Repuestos e Ítems */}
                             <div>
                                 <div className="flex justify-between items-center mb-3">
-                                    <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
-                                        <CubeIcon className="h-4.5 w-4.5 text-brand-500" />
+                                    <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
+                                        <CubeIcon className="h-4 w-4 text-brand-500" aria-hidden="true" />
                                         Repuestos / Ítems
-                                    </h4>
+                                    </p>
                                 </div>
 
                                 {resumen.detalleItems && resumen.detalleItems.length > 0 ? (
@@ -427,7 +429,7 @@ export default function PresupuestoDetailsModal({
                                                         <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
                                                             {item.nombre}
                                                         </span>
-                                                        <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 font-semibold">
+                                                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-semibold">
                                                             Cantidad: {item.cantidad} u. | P. Unit: {formatCurrency(item.precioUnitario)} | Subtotal: {formatCurrency(item.subtotal)}
                                                         </div>
                                                     </div>
@@ -437,9 +439,10 @@ export default function PresupuestoDetailsModal({
                                                         type="button"
                                                         onClick={() => handleDeleteItem(item.id, false)}
                                                         disabled={loadingDelete === item.id}
+                                                        aria-label="Eliminar repuesto del presupuesto"
                                                         className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                                     >
-                                                        <TrashIcon className="h-4 w-4" />
+                                                        <TrashIcon className="h-4 w-4" aria-hidden="true" />
                                                     </button>
                                                 )}
                                             </div>
@@ -456,7 +459,7 @@ export default function PresupuestoDetailsModal({
                         {/* Total General */}
                         <div className="mt-6 bg-gray-50 dark:bg-white/[0.02] p-5 rounded-2xl border border-gray-200 dark:border-white/[0.05] flex items-center justify-between">
                             <div>
-                                <span className="text-[10px] text-gray-550 dark:text-gray-400 uppercase font-black tracking-wider block">Total General Acumulado</span>
+                                <span className="text-xs text-gray-600 dark:text-gray-400 uppercase font-black tracking-wider block">Total General Acumulado</span>
                                 <span className="text-3xl font-black text-blue-600 dark:text-blue-400">
                                     {formatCurrency(resumen.costoTotal)}
                                 </span>
@@ -472,30 +475,30 @@ export default function PresupuestoDetailsModal({
                             <div className="mt-6 flex gap-3">
                                 {presupuesto.estado?.id !== 2 && ( // Mostrar si no está aprobado
                                     <button
-                                        onClick={() => handleChangeStatus(2, "Aprobado")} // ID 2 para Aprobado
+                                        onClick={() => handleChangeStatus(2, "Aprobado")}
                                         className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-green-500/10 transition-all flex items-center justify-center gap-2"
                                     >
-                                        <CheckIcon className="h-5 w-5" />
+                                        <CheckIcon className="h-5 w-5" aria-hidden="true" />
                                         Aprobar
                                     </button>
                                 )}
 
                                 {presupuesto.estado?.id !== 4 && ( // Mostrar si no está rechazado
                                     <button
-                                        onClick={() => handleChangeStatus(4, "Rechazado")} // ID 4 para Rechazado
+                                        onClick={() => handleChangeStatus(4, "Rechazado")}
                                         className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-red-500/10 transition-all flex items-center justify-center gap-2"
                                     >
-                                        <XMarkIcon className="h-5 w-5" />
+                                        <XMarkIcon className="h-5 w-5" aria-hidden="true" />
                                         Rechazar
                                     </button>
                                 )}
 
                                 {presupuesto.estado?.id !== 1 && ( // Mostrar si no está pendiente
                                     <button
-                                        onClick={() => handleChangeStatus(1, "Pendiente")} // ID 1 para Pendiente
+                                        onClick={() => handleChangeStatus(1, "Pendiente")}
                                         className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-yellow-500/10 transition-all flex items-center justify-center gap-2"
                                     >
-                                        <ClockIcon className="h-5 w-5" />
+                                        <ClockIcon className="h-5 w-5" aria-hidden="true" />
                                         Poner Pendiente
                                     </button>
                                 )}

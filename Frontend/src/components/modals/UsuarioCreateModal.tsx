@@ -141,10 +141,10 @@ export default function UsuarioCreateModal({ isOpen, onClose, onSave }: Props) {
             title="Crear Usuario"
         >
             <div className="no-scrollbar relative w-full max-w-[800px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-10">
-                <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
+                <h2 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
                     Crear Usuario
-                </h4>
-                <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                </h2>
+                <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
                     Completa todos los campos requeridos. La contraseña es opcional.
                 </p>
 

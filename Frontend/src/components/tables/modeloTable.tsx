@@ -112,7 +112,7 @@ export default function ModeloTable({ modeloHook }: ModeloTableProps) {
             <p className="font-bold text-gray-900 dark:text-white">
               {modelo.nombre}
             </p>
-            <p className="text-xs text-gray-500">ID: #{modelo.id}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">ID: #{modelo.id}</p>
           </div>
         </div>
       ),

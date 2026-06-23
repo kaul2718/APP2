@@ -142,19 +142,16 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
       title={`Editar Orden #${order.workOrderNumber}`}
       className="max-w-2xl"
     >
-      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white pr-8">
-          Editar Orden #{order.workOrderNumber}
-        </h2>
-      </div>
+
       <form onSubmit={handleSubmit} className="p-6 space-y-6">
         {/* Técnico asignado */}
         {session?.user?.role !== 'tech' && (
           <div>
-            <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+            <label htmlFor="edit-technicianId" className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
               Técnico Asignado
             </label>
             <select
+              id="edit-technicianId"
               name="technicianId"
               value={formData.technicianId}
               onChange={handleChange}
@@ -204,10 +201,11 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Tiempo estimado de reparación */}
           <div>
-            <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+            <label htmlFor="edit-tiempoEstimado" className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
               Horas Estimadas de Reparación
             </label>
             <input
+              id="edit-tiempoEstimado"
               type="number"
               name="tiempoEstimadoReparacion"
               value={formData.tiempoEstimadoReparacion}
@@ -221,10 +219,11 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
 
           {/* Fecha prometida de entrega */}
           <div>
-            <Label className="mb-2 block">Fecha Estimada de Entrega</Label>
+            <Label htmlFor="edit-fechaEntrega" className="mb-2 block">Fecha Estimada de Entrega</Label>
             <div className="relative">
-              <CalendarIcon className="w-5 h-5 text-gray-400 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+              <CalendarIcon className="w-5 h-5 text-gray-400 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" aria-hidden="true" />
               <input
+                id="edit-fechaEntrega"
                 type="datetime-local"
                 name="fechaPrometidaEntrega"
                 value={formData.fechaPrometidaEntrega}
@@ -237,10 +236,11 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
 
         {/* Estado de la orden (Eliminado para respetar el flujo estricto) */}        {/* Casillero - Siempre visible */}
         <div>
-          <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+          <label htmlFor="edit-casilleroId" className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
             Asignar Casillero
           </label>
           <select
+            id="edit-casilleroId"
             name="casilleroId"
             value={formData.casilleroId}
             onChange={handleChange}
@@ -264,10 +264,11 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
 
         {/* Problema reportado */}
         <div>
-          <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+          <label htmlFor="edit-problemaReportado" className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
             Problema Reportado
           </label>
           <textarea
+            id="edit-problemaReportado"
             name="problemaReportado"
             value={formData.problemaReportado}
             onChange={handleChange}
@@ -279,10 +280,11 @@ export default function OrdenEditModal({ isOpen, onClose, order, onSave }: Props
 
         {/* Accesorios */}
         <div>
-          <label className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
+          <label htmlFor="edit-accesorios" className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
             Accesorios (separados por comas)
           </label>
           <input
+            id="edit-accesorios"
             type="text"
             name="accesorios"
             value={formData.accesorios}

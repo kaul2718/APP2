@@ -481,7 +481,7 @@ export default function EvidenciaTecnicaModal({
                                         maxLength={200}
                                         aria-label="Descripción de la evidencia"
                                     />
-                                    <div className="text-right text-xs text-gray-500 mt-1">
+                                    <div className="text-right text-xs text-gray-500 dark:text-gray-300 mt-1" aria-live="polite">
                                         {descripcion.length}/200 caracteres
                                     </div>
                                     {errors.descripcion && (
@@ -574,6 +574,8 @@ export default function EvidenciaTecnicaModal({
                                         onClick={() => goToPage(currentPage - 1)}
                                         disabled={currentPage === 1}
                                         className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                        title="Página anterior"
+                                        aria-label="Página anterior"
                                     >
                                         <ArrowLeftIcon className="w-4 h-4" />
                                     </button>
@@ -595,6 +597,8 @@ export default function EvidenciaTecnicaModal({
                                                 key={pageNum}
                                                 type="button"
                                                 onClick={() => goToPage(pageNum)}
+                                                aria-label={`Página ${pageNum}`}
+                                                aria-current={currentPage === pageNum ? "page" : undefined}
                                                 className={`flex h-8 min-w-[32px] items-center justify-center rounded-md border text-sm font-medium transition-colors px-2 ${
                                                     currentPage === pageNum
                                                         ? 'border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500'
@@ -611,6 +615,8 @@ export default function EvidenciaTecnicaModal({
                                         onClick={() => goToPage(currentPage + 1)}
                                         disabled={currentPage === totalPages}
                                         className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                        title="Página siguiente"
+                                        aria-label="Página siguiente"
                                     >
                                         <ArrowRightIcon className="w-4 h-4" />
                                     </button>

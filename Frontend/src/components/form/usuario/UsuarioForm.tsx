@@ -47,6 +47,19 @@ export default function UsuarioForm({
     const { data: session } = useSession();
     const token = session?.accessToken || null;
 
+    const idInputId = React.useId();
+    const cedulaInputId = React.useId();
+    const nombreInputId = React.useId();
+    const apellidoInputId = React.useId();
+    const correoInputId = React.useId();
+    const telefonoInputId = React.useId();
+    const direccionInputId = React.useId();
+    const ciudadInputId = React.useId();
+    const roleInputId = React.useId();
+    const estadoInputId = React.useId();
+    const passwordInputId = React.useId();
+    const confirmPasswordInputId = React.useId();
+
     const [buscandoSri, setBuscandoSri] = React.useState(false);
     const [mensajeSri, setMensajeSri] = React.useState<{ tipo: "exito" | "error" | "cargando"; texto: string } | null>(null);
 
@@ -170,17 +183,18 @@ export default function UsuarioForm({
                 {/* ID - Solo en edit mode */}
                 {isEditMode && formData.id && (
                     <div>
-                        <Label>ID</Label>
-                        <Input name="id" value={formData.id} disabled />
+                        <Label htmlFor={idInputId}>ID</Label>
+                        <Input id={idInputId} name="id" value={formData.id} disabled />
                     </div>
                 )}
 
                 {/* Cédula */}
                 <div>
-                    <Label>Cédula o RUC {!isEditMode && "*"}</Label>
+                    <Label htmlFor={cedulaInputId}>Cédula o RUC {!isEditMode && "*"}</Label>
                     <div className="relative">
                         <IdentificationIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                         <Input
+                            id={cedulaInputId}
                             value={formData.cedula}
                             onChange={(e) => handleChange("cedula", e.target.value)}
                             placeholder="Ej: 0601234567"
@@ -207,10 +221,11 @@ export default function UsuarioForm({
 
                 {/* Nombre */}
                 <div>
-                    <Label>Nombre *</Label>
+                    <Label htmlFor={nombreInputId}>Nombre *</Label>
                     <div className="relative">
                         <UserIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                         <Input
+                            id={nombreInputId}
                             autoComplete="given-name"
                             value={formData.nombre}
                             onChange={(e) => handleChange("nombre", e.target.value)}
@@ -229,10 +244,11 @@ export default function UsuarioForm({
 
                 {/* Apellido */}
                 <div>
-                    <Label>Apellido *</Label>
+                    <Label htmlFor={apellidoInputId}>Apellido *</Label>
                     <div className="relative">
                         <UserIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                         <Input
+                            id={apellidoInputId}
                             autoComplete="family-name"
                             value={formData.apellido}
                             onChange={(e) => handleChange("apellido", e.target.value)}
@@ -251,10 +267,11 @@ export default function UsuarioForm({
 
                 {/* Correo */}
                 <div>
-                    <Label>Correo Electrónico *</Label>
+                    <Label htmlFor={correoInputId}>Correo Electrónico *</Label>
                     <div className="relative">
                         <EnvelopeIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                         <Input
+                            id={correoInputId}
                             type="email"
                             autoComplete="email"
                             value={formData.correo}
@@ -274,10 +291,11 @@ export default function UsuarioForm({
 
                 {/* Teléfono */}
                 <div>
-                    <Label>Teléfono *</Label>
+                    <Label htmlFor={telefonoInputId}>Teléfono *</Label>
                     <div className="relative">
                         <PhoneIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                         <Input
+                            id={telefonoInputId}
                             autoComplete="tel"
                             value={formData.telefono}
                             onChange={(e) => handleTelefonoChange(e.target.value)}
@@ -297,10 +315,11 @@ export default function UsuarioForm({
 
                 {/* Dirección */}
                 <div>
-                    <Label>Dirección *</Label>
+                    <Label htmlFor={direccionInputId}>Dirección *</Label>
                     <div className="relative">
                         <HomeIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                         <Input
+                            id={direccionInputId}
                             autoComplete="street-address"
                             value={formData.direccion}
                             onChange={(e) => handleChange("direccion", e.target.value)}
@@ -319,10 +338,11 @@ export default function UsuarioForm({
 
                 {/* Ciudad */}
                 <div>
-                    <Label>Ciudad *</Label>
+                    <Label htmlFor={ciudadInputId}>Ciudad *</Label>
                     <div className="relative">
                         <MapIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                         <Input
+                            id={ciudadInputId}
                             autoComplete="address-level2"
                             value={formData.ciudad}
                             onChange={(e) => handleChange("ciudad", e.target.value)}
@@ -341,10 +361,11 @@ export default function UsuarioForm({
 
                 {/* Rol */}
                 <div>
-                    <Label>Rol *</Label>
+                    <Label htmlFor={roleInputId}>Rol *</Label>
                     <div className="relative">
                         <UserIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                         <select
+                            id={roleInputId}
                             value={formData.role}
                             onChange={(e) => handleChange("role", e.target.value ? parseInt(e.target.value) : 0)}
                             disabled={isLoading}
@@ -376,9 +397,10 @@ export default function UsuarioForm({
                 {/* Estado - Solo en edit mode */}
                 {isEditMode && formData.estado !== undefined && (
                     <div className="space-y-2">
-                        <Label>Estado</Label>
+                        <Label htmlFor={estadoInputId}>Estado</Label>
                         <div className="relative">
                             <select
+                                id={estadoInputId}
                                 value={formData.estado.toString()}
                                 onChange={(e) => handleChange("estado", e.target.value === "true")}
                                 disabled={isLoading}
@@ -398,10 +420,11 @@ export default function UsuarioForm({
 
                 {/* Contraseña */}
                 <div>
-                    <Label>{isEditMode ? "Nueva Contraseña (Opcional)" : "Contraseña (Opcional)"}</Label>
+                    <Label htmlFor={passwordInputId}>{isEditMode ? "Nueva Contraseña (Opcional)" : "Contraseña (Opcional)"}</Label>
                     <div className="relative">
                         <LockClosedIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                         <Input
+                            id={passwordInputId}
                             type={showPassword ? "text" : "password"}
                             autoComplete="new-password"
                             value={formData.password || ""}
@@ -413,6 +436,8 @@ export default function UsuarioForm({
                         <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
+                            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                            title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white focus:outline-none z-10"
                         >
                             {showPassword ? (
@@ -431,10 +456,11 @@ export default function UsuarioForm({
                 </div>
 
                 <div>
-                    <Label>{isEditMode ? "Confirmar Nueva Contraseña" : "Confirmar Contraseña (Opcional)"}</Label>
+                    <Label htmlFor={confirmPasswordInputId}>{isEditMode ? "Confirmar Nueva Contraseña" : "Confirmar Contraseña (Opcional)"}</Label>
                     <div className="relative">
                         <LockClosedIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                         <Input
+                            id={confirmPasswordInputId}
                             type={showConfirmPassword ? "text" : "password"}
                             autoComplete="new-password"
                             value={formData.confirmPassword || ""}
@@ -446,6 +472,8 @@ export default function UsuarioForm({
                         <button
                             type="button"
                             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            aria-label={showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                            title={showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white focus:outline-none z-10"
                         >
                             {showConfirmPassword ? (
@@ -466,8 +494,8 @@ export default function UsuarioForm({
 
 function ModifiedIndicator({ field }: { field: string }) {
     return (
-        <div className="mt-2 flex items-start text-sm text-yellow-600">
-            <ExclamationTriangleIcon className="h-4 w-4 text-yellow-500 mt-0.5 mr-1 flex-shrink-0" />
+        <div className="mt-2 flex items-start text-sm text-amber-800 dark:text-amber-400">
+            <ExclamationTriangleIcon className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 mr-1 flex-shrink-0" />
             <span>Se actualizará el {field}</span>
         </div>
     );

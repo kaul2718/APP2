@@ -362,9 +362,9 @@ export default function AgregarPresupuestoModal({
         >
             <form onSubmit={handleSubmitAll} className="text-gray-700 dark:text-gray-300 p-6 md:p-8 space-y-6">
                 <div className="flex flex-col gap-1.5 border-b pb-4 border-gray-250 dark:border-gray-700">
-                    <h3 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
+                    <p className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
                         Crear Presupuesto
-                    </h3>
+                    </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                         Completa la información básica y añade productos o servicios del catálogo en un único paso interactivo.
                     </p>
@@ -373,10 +373,10 @@ export default function AgregarPresupuestoModal({
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     {/* Panel Izquierdo: Información Básica */}
                     <div className="lg:col-span-5 space-y-6">
-                        <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5 border-b pb-2">
-                            <SparklesIcon className="w-5 h-5 text-blue-500" />
+                        <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5 border-b pb-2">
+                            <SparklesIcon className="w-5 h-5 text-blue-500" aria-hidden="true" />
                             1. Datos Generales
-                        </h4>
+                        </h3>
 
                         {/* Selección de orden */}
                         <div>
@@ -397,11 +397,11 @@ export default function AgregarPresupuestoModal({
                                             className="w-full bg-gray-100 dark:bg-white/[0.03] text-black dark:text-white p-2.5 pl-10 rounded-lg border border-gray-300 dark:border-white/[0.08] cursor-not-allowed text-xs font-semibold"
                                             disabled
                                         />
-                                        <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
+                                        <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" aria-hidden="true" />
                                     </>
                                 ) : (
                                     <>
-                                        <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                                        <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" aria-hidden="true" />
                                         <select
                                             id="order-select"
                                             value={formData.ordenId || ""}
@@ -427,7 +427,7 @@ export default function AgregarPresupuestoModal({
                         <div>
                             <Label htmlFor="estado-select" className="mb-1 block font-medium">Estado Inicial *</Label>
                             <div className="relative">
-                                <DocumentTextIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                                <DocumentTextIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" aria-hidden="true" />
                                 <select
                                     id="estado-select"
                                     value={formData.estadoId || ""}
@@ -448,7 +448,7 @@ export default function AgregarPresupuestoModal({
                         <div>
                             <Label htmlFor="descripcion-textarea" className="mb-1 block font-medium">Descripción / Diagnóstico *</Label>
                             <div className="relative">
-                                <DocumentTextIcon className="w-5 h-5 text-gray-400 absolute left-3 top-4" />
+                                <DocumentTextIcon className="w-5 h-5 text-gray-400 absolute left-3 top-4" aria-hidden="true" />
                                 <textarea
                                     id="descripcion-textarea"
                                     value={formData.descripcion}
@@ -467,20 +467,21 @@ export default function AgregarPresupuestoModal({
                     {/* Panel Derecho: Selección y Tabla de Items */}
                     <div className="lg:col-span-7 space-y-6 flex flex-col justify-between">
                         <div>
-                            <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5 border-b pb-2">
-                                <ArchiveBoxIcon className="w-5 h-5 text-amber-500" />
+                            <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5 border-b pb-2">
+                                <ArchiveBoxIcon className="w-5 h-5 text-amber-500" aria-hidden="true" />
                                 2. Repuestos y Servicios
-                            </h4>
+                            </h3>
 
                             {/* Selector de Items Combobox */}
                             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mt-4 items-end">
                                 <div className="md:col-span-6">
-                                    <Label className="text-xs">Seleccionar Ítem o Servicio *</Label>
+                                    <Label htmlFor="combo-item" className="text-xs">Seleccionar Ítem o Servicio *</Label>
                                     <Combobox value={selectedCatalogId} onChange={handleCatalogSelect}>
                                         <div className="relative">
                                             <div className="relative w-full">
-                                                <TagIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
+                                                <TagIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" aria-hidden="true" />
                                                 <Combobox.Input
+                                                    id="combo-item"
                                                     className="w-full pl-9 pr-10 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
                                                     displayValue={(val: any) => {
                                                         const p = partesCatalog.find(x => String(x.id) === String(val));
@@ -502,14 +503,14 @@ export default function AgregarPresupuestoModal({
                                                             <div className="flex flex-col">
                                                                 <div className="flex items-center justify-between font-medium">
                                                                     <span>{p.nombre}</span>
-                                                                    <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${p.unidadMedida === 'Servicio'
+                                                                    <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${p.unidadMedida === 'Servicio'
                                                                             ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200'
                                                                             : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
                                                                         }`}>
                                                                         {p.unidadMedida === 'Servicio' ? 'Servicio' : 'Repuesto'}
                                                                     </span>
                                                                 </div>
-                                                                <span className="text-[10px] opacity-75">
+                                                                <span className="text-xs opacity-75">
                                                                     PVP: {formatCurrency(p.precio1 || 0)} {p.unidadMedida !== 'Servicio' && `| Stock: ${p.stock}`}
                                                                 </span>
                                                             </div>
@@ -523,7 +524,7 @@ export default function AgregarPresupuestoModal({
 
                                 {selectedParteDetails && selectedParteDetails.unidadMedida !== 'Servicio' && (
                                     <div className="md:col-span-12 mt-2 bg-gray-50 dark:bg-gray-800/40 p-3 rounded-xl border border-gray-200 dark:border-gray-700 animate-fadeIn">
-                                        <Label className="text-[10px] uppercase font-bold text-gray-500 mb-1.5 block">Nivel de Precio Seleccionado</Label>
+                                        <p className="text-xs uppercase font-bold text-gray-600 mb-1.5 block">Nivel de Precio Seleccionado</p>
                                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                             {[
                                                 { key: 'p1', label: 'P1: Público (PVP)', value: selectedParteDetails.precio1 },
@@ -538,13 +539,13 @@ export default function AgregarPresupuestoModal({
                                                         setActiveTier(tier.key as any);
                                                         setItemPrice(String(tier.value || 0));
                                                     }}
-                                                    className={`px-2 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${activeTier === tier.key
+                                                    className={`px-2 py-1.5 rounded-lg border text-xs font-bold transition-all ${activeTier === tier.key
                                                             ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/20'
                                                             : 'bg-gray-50 border-gray-200 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700'
                                                         }`}
                                                 >
                                                     <div className="opacity-90">{tier.label}</div>
-                                                    <div className="text-[11px] mt-0.5">{formatCurrency(tier.value || 0)}</div>
+                                                    <div className="text-xs mt-0.5">{formatCurrency(tier.value || 0)}</div>
                                                 </button>
                                             ))}
                                         </div>
@@ -552,8 +553,9 @@ export default function AgregarPresupuestoModal({
                                 )}
 
                                 <div className="md:col-span-3">
-                                    <Label className="text-xs">Cant.</Label>
+                                    <Label htmlFor="cant-input" className="text-xs">Cant.</Label>
                                     <input
+                                        id="cant-input"
                                         type="number"
                                         min="1"
                                         value={itemQty}
@@ -563,22 +565,23 @@ export default function AgregarPresupuestoModal({
                                 </div>
 
                                 <div className="md:col-span-5">
-                                    <Label className="text-xs flex items-center gap-1">
+                                    <Label htmlFor="precio-input" className="text-xs flex items-center gap-1">
                                         Precio Unit.
                                         {selectedParteDetails && (
                                             selectedParteDetails.permiteModificarPrecio ? (
-                                                <span className="inline-flex items-center gap-0.5 text-[9px] text-green-500 font-bold bg-green-50 dark:bg-green-950/20 px-1 py-0.2 rounded border border-green-200 dark:border-green-800 animate-fadeIn">
-                                                    <LockOpenIcon className="w-3 h-3" /> Editable
+                                                <span className="inline-flex items-center gap-0.5 text-xs text-green-600 font-bold bg-green-50 dark:bg-green-950/20 px-1 py-0.5 rounded border border-green-200 dark:border-green-800 animate-fadeIn">
+                                                    <LockOpenIcon className="w-3 h-3" aria-hidden="true" /> Editable
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center gap-0.5 text-[9px] text-red-500 font-bold bg-red-50 dark:bg-red-950/20 px-1 py-0.2 rounded border border-red-200 dark:border-red-800 animate-fadeIn">
-                                                    <LockClosedIcon className="w-3 h-3" /> Bloqueado
+                                                <span className="inline-flex items-center gap-0.5 text-xs text-red-600 font-bold bg-red-50 dark:bg-red-950/20 px-1 py-0.5 rounded border border-red-200 dark:border-red-800 animate-fadeIn">
+                                                    <LockClosedIcon className="w-3 h-3" aria-hidden="true" /> Bloqueado
                                                 </span>
                                             )
                                         )}
                                     </Label>
                                     <div className="relative">
                                         <input
+                                            id="precio-input"
                                             type="number"
                                             step="0.01"
                                             value={itemPrice}
@@ -602,7 +605,7 @@ export default function AgregarPresupuestoModal({
                                         onClick={handleAddItemToDraft}
                                         className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 flex items-center justify-center gap-1 font-bold text-xs shadow-sm transition-colors"
                                     >
-                                        <PlusIcon className="w-4 h-4" /> Añadir al Presupuesto
+                                        <PlusIcon className="w-4 h-4" aria-hidden="true" /> Añadir al Presupuesto
                                     </button>
                                 </div>
                             </div>
@@ -622,7 +625,7 @@ export default function AgregarPresupuestoModal({
                                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                                         {selectedItems.length === 0 ? (
                                             <tr>
-                                                <td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                                                <td colSpan={5} className="px-4 py-8 text-center text-gray-600 dark:text-gray-400">
                                                     Ningún elemento agregado al borrador del presupuesto.
                                                 </td>
                                             </tr>
@@ -631,7 +634,7 @@ export default function AgregarPresupuestoModal({
                                                 <tr key={idx} className="hover:bg-gray-100/50 dark:hover:bg-gray-850/50 transition-colors">
                                                     <td className="px-4 py-2">
                                                         <div className="font-medium text-gray-900 dark:text-white">{item.nombre}</div>
-                                                        <span className={`inline-block px-1 py-0.2 rounded text-[8px] font-bold mt-0.5 uppercase tracking-widest ${item.unidadMedida === 'Servicio'
+                                                        <span className={`inline-block px-1 py-0.5 rounded text-xs font-bold mt-0.5 uppercase tracking-widest ${item.unidadMedida === 'Servicio'
                                                                 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200'
                                                                 : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
                                                             }`}>
@@ -646,9 +649,9 @@ export default function AgregarPresupuestoModal({
                                                             type="button"
                                                             onClick={() => handleRemoveItemFromDraft(idx)}
                                                             className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/30 inline-flex transition-colors"
-                                                            title="Eliminar"
+                                                            aria-label="Eliminar elemento del borrador"
                                                         >
-                                                            <TrashIcon className="w-4 h-4" />
+                                                            <TrashIcon className="w-4 h-4" aria-hidden="true" />
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -663,15 +666,15 @@ export default function AgregarPresupuestoModal({
                         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                             <div className="grid grid-cols-3 gap-2 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-150 dark:border-gray-700/80 mb-6">
                                 <div className="text-center">
-                                    <div className="text-[10px] uppercase font-bold text-gray-500">Repuestos</div>
+                                    <div className="text-xs uppercase font-bold text-gray-600 dark:text-gray-400">Repuestos</div>
                                     <div className="text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(totalProductos)}</div>
                                 </div>
                                 <div className="text-center border-x border-gray-250 dark:border-gray-700">
-                                    <div className="text-[10px] uppercase font-bold text-gray-500">Servicios</div>
+                                    <div className="text-xs uppercase font-bold text-gray-600 dark:text-gray-400">Servicios</div>
                                     <div className="text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(totalServicios)}</div>
                                 </div>
                                 <div className="text-center">
-                                    <div className="text-[10px] uppercase font-bold text-blue-500 dark:text-blue-400">Total General</div>
+                                    <div className="text-xs uppercase font-bold text-blue-500 dark:text-blue-400">Total General</div>
                                     <div className="text-sm font-bold text-blue-600 dark:text-blue-400">{formatCurrency(totalGeneral)}</div>
                                 </div>
                             </div>

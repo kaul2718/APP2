@@ -139,8 +139,8 @@ export default function AlmacenEditModal({ isOpen, onClose, parte, onSave }: Pro
                             type="button"
                             onClick={() => setActiveTab(tab as any)}
                             className={`px-6 py-3 text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab
-                                ? 'border-b-2 border-brand-500 text-brand-600 bg-brand-50/50 dark:bg-brand-900/10'
-                                : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
+                                ? 'border-b-2 border-brand-500 text-brand-800 dark:text-brand-400 bg-brand-50/50 dark:bg-brand-900/10'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                                 }`}
                         >
                             {tab}
@@ -153,10 +153,10 @@ export default function AlmacenEditModal({ isOpen, onClose, parte, onSave }: Pro
                     {activeTab === "general" && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-fadeIn">
                             <div className="md:col-span-2 bg-brand-50/50 dark:bg-brand-900/10 p-5 rounded-3xl border border-brand-100 dark:border-brand-900/30 mb-1">
-                                <Label className="text-brand-600 dark:text-brand-400 font-black text-[10px] uppercase tracking-widest mb-3 flex items-center gap-2">
+                                <p className="text-brand-600 dark:text-brand-400 font-black text-xs uppercase tracking-widest mb-3 flex items-center gap-2">
                                     <ScaleIcon className="w-4 h-4" />
                                     Tipo de Item / Unidad de Medida *
-                                </Label>
+                                </p>
                                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                                     {["Unidad", "Metro", "Litro", "Kilo", "Servicio"].map((u) => (
                                         <button
@@ -178,10 +178,10 @@ export default function AlmacenEditModal({ isOpen, onClose, parte, onSave }: Pro
                                                     handleInputChange("unidadMedida", u);
                                                 }
                                             }}
-                                            className={`py-2 px-1 rounded-xl text-[10px] font-bold uppercase tracking-tighter transition-all border shadow-sm ${
+                                            className={`py-2 px-1 rounded-xl text-xs font-bold uppercase tracking-tighter transition-all border shadow-sm ${
                                                 editando.unidadMedida === u 
                                                 ? 'bg-brand-500 border-brand-500 text-white shadow-brand-500/20 scale-105' 
-                                                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 hover:border-brand-300'
+                                                : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:border-brand-300 dark:hover:border-brand-500'
                                             }`}
                                         >
                                             {u}
@@ -191,10 +191,11 @@ export default function AlmacenEditModal({ isOpen, onClose, parte, onSave }: Pro
                             </div>
 
                             <div className={editando.unidadMedida === "Servicio" ? "md:col-span-2" : ""}>
-                                <Label>Nombre {editando.unidadMedida === "Servicio" ? "del Servicio" : "del Producto"} *</Label>
+                                <Label htmlFor="nombreItem">Nombre {editando.unidadMedida === "Servicio" ? "del Servicio" : "del Producto"} *</Label>
                                 <div className="relative">
                                     <ArchiveBoxIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
                                     <Input
+                                        id="nombreItem"
                                         value={editando.nombre || ""}
                                         onChange={(e) => handleInputChange("nombre", e.target.value)}
                                         className="pl-10 font-bold text-gray-900 dark:text-white"
@@ -206,15 +207,16 @@ export default function AlmacenEditModal({ isOpen, onClose, parte, onSave }: Pro
                             {editando.unidadMedida !== "Servicio" && (
                                 <>
                                     <div>
-                                        <Label>Modelo / Referencia Técnica</Label>
-                                        <Input value={editando.modelo || ""} onChange={(e) => handleInputChange("modelo", e.target.value)} placeholder="Ej: A15-RTX3060" />
+                                        <Label htmlFor="modeloItem">Modelo / Referencia Técnica</Label>
+                                        <Input id="modeloItem" value={editando.modelo || ""} onChange={(e) => handleInputChange("modelo", e.target.value)} placeholder="Ej: A15-RTX3060" />
                                     </div>
                                     <div>
-                                        <Label>Marca *</Label>
+                                        <Label htmlFor="marcaItem">Marca *</Label>
                                         <Combobox value={editando.marcaId} onChange={(id) => handleInputChange("marcaId", id)}>
                                             <div className="relative">
                                                 <div className="relative w-full cursor-default overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left border border-gray-300 dark:border-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
                                                     <Combobox.Input
+                                                        id="marcaItem"
                                                         className="w-full border-none py-2.5 pl-3 pr-10 text-sm leading-5 text-gray-900 dark:text-white bg-transparent outline-none"
                                                         displayValue={(id: number) => marcas.find(m => m.id === id)?.nombre || ""}
                                                         onChange={(e) => setMarcaSearch(e.target.value)}
@@ -246,17 +248,18 @@ export default function AlmacenEditModal({ isOpen, onClose, parte, onSave }: Pro
                             )}
 
                             <div>
-                                <Label>Código Interno / SKU</Label>
-                                <Input value={editando.codigoInterno || ""} onChange={(e) => handleInputChange("codigoInterno", e.target.value)} placeholder="Código para inventario" />
+                                <Label htmlFor="codigoItem">Código Interno / SKU</Label>
+                                <Input id="codigoItem" value={editando.codigoInterno || ""} onChange={(e) => handleInputChange("codigoInterno", e.target.value)} placeholder="Código para inventario" />
                             </div>
 
                             {/* Categoria Combobox */}
                             <div>
-                                <Label>Categoría *</Label>
+                                <Label htmlFor="categoriaItem">Categoría *</Label>
                                 <Combobox value={editando.categoriaId} onChange={(id) => handleInputChange("categoriaId", id)}>
                                     <div className="relative">
                                         <div className="relative w-full cursor-default overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left border border-gray-300 dark:border-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
                                             <Combobox.Input
+                                                id="categoriaItem"
                                                 className="w-full border-none py-2.5 pl-3 pr-10 text-sm leading-5 text-gray-900 dark:text-white bg-transparent outline-none"
                                                 displayValue={(id: number) => categorias.find(c => c.id === id)?.nombre || ""}
                                                 onChange={(e) => setCategoriaSearch(e.target.value)}
@@ -290,8 +293,9 @@ export default function AlmacenEditModal({ isOpen, onClose, parte, onSave }: Pro
                             </div>
 
                             <div className="md:col-span-2">
-                                <Label>Descripción {editando.unidadMedida === "Servicio" ? "del Servicio" : "Detallada"}</Label>
+                                <Label htmlFor="descripcionItem">Descripción {editando.unidadMedida === "Servicio" ? "del Servicio" : "Detallada"}</Label>
                                 <textarea
+                                    id="descripcionItem"
                                     className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 outline-none transition-shadow"
                                     rows={3}
                                     value={editando.descripcion || ""}
@@ -308,23 +312,24 @@ export default function AlmacenEditModal({ isOpen, onClose, parte, onSave }: Pro
                             <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-3xl border border-gray-100 dark:border-gray-700/50 space-y-5">
                                 <div className="flex items-center gap-2 mb-2 text-brand-600">
                                     <CalculatorIcon className="w-5 h-5" />
-                                    <h4 className="font-black text-[10px] uppercase tracking-widest">
+                                    <h3 className="font-black text-xs uppercase tracking-widest">
                                         {editando.unidadMedida === "Servicio" ? "Costos y Tributación" : "Costo y Tributación"}
-                                    </h4>
+                                    </h3>
                                 </div>
                                 <div>
-                                    <Label>
+                                    <Label htmlFor="costoItem">
                                         {editando.unidadMedida === "Servicio" ? "Costo Base de Realización" : "Costo de Compra (Referencia)"}
                                     </Label>
                                     <div className="relative">
                                         <CurrencyDollarIcon className="w-5 h-5 text-green-500 dark:text-green-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
-                                        <Input type="number" step={0.01} value={editando.costo} onChange={(e) => handleInputChange("costo", parseFloat(e.target.value) || 0)} className="pl-10 font-black text-xl text-gray-900 dark:text-white" />
+                                        <Input id="costoItem" type="number" step={0.01} value={editando.costo} onChange={(e) => handleInputChange("costo", parseFloat(e.target.value) || 0)} className="pl-10 font-black text-xl text-gray-900 dark:text-white" />
                                     </div>
-                                    {editando.unidadMedida === "Servicio" && <p className="text-[9px] text-gray-400 mt-1 italic italic">Opcional: Lo que te cuesta realizar este servicio.</p>}
+                                    {editando.unidadMedida === "Servicio" && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">Opcional: Lo que te cuesta realizar este servicio.</p>}
                                 </div>
                                 <div>
-                                    <Label>Tarifa IVA (%)</Label>
+                                    <Label htmlFor="ivaTarifaItem">Tarifa IVA (%)</Label>
                                     <select
+                                        id="ivaTarifaItem"
                                         className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 p-2.5 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500"
                                         value={editando.ivaTarifa}
                                         onChange={(e) => handleInputChange("ivaTarifa", parseInt(e.target.value))}
@@ -352,31 +357,31 @@ export default function AlmacenEditModal({ isOpen, onClose, parte, onSave }: Pro
                             <div className="space-y-4">
                                 <div className="flex items-center gap-2 mb-2 text-brand-600">
                                     <TagIcon className="w-5 h-5" />
-                                    <h4 className="font-black text-[10px] uppercase tracking-widest">
+                                    <h3 className="font-black text-xs uppercase tracking-widest">
                                         {editando.unidadMedida === "Servicio" ? "Valor de Venta" : "Niveles de Venta"}
-                                    </h4>
+                                    </h3>
                                 </div>
                                 <div className="grid grid-cols-1 gap-4">
                                     <div className="p-4 bg-brand-50/50 dark:bg-brand-900/10 rounded-3xl border border-brand-100 dark:border-brand-900/30">
-                                        <Label className="text-brand-700 dark:text-brand-400 font-bold">
+                                        <Label htmlFor="precio1Item" className="text-brand-700 dark:text-brand-400 font-bold">
                                             {editando.unidadMedida === "Servicio" ? "Precio del Servicio (PVP) *" : "Precio 1 - PVP (Público) *"}
                                         </Label>
-                                        <Input type="number" step={0.01} value={editando.precio1} onChange={(e) => handleInputChange("precio1", parseFloat(e.target.value) || 0)} className="border-brand-300 dark:border-brand-800 font-black text-xl text-brand-700 dark:text-brand-300 bg-white/50" />
+                                        <Input id="precio1Item" type="number" step={0.01} value={editando.precio1} onChange={(e) => handleInputChange("precio1", parseFloat(e.target.value) || 0)} className="border-brand-300 dark:border-brand-800 font-black text-xl text-brand-700 dark:text-brand-300 bg-white/50" />
                                     </div>
                                     
                                     {editando.unidadMedida !== "Servicio" && (
                                         <div className="grid grid-cols-2 gap-4 animate-fadeIn">
                                             <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-2xl">
-                                                <Label className="text-[10px]">P2 - Mayorista</Label>
-                                                <Input type="number" step={0.01} value={editando.precio2} onChange={(e) => handleInputChange("precio2", parseFloat(e.target.value) || 0)} className="bg-transparent" />
+                                                <Label htmlFor="precio2Item" className="text-xs font-bold text-gray-600 dark:text-gray-400">P2 - Mayorista</Label>
+                                                <Input id="precio2Item" type="number" step={0.01} value={editando.precio2} onChange={(e) => handleInputChange("precio2", parseFloat(e.target.value) || 0)} className="bg-transparent" />
                                             </div>
                                             <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-2xl">
-                                                <Label className="text-[10px]">P3 - Especial</Label>
-                                                <Input type="number" step={0.01} value={editando.precio3} onChange={(e) => handleInputChange("precio3", parseFloat(e.target.value) || 0)} className="bg-transparent" />
+                                                <Label htmlFor="precio3Item" className="text-xs font-bold text-gray-600 dark:text-gray-400">P3 - Especial</Label>
+                                                <Input id="precio3Item" type="number" step={0.01} value={editando.precio3} onChange={(e) => handleInputChange("precio3", parseFloat(e.target.value) || 0)} className="bg-transparent" />
                                             </div>
                                             <div className="col-span-2 p-3 bg-gray-50 dark:bg-gray-800/40 rounded-2xl">
-                                                <Label className="text-[10px]">P4 - Distribución / Remate</Label>
-                                                <Input type="number" step={0.01} value={editando.precio4} onChange={(e) => handleInputChange("precio4", parseFloat(e.target.value) || 0)} className="bg-transparent" />
+                                                <Label htmlFor="precio4Item" className="text-xs font-bold text-gray-600 dark:text-gray-400">P4 - Distribución / Remate</Label>
+                                                <Input id="precio4Item" type="number" step={0.01} value={editando.precio4} onChange={(e) => handleInputChange("precio4", parseFloat(e.target.value) || 0)} className="bg-transparent" />
                                             </div>
                                         </div>
                                     )}
@@ -391,7 +396,7 @@ export default function AlmacenEditModal({ isOpen, onClose, parte, onSave }: Pro
                             <div className="space-y-6">
                                 <div className="flex items-center gap-2 mb-2 text-brand-600">
                                     <ScaleIcon className="w-5 h-5" />
-                                    <h4 className="font-black text-[10px] uppercase tracking-widest">Configuración de Medición</h4>
+                                    <h3 className="font-black text-xs uppercase tracking-widest">Configuración de Medición</h3>
                                 </div>
                                 <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 flex items-center justify-between shadow-sm">
                                     <span className="text-sm font-bold text-gray-500">Unidad de Medida:</span>
@@ -419,7 +424,7 @@ export default function AlmacenEditModal({ isOpen, onClose, parte, onSave }: Pro
                                         />
                                         <div>
                                             <label htmlFor="fracEdit" className="text-xs font-bold text-blue-900 dark:text-blue-200 cursor-pointer block">Habilitar Fraccionamiento</label>
-                                            <span className="text-[10px] text-blue-600 dark:text-blue-400">Permite vender en decimales (Ej: 0.5 metros)</span>
+                                            <span className="text-xs text-blue-700 dark:text-blue-400">Permite vender en decimales (Ej: 0.5 metros)</span>
                                         </div>
                                     </div>
                                 )}
@@ -440,12 +445,13 @@ export default function AlmacenEditModal({ isOpen, onClose, parte, onSave }: Pro
                                     <div className="animate-fadeIn space-y-5">
                                         <div className="flex items-center gap-2 mb-2 text-brand-600">
                                             <MapPinIcon className="w-5 h-5" />
-                                            <h4 className="font-black text-[10px] uppercase tracking-widest">Almacenamiento Físico</h4>
+                                            <h3 className="font-black text-xs uppercase tracking-widest">Almacenamiento Físico</h3>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="p-4 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
-                                                <Label className="text-[10px] uppercase font-bold text-gray-400">En Existencia</Label>
+                                                <Label htmlFor="stockItem" className="text-xs uppercase font-bold text-gray-500">En Existencia</Label>
                                                 <Input
+                                                    id="stockItem"
                                                     type="number"
                                                     step={editando.permiteFraccionar ? 0.001 : 1}
                                                     value={editando.stock}
@@ -457,8 +463,9 @@ export default function AlmacenEditModal({ isOpen, onClose, parte, onSave }: Pro
                                                 />
                                             </div>
                                             <div className="p-4 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
-                                                <Label className="text-[10px] uppercase font-bold text-red-400">Mínimo Crítico</Label>
+                                                <Label htmlFor="stockMinimoItem" className="text-xs uppercase font-bold text-red-500">Mínimo Crítico</Label>
                                                 <Input
+                                                    id="stockMinimoItem"
                                                     type="number"
                                                     step={editando.permiteFraccionar ? 0.001 : 1}
                                                     value={editando.stockMinimo}
@@ -471,8 +478,8 @@ export default function AlmacenEditModal({ isOpen, onClose, parte, onSave }: Pro
                                             </div>
                                         </div>
                                         <div>
-                                            <Label className="text-[10px] uppercase font-bold text-gray-400">Ubicación Física</Label>
-                                            <Input value={editando.ubicacion || ""} onChange={(e) => handleInputChange("ubicacion", e.target.value)} placeholder="Pasillo A, Percha 2" className="mt-1" />
+                                            <Label htmlFor="ubicacionItem" className="text-xs uppercase font-bold text-gray-500">Ubicación Física</Label>
+                                            <Input id="ubicacionItem" value={editando.ubicacion || ""} onChange={(e) => handleInputChange("ubicacion", e.target.value)} placeholder="Pasillo A, Percha 2" className="mt-1" />
                                         </div>
                                     </div>
                                 )}

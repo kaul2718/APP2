@@ -55,6 +55,11 @@ function generarNumeroSerie(length = 10) {
 
 export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props) {
     const { data: session } = useSession();
+    const uid = React.useId();
+    const serieId = `${uid}-serie`;
+    const tipoId = `${uid}-tipo`;
+    const marcaId2 = `${uid}-marca`;
+    const modeloId = `${uid}-modelo`;
     const [formData, setFormData] = React.useState<FormData>({
         numeroSerie: "",
         tipoEquipoId: "",
@@ -292,9 +297,9 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
             {/* Modal principal */}
             <Modal isOpen={isOpen} onClose={onClose} className="m-4 max-w-3xl" title="Registrar Nuevo Equipo">
                 <div className="no-scrollbar relative w-full overflow-y-auto rounded-2xl bg-white p-5 dark:bg-gray-900 sm:p-6">
-                    <h4 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white/90">
+                    <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white/90">
                         Registrar nuevo equipo
-                    </h4>
+                    </h2>
                     <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
                         Complete todos los campos requeridos para registrar un nuevo equipo.
                     </p>
@@ -311,7 +316,7 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
                                 {/* Número de Serie */}
                                 <div className="mb-3">
                                     <div className="flex justify-between items-center mb-1">
-                                        <Label>Número de Serie *</Label>
+                                        <Label htmlFor={serieId} className="text-gray-700 dark:text-gray-200">Número de Serie *</Label>
                                         <button
                                             type="button"
                                             onClick={() => {
@@ -319,15 +324,16 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
                                                 handleChange("numeroSerie", nuevoNumero);
                                             }}
                                             className="text-xs flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                                            title="Generar número de serie automático"
+                                            aria-label="Generar número de serie aleatorio"
                                         >
-                                            <PlusIcon className="h-3 w-3" />
+                                            <PlusIcon className="h-3 w-3" aria-hidden="true" />
                                             Agregar random
                                         </button>
                                     </div>
                                     <div className="relative">
-                                        <TagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                                        <TagIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" aria-hidden="true" />
                                         <Input
+                                            id={serieId}
                                             value={formData.numeroSerie}
                                             onChange={(e) => handleChange("numeroSerie", e.target.value)}
                                             placeholder="Ej: SN123456789"
@@ -335,19 +341,20 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
                                             disabled={loading}
                                         />
                                     </div>
-                                    {errors.numeroSerie && <p className="text-sm text-red-500 mt-1">{errors.numeroSerie}</p>}
+                                    {errors.numeroSerie && <p className="text-sm text-red-500 mt-1" role="alert">{errors.numeroSerie}</p>}
                                 </div>
 
                                 {/* Tipo de Equipo */}
                                 <div>
                                     <div className="flex justify-between items-center mb-1">
-                                        <Label>Tipo de Equipo *</Label>
+                                        <Label htmlFor={tipoId} className="text-gray-700 dark:text-gray-200">Tipo de Equipo *</Label>
                                         <button
                                             type="button"
                                             onClick={() => setIsTipoEquipoModalOpen(true)}
                                             className="text-xs flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                            aria-label="Agregar nuevo tipo de equipo"
                                         >
-                                            <PlusIcon className="h-3 w-3" />
+                                            <PlusIcon className="h-3 w-3" aria-hidden="true" />
                                             Agregar nuevo
                                         </button>
                                     </div>
@@ -357,8 +364,9 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
                                         disabled={loading || initialLoad}
                                     >
                                         <div className="relative">
-                                            <DevicePhoneMobileIcon className="pointer-events-none absolute left-3 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-gray-600 dark:text-white" />
+                                            <DevicePhoneMobileIcon className="pointer-events-none absolute left-3 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-gray-600 dark:text-white" aria-hidden="true" />
                                             <Combobox.Input
+                                                id={tipoId}
                                                 className="w-full rounded-md border border-gray-300 bg-white py-2 pl-10 pr-10 text-black focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                                                 displayValue={(value: string) => {
                                                     const tipo = tiposEquipo.find((t) => String(t.id) === value);
@@ -366,8 +374,9 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
                                                 }}
                                                 onChange={(e) => setTipoSearch(e.target.value)}
                                                 placeholder="Buscar tipo de equipo..."
+                                                aria-label="Tipo de equipo"
                                             />
-                                            <MagnifyingGlassIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                            <MagnifyingGlassIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
                                             <Combobox.Options className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-gray-700 dark:bg-gray-800">
                                                 {tiposFiltrados.length === 0 ? (
                                                     <div className="cursor-default px-4 py-2 text-gray-500 dark:text-gray-400">
@@ -398,19 +407,20 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
                                             </Combobox.Options>
                                         </div>
                                     </Combobox>
-                                    {errors.tipoEquipoId && <p className="text-sm text-red-500 mt-1">{errors.tipoEquipoId}</p>}
+                                    {errors.tipoEquipoId && <p className="text-sm text-red-500 mt-1" role="alert">{errors.tipoEquipoId}</p>}
                                 </div>
 
                                 {/* Marca */}
                                 <div>
                                     <div className="flex justify-between items-center mb-1">
-                                        <Label>Marca *</Label>
+                                        <Label htmlFor={marcaId2} className="text-gray-700 dark:text-gray-200">Marca *</Label>
                                         <button
                                             type="button"
                                             onClick={() => setIsMarcaModalOpen(true)}
                                             className="text-xs flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                            aria-label="Agregar nueva marca"
                                         >
-                                            <PlusIcon className="h-3 w-3" />
+                                            <PlusIcon className="h-3 w-3" aria-hidden="true" />
                                             Agregar nuevo
                                         </button>
                                     </div>
@@ -420,8 +430,9 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
                                         disabled={loading || initialLoad}
                                     >
                                         <div className="relative">
-                                            <CpuChipIcon className="pointer-events-none absolute left-3 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-gray-600 dark:text-white" />
+                                            <CpuChipIcon className="pointer-events-none absolute left-3 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-gray-600 dark:text-white" aria-hidden="true" />
                                             <Combobox.Input
+                                                id={marcaId2}
                                                 className="w-full rounded-md border border-gray-300 bg-white py-2 pl-10 pr-10 text-black focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                                                 displayValue={(value: string) => {
                                                     const marca = marcas.find((m) => String(m.id) === value);
@@ -429,8 +440,9 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
                                                 }}
                                                 onChange={(e) => setMarcaSearch(e.target.value)}
                                                 placeholder="Buscar marca..."
+                                                aria-label="Marca"
                                             />
-                                            <MagnifyingGlassIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                            <MagnifyingGlassIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
                                             <Combobox.Options className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-gray-700 dark:bg-gray-800">
                                                 {marcasFiltradas.length === 0 ? (
                                                     <div className="cursor-default px-4 py-2 text-gray-500 dark:text-gray-400">
@@ -461,20 +473,21 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
                                             </Combobox.Options>
                                         </div>
                                     </Combobox>
-                                    {errors.marcaId && <p className="text-sm text-red-500 mt-1">{errors.marcaId}</p>}
+                                    {errors.marcaId && <p className="text-sm text-red-500 mt-1" role="alert">{errors.marcaId}</p>}
                                 </div>
 
                                 {/* Modelo */}
                                 <div>
                                     <div className="flex justify-between items-center mb-1">
-                                        <Label>Modelo *</Label>
+                                        <Label htmlFor={modeloId} className="text-gray-700 dark:text-gray-200">Modelo *</Label>
                                         <button
                                             type="button"
                                             onClick={() => setIsModeloModalOpen(true)}
                                             disabled={!formData.marcaId}
+                                            aria-label="Agregar nuevo modelo"
                                             className={`text-xs flex items-center gap-1 ${formData.marcaId ? 'text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300' : 'text-gray-400 dark:text-gray-500 cursor-not-allowed'}`}
                                         >
-                                            <PlusIcon className="h-3 w-3" />
+                                            <PlusIcon className="h-3 w-3" aria-hidden="true" />
                                             Agregar nuevo
                                         </button>
                                     </div>
@@ -484,8 +497,9 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
                                         disabled={loading || !formData.marcaId}
                                     >
                                         <div className="relative">
-                                            <CubeIcon className="pointer-events-none absolute left-3 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-gray-600 dark:text-white" />
+                                            <CubeIcon className="pointer-events-none absolute left-3 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-gray-600 dark:text-white" aria-hidden="true" />
                                             <Combobox.Input
+                                                id={modeloId}
                                                 className="w-full rounded-md border border-gray-300 bg-white py-2 pl-10 pr-10 text-black focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                                                 displayValue={(value: string) => {
                                                     const modelo = modelosFiltrados.find((m) => String(m.id) === value);
@@ -493,8 +507,9 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
                                                 }}
                                                 onChange={(e) => setModeloSearch(e.target.value)}
                                                 placeholder={formData.marcaId ? "Buscar modelo..." : "Primero seleccione una marca"}
+                                                aria-label="Modelo"
                                             />
-                                            <MagnifyingGlassIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                            <MagnifyingGlassIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
                                             <Combobox.Options className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-gray-700 dark:bg-gray-800">
                                                 {!formData.marcaId ? (
                                                     <div className="cursor-default px-4 py-2 text-gray-500 dark:text-gray-400">
@@ -529,7 +544,7 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
                                             </Combobox.Options>
                                         </div>
                                     </Combobox>
-                                    {errors.modeloId && <p className="text-sm text-red-500 mt-1">{errors.modeloId}</p>}
+                                    {errors.modeloId && <p className="text-sm text-red-500 mt-1" role="alert">{errors.modeloId}</p>}
                                     {formData.marcaId && !modelosFiltrados.length && (
                                         <p className="text-sm text-yellow-600 mt-1">
                                             No se encontraron modelos para esta marca

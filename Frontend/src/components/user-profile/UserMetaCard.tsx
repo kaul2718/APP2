@@ -153,12 +153,12 @@ export default function UserMetaCard() {
               </svg>
             </div>
             <div className="order-3 xl:order-2">
-              <h4 className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
+              <p className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
                 {datosEditables?.nombre || datosUsuario?.nombre || 'Nombre no disponible'}
                 {' '} {/* Espacio entre nombre y apellido */}
                 {datosEditables?.apellido || datosUsuario?.apellido || 'Apellido no disponible'}
 
-              </h4>
+              </p>
               <div className="flex flex-col items-center gap-1 text-center xl:flex-row xl:gap-3 xl:text-left">
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {datosEditables?.ciudad || datosUsuario?.ciudad}
@@ -216,9 +216,9 @@ export default function UserMetaCard() {
       >
         <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
           <div className="px-2 pr-14">
-            <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
+            <p className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
               {activeTab === 'profile' ? 'Editar información personal' : 'Cambiar contraseña'}
-            </h4>
+            </p>
             <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
               {activeTab === 'profile' ? 'Actualiza tus datos personales' : 'Ingresa tu contraseña actual y la nueva contraseña'}
             </p>
@@ -243,14 +243,15 @@ export default function UserMetaCard() {
             <form onSubmit={handleSubmitProfile} className="flex flex-col">
               <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
                 <div className="mt-7">
-                  <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
+                  <p className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                     Información del usuario
-                  </h5>
+                  </p>
 
                   <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                     <div className="col-span-2 lg:col-span-1">
-                      <Label>Cédula</Label>
+                      <Label htmlFor="cedula">Cédula</Label>
                       <Input
+                        id="cedula"
                         type="text"
                         name="cedula"
                         value={datosEditables?.cedula || ""}
@@ -260,8 +261,9 @@ export default function UserMetaCard() {
                     </div>
 
                     <div className="col-span-2 lg:col-span-1">
-                      <Label>Nombre *</Label>
+                      <Label htmlFor="nombre">Nombre *</Label>
                       <Input
+                        id="nombre"
                         type="text"
                         name="nombre"
                         value={datosEditables?.nombre || ""}
@@ -272,8 +274,9 @@ export default function UserMetaCard() {
                     </div>
 
                     <div className="col-span-2 lg:col-span-1">
-                      <Label>Apellido *</Label>
+                      <Label htmlFor="apellido">Apellido *</Label>
                       <Input
+                        id="apellido"
                         type="text"
                         name="apellido"
                         value={datosEditables?.apellido || ""}
@@ -283,8 +286,9 @@ export default function UserMetaCard() {
                       />
                     </div>
                     <div className="col-span-2 lg:col-span-1">
-                      <Label>Correo electrónico *</Label>
+                      <Label htmlFor="correo">Correo electrónico *</Label>
                       <Input
+                        id="correo"
                         type="email"
                         name="correo"
                         value={datosEditables?.correo || ""}
@@ -295,8 +299,9 @@ export default function UserMetaCard() {
                     </div>
 
                     <div className="col-span-2 lg:col-span-1">
-                      <Label>Teléfono</Label>
+                      <Label htmlFor="telefono">Teléfono</Label>
                       <Input
+                        id="telefono"
                         type="text"
                         name="telefono"
                         value={datosEditables?.telefono || ""}
@@ -306,8 +311,9 @@ export default function UserMetaCard() {
                     </div>
 
                     <div className="col-span-2 lg:col-span-1">
-                      <Label>Ciudad</Label>
+                      <Label htmlFor="ciudad">Ciudad</Label>
                       <Input
+                        id="ciudad"
                         type="text"
                         name="ciudad"
                         value={datosEditables?.ciudad || ""}
@@ -317,8 +323,9 @@ export default function UserMetaCard() {
                     </div>
 
                     <div className="col-span-2 lg:col-span-1">
-                      <Label>Dirección</Label>
+                      <Label htmlFor="direccion">Dirección</Label>
                       <Input
+                        id="direccion"
                         type="text"
                         name="direccion"
                         value={datosEditables?.direccion || ""}
@@ -354,14 +361,15 @@ export default function UserMetaCard() {
             <form onSubmit={handleSubmitPassword} className="flex flex-col">
               <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
                 <div className="mt-7">
-                  <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
+                  <p className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                     Cambiar contraseña
-                  </h5>
+                  </p>
 
                   <div className="grid grid-cols-1 gap-x-6 gap-y-5">
                     <div className="col-span-1">
-                      <Label>Contraseña actual *</Label>
+                      <Label htmlFor="currentPassword">Contraseña actual *</Label>
                       <Input
+                        id="currentPassword"
                         type="password"
                         name="currentPassword"
                         value={passwordData.currentPassword}
@@ -373,8 +381,9 @@ export default function UserMetaCard() {
                     </div>
 
                     <div className="col-span-1">
-                      <Label>Nueva contraseña *</Label>
+                      <Label htmlFor="newPassword">Nueva contraseña *</Label>
                       <Input
+                        id="newPassword"
                         type="password"
                         name="newPassword"
                         value={passwordData.newPassword}
@@ -389,8 +398,9 @@ export default function UserMetaCard() {
                     </div>
 
                     <div className="col-span-1">
-                      <Label>Confirmar nueva contraseña *</Label>
+                      <Label htmlFor="confirmPassword">Confirmar nueva contraseña *</Label>
                       <Input
+                        id="confirmPassword"
                         type="password"
                         name="confirmPassword"
                         value={passwordData.confirmPassword}

@@ -113,7 +113,7 @@ export default function UsuarioEditModal({ isOpen, onClose, usuario, onSave }: P
             hideActions
         >
             <div className="no-scrollbar relative w-full max-w-[800px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-10">
-                <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
                     Solo los campos modificados se actualizarán.
                 </p>
 

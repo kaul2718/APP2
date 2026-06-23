@@ -28,7 +28,7 @@ export default function AuthLayout({
                       width={500}
                       height={300}
                       src="./images/logo/logo.svg"
-                      alt="Logo"
+                      alt="Logo de Hospital del Computador"
                     />
                   </Link>
                   <p className="text-center text-gray-400 dark:text-white/60">

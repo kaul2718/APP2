@@ -118,10 +118,10 @@ export default function AlmacenTable({ almacenHook, onDataChange, extraFilters =
               {item.nombre}
             </p>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-600 dark:text-gray-400 font-mono">
+              <span className="text-xs bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-mono">
                 {item.codigoInterno || 'SIN-COD'}
               </span>
-              <span className="text-[10px] text-gray-500 italic truncate">
+              <span className="text-xs text-gray-600 dark:text-gray-400 italic truncate">
                 {item.modelo || 'S/M'}
               </span>
             </div>
@@ -168,11 +168,11 @@ export default function AlmacenTable({ almacenHook, onDataChange, extraFilters =
                       isNearLow ? 'text-yellow-600' :
                       'text-gray-900 dark:text-white'
                     }`}>
-                    {displayStock} <span className="text-[10px] font-medium text-gray-500 uppercase">{displayUnidad}</span>
+                    {displayStock} <span className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">{displayUnidad}</span>
                   </span>
 
                   {isZero ? (
-                    <Badge size="sm" color="error" variant="light" className="animate-pulse">Agotado</Badge>
+                    <Badge size="sm" color="error" variant="light">Agotado</Badge>
                   ) : isLow ? (
                     <Badge size="sm" color="warning" variant="light" className="flex items-center gap-1">
                       <ExclamationTriangleIcon className="w-3 h-3 text-amber-500" />
@@ -187,7 +187,7 @@ export default function AlmacenTable({ almacenHook, onDataChange, extraFilters =
               )}
             </div>
             {!isService && (
-              <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-1 animate-fadeIn">
+              <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 mt-1 animate-fadeIn">
                 <MapPinIcon className="h-3 w-3" />
                 {item.ubicacion || 'No asignada'}
               </div>
@@ -202,14 +202,14 @@ export default function AlmacenTable({ almacenHook, onDataChange, extraFilters =
       render: (item) => (
         <div className="space-y-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-medium text-gray-400 w-10">Costo:</span>
-            <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 w-10">Costo:</span>
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
               {formatCurrency(item.costo)}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-medium text-brand-500 w-10">PVP (1):</span>
-            <span className="text-sm font-bold text-brand-600 dark:text-brand-400">
+            <span className="text-xs font-medium text-brand-600 dark:text-brand-400 w-10">PVP (1):</span>
+            <span className="text-sm font-bold text-brand-700 dark:text-brand-300">
               {formatCurrency(item.precio1)}
             </span>
           </div>
@@ -222,10 +222,10 @@ export default function AlmacenTable({ almacenHook, onDataChange, extraFilters =
       render: (item) => (
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-1 text-xs text-gray-700 dark:text-gray-300">
-            <TagIcon className="h-3 w-3 text-gray-400" />
+            <TagIcon className="h-3 w-3 text-gray-500" />
             {item.categoria?.nombre || 'General'}
           </div>
-          <div className="text-[10px] text-gray-500">
+          <div className="text-xs text-gray-600 dark:text-gray-400">
             {item.marca?.nombre || 'Genérica'}
           </div>
         </div>
