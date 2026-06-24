@@ -372,7 +372,7 @@ export function usePresupuesto() {
 
 
     useEffect(() => {
-        if (status === "authenticated") {
+        if (status === "authenticated" && session?.user?.role !== 'client' && session?.user?.role !== 'cliente') {
             fetchPresupuestos(1, 10, searchTerm, showInactive);
         }
     }, [status, session, searchTerm, showInactive]);

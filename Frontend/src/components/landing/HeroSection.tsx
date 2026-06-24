@@ -93,7 +93,7 @@ export default function HeroSection() {
                   <ClockIcon className="w-5 h-5" />
                 </div>
                 <div className="text-left">
-                  <h3 className="font-bold text-gray-900 dark:text-white text-sm">Seguimiento 24/7</h3>
+                  <h2 className="font-bold text-gray-900 dark:text-white text-sm">Seguimiento 24/7</h2>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Rastreo instantáneo</p>
                 </div>
               </div>
@@ -103,7 +103,7 @@ export default function HeroSection() {
                   <ShieldCheckIcon className="w-5 h-5" />
                 </div>
                 <div className="text-left">
-                  <h3 className="font-bold text-gray-900 dark:text-white text-sm">Garantía Asegurada</h3>
+                  <h2 className="font-bold text-gray-900 dark:text-white text-sm">Garantía Asegurada</h2>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Repuestos certificados</p>
                 </div>
               </div>
@@ -113,7 +113,7 @@ export default function HeroSection() {
                   <WrenchIcon className="w-5 h-5" />
                 </div>
                 <div className="text-left">
-                  <h3 className="font-bold text-gray-900 dark:text-white text-sm">Técnicos Expertos</h3>
+                  <h2 className="font-bold text-gray-900 dark:text-white text-sm">Técnicos Expertos</h2>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Personal calificado</p>
                 </div>
               </div>
@@ -200,7 +200,7 @@ export default function HeroSection() {
                   HC
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400">Técnico Asignado</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Técnico Asignado</p>
                   <p className="text-xs font-bold text-gray-800 dark:text-gray-200">"El equipo estará listo hoy a las 5 PM."</p>
                 </div>
               </motion.div>

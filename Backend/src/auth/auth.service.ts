@@ -98,7 +98,7 @@ export class AuthService {
     // ✅ Obtener el primer rol del usuario (desde userRoles)
     const userRole = user.userRoles && user.userRoles.length > 0 
       ? user.userRoles[0].rol.slug 
-      : 'user'; // fallback a 'user' si no tiene roles
+      : 'client'; // fallback a 'client' si no tiene roles
 
     // ✅ Obtener los permisos asociados a su rol en el login
     const permissionsSlugs = user.userRoles && user.userRoles.length > 0 && user.userRoles[0].rol.rolePermissions
@@ -130,7 +130,7 @@ export class AuthService {
 
     const userRole = user.userRoles && user.userRoles.length > 0 
       ? user.userRoles[0].rol.slug 
-      : 'user';
+      : 'client';
 
     const permissionsSlugs = user.userRoles && user.userRoles.length > 0 && user.userRoles[0].rol.rolePermissions
       ? user.userRoles[0].rol.rolePermissions.map((rp) => rp.permission?.slug).filter(Boolean)

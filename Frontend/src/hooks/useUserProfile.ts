@@ -42,8 +42,11 @@ export function useUserProfile() {
         setCargando(true);
 
         if (sessionStatus === "loading") return;
-        if (!session?.user) {
-          throw new Error("No hay sesión activa");
+
+        // Salida silenciosa cuando no hay sesión (ej. justo después de logout)
+        if (sessionStatus === "unauthenticated" || !session?.user) {
+          setCargando(false);
+          return;
         }
 
         const userId = session.user.id;
@@ -81,7 +84,6 @@ export function useUserProfile() {
         setEditando(userData);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Error desconocido";
-        //console.error("Error al obtener perfil:", errorMessage);
         setError(errorMessage);
         toast.error(`Error al cargar perfil: ${errorMessage}`);
       } finally {

@@ -93,7 +93,8 @@ export function useNotificacion() {
     // Cargar inicialmente
     fetchNotificaciones();
 
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+    const rawUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+    const backendUrl = rawUrl.replace(/\/api\/v\d+\/?$/, '');
     
     // Configurar Socket.io client
     const socket = io(backendUrl, {

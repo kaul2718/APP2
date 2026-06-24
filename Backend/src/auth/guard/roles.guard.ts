@@ -24,10 +24,14 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
-    // Los roles del usuario vienen de la BD via UserRole
-    const userRoles: ValidRole[] = (user.userRoles || []).map(
+    // Los roles del usuario vienen de la BD via UserRole o del fallback predeterminado
+    let userRoles: ValidRole[] = (user.userRoles || []).map(
       (ur: any) => ur.rol?.slug,
     );
+
+    if (userRoles.length === 0 && user.role) {
+      userRoles = [user.role as ValidRole];
+    }
 
     // Si el usuario es admin, tiene acceso a todo
     if (userRoles.includes(VALID_ROLES.ADMIN)) {

@@ -13,7 +13,7 @@ export default function Footer() {
           
           {/* Brand */}
           <div className="md:col-span-2 space-y-4">
-            <Link href="/" className="flex items-center space-x-3 group">
+            <Link href="/" tabIndex={-1} aria-hidden="true" className="flex items-center space-x-3 group">
               <Image
                 className="dark:hidden"
                 src="/images/logo/logo.svg"
@@ -26,7 +26,8 @@ export default function Footer() {
               <Image
                 className="hidden dark:block"
                 src="/images/logo/logo.svg"
-                alt="Hospital del Computador"
+                alt=""
+                aria-hidden="true"
                 width={200}
                 height={36}
                 style={{ width: 'auto', height: '32px' }}
@@ -70,11 +71,11 @@ export default function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 border-t border-gray-200 dark:border-gray-900 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-500">
+        <div className="pt-8 border-t border-gray-200 dark:border-gray-900 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-600 dark:text-gray-400">
           <p>© {new Date().getFullYear()} Hospital del Computador. Todos los derechos reservados.</p>
-          <div className="flex space-x-6 mt-4 sm:mt-0">
-            <span className="hover:text-gray-700 dark:hover:text-gray-400 cursor-pointer transition-colors">Términos de Servicio</span>
-            <span className="hover:text-gray-700 dark:hover:text-gray-400 cursor-pointer transition-colors">Política de Privacidad</span>
+          <div className="flex space-x-6 mt-4 sm:mt-0 font-medium">
+            <span className="hover:text-gray-900 dark:hover:text-gray-300 cursor-pointer transition-colors">Términos de Servicio</span>
+            <span className="hover:text-gray-900 dark:hover:text-gray-300 cursor-pointer transition-colors">Política de Privacidad</span>
           </div>
         </div>
 

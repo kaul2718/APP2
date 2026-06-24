@@ -2,11 +2,9 @@
 "use client";
 
 import { signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
 
 export default function LogoutButton() {
-    const router = useRouter();
 
     const handleLogout = async () => {
         await signOut({ redirect: false });
@@ -14,10 +12,12 @@ export default function LogoutButton() {
             position: "top-right",
         });
 
-        // Redirigir tras un breve delay
+        // Usamos window.location.replace para forzar recarga completa.
+        // router.push() causaba que el middleware de next-auth agregara
+        // ?callbackUrl=... a la URL, rompiendo la página de login.
         setTimeout(() => {
-            router.push("/signin");
-        }, 1500);
+            window.location.replace("/signin");
+        }, 1000);
     };
 
     return (

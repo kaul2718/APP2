@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
+import { FontSizeToggleButton } from '@/components/common/FontSizeToggleButton';
 import { UserIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 export default function Navbar() {
@@ -33,7 +34,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between">
           
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-3 group">
+          <Link href="/" tabIndex={-1} aria-hidden="true" className="flex items-center space-x-3 group">
             <motion.div whileHover={{ scale: 1.03 }} transition={{ duration: 0.2 }}>
               <Image
                 className="dark:hidden"
@@ -47,7 +48,8 @@ export default function Navbar() {
               <Image
                 className="hidden dark:block"
                 src="/images/logo/logo.svg"
-                alt="Hospital del Computador"
+                alt=""
+                aria-hidden="true"
                 width={280}
                 height={55}
                 style={{ width: 'auto', height: '52px' }}
@@ -71,8 +73,11 @@ export default function Navbar() {
           </nav>
 
           {/* Action Buttons & Theme Toggler */}
-          <div className="flex items-center space-x-4">
-            <ThemeToggleButton />
+          <div className="flex items-center space-x-2 sm:space-x-4">
+            <div className="flex items-center space-x-2">
+              <FontSizeToggleButton />
+              <ThemeToggleButton />
+            </div>
 
             <Link 
               href="/consulta" 

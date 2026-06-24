@@ -66,20 +66,27 @@ export class ReportsService {
       .where('c.createdAt >= :from AND c.createdAt <= :to', { from, to })
       .getRawOne();
 
+    const revenue = parseFloat(budgetTotalRaw?.total || '0');
+    const expenses = parseFloat(purchasesTotalRaw?.total || '0');
+    const netProfit = revenue - expenses;
+    const profitMargin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
+
     return {
       ordersCount,
       budgetsCount,
       purchasesCount,
       clientsCount: activeClients.length,
-      revenue: parseFloat(budgetTotalRaw?.total || '0'),
-      expenses: parseFloat(purchasesTotalRaw?.total || '0'),
+      revenue,
+      expenses,
+      netProfit,
+      profitMargin,
     };
   }
 
-  async getClientsReport(range?: string, startDate?: string, endDate?: string) {
+  async getClientsReport(range?: string, startDate?: string, endDate?: string, segment?: string) {
     const { from, to } = this.getDateRange(range, startDate, endDate);
 
-    const clientsRaw = await this.orderRepository.createQueryBuilder('o')
+    const qb = this.orderRepository.createQueryBuilder('o')
       .leftJoin('o.client', 'c')
       .select('c.id', 'id')
       .addSelect('c.nombre', 'nombre')
@@ -87,10 +94,25 @@ export class ReportsService {
       .addSelect('c.correo', 'correo')
       .addSelect('c.telefono', 'telefono')
       .addSelect('COUNT(o.id)', 'ordersCount')
-      .where('o.deletedAt IS NULL AND o.createdAt >= :from AND o.createdAt <= :to', { from, to })
+      .where('o.deletedAt IS NULL')
       .groupBy('c.id')
-      .orderBy('COUNT(o.id)', 'DESC')
-      .getRawMany();
+      .addGroupBy('c.nombre')
+      .addGroupBy('c.apellido')
+      .addGroupBy('c.correo')
+      .addGroupBy('c.telefono');
+
+    if (segment === 'inactive') {
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      qb.having('MAX(o.createdAt) < :ninetyDaysAgo', { ninetyDaysAgo });
+    } else {
+      qb.andWhere('o.createdAt >= :from AND o.createdAt <= :to', { from, to });
+      if (segment === 'frequent') {
+        qb.having('COUNT(o.id) >= 3');
+      }
+    }
+
+    const clientsRaw = await qb.orderBy('COUNT(o.id)', 'DESC').getRawMany();
 
     return clientsRaw.map(c => ({
       id: c.id,
@@ -101,12 +123,41 @@ export class ReportsService {
     }));
   }
 
-  async getInventoryReport() {
-    const parts = await this.parteRepository.createQueryBuilder('p')
+  async getInventoryReport(categoryId?: number, rotation?: string, stockStatus?: string) {
+    const qb = this.parteRepository.createQueryBuilder('p')
       .leftJoinAndSelect('p.categoria', 'cat')
       .where('p.deletedAt IS NULL')
-      .orderBy('p.stock', 'ASC')
-      .getMany();
+      .andWhere('LOWER(cat.nombre) NOT IN (:...serviciosCats)', { serviciosCats: ['servicio', 'servicios'] });
+
+    if (categoryId) {
+      qb.andWhere('p.categoriaId = :categoryId', { categoryId });
+    }
+
+    if (stockStatus === 'low') {
+      qb.andWhere('p.stock <= p.stockMinimo');
+    } else if (stockStatus === 'normal') {
+      qb.andWhere('p.stock > p.stockMinimo');
+    }
+
+    if (rotation === 'low') {
+      // Artículos de baja rotación (no han sido utilizados en ningún presupuesto/orden)
+      const subQuery = this.presupuestoRepository.manager.createQueryBuilder()
+        .select('DISTINCT dr.parteId')
+        .from('detalle_repuestos', 'dr')
+        .where('dr.parteId IS NOT NULL');
+      
+      qb.andWhere(`p.id NOT IN (${subQuery.getQuery()})`);
+    } else if (rotation === 'high') {
+      // Artículos de alta rotación (los más utilizados)
+      qb.leftJoin('detalle_repuestos', 'dr', 'dr.parteId = p.id')
+        .groupBy('p.id')
+        .addGroupBy('cat.id')
+        .orderBy('COUNT(dr.id)', 'DESC');
+    } else {
+      qb.orderBy('p.stock', 'ASC');
+    }
+
+    const parts = await qb.getMany();
 
     return parts.map(p => ({
       id: p.id,
@@ -120,15 +171,25 @@ export class ReportsService {
     }));
   }
 
-  async getPurchasesReport(range?: string, startDate?: string, endDate?: string) {
+  async getPurchasesReport(range?: string, startDate?: string, endDate?: string, estado?: string, minTotal?: number, maxTotal?: number) {
     const { from, to } = this.getDateRange(range, startDate, endDate);
 
-    const purchases = await this.compraRepository.createQueryBuilder('c')
+    const qb = this.compraRepository.createQueryBuilder('c')
       .leftJoinAndSelect('c.proveedor', 'p')
       .leftJoinAndSelect('c.usuario', 'u')
-      .where('c.createdAt >= :from AND c.createdAt <= :to', { from, to })
-      .orderBy('c.fecha', 'DESC')
-      .getMany();
+      .where('c.createdAt >= :from AND c.createdAt <= :to', { from, to });
+
+    if (estado) {
+      qb.andWhere('LOWER(c.estado) = LOWER(:estado)', { estado });
+    }
+    if (minTotal !== undefined) {
+      qb.andWhere('c.total >= :minTotal', { minTotal });
+    }
+    if (maxTotal !== undefined) {
+      qb.andWhere('c.total <= :maxTotal', { maxTotal });
+    }
+
+    const purchases = await qb.orderBy('c.fecha', 'DESC').getMany();
 
     return purchases.map(c => ({
       id: c.id,
@@ -141,10 +202,19 @@ export class ReportsService {
     }));
   }
 
-  async getBudgetsReport(range?: string, startDate?: string, endDate?: string) {
+  async getBudgetsEstados(): Promise<string[]> {
+    const raw = await this.presupuestoRepository.createQueryBuilder('p')
+      .leftJoin('p.estado', 'est')
+      .select('DISTINCT est.nombre', 'nombre')
+      .where('p.deletedAt IS NULL AND est.nombre IS NOT NULL')
+      .getRawMany();
+    return raw.map(r => r.nombre).filter(Boolean);
+  }
+
+  async getBudgetsReport(range?: string, startDate?: string, endDate?: string, estado?: string, sortBy?: string) {
     const { from, to } = this.getDateRange(range, startDate, endDate);
 
-    const budgets = await this.presupuestoRepository.createQueryBuilder('p')
+    const qb = this.presupuestoRepository.createQueryBuilder('p')
       .leftJoinAndSelect('p.estado', 'est')
       .leftJoinAndSelect('p.orden', 'ord')
       .leftJoin('ord.client', 'cli')
@@ -152,9 +222,20 @@ export class ReportsService {
         'p.id', 'p.fechaEmision', 'p.descripcion', 'p.estadoId',
         'est.nombre', 'ord.id', 'ord.workOrderNumber', 'cli.nombre', 'cli.apellido'
       ])
-      .where('p.deletedAt IS NULL AND p.createdAt >= :from AND p.createdAt <= :to', { from, to })
-      .orderBy('p.createdAt', 'DESC')
-      .getMany();
+      .where('p.deletedAt IS NULL AND p.createdAt >= :from AND p.createdAt <= :to', { from, to });
+
+    if (estado) {
+      qb.andWhere('LOWER(est.nombre) = LOWER(:estado)', { estado });
+    }
+
+    if (sortBy === 'total_asc' || sortBy === 'total_desc') {
+      // For total sorting we'll sort after computing; use createdAt default here
+      qb.orderBy('p.createdAt', 'DESC');
+    } else {
+      qb.orderBy('p.createdAt', 'DESC');
+    }
+
+    const budgets = await qb.getMany();
 
     const result = [];
     for (const b of budgets) {
@@ -175,19 +256,38 @@ export class ReportsService {
       });
     }
 
+    if (sortBy === 'total_desc') result.sort((a, b) => b.total - a.total);
+    if (sortBy === 'total_asc') result.sort((a, b) => a.total - b.total);
+
     return result;
   }
 
-  async getOrdersReport(range?: string, startDate?: string, endDate?: string) {
+  async getOrdersEstados(): Promise<string[]> {
+    const raw = await this.orderRepository.createQueryBuilder('o')
+      .leftJoin('o.estadoOrden', 'e')
+      .select('DISTINCT e.nombre', 'nombre')
+      .where('o.deletedAt IS NULL AND e.nombre IS NOT NULL')
+      .getRawMany();
+    return raw.map(r => r.nombre).filter(Boolean);
+  }
+
+  async getOrdersReport(range?: string, startDate?: string, endDate?: string, estado?: string, technicianId?: number) {
     const { from, to } = this.getDateRange(range, startDate, endDate);
 
-    const orders = await this.orderRepository.createQueryBuilder('o')
+    const qb = this.orderRepository.createQueryBuilder('o')
       .leftJoinAndSelect('o.client', 'c')
       .leftJoinAndSelect('o.technician', 't')
       .leftJoinAndSelect('o.estadoOrden', 'e')
-      .where('o.deletedAt IS NULL AND o.createdAt >= :from AND o.createdAt <= :to', { from, to })
-      .orderBy('o.createdAt', 'DESC')
-      .getMany();
+      .where('o.deletedAt IS NULL AND o.createdAt >= :from AND o.createdAt <= :to', { from, to });
+
+    if (estado) {
+      qb.andWhere('LOWER(e.nombre) = LOWER(:estado)', { estado });
+    }
+    if (technicianId) {
+      qb.andWhere('o.technicianId = :technicianId', { technicianId });
+    }
+
+    const orders = await qb.orderBy('o.createdAt', 'DESC').getMany();
 
     return orders.map(o => ({
       id: o.id,
@@ -216,7 +316,7 @@ export class ReportsService {
     }));
   }
 
-  async getTechniciansReport(range?: string, startDate?: string, endDate?: string, technicianId?: number) {
+  async getTechniciansReport(range?: string, startDate?: string, endDate?: string, technicianId?: number, sortBy?: string, minOrders?: number) {
     const { from, to } = this.getDateRange(range, startDate, endDate);
 
     if (technicianId) {
@@ -230,7 +330,6 @@ export class ReportsService {
 
       const details = [];
       for (const o of orders) {
-        // Query services/labor subtotal (parteId IS NULL)
         const servicesRaw = await this.presupuestoRepository.createQueryBuilder('p')
           .leftJoin('p.detallesPresupuestoItems', 'd')
           .select('SUM(d.subtotal)', 'total')
@@ -238,7 +337,6 @@ export class ReportsService {
           .andWhere('d.parteId IS NULL')
           .getRawOne();
 
-        // Query parts subtotal (parteId IS NOT NULL)
         const partsRaw = await this.presupuestoRepository.createQueryBuilder('p')
           .leftJoin('p.detallesPresupuestoItems', 'd')
           .select('SUM(d.subtotal)', 'total')
@@ -260,14 +358,11 @@ export class ReportsService {
           moneyGenerated: servicesVal + partsVal,
         });
       }
-      return {
-        isDetail: true,
-        orders: details,
-      };
+      return { isDetail: true, orders: details };
     }
 
     // ─── Summary Report of All Technicians ────────────────────────────────────
-    const techsRaw = await this.orderRepository.createQueryBuilder('o')
+    const summaryQb = this.orderRepository.createQueryBuilder('o')
       .leftJoin('o.technician', 't')
       .select('t.id', 'id')
       .addSelect('t.nombre', 'nombre')
@@ -275,8 +370,13 @@ export class ReportsService {
       .addSelect('COUNT(o.id)', 'totalAssigned')
       .where('o.deletedAt IS NULL AND o.createdAt >= :from AND o.createdAt <= :to', { from, to })
       .andWhere('t.id IS NOT NULL')
-      .groupBy('t.id')
-      .getRawMany();
+      .groupBy('t.id');
+
+    if (minOrders && minOrders > 0) {
+      summaryQb.having('COUNT(o.id) >= :minOrders', { minOrders });
+    }
+
+    const techsRaw = await summaryQb.getRawMany();
 
     const result = [];
     for (const t of techsRaw) {
@@ -309,14 +409,19 @@ export class ReportsService {
       });
     }
 
-    return {
-      isDetail: false,
-      technicians: result,
-    };
+    // Sort in-memory after financials computed
+    if (sortBy === 'total_desc') result.sort((a, b) => b.moneyGenerated - a.moneyGenerated);
+    else if (sortBy === 'total_asc') result.sort((a, b) => a.moneyGenerated - b.moneyGenerated);
+    else if (sortBy === 'orders_desc') result.sort((a, b) => b.totalAssigned - a.totalAssigned);
+    else if (sortBy === 'orders_asc') result.sort((a, b) => a.totalAssigned - b.totalAssigned);
+
+    return { isDetail: false, technicians: result };
   }
 
-  async getEquipmentReport(range?: string, startDate?: string, endDate?: string) {
+  async getEquipmentReport(range?: string, startDate?: string, endDate?: string, sortBy?: string, minCount?: number) {
     const { from, to } = this.getDateRange(range, startDate, endDate);
+
+    const sortOrder = sortBy === 'count_asc' ? 'ASC' : 'DESC';
 
     const equipmentRaw = await this.orderRepository.createQueryBuilder('o')
       .leftJoin('o.equipo', 'eq')
@@ -326,12 +431,16 @@ export class ReportsService {
       .where('o.deletedAt IS NULL AND o.createdAt >= :from AND o.createdAt <= :to', { from, to })
       .andWhere('m.nombre IS NOT NULL AND m.nombre != :empty', { empty: '' })
       .groupBy('m.nombre')
-      .orderBy('COUNT(o.id)', 'DESC')
+      .orderBy('COUNT(o.id)', sortOrder)
       .getRawMany();
 
-    return equipmentRaw.map(eq => ({
+    const mapped = equipmentRaw.map(eq => ({
       brand: eq.brand,
       count: parseInt(eq.count || '0'),
     }));
+
+    return minCount && minCount > 0
+      ? mapped.filter(eq => eq.count >= minCount)
+      : mapped;
   }
 }

@@ -195,7 +195,8 @@ export class DashboardService {
     return 'client';
   }
 
-  private getRangeStart(range: string): Date {
+  private getRangeStart(range: string): Date | undefined {
+    if (range === 'all') return undefined;
     const now = new Date();
     const days = range === '7d' ? 7 : range === '90d' ? 90 : 30;
     return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
@@ -258,10 +259,14 @@ export class DashboardService {
     }));
   }
 
-  private async getOrderStatusChart(filters: any, createdFrom: Date): Promise<DashboardChart> {
+  private async getOrderStatusChart(filters: any, createdFrom: Date | undefined): Promise<DashboardChart> {
     const qb = this.orderRepository.createQueryBuilder('o').leftJoin('o.estadoOrden', 'estadoOrden')
       .select('COALESCE(estadoOrden.nombre, :sinEstado)', 'label').addSelect('COUNT(o.id)', 'value')
-      .where('o.deletedAt IS NULL AND o.createdAt >= :createdFrom', { createdFrom }).setParameter('sinEstado', 'Pendiente');
+      .where('o.deletedAt IS NULL').setParameter('sinEstado', 'Pendiente');
+    
+    if (createdFrom) {
+      qb.andWhere('o.createdAt >= :createdFrom', { createdFrom });
+    }
     if (filters.clientId) qb.andWhere('o.clientId = :clientId', { clientId: filters.clientId });
     if (filters.technicianId) qb.andWhere('o.technicianId = :technicianId', { technicianId: filters.technicianId });
     if (filters.recepcionistaId) qb.andWhere('o.recepcionistaId = :recepcionistaId', { recepcionistaId: filters.recepcionistaId });

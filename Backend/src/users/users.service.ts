@@ -403,7 +403,11 @@ export class UsersService {
     }
 
     if (role && role !== 'all') {
-      query.andWhere('rol.slug = :role', { role });
+      if (role === 'client') {
+        query.andWhere('(rol.slug = :role OR rol.id IS NULL)', { role });
+      } else {
+        query.andWhere('rol.slug = :role', { role });
+      }
     }
 
     query.skip(skip)
@@ -506,15 +510,20 @@ export class UsersService {
    * @returns Cantidad de usuarios con ese rol
    */
   async countByRole(roleSlug: string): Promise<number> {
-    const count = await this.userRepository
+    const query = this.userRepository
       .createQueryBuilder('user')
-      .innerJoin('user.userRoles', 'userRole')
-      .innerJoin('userRole.rol', 'rol')
-      .where('rol.slug = :slug', { slug: roleSlug })
-      .andWhere('user.estado = :estado', { estado: true })
-      .andWhere('user.deletedAt IS NULL')
-      .getCount();
-    return count;
+      .leftJoin('user.userRoles', 'userRole')
+      .leftJoin('userRole.rol', 'rol')
+      .where('user.estado = :estado', { estado: true })
+      .andWhere('user.deletedAt IS NULL');
+
+    if (roleSlug === 'client') {
+      query.andWhere('(rol.slug = :slug OR rol.id IS NULL)', { slug: roleSlug });
+    } else {
+      query.andWhere('rol.slug = :slug', { slug: roleSlug });
+    }
+
+    return query.getCount();
   }
 
   async updatePassword(id: number, currentPassword: string, newPassword: string): Promise<User> {

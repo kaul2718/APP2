@@ -106,7 +106,7 @@ export default function FeaturesSection() {
                   <div className={`p-4 rounded-2xl bg-gradient-to-br ${item.color} shadow-lg ${item.shadow} group-hover:scale-110 transition-transform duration-300`}>
                     <IconComponent className="w-7 h-7 text-gray-900" />
                   </div>
-                  <span className="text-5xl font-black text-gray-200 dark:text-gray-800/40 group-hover:text-gray-300 dark:group-hover:text-gray-700/40 transition-colors duration-300 select-none">
+                  <span aria-hidden="true" className="text-5xl font-black text-gray-500 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-400 transition-colors duration-300 select-none">
                     0{idx + 1}
                   </span>
                 </div>

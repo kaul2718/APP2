@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from './entities/order.entity';
@@ -312,7 +312,7 @@ export class OrderService {
     if (updateDto.fechaPrometidaEntrega !== undefined) {
       if (updateDto.fechaPrometidaEntrega) {
         const fechaPromesa = new Date(updateDto.fechaPrometidaEntrega);
-        
+
         // Solo validamos si la fecha cambió
         const fechaActual = orden.fechaPrometidaEntrega ? new Date(orden.fechaPrometidaEntrega).getTime() : null;
         if (fechaActual !== fechaPromesa.getTime()) {
@@ -322,7 +322,7 @@ export class OrderService {
             throw new BadRequestException('fechaPrometidaEntrega no puede ser anterior a hoy');
           }
         }
-        
+
         orden.fechaPrometidaEntrega = fechaPromesa;
       } else {
         orden.fechaPrometidaEntrega = null;
@@ -614,7 +614,7 @@ export class OrderService {
 
     // Filtros adicionales
     if (estadoOrdenId && estadoOrdenId > 0) {
-      query.andWhere('order.estadoOrdenId = :estadoOrdenId', { estadoOrdenId });
+      query.andWhere('estadoOrden.id = :estadoOrdenId', { estadoOrdenId });
     }
 
     if (technicianId && technicianId > 0) {
@@ -866,6 +866,7 @@ export class OrderService {
         'equipo.modelo',
         'presupuesto',
         'presupuesto.estado',
+        'presupuesto.detallesPresupuestoItems',
         'casillero'
       ],
       order: { createdAt: 'DESC' }
@@ -904,7 +905,7 @@ export class OrderService {
       .andWhere('order.deletedAt IS NULL');
 
     if (estadoOrdenId && estadoOrdenId > 0) {
-      query.andWhere('order.estadoOrdenId = :estadoOrdenId', { estadoOrdenId });
+      query.andWhere('estadoOrden.id = :estadoOrdenId', { estadoOrdenId });
     }
 
     if (search && search.trim()) {
@@ -936,7 +937,11 @@ export class OrderService {
         'equipo.tipoEquipo',
         'equipo.marca',
         'equipo.modelo',
-        'estadoOrden'
+        'estadoOrden',
+        'presupuesto',
+        'presupuesto.estado',
+        'presupuesto.detallesPresupuestoItems',
+        'presupuesto.detallesPresupuestoItems.parte'
       ],
     });
 
@@ -964,8 +969,77 @@ export class OrderService {
       estadoOrden: {
         id: order.estadoOrden?.id,
         nombre: order.estadoOrden?.nombre || 'Recepción',
-      }
+      },
+      presupuesto: order.presupuesto ? {
+        id: order.presupuesto.id,
+        estado: order.presupuesto.estado?.nombre,
+        descripcion: order.presupuesto.descripcion,
+        total: order.presupuesto.detallesPresupuestoItems?.reduce((sum, item) => sum + (Number(item.cantidad) * Number(item.precioUnitario)), 0) || 0,
+        items: order.presupuesto.detallesPresupuestoItems?.map(item => ({
+          cantidad: item.cantidad,
+          precioUnitario: item.precioUnitario,
+          nombre: item.parte?.nombre || 'Item sin nombre'
+        })) || []
+      } : null
     };
+  }
+
+  async handlePublicPresupuestoAction(cedula: string, workOrderNumber: string, action: string): Promise<{ message: string }> {
+    if (!cedula || !workOrderNumber || !action) {
+      throw new BadRequestException('Cédula, número de orden y acción son requeridos');
+    }
+
+    const validActions = ['ACEPTADO', 'RECHAZADO'];
+    if (!validActions.includes(action.toUpperCase())) {
+      throw new BadRequestException('Acción inválida. Debe ser ACEPTADO o RECHAZADO');
+    }
+
+    const order = await this.orderRepository.findOne({
+      where: {
+        workOrderNumber: workOrderNumber.trim(),
+        client: { cedula: cedula.trim() },
+        estado: true,
+        deletedAt: null,
+      },
+      relations: ['client', 'technician', 'presupuesto', 'presupuesto.estado'],
+    });
+
+    if (!order) {
+      throw new NotFoundException('No se encontró ninguna orden activa con esa cédula y número de orden.');
+    }
+
+    if (!order.presupuesto) {
+      throw new BadRequestException('Esta orden no tiene un presupuesto asignado.');
+    }
+
+    const estadoPresupuesto = order.presupuesto.estado?.nombre?.toUpperCase();
+    if (estadoPresupuesto === 'APROBADO' || estadoPresupuesto === 'RECHAZADO') {
+      throw new BadRequestException(`El presupuesto ya ha sido ${estadoPresupuesto.toLowerCase()}.`);
+    }
+
+    const actionStateName = action.toUpperCase() === 'ACEPTADO' ? 'Aprobado' : 'Rechazado';
+    const nuevoEstado = await this.presupuestoRepository.manager.getRepository('EstadoPresupuesto').findOne({
+      where: { nombre: actionStateName }
+    });
+
+    if (!nuevoEstado) {
+      throw new InternalServerErrorException('No se encontró el estado de presupuesto en la base de datos');
+    }
+
+    order.presupuesto.estado = nuevoEstado as any;
+    order.presupuesto.estadoId = (nuevoEstado as any).id;
+    await this.presupuestoRepository.save(order.presupuesto);
+
+    if (order.technician) {
+      await this.notificacionService.notificarPresupuesto(
+        order.id,
+        order.technician.id,
+        order.workOrderNumber,
+        actionStateName.toLowerCase()
+      );
+    }
+
+    return { message: `El presupuesto ha sido ${actionStateName.toLowerCase()} exitosamente.` };
   }
 
   async getTechniciansAvailability(): Promise<any[]> {
@@ -1031,4 +1105,4 @@ export class OrderService {
     return availability;
   }
 }
-
+

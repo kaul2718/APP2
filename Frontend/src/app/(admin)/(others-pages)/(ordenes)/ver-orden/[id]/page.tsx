@@ -48,10 +48,14 @@ export default function PerfilOrdenPage() {
   const { id } = useParams();
   const router = useRouter();
   const { data: session } = useSession();
+  const { role } = session?.user || {};
+  const isClient = role === 'client';
+  
   const { updateOrder } = useOrders();
   const { updatePresupuesto } = usePresupuesto();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
   // Estados para modales
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -70,6 +74,34 @@ export default function PerfilOrdenPage() {
   });
   const [isDeleting, setIsDeleting] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("todos");
+
+  const handlePresupuestoAction = async (orderId: number, cedula: string, workorder: string, action: 'ACEPTADO' | 'RECHAZADO') => {
+    setActionLoading(true);
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000/api/v1';
+      const res = await fetch(`${baseUrl}/orders/public/consulta/presupuesto/action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cedula,
+          workorder,
+          action
+        })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Error al procesar la acción del presupuesto');
+      }
+
+      toast.success(`Presupuesto ${action.toLowerCase()} correctamente.`);
+      await fetchOrder(); 
+    } catch (err: any) {
+      toast.error(err.message || 'Error desconocido al actualizar el presupuesto');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const fetchOrder = async () => {
     if (!id || !session) return;
@@ -280,57 +312,64 @@ export default function PerfilOrdenPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Quick Actions */}
-            <button 
-              onClick={() => setIsEditModalOpen(true)}
-              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              <PencilIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Editar</span>
-            </button>
+          <div className="flex flex-wrap items-center gap-3">
+            {!isClient && (
+              <>
+                <button 
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">Editar</span>
+                </button>
 
-            <button 
-              onClick={() => setIsActividadModalOpen(true)}
-              className="flex items-center gap-2 rounded-lg border border-transparent bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600"
-            >
-              <WrenchScrewdriverIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Actividad</span>
-            </button>
+                <button 
+                  onClick={() => setIsActividadModalOpen(true)}
+                  className="flex items-center gap-2 rounded-lg border border-transparent bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600"
+                >
+                  <WrenchScrewdriverIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">Actividad</span>
+                </button>
 
-            <button 
-              onClick={() => order.presupuesto ? setIsEditPresupuestoModalOpen(true) : setIsPresupuestoModalOpen(true)}
-              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              <CurrencyDollarIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Presupuesto</span>
-            </button>
+                <button 
+                  onClick={() => order.presupuesto ? setIsEditPresupuestoModalOpen(true) : setIsPresupuestoModalOpen(true)}
+                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  <CurrencyDollarIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">Presupuesto</span>
+                </button>
 
-            <button 
-              onClick={() => setIsEvidenciaModalOpen(true)}
-              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              <PhotoIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Subir Evidencia</span>
-            </button>
+                <button 
+                  onClick={() => setIsEvidenciaModalOpen(true)}
+                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  <PhotoIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">Subir Evidencia</span>
+                </button>
 
-            <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1 hidden sm:block"></div>
+                <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1 hidden sm:block"></div>
+              </>
+            )}
 
-            <button 
-              onClick={() => setIsPdfIngresoOpen(true)}
-              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              <PrinterIcon className="h-4 w-4" />
-              <span className="hidden lg:inline">PDF Ingreso</span>
-            </button>
-            
-            <button 
-              onClick={() => setIsPdfEntregaOpen(true)}
-              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              <DocumentTextIcon className="h-4 w-4" />
-              <span className="hidden lg:inline">PDF Entrega</span>
-            </button>
+            {!isClient && (
+              <>
+                <button 
+                  onClick={() => setIsPdfIngresoOpen(true)}
+                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  <PrinterIcon className="h-4 w-4" />
+                  <span className="hidden lg:inline">PDF Ingreso</span>
+                </button>
+                
+                <button 
+                  onClick={() => setIsPdfEntregaOpen(true)}
+                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  <DocumentTextIcon className="h-4 w-4" />
+                  <span className="hidden lg:inline">PDF Entrega</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -565,13 +604,15 @@ export default function PerfilOrdenPage() {
                         >
                           <EyeIcon className="h-6 w-6" aria-hidden="true" />
                         </button>
-                        <button 
-                          onClick={() => setDeleteConfig({ isOpen: true, id: ev.id })}
-                          className="p-2 bg-red-500/20 hover:bg-red-500/40 rounded-full text-red-200 backdrop-blur-sm transition-all"
-                          aria-label="Eliminar evidencia"
-                        >
-                          <TrashIcon className="h-6 w-6" aria-hidden="true" />
-                        </button>
+                        {!isClient && (
+                          <button 
+                            onClick={() => setDeleteConfig({ isOpen: true, id: ev.id })}
+                            className="p-2 bg-red-500/20 hover:bg-red-500/40 rounded-full text-red-200 backdrop-blur-sm transition-all"
+                            aria-label="Eliminar evidencia"
+                          >
+                            <TrashIcon className="h-6 w-6" aria-hidden="true" />
+                          </button>
+                        )}
                       </div>
 
                       <div className="absolute top-2 left-2">
@@ -612,13 +653,15 @@ export default function PerfilOrdenPage() {
                   <div className="h-8 w-1 bg-brand-500 rounded-full"></div>
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white">Historial de Actividades Técnicas</h2>
                 </div>
-                <button 
-                  onClick={() => setIsActividadModalOpen(true)}
-                  className="text-sm font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1"
-                >
-                  <PlusIcon className="h-4 w-4" />
-                  Registrar Actividad
-                </button>
+                {!isClient && (
+                  <button 
+                    onClick={() => setIsActividadModalOpen(true)}
+                    className="text-sm font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1"
+                  >
+                    <PlusIcon className="h-4 w-4" />
+                    Registrar Actividad
+                  </button>
+                )}
               </div>
 
               {order.actividades && order.actividades.length > 0 ? (
@@ -707,13 +750,15 @@ export default function PerfilOrdenPage() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-xs font-black uppercase text-gray-600 dark:text-gray-400 tracking-widest">Resumen Financiero</p>
-                      <button 
-                        onClick={() => setIsEditPresupuestoModalOpen(true)}
-                        aria-label="Editar presupuesto"
-                        className="p-1.5 rounded-lg bg-gray-50 text-gray-500 hover:bg-brand-50 hover:text-brand-600 transition-colors dark:bg-gray-900"
-                      >
-                        <PencilIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                      </button>
+                      {!isClient && (
+                        <button 
+                          onClick={() => setIsEditPresupuestoModalOpen(true)}
+                          aria-label="Editar presupuesto"
+                          className="p-1.5 rounded-lg bg-gray-50 text-gray-500 hover:bg-brand-50 hover:text-brand-600 transition-colors dark:bg-gray-900"
+                        >
+                          <PencilIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -768,6 +813,36 @@ export default function PerfilOrdenPage() {
                         ).toFixed(2)}
                       </span>
                     </div>
+
+                    {/* Acciones Cliente */}
+                    {isClient && String(order.presupuesto.estado?.nombre || order.presupuesto.estado).toLowerCase().includes('pend') && (
+                      <div className="flex gap-3 mt-4 pt-4 border-t border-brand-200 dark:border-brand-800">
+                        <button
+                          className="flex-1 justify-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-brand-700 transition-all disabled:opacity-50"
+                          onClick={() => handlePresupuestoAction(
+                            order.id, 
+                            (order.client as any)?.cedula || (order as any).cliente?.cedula || (session?.user as any)?.cedula || '', 
+                            order.workOrderNumber, 
+                            'ACEPTADO'
+                          )}
+                          disabled={actionLoading}
+                        >
+                          Aceptar
+                        </button>
+                        <button
+                          className="flex-1 justify-center rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 shadow-sm hover:bg-red-50 transition-all disabled:opacity-50"
+                          onClick={() => handlePresupuestoAction(
+                            order.id, 
+                            (order.client as any)?.cedula || (order as any).cliente?.cedula || (session?.user as any)?.cedula || '', 
+                            order.workOrderNumber, 
+                            'RECHAZADO'
+                          )}
+                          disabled={actionLoading}
+                        >
+                          Rechazar
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-4">
@@ -854,74 +929,78 @@ export default function PerfilOrdenPage() {
       </div>
 
       {/* Modales */}
-      <OrdenEditModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        order={order}
-        onSave={handleSaveOrder}
-      />
+      {!isClient && (
+        <>
+          <OrdenEditModal
+            isOpen={isEditModalOpen}
+            onClose={() => setIsEditModalOpen(false)}
+            order={order}
+            onSave={handleSaveOrder}
+          />
 
-      <AgregarActividadTecnicaModal
-        isOpen={isActividadModalOpen}
-        onClose={() => setIsActividadModalOpen(false)}
-        orderId={order.id}
-        onSuccess={() => {
-          setIsActividadModalOpen(false);
-          sessionStorage.setItem('lastModifiedOrderId', order.id.toString());
-          fetchOrder();
-        }}
-      />
+          <AgregarActividadTecnicaModal
+            isOpen={isActividadModalOpen}
+            onClose={() => setIsActividadModalOpen(false)}
+            orderId={order.id}
+            onSuccess={() => {
+              setIsActividadModalOpen(false);
+              sessionStorage.setItem('lastModifiedOrderId', order.id.toString());
+              fetchOrder();
+            }}
+          />
 
-      <AgregarEvidenciaTecnicaModal
-        isOpen={isEvidenciaModalOpen}
-        onClose={() => setIsEvidenciaModalOpen(false)}
-        orderId={order.id}
-        onSuccess={() => {
-          setIsEvidenciaModalOpen(false);
-          sessionStorage.setItem('lastModifiedOrderId', order.id.toString());
-          fetchOrder();
-        }}
-      />
+          <AgregarEvidenciaTecnicaModal
+            isOpen={isEvidenciaModalOpen}
+            onClose={() => setIsEvidenciaModalOpen(false)}
+            orderId={order.id}
+            onSuccess={() => {
+              setIsEvidenciaModalOpen(false);
+              sessionStorage.setItem('lastModifiedOrderId', order.id.toString());
+              fetchOrder();
+            }}
+          />
 
-      <GenerarPdfIngresoModal
-        isOpen={isPdfIngresoOpen}
-        onClose={() => setIsPdfIngresoOpen(false)}
-        order={order}
-      />
+          <GenerarPdfIngresoModal
+            isOpen={isPdfIngresoOpen}
+            onClose={() => setIsPdfIngresoOpen(false)}
+            order={order}
+          />
 
-      <GenerarPdfEntregaModal
-        isOpen={isPdfEntregaOpen}
-        onClose={() => setIsPdfEntregaOpen(false)}
-        order={order}
-      />
+          <GenerarPdfEntregaModal
+            isOpen={isPdfEntregaOpen}
+            onClose={() => setIsPdfEntregaOpen(false)}
+            order={order}
+          />
 
-      <AgregarPresupuestoModal
-        isOpen={isPresupuestoModalOpen}
-        onClose={() => setIsPresupuestoModalOpen(false)}
-        orderId={order.id}
-        onSuccess={() => {
-          setIsPresupuestoModalOpen(false);
-          sessionStorage.setItem('lastModifiedOrderId', order.id.toString());
-          fetchOrder();
-        }}
-      />
+          <AgregarPresupuestoModal
+            isOpen={isPresupuestoModalOpen}
+            onClose={() => setIsPresupuestoModalOpen(false)}
+            orderId={order.id}
+            onSuccess={() => {
+              setIsPresupuestoModalOpen(false);
+              sessionStorage.setItem('lastModifiedOrderId', order.id.toString());
+              fetchOrder();
+            }}
+          />
 
-      <PresupuestoEditModal
-        isOpen={isEditPresupuestoModalOpen}
-        onClose={() => setIsEditPresupuestoModalOpen(false)}
-        presupuesto={order.presupuesto as any}
-        onSave={handleSavePresupuesto}
-      />
+          <PresupuestoEditModal
+            isOpen={isEditPresupuestoModalOpen}
+            onClose={() => setIsEditPresupuestoModalOpen(false)}
+            presupuesto={order.presupuesto as any}
+            onSave={handleSavePresupuesto}
+          />
 
-      <ConfirmDialog
-        isOpen={deleteConfig.isOpen}
-        onClose={() => setDeleteConfig({ isOpen: false, id: null })}
-        onConfirm={handleDeleteEvidence}
-        title="¿Eliminar evidencia?"
-        description="Esta acción eliminará permanentemente la fotografía del sistema y no se puede deshacer."
-        destructive
-        isLoading={isDeleting}
-      />
+          <ConfirmDialog
+            isOpen={deleteConfig.isOpen}
+            onClose={() => setDeleteConfig({ isOpen: false, id: null })}
+            onConfirm={handleDeleteEvidence}
+            title="¿Eliminar evidencia?"
+            description="Esta acción eliminará permanentemente la fotografía del sistema y no se puede deshacer."
+            destructive
+            isLoading={isDeleting}
+          />
+        </>
+      )}
 
       {/* Lightbox Viewer */}
       <AnimatePresence>

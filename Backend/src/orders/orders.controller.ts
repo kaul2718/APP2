@@ -40,6 +40,33 @@ export class OrderController {
     return this.orderService.create(dto);
   }
 
+  @Auth('client')
+  @Get('my-orders')
+  async getMyOrders(
+    @UserDecorator() user: User,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedPage = page ? parseInt(page, 10) : 1;
+    const parsedLimit = limit ? parseInt(limit, 10) : 10;
+    
+    const result = await this.orderService.findAllPaginated(
+      parsedPage,
+      parsedLimit,
+      undefined,
+      undefined,
+      undefined,
+      user.id,
+    );
+
+    return {
+      items: result.data,
+      totalItems: result.total,
+      currentPage: parsedPage,
+      totalPages: Math.ceil(result.total / parsedLimit),
+    };
+  }
+
   @Auth('admin', 'tech', 'recep')
   @RequirePermissions('orders.view')
   @Get()
@@ -255,5 +282,12 @@ export class OrderController {
     @Query('workorder') workorder: string,
   ) {
     return this.orderService.findPublicOrder(cedula, workorder);
+  }
+
+  @Post('public/consulta/presupuesto/action')
+  async handlePublicPresupuestoAction(
+    @Body() body: { cedula: string, workorder: string, action: string }
+  ) {
+    return this.orderService.handlePublicPresupuestoAction(body.cedula, body.workorder, body.action);
   }
 }

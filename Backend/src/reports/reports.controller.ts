@@ -21,13 +21,18 @@ export class ReportsController {
     @Query('range') range?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('segment') segment?: string,
   ) {
-    return this.reportsService.getClientsReport(range, startDate, endDate);
+    return this.reportsService.getClientsReport(range, startDate, endDate, segment);
   }
 
   @Get('inventory')
-  getInventoryReport() {
-    return this.reportsService.getInventoryReport();
+  getInventoryReport(
+    @Query('categoryId') categoryId?: number,
+    @Query('rotation') rotation?: string,
+    @Query('stockStatus') stockStatus?: string,
+  ) {
+    return this.reportsService.getInventoryReport(categoryId, rotation, stockStatus);
   }
 
   @Get('purchases')
@@ -35,8 +40,16 @@ export class ReportsController {
     @Query('range') range?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('estado') estado?: string,
+    @Query('minTotal') minTotal?: string,
+    @Query('maxTotal') maxTotal?: string,
   ) {
-    return this.reportsService.getPurchasesReport(range, startDate, endDate);
+    return this.reportsService.getPurchasesReport(range, startDate, endDate, estado, minTotal ? parseFloat(minTotal) : undefined, maxTotal ? parseFloat(maxTotal) : undefined);
+  }
+
+  @Get('budgets/estados')
+  getBudgetsEstados() {
+    return this.reportsService.getBudgetsEstados();
   }
 
   @Get('budgets')
@@ -44,8 +57,15 @@ export class ReportsController {
     @Query('range') range?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('estado') estado?: string,
+    @Query('sortBy') sortBy?: string,
   ) {
-    return this.reportsService.getBudgetsReport(range, startDate, endDate);
+    return this.reportsService.getBudgetsReport(range, startDate, endDate, estado, sortBy);
+  }
+
+  @Get('orders/estados')
+  getOrdersEstados() {
+    return this.reportsService.getOrdersEstados();
   }
 
   @Get('orders')
@@ -53,8 +73,10 @@ export class ReportsController {
     @Query('range') range?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('estado') estado?: string,
+    @Query('technicianId') technicianId?: number,
   ) {
-    return this.reportsService.getOrdersReport(range, startDate, endDate);
+    return this.reportsService.getOrdersReport(range, startDate, endDate, estado, technicianId);
   }
 
   @Get('technicians/list')
@@ -68,8 +90,10 @@ export class ReportsController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('technicianId') technicianId?: number,
+    @Query('sortBy') sortBy?: string,
+    @Query('minOrders') minOrders?: string,
   ) {
-    return this.reportsService.getTechniciansReport(range, startDate, endDate, technicianId);
+    return this.reportsService.getTechniciansReport(range, startDate, endDate, technicianId, sortBy, minOrders ? parseInt(minOrders) : undefined);
   }
 
   @Get('equipment')
@@ -77,7 +101,9 @@ export class ReportsController {
     @Query('range') range?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('minCount') minCount?: string,
   ) {
-    return this.reportsService.getEquipmentReport(range, startDate, endDate);
+    return this.reportsService.getEquipmentReport(range, startDate, endDate, sortBy, minCount ? parseInt(minCount) : undefined);
   }
 }

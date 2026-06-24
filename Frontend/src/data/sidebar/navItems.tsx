@@ -174,9 +174,9 @@ export const getFilteredNavItems = (role: string | null, permissions: string[] =
 
   return navItems
     .filter(item => {
-      // 1. Si el item requiere un permiso específico, verificar si el usuario lo tiene (o es admin)
+      // 1. Si el item requiere un permiso específico, verificar si el usuario lo tiene (o es admin o si el rol es explícitamente cliente y está en la lista)
       if (item.permission) {
-        const hasPerm = isAdmin || permissions.includes(item.permission);
+        const hasPerm = isAdmin || permissions.includes(item.permission) || (role === 'client' && item.roles?.includes('client'));
         if (!hasPerm) return false;
       }
 
@@ -184,7 +184,7 @@ export const getFilteredNavItems = (role: string | null, permissions: string[] =
       if (item.subItems) {
         const hasVisibleSubItem = item.subItems.some(sub => {
           if (sub.permission) {
-            const hasPerm = isAdmin || permissions.includes(sub.permission);
+            const hasPerm = isAdmin || permissions.includes(sub.permission) || (role === 'client' && sub.roles?.includes('client'));
             return hasPerm;
           }
           return true;
@@ -199,7 +199,7 @@ export const getFilteredNavItems = (role: string | null, permissions: string[] =
       if (item.subItems) {
         const filteredSub = item.subItems.filter(sub => {
           if (sub.permission) {
-            const hasPerm = isAdmin || permissions.includes(sub.permission);
+            const hasPerm = isAdmin || permissions.includes(sub.permission) || (role === 'client' && sub.roles?.includes('client'));
             return hasPerm;
           }
           return true;

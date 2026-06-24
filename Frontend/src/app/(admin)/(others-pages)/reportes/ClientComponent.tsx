@@ -17,6 +17,7 @@ import {
   ShoppingBagIcon,
   PrinterIcon,
   ArrowPathIcon,
+  ArrowTrendingUpIcon,
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 import Link from 'next/link';
@@ -30,6 +31,8 @@ interface KPIStats {
   clientsCount: number;
   revenue: number;
   expenses: number;
+  netProfit?: number;
+  profitMargin?: number;
 }
 
 interface ClientReport {
@@ -123,10 +126,25 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
   const endDateId = React.useId();
   const techSelectId = React.useId();
   const itemsPerPageId = React.useId();
+  const categoryFilterId = React.useId();
+  const rotationFilterId = React.useId();
+  const stockFilterId = React.useId();
+  const clientSegmentFilterId = React.useId();
+  const purchaseEstadoFilterId = React.useId();
+  const purchaseMinTotalId = React.useId();
+  const purchaseMaxTotalId = React.useId();
+  const budgetEstadoFilterId = React.useId();
+  const budgetSortById = React.useId();
+  const orderEstadoFilterId = React.useId();
+  const orderTechFilterId = React.useId();
+  const techSortById = React.useId();
+  const techMinOrdersId = React.useId();
+  const equipSortById = React.useId();
+  const equipMinCountId = React.useId();
 
   const [useCalendar, setUseCalendar] = useState<boolean>(false);
   const [range, setRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
-  
+
   // Calendarios
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -134,6 +152,36 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
   const [activeTab, setActiveTab] = useState<TabType>(initialTab || 'clients');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Dynamic filter states
+  const [categoriesList, setCategoriesList] = useState<{ id: number; nombre: string }[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedRotation, setSelectedRotation] = useState<string>('');
+  const [selectedStockStatus, setSelectedStockStatus] = useState<string>('');
+  const [selectedClientSegment, setSelectedClientSegment] = useState<string>('');
+
+  // Compras filters
+  const [selectedPurchaseEstado, setSelectedPurchaseEstado] = useState<string>('');
+  const [purchaseMinTotal, setPurchaseMinTotal] = useState<string>('');
+  const [purchaseMaxTotal, setPurchaseMaxTotal] = useState<string>('');
+
+  // Presupuestos filters
+  const [budgetEstadosList, setBudgetEstadosList] = useState<string[]>([]);
+  const [selectedBudgetEstado, setSelectedBudgetEstado] = useState<string>('');
+  const [budgetSortBy, setBudgetSortBy] = useState<string>('');
+
+  // Órdenes filters
+  const [orderEstadosList, setOrderEstadosList] = useState<string[]>([]);
+  const [selectedOrderEstado, setSelectedOrderEstado] = useState<string>('');
+  const [selectedOrderTechId, setSelectedOrderTechId] = useState<string>('');
+
+  // Técnicos filters (summary mode only)
+  const [techSortBy, setTechSortBy] = useState<string>('');
+  const [techMinOrders, setTechMinOrders] = useState<string>('');
+
+  // Equipos filters
+  const [equipSortBy, setEquipSortBy] = useState<string>('');
+  const [equipMinCount, setEquipMinCount] = useState<string>('');
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -146,7 +194,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
   const [purchases, setPurchases] = useState<PurchaseReport[]>([]);
   const [budgets, setBudgets] = useState<BudgetReport[]>([]);
   const [orders, setOrders] = useState<OrderReport[]>([]);
-  
+
   // Técnicos states (Resumen y Detallado)
   const [techList, setTechList] = useState<{ id: number; nombreCompleto: string }[]>([]);
   const [selectedTechId, setSelectedTechId] = useState<string>('');
@@ -163,10 +211,49 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
     }
   }, [initialTab]);
 
+  // Load categories list dynamically
+  useEffect(() => {
+    if (!token) return;
+    const fetchCats = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/categorias/all?limit=1000`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const items = data.items || data || [];
+          const filteredCats = items.filter((cat: any) => {
+            const name = (cat.nombre || '').toLowerCase();
+            return name !== 'servicio' && name !== 'servicios';
+          });
+          setCategoriesList(filteredCats);
+        }
+      } catch (err) { }
+    };
+    fetchCats();
+  }, [token]);
+
+  // Load dynamic estados for presupuestos and órdenes
+  useEffect(() => {
+    if (!token) return;
+    const headers = { Authorization: `Bearer ${token}` };
+    const fetchEstados = async () => {
+      try {
+        const [budgetEstRes, orderEstRes] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/reports/budgets/estados`, { headers }),
+          fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/reports/orders/estados`, { headers }),
+        ]);
+        if (budgetEstRes.ok) setBudgetEstadosList(await budgetEstRes.json());
+        if (orderEstRes.ok) setOrderEstadosList(await orderEstRes.json());
+      } catch (err) { }
+    };
+    fetchEstados();
+  }, [token]);
+
   // Reset page to 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, searchQuery, range, startDate, endDate, itemsPerPage, selectedTechId]);
+  }, [activeTab, searchQuery, range, startDate, endDate, itemsPerPage, selectedTechId, selectedCategory, selectedRotation, selectedStockStatus, selectedClientSegment, selectedPurchaseEstado, purchaseMinTotal, purchaseMaxTotal, selectedBudgetEstado, budgetSortBy, selectedOrderEstado, selectedOrderTechId, techSortBy, techMinOrders, equipSortBy, equipMinCount]);
 
   // ─── Fetching Data ──────────────────────────────────────────────────────────
   const fetchAllReports = async () => {
@@ -178,8 +265,8 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
         Authorization: `Bearer ${token}`,
       };
 
-      // Cargar lista dropdown de técnicos sólo si no está cargada
-      if (activeTab === 'techs' && techList.length === 0) {
+      // Cargar lista dropdown de técnicos sólo si no está cargada (se necesita en 'techs' y en 'orders' para el filtro)
+      if ((activeTab === 'techs' || activeTab === 'orders') && techList.length === 0) {
         const techListRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/reports/technicians/list`, { headers });
         if (techListRes.ok) {
           const list = await techListRes.json();
@@ -197,8 +284,51 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
       }
 
       // Filtrar por técnico seleccionado en vista de técnicos
-      if (activeTab === 'techs' && selectedTechId) {
-        params.set('technicianId', selectedTechId);
+      if (activeTab === 'techs') {
+        if (selectedTechId) {
+          params.set('technicianId', selectedTechId);
+        } else {
+          // summary mode filters
+          if (techSortBy) params.set('sortBy', techSortBy);
+          if (techMinOrders) params.set('minOrders', techMinOrders);
+        }
+      }
+
+      // Filtrar por categoría, rotación y stock en inventario
+      if (activeTab === 'inventory') {
+        if (selectedCategory) params.set('categoryId', selectedCategory);
+        if (selectedRotation) params.set('rotation', selectedRotation);
+        if (selectedStockStatus) params.set('stockStatus', selectedStockStatus);
+      }
+
+      // Filtrar por segmento de clientes
+      if (activeTab === 'clients') {
+        if (selectedClientSegment) params.set('segment', selectedClientSegment);
+      }
+
+      // Filtrar compras
+      if (activeTab === 'purchases') {
+        if (selectedPurchaseEstado) params.set('estado', selectedPurchaseEstado);
+        if (purchaseMinTotal) params.set('minTotal', purchaseMinTotal);
+        if (purchaseMaxTotal) params.set('maxTotal', purchaseMaxTotal);
+      }
+
+      // Filtrar presupuestos
+      if (activeTab === 'budgets') {
+        if (selectedBudgetEstado) params.set('estado', selectedBudgetEstado);
+        if (budgetSortBy) params.set('sortBy', budgetSortBy);
+      }
+
+      // Filtrar órdenes
+      if (activeTab === 'orders') {
+        if (selectedOrderEstado) params.set('estado', selectedOrderEstado);
+        if (selectedOrderTechId) params.set('technicianId', selectedOrderTechId);
+      }
+
+      // Filtrar equipos
+      if (activeTab === 'equip') {
+        if (equipSortBy) params.set('sortBy', equipSortBy);
+        if (equipMinCount) params.set('minCount', equipMinCount);
       }
 
       const queryParams = params.toString();
@@ -240,7 +370,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
 
   useEffect(() => {
     fetchAllReports();
-  }, [token, range, activeTab, useCalendar, startDate, endDate, selectedTechId]);
+  }, [token, range, activeTab, useCalendar, startDate, endDate, selectedTechId, selectedCategory, selectedRotation, selectedStockStatus, selectedClientSegment, selectedPurchaseEstado, purchaseMinTotal, purchaseMaxTotal, selectedBudgetEstado, budgetSortBy, selectedOrderEstado, selectedOrderTechId, techSortBy, techMinOrders, equipSortBy, equipMinCount]);
 
   // ─── CSV Export Handler ──────────────────────────────────────────────────────
   const exportToCSV = () => {
@@ -404,7 +534,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
 
   return (
     <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10 space-y-6">
-      
+
       {/* Estilos CSS específicos para Impresión limpia / PDF */}
       <style jsx global>{`
         @media print {
@@ -459,7 +589,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
 
       {/* ─── Global Filters Bar (print:hidden) ─── */}
       <div className="print:hidden flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6 bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
-        
+
         {/* Toggle Mode */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex items-center gap-2">
@@ -469,21 +599,19 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
           <div className="flex gap-2 bg-gray-50 dark:bg-gray-800/40 p-1.5 rounded-xl border border-gray-100 dark:border-gray-800/60">
             <button
               onClick={() => setUseCalendar(false)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                !useCalendar
-                  ? 'bg-white dark:bg-gray-800 text-brand-600 dark:text-brand-400 shadow-sm border border-gray-100 dark:border-gray-700'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${!useCalendar
+                ? 'bg-white dark:bg-gray-800 text-brand-600 dark:text-brand-400 shadow-sm border border-gray-100 dark:border-gray-700'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                }`}
             >
               Presets Rápidos
             </button>
             <button
               onClick={() => setUseCalendar(true)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                useCalendar
-                  ? 'bg-white dark:bg-gray-800 text-brand-600 dark:text-brand-400 shadow-sm border border-gray-100 dark:border-gray-700'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${useCalendar
+                ? 'bg-white dark:bg-gray-800 text-brand-600 dark:text-brand-400 shadow-sm border border-gray-100 dark:border-gray-700'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                }`}
             >
               📅 Rango de Calendario
             </button>
@@ -506,11 +634,10 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                     <button
                       key={r}
                       onClick={() => setRange(r)}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${
-                        range === r
-                          ? 'bg-brand-500 text-white'
-                          : 'bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${range === r
+                        ? 'bg-brand-500 text-white'
+                        : 'bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
                     >
                       {r === '7d' ? 'Últimos 7 días' : r === '30d' ? 'Últimos 30 días' : r === '90d' ? 'Últimos 90 días' : 'Todo el tiempo'}
                     </button>
@@ -536,7 +663,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                       onClick={(e) => {
                         try {
                           e.currentTarget.showPicker();
-                        } catch (err) {}
+                        } catch (err) { }
                       }}
                       className="w-full pl-3 pr-10 pt-5 pb-1 text-xs border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
                     />
@@ -553,7 +680,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                       onClick={(e) => {
                         try {
                           e.currentTarget.showPicker();
-                        } catch (err) {}
+                        } catch (err) { }
                       }}
                       className="w-full pl-3 pr-10 pt-5 pb-1 text-xs border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
                     />
@@ -593,7 +720,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
       </div>
 
       {/* ─── Executive KPI Grid ─── */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
         <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-2xl shadow-sm flex items-center justify-between">
           <div>
             <span className="text-xs text-gray-600 dark:text-gray-400 font-semibold block">Total Ingresos</span>
@@ -620,7 +747,31 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
 
         <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-2xl shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs text-gray-600 dark:text-gray-400 font-semibold block">Órdenes Generadas</span>
+            <span className="text-xs text-gray-600 dark:text-gray-400 font-semibold block">Utilidad Neta</span>
+            <span className={`text-2xl font-bold mt-1 block ${(kpi?.netProfit ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+              ${kpi?.netProfit?.toFixed(2) || '0.00'}
+            </span>
+          </div>
+          <div className="print:hidden w-12 h-12 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+            <BanknotesIcon className="w-6 h-6" />
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-2xl shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-xs text-gray-600 dark:text-gray-400 font-semibold block">Margen Utilidad</span>
+            <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1 block">
+              {kpi?.profitMargin?.toFixed(1) || '0.0'}%
+            </span>
+          </div>
+          <div className="print:hidden w-12 h-12 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+            <ArrowTrendingUpIcon className="w-6 h-6" />
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-2xl shadow-sm flex items-center justify-between">
+          <div>
+            <span className="text-xs text-gray-600 dark:text-gray-400 font-semibold block">Órdenes</span>
             <span className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1 block">
               {kpi?.ordersCount || 0}
             </span>
@@ -645,7 +796,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
 
       {/* ─── Tabs & Tables Workspace ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
+
         {/* Left Side Tab Selector (visible only when NOT in standalone mode) */}
         {!standalone && (
           <div className="print:hidden lg:col-span-3 bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-2">
@@ -669,11 +820,10 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                     setActiveTab(tab.id as TabType);
                     setSearchQuery('');
                   }}
-                  className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 ${
-                    activeTab === tab.id
-                      ? 'bg-brand-500 text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/40'
-                  }`}
+                  className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 ${activeTab === tab.id
+                    ? 'bg-brand-500 text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/40'
+                    }`}
                 >
                   <Icon className="w-4 h-4 flex-shrink-0" />
                   <span>{tab.label}</span>
@@ -685,7 +835,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
 
         {/* Right Side Data Grid Panel */}
         <div className={`${standalone ? 'lg:col-span-12' : 'lg:col-span-9'} bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm p-6 space-y-4`}>
-          
+
           <div className="hidden print:block border-b pb-2 mb-2">
             <h3 className="text-md font-bold uppercase tracking-wider text-gray-800">
               Módulo: {getBreadcrumbTitle()} {activeTab === 'techs' && selectedTechId && `(Técnico Detallado)`}
@@ -701,7 +851,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
               aria-label="Buscar dentro de este reporte"
               className="w-full sm:max-w-xs px-4 py-2 text-xs border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-gray-700 dark:text-gray-300"
             />
-            
+
             <div className="flex items-center gap-2">
               <button
                 onClick={exportToCSV}
@@ -720,6 +870,276 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
               </button>
             </div>
           </div>
+
+          {/* Dynamic Advanced Filters for Inventory Tab */}
+          {activeTab === 'inventory' && (
+            <div className="print:hidden flex flex-wrap items-center gap-4 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-800/60">
+              <div className="flex items-center gap-2">
+                <label htmlFor={categoryFilterId} className="text-xs text-gray-650 dark:text-gray-400 font-bold">Categoría:</label>
+                <select
+                  id={categoryFilterId}
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-750 dark:text-gray-300"
+                >
+                  <option value="">Todas</option>
+                  {categoriesList.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label htmlFor={rotationFilterId} className="text-xs text-gray-650 dark:text-gray-400 font-bold">Rotación:</label>
+                <select
+                  id={rotationFilterId}
+                  value={selectedRotation}
+                  onChange={(e) => setSelectedRotation(e.target.value)}
+                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-750 dark:text-gray-300"
+                >
+                  <option value="">Todas</option>
+                  <option value="high">Alta Rotación</option>
+                  <option value="low">Baja Rotación</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label htmlFor={stockFilterId} className="text-xs text-gray-655 dark:text-gray-400 font-bold">Stock:</label>
+                <select
+                  id={stockFilterId}
+                  value={selectedStockStatus}
+                  onChange={(e) => setSelectedStockStatus(e.target.value)}
+                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-750 dark:text-gray-300"
+                >
+                  <option value="">Todos</option>
+                  <option value="low">Por Agotarse (Bajo Stock)</option>
+                  <option value="normal">Normal</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Dynamic Advanced Filters for Clients Tab */}
+          {activeTab === 'clients' && (
+            <div className="print:hidden flex flex-wrap items-center gap-4 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-800/60">
+              <div className="flex items-center gap-2">
+                <label htmlFor={clientSegmentFilterId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Fidelización de Clientes:</label>
+                <select
+                  id={clientSegmentFilterId}
+                  value={selectedClientSegment}
+                  onChange={(e) => setSelectedClientSegment(e.target.value)}
+                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
+                >
+                  <option value="">Todos los Clientes</option>
+                  <option value="frequent">Clientes Frecuentes (Leales)</option>
+                  <option value="inactive">Clientes Inactivos (&gt; 90 días sin ODS)</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Dynamic Advanced Filters for Purchases Tab */}
+          {activeTab === 'purchases' && (
+            <div className="print:hidden flex flex-wrap items-center gap-3 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-800/60">
+              <div className="flex items-center gap-2">
+                <label htmlFor={purchaseEstadoFilterId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Estado:</label>
+                <select
+                  id={purchaseEstadoFilterId}
+                  value={selectedPurchaseEstado}
+                  onChange={(e) => setSelectedPurchaseEstado(e.target.value)}
+                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
+                >
+                  <option value="">Todos los estados</option>
+                  <option value="Completado">Completado</option>
+                  <option value="Anulado">Anulado</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor={purchaseMinTotalId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Monto mínimo $:</label>
+                <input
+                  id={purchaseMinTotalId}
+                  type="number"
+                  min="0"
+                  placeholder="0.00"
+                  value={purchaseMinTotal}
+                  onChange={(e) => setPurchaseMinTotal(e.target.value)}
+                  className="w-24 px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor={purchaseMaxTotalId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Monto máximo $:</label>
+                <input
+                  id={purchaseMaxTotalId}
+                  type="number"
+                  min="0"
+                  placeholder="Sin límite"
+                  value={purchaseMaxTotal}
+                  onChange={(e) => setPurchaseMaxTotal(e.target.value)}
+                  className="w-28 px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
+                />
+              </div>
+              {(selectedPurchaseEstado || purchaseMinTotal || purchaseMaxTotal) && (
+                <button
+                  onClick={() => { setSelectedPurchaseEstado(''); setPurchaseMinTotal(''); setPurchaseMaxTotal(''); }}
+                  className="px-3 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all"
+                >✕ Limpiar</button>
+              )}
+            </div>
+          )}
+
+          {/* Dynamic Advanced Filters for Budgets Tab */}
+          {activeTab === 'budgets' && (
+            <div className="print:hidden flex flex-wrap items-center gap-3 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-800/60">
+              <div className="flex items-center gap-2">
+                <label htmlFor={budgetEstadoFilterId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Estado:</label>
+                <select
+                  id={budgetEstadoFilterId}
+                  value={selectedBudgetEstado}
+                  onChange={(e) => setSelectedBudgetEstado(e.target.value)}
+                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
+                >
+                  <option value="">Todos los estados</option>
+                  {budgetEstadosList.map((est) => (
+                    <option key={est} value={est}>{est}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor={budgetSortById} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Ordenar por:</label>
+                <select
+                  id={budgetSortById}
+                  value={budgetSortBy}
+                  onChange={(e) => setBudgetSortBy(e.target.value)}
+                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
+                >
+                  <option value="">Más recientes</option>
+                  <option value="total_desc">Mayor monto primero</option>
+                  <option value="total_asc">Menor monto primero</option>
+                </select>
+              </div>
+              {(selectedBudgetEstado || budgetSortBy) && (
+                <button
+                  onClick={() => { setSelectedBudgetEstado(''); setBudgetSortBy(''); }}
+                  className="px-3 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all"
+                >✕ Limpiar</button>
+              )}
+            </div>
+          )}
+
+          {/* Dynamic Advanced Filters for Orders Tab */}
+          {activeTab === 'orders' && (
+            <div className="print:hidden flex flex-wrap items-center gap-3 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-800/60">
+              <div className="flex items-center gap-2">
+                <label htmlFor={orderEstadoFilterId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Estado:</label>
+                <select
+                  id={orderEstadoFilterId}
+                  value={selectedOrderEstado}
+                  onChange={(e) => setSelectedOrderEstado(e.target.value)}
+                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
+                >
+                  <option value="">Todos los estados</option>
+                  {orderEstadosList.map((est) => (
+                    <option key={est} value={est}>{est}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor={orderTechFilterId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Técnico:</label>
+                <select
+                  id={orderTechFilterId}
+                  value={selectedOrderTechId}
+                  onChange={(e) => setSelectedOrderTechId(e.target.value)}
+                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
+                >
+                  <option value="">Todos los técnicos</option>
+                  {techList.map((t) => (
+                    <option key={t.id} value={t.id}>{t.nombreCompleto}</option>
+                  ))}
+                </select>
+              </div>
+              {(selectedOrderEstado || selectedOrderTechId) && (
+                <button
+                  onClick={() => { setSelectedOrderEstado(''); setSelectedOrderTechId(''); }}
+                  className="px-3 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all"
+                >✕ Limpiar</button>
+              )}
+            </div>
+          )}
+
+          {/* Dynamic Advanced Filters for Técnicos Tab (summary mode only) */}
+          {activeTab === 'techs' && !selectedTechId && (
+            <div className="print:hidden flex flex-wrap items-center gap-3 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-800/60">
+              <div className="flex items-center gap-2">
+                <label htmlFor={techSortById} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Ordenar por:</label>
+                <select
+                  id={techSortById}
+                  value={techSortBy}
+                  onChange={(e) => setTechSortBy(e.target.value)}
+                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
+                >
+                  <option value="">Por defecto</option>
+                  <option value="total_desc">Mayor facturado primero</option>
+                  <option value="total_asc">Menor facturado primero</option>
+                  <option value="orders_desc">Más órdenes primero</option>
+                  <option value="orders_asc">Menos órdenes primero</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor={techMinOrdersId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Mín. órdenes:</label>
+                <input
+                  id={techMinOrdersId}
+                  type="number"
+                  min="1"
+                  placeholder="Sin mínimo"
+                  value={techMinOrders}
+                  onChange={(e) => setTechMinOrders(e.target.value)}
+                  className="w-28 px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
+                />
+              </div>
+              {(techSortBy || techMinOrders) && (
+                <button
+                  onClick={() => { setTechSortBy(''); setTechMinOrders(''); }}
+                  className="px-3 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all"
+                >✕ Limpiar</button>
+              )}
+            </div>
+          )}
+
+          {/* Dynamic Advanced Filters for Equipos Tab */}
+          {activeTab === 'equip' && (
+            <div className="print:hidden flex flex-wrap items-center gap-3 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-800/60">
+              <div className="flex items-center gap-2">
+                <label htmlFor={equipSortById} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Ordenar por:</label>
+                <select
+                  id={equipSortById}
+                  value={equipSortBy}
+                  onChange={(e) => setEquipSortBy(e.target.value)}
+                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
+                >
+                  <option value="">Mayor volumen primero</option>
+                  <option value="count_asc">Menor volumen primero</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor={equipMinCountId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Mín. equipos:</label>
+                <input
+                  id={equipMinCountId}
+                  type="number"
+                  min="1"
+                  placeholder="Sin mínimo"
+                  value={equipMinCount}
+                  onChange={(e) => setEquipMinCount(e.target.value)}
+                  className="w-28 px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
+                />
+              </div>
+              {(equipSortBy || equipMinCount) && (
+                <button
+                  onClick={() => { setEquipSortBy(''); setEquipMinCount(''); }}
+                  className="px-3 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all"
+                >✕ Limpiar</button>
+              )}
+            </div>
+          )}
 
           <AnimatePresence mode="wait">
             {loading ? (
@@ -790,11 +1210,10 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                           </td>
                           <td className="py-3.5 px-4 text-center">
                             <span
-                              className={`px-2.5 py-1 font-bold rounded-lg ${
-                                i.stock <= i.stockMinimo
-                                  ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
-                                  : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'
-                              }`}
+                              className={`px-2.5 py-1 font-bold rounded-lg ${i.stock <= i.stockMinimo
+                                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
+                                : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'
+                                }`}
                             >
                               {i.stock} / {i.stockMinimo}
                             </span>
@@ -958,8 +1377,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                                 <button
                                   onClick={() => setSelectedTechId(String(t.id))}
                                   className="px-3 py-1 bg-brand-500/10 text-brand-600 dark:text-brand-400 hover:bg-brand-500 hover:text-white transition-all font-bold rounded-lg text-xs"
-                                >
-                                  🔍 {t.totalAssigned} órdenes (Ver trabajos)
+                                >{t.totalAssigned} órdenes (Ver trabajos)
                                 </button>
                               </td>
                               <td className="py-3.5 px-4 text-right font-extrabold text-emerald-600 dark:text-emerald-400">
@@ -1009,7 +1427,7 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                     <div className="text-xs text-gray-500 dark:text-gray-400 font-semibold">
                       Mostrando del {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)} al {Math.min(currentPage * itemsPerPage, totalItems)} de {totalItems} registros
                     </div>
-                    
+
                     <div className="flex flex-wrap items-center gap-4">
                       {/* Por Página Selector */}
                       <div className="flex items-center gap-2">
@@ -1048,11 +1466,10 @@ export default function ClientComponent({ initialTab, standalone = false }: Clie
                                 {showEllipsis && <span className="px-1 text-gray-400 text-xs">...</span>}
                                 <button
                                   onClick={() => setCurrentPage(p)}
-                                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${
-                                    currentPage === p
-                                      ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
-                                      : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 border-gray-200/50 dark:border-gray-800'
-                                  }`}
+                                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${currentPage === p
+                                    ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
+                                    : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 border-gray-200/50 dark:border-gray-800'
+                                    }`}
                                 >
                                   {p}
                                 </button>

@@ -23,6 +23,7 @@ const RANGE_OPTIONS = [
   { value: "7d", label: "7 días" },
   { value: "30d", label: "30 días" },
   { value: "90d", label: "90 días" },
+  { value: "all", label: "TODOS" },
 ];
 
 const ROLE_TITLES: Record<string, string> = {
@@ -103,17 +104,47 @@ export default function RoleDashboard() {
   const { data, loading, error, range, setRange, refetch } = useDashboard("30d");
 
   const kpiIcons: Record<string, React.ReactNode> = {
+    // Admin
     "total-orders": <ClipboardDocumentCheckIcon className="w-6 h-6" />,
     "active-orders": <ArrowPathIcon className="w-6 h-6" />,
     "pending-budgets": <ChartBarIcon className="w-6 h-6" />,
     "unread-notifications": <BellIcon className="w-6 h-6" />,
+    // Tech
+    "assigned-orders": <ClipboardDocumentCheckIcon className="w-6 h-6" />,
+    "in-progress-orders": <ArrowPathIcon className="w-6 h-6" />,
+    "due-today": <ClockIcon className="w-6 h-6" />,
+    "activities-today": <ShieldCheckIcon className="w-6 h-6" />,
+    // Recep
+    "orders-created": <ClipboardDocumentCheckIcon className="w-6 h-6" />,
+    "orders-today": <BoltIcon className="w-6 h-6" />,
+    "pending-assign": <UserCircleIcon className="w-6 h-6" />,
+    // Client
+    "my-orders": <ClipboardDocumentCheckIcon className="w-6 h-6" />,
+    "my-active": <BoltIcon className="w-6 h-6" />,
+    "pending-bud": <ChartBarIcon className="w-6 h-6" />,
+    "unread-notif": <BellIcon className="w-6 h-6" />,
   };
 
   const kpiColors: Record<string, string> = {
+    // Admin
     "total-orders": "text-brand-500 bg-brand-500/10",
     "active-orders": "text-amber-500 bg-amber-500/10",
     "pending-budgets": "text-blue-500 bg-blue-500/10",
     "unread-notifications": "text-rose-500 bg-rose-500/10",
+    // Tech
+    "assigned-orders": "text-brand-500 bg-brand-500/10",
+    "in-progress-orders": "text-amber-500 bg-amber-500/10",
+    "due-today": "text-rose-500 bg-rose-500/10",
+    "activities-today": "text-emerald-500 bg-emerald-500/10",
+    // Recep
+    "orders-created": "text-brand-500 bg-brand-500/10",
+    "orders-today": "text-emerald-500 bg-emerald-500/10",
+    "pending-assign": "text-amber-500 bg-amber-500/10",
+    // Client
+    "my-orders": "text-brand-500 bg-brand-500/10",
+    "my-active": "text-amber-500 bg-amber-500/10",
+    "pending-bud": "text-blue-500 bg-blue-500/10",
+    "unread-notif": "text-rose-500 bg-rose-500/10",
   };
 
   if (loading) {

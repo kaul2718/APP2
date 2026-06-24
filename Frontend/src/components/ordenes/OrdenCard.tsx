@@ -42,7 +42,7 @@ export default function OrdenCard({
   const primaryActions = actions.filter(a => a.isPrimary);
   const overflowActions = actions.filter(a => !a.isPrimary);
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-  const menuButtonRef = React.useRef<HTMLButtonElement>(null);
+  const menuButtonRef = React.useRef<HTMLDivElement>(null);
 
   const lastHistory = React.useMemo(() => {
     if (!order.historialEstados || order.historialEstados.length === 0) return null;
@@ -227,9 +227,8 @@ export default function OrdenCard({
           ))}
 
           {overflowActions.length > 0 && (
-            <div className="relative">
+            <div className="relative" ref={menuButtonRef}>
               <button
-                ref={menuButtonRef}
                 type="button"
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
                 className="rounded-full border border-gray-300 p-2 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"

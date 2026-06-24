@@ -39,6 +39,17 @@ interface PublicOrder {
     id: number;
     nombre: string;
   };
+  presupuesto?: {
+    id: number;
+    estado: string;
+    descripcion: string;
+    total: number;
+    items: {
+      cantidad: number;
+      precioUnitario: number;
+      nombre: string;
+    }[];
+  } | null;
 }
 
 export default function ConsultaPage() {
@@ -47,6 +58,36 @@ export default function ConsultaPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [order, setOrder] = useState<PublicOrder | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const handlePresupuestoAction = async (action: 'ACEPTADO' | 'RECHAZADO') => {
+    setActionLoading(true);
+    setError(null);
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000/api/v1';
+      const res = await fetch(`${baseUrl}/orders/public/consulta/presupuesto/action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cedula: cedula.trim(),
+          workorder: workorder.trim(),
+          action
+        })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Error al procesar la acción del presupuesto');
+      }
+
+      // Refresh order data
+      handleSearch(new Event('submit') as any);
+    } catch (err: any) {
+      setError(err.message || 'Error desconocido');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,11 +159,12 @@ export default function ConsultaPage() {
           <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-end">
             
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center space-x-2">
+              <label htmlFor="cedula" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center space-x-2">
                 <IdentificationIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 <span>Número de Cédula</span>
               </label>
               <input
+                id="cedula"
                 type="text"
                 placeholder="Ej. 1712345678"
                 value={cedula}
@@ -132,11 +174,12 @@ export default function ConsultaPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center space-x-2">
+              <label htmlFor="workorder" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center space-x-2">
                 <HashtagIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 <span>N° de Orden de Trabajo (WorkOrder)</span>
               </label>
               <input
+                id="workorder"
                 type="text"
                 placeholder="Ej. 00001"
                 value={workorder}
@@ -171,6 +214,7 @@ export default function ConsultaPage() {
           {/* Error Alert */}
           {error && (
             <motion.div 
+              key="error-alert"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -187,6 +231,7 @@ export default function ConsultaPage() {
           {/* Result Card */}
           {order && (
             <motion.div 
+              key="result-card"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 30 }}
@@ -238,10 +283,79 @@ export default function ConsultaPage() {
                 </div>
 
                 {/* Problema Reportado */}
-                <div className="p-5 rounded-2xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800">
+                <div className="p-5 rounded-2xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 mb-8">
                   <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Problema Reportado</div>
                   <p className="text-gray-800 dark:text-gray-200 text-sm leading-relaxed">{order.problemaReportado}</p>
                 </div>
+
+                {/* Presupuesto */}
+                {order.presupuesto && (
+                  <div className="p-5 rounded-2xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Detalle del Presupuesto</div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        order.presupuesto.estado?.toLowerCase() === 'aprobado' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' :
+                        order.presupuesto.estado?.toLowerCase() === 'rechazado' ? 'bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400' :
+                        'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
+                      }`}>
+                        {order.presupuesto.estado || 'Pendiente'}
+                      </span>
+                    </div>
+
+                    {order.presupuesto.descripcion && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{order.presupuesto.descripcion}</p>
+                    )}
+
+                    {order.presupuesto.items && order.presupuesto.items.length > 0 && (
+                      <div className="overflow-hidden border border-gray-200 dark:border-gray-700 rounded-xl mb-4">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                          <thead className="bg-gray-100 dark:bg-gray-800">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Item</th>
+                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Cant.</th>
+                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Precio</th>
+                              <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Subtotal</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                            {order.presupuesto.items.map((item, idx) => (
+                              <tr key={idx}>
+                                <td className="px-4 py-3 text-gray-900 dark:text-gray-100">{item.nombre}</td>
+                                <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">{item.cantidad}</td>
+                                <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400">${Number(item.precioUnitario).toFixed(2)}</td>
+                                <td className="px-4 py-3 text-right text-gray-900 dark:text-gray-100 font-medium">${(Number(item.cantidad) * Number(item.precioUnitario)).toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-center bg-gray-100 dark:bg-gray-800 p-4 rounded-xl mb-6">
+                      <span className="font-bold text-gray-700 dark:text-gray-300">Total a Pagar</span>
+                      <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">${order.presupuesto.total.toFixed(2)}</span>
+                    </div>
+
+                    {order.presupuesto.estado && !['Aprobado', 'Rechazado'].includes(order.presupuesto.estado) && (
+                      <div className="flex flex-col sm:flex-row gap-4 mt-6">
+                        <button
+                          onClick={() => handlePresupuestoAction('ACEPTADO')}
+                          disabled={actionLoading}
+                          className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50"
+                        >
+                          Aceptar Presupuesto
+                        </button>
+                        <button
+                          onClick={() => handlePresupuestoAction('RECHAZADO')}
+                          disabled={actionLoading}
+                          className="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-rose-500/20 transition-all disabled:opacity-50"
+                        >
+                          Rechazar Presupuesto
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
               </div>
 

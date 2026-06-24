@@ -18,7 +18,7 @@ import { Notificacion } from './entities/notificacion.entity';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 
 
-@Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
+@Auth('admin', 'tech', 'recep', 'client') // Ajusta los roles según necesites
 @Controller('notificaciones')
 export class NotificacionController {
   constructor(private readonly notificacionService: NotificacionService) { }
