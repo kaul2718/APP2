@@ -41,7 +41,7 @@ export class SeederService {
     private readonly tipoEquipoRepository: Repository<TipoEquipo>,
     @InjectRepository(ConfiguracionSistema)
     private readonly configSistemaRepository: Repository<ConfiguracionSistema>,
-  ) {}
+  ) { }
 
   async seed() {
     this.logger.log('--- 1. Sincronizando permisos del sistema ---');
@@ -367,29 +367,29 @@ export class SeederService {
     // 6. Configuración de Sistema Singleton (id: 1)
     const configExists = await this.configSistemaRepository.findOne({ where: { id: 1 } });
     if (!configExists) {
-      const nuevaConfig = this.configSistemaRepository.create({
-        id: 1,
-        ordenPrefijo: '',
-        ordenSiguienteNumero: 1,
-        ordenDigitos: 5,
-        ordenPermitirReinicio: false,
-        presupuestoPrefijo: 'PRE-',
-        presupuestoSiguienteNumero: 1,
-        presupuestoDigitos: 5,
-        nombreEmpresa: 'Hospital del Computador',
-        nombreComercial: 'Hospital del Computador',
-        ruc: '1792999999001',
-        telefono: '032999999',
-        whatsapp: '+593 96 962 0222',
-        correoContacto: 'soporte@hospitaldelcomputador.com',
-        direccion: 'Riobamba, Chimborazo, Ecuador',
-        ciudad: 'Riobamba',
-        slogan: 'Servicio Técnico Especializado en Computación, Laptops y Servidores',
-        porcentajeIva: 15.0,
-        diasAbandono: 60,
-        diasGarantiaDefault: 90,
-        diasVigenciaPresupuesto: 15,
-      });
+      const nuevaConfig = new ConfiguracionSistema();
+      nuevaConfig.id = 1;
+      nuevaConfig.ordenPrefijo = '';
+      nuevaConfig.ordenSiguienteNumero = 1;
+      nuevaConfig.ordenDigitos = 5;
+      nuevaConfig.ordenPermitirReinicio = false;
+      nuevaConfig.presupuestoPrefijo = 'PRE-';
+      nuevaConfig.presupuestoSiguienteNumero = 1;
+      nuevaConfig.presupuestoDigitos = 5;
+      nuevaConfig.nombreEmpresa = 'Hospital del Computador';
+      nuevaConfig.nombreComercial = 'Hospital del Computador';
+      nuevaConfig.ruc = '1792999999001';
+      nuevaConfig.telefono = '032999999';
+      nuevaConfig.whatsapp = '+593 96 962 0222';
+      nuevaConfig.correoContacto = 'soporte@hospitaldelcomputador.com';
+      nuevaConfig.direccion = 'Riobamba, Chimborazo, Ecuador';
+      nuevaConfig.ciudad = 'Riobamba';
+      nuevaConfig.slogan = 'Servicio Técnico Especializado en Computación, Laptops y Servidores';
+      nuevaConfig.porcentajeIva = 15.0;
+      nuevaConfig.diasAbandono = 60;
+      nuevaConfig.diasGarantiaDefault = 90;
+      nuevaConfig.diasVigenciaPresupuesto = 15;
+
       await this.configSistemaRepository.save(nuevaConfig);
       this.logger.log('✓ Configuración base del sistema inicializada.');
     }
