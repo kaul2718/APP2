@@ -111,6 +111,31 @@ export default function UsuarioCreateModal({ isOpen, onClose, onSave }: Props) {
             }
 
             const data = await response.json();
+
+            // Si se seleccionó una foto de perfil, subirla al usuario recién creado
+            if (formData.fotoFile && data.id) {
+                try {
+                    const avatarFormData = new FormData();
+                    avatarFormData.append("foto", formData.fotoFile);
+                    const avRes = await fetch(
+                        `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${data.id}/avatar`,
+                        {
+                            method: "POST",
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: avatarFormData,
+                        }
+                    );
+                    if (avRes.ok) {
+                        const avData = await avRes.json();
+                        data.fotoPerfilUrl = avData.fotoPerfilUrl;
+                    }
+                } catch (avErr) {
+                    console.error("Error al subir foto de perfil:", avErr);
+                }
+            }
+
             onSave(data);
 
             // Si no se proporcionó contraseña, enviar correo de invitación

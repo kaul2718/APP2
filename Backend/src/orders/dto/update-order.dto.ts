@@ -75,4 +75,8 @@ export class UpdateOrderDto {
   @IsOptional()
   @IsObject()
   checklistData?: any;
+
+  @IsOptional()
+  @IsInt({ message: 'El número de versión debe ser un entero' })
+  version?: number;
 }

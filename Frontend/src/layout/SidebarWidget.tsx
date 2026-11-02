@@ -6,6 +6,16 @@ import { toast } from "react-toastify";
 
 export default function SidebarWidget() {
   const handleLogout = async () => {
+    try {
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('hdc_orden_draft_')) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (e) {
+      // Ignorar
+    }
+
     await signOut({ redirect: false });
     toast.success("Sesión cerrada correctamente", { position: "top-right" });
     setTimeout(() => {

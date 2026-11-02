@@ -24,6 +24,31 @@ export class DetallePresupuestoItemService {
     private readonly notificacionService: NotificacionService,
   ) { }
 
+  private async notifyPresupuestoScopeChanged(presupuestoId: number) {
+    try {
+      const p = await this.presupuestoRepository.findOne({
+        where: { id: presupuestoId },
+        relations: ['estado'],
+      });
+      if (!p) return;
+
+      let targetEstadoId = p.estadoId;
+      if (p.estado?.nombre?.toLowerCase() === 'aprobado') {
+        const pendiente = await this.presupuestoRepository.manager.getRepository('EstadoPresupuesto').findOne({
+          where: { nombre: 'Pendiente' },
+        });
+        if (pendiente) targetEstadoId = (pendiente as any).id;
+      }
+
+      await this.presupuestoRepository.update(presupuestoId, {
+        version: (p.version || 1) + 1,
+        estadoId: targetEstadoId,
+      });
+    } catch (err: any) {
+      console.warn(`Error al actualizar versión del presupuesto ${presupuestoId}:`, err.message);
+    }
+  }
+
   private async resolveParteSelection(parteId?: number): Promise<Parte> {
     if (!parteId) throw new BadRequestException('Debe proporcionar parteId');
 
@@ -81,6 +106,7 @@ export class DetallePresupuestoItemService {
     }
 
     const detalleGuardado = await this.detalleRepository.save(detalle);
+    await this.notifyPresupuestoScopeChanged(presupuestoId);
     return this.findOne(detalleGuardado.id, true);
   }
 
@@ -192,6 +218,7 @@ export class DetallePresupuestoItemService {
     if (updateDto.presupuestoId !== undefined) detalle.presupuestoId = updateDto.presupuestoId;
 
     const detalleActualizado = await this.detalleRepository.save(detalle);
+    await this.notifyPresupuestoScopeChanged(detalleActualizado.presupuestoId);
     return this.findOne(detalleActualizado.id, true);
   }
 
@@ -211,6 +238,7 @@ export class DetallePresupuestoItemService {
     detalle.estado = false;
     await this.detalleRepository.save(detalle);
     await this.detalleRepository.softRemove(detalle);
+    await this.notifyPresupuestoScopeChanged(detalle.presupuestoId);
     return { message: `Detalle con ID ${id} eliminado lógicamente.` };
   }
 

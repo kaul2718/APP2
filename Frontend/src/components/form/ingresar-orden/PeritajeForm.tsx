@@ -11,8 +11,14 @@ interface Props {
 }
 
 export default function PeritajeForm({ template, onChange, initialResults }: Props) {
+    const rawItems: string[] = Array.isArray(template?.items)
+        ? template.items
+        : template?.items
+        ? [...(template.items.fisica || []), ...(template.items.funcional || [])]
+        : [];
+
     const [results, setResults] = React.useState<ChecklistItemResult[]>(
-        initialResults || template.items.map(item => ({
+        initialResults || rawItems.map((item: string) => ({
             item,
             funcional: 'operativo',
             estetica: 'bueno',

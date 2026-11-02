@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { Metadata } from "next";
 import AlmacenComponent from "./AlmacenComponent";
 
@@ -8,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <AlmacenComponent />;
+  return (
+    <Suspense fallback={<div className="p-6">Cargando almacén...</div>}>
+      <AlmacenComponent />
+    </Suspense>
+  );
 }

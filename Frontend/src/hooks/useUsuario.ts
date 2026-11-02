@@ -17,6 +17,7 @@ export interface Usuario {
   role: Role;
   estado: boolean;
   deletedAt: string | null;
+  fotoPerfilUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }

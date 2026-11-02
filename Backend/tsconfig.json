@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "typeRoots": ["./node_modules/@types", "./src/types"],
+    "types": ["jest", "node", "multer", "express"],
     "module": "commonjs",
     "declaration": true,
     "removeComments": true,
@@ -21,6 +22,6 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false
   },
-  "include": ["src/types/**/*.d.ts", "src/**/*"]
-
+  "include": ["src/types/**/*.d.ts", "src/**/*", "test/**/*"],
+  "exclude": ["node_modules", "dist", "src/scripts/**/*"]
 }

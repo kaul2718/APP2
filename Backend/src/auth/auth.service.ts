@@ -35,9 +35,12 @@ export class AuthService {
       roleIds,
     } = registerDto;
 
-    const existingUser = await this.usersService.findByEmail(correo);
-    if (existingUser) {
-      throw new BadRequestException('El correo electrónico ya está registrado');
+    const cleanCorreo = correo && correo.trim() !== '' ? correo.trim().toLowerCase() : null;
+    if (cleanCorreo) {
+      const existingUser = await this.usersService.findByEmail(cleanCorreo);
+      if (existingUser) {
+        throw new BadRequestException('El correo electrónico ya está registrado');
+      }
     }
 
     const allUsers = await this.usersService.findAll(true);
@@ -71,70 +74,135 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const { correo, password } = loginDto;
+    const rawInput = (loginDto.identificador || loginDto.correo || '').trim();
+    const password = loginDto.password;
 
-    const user = await this.usersService.findByEmail(correo);
-    if (!user) {
-      throw new UnauthorizedException('Credenciales inválidas');
+    if (!rawInput) {
+      throw new BadRequestException('Debe ingresar su cédula o correo electrónico.');
+    }
+    if (!password) {
+      throw new BadRequestException('La contraseña es obligatoria.');
     }
 
-    const userWithPassword = await this.usersService.findByEmail(correo, true);
-    if (!userWithPassword || !userWithPassword.password) {
-      throw new UnauthorizedException('Credenciales inválidas');
+    const isCedula = /^\d{10}$/.test(rawInput);
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawInput);
+
+    if (!isCedula && !isEmail) {
+      throw new UnauthorizedException(
+        'El formato ingresado no es válido. Ingrese una cédula ecuatoriana de 10 dígitos o su correo electrónico.',
+      );
     }
 
+    let userWithPassword: any = null;
+
+    if (isCedula) {
+      // Búsqueda por cédula
+      userWithPassword = await this.usersService.findByCedula(rawInput, true);
+
+      if (!userWithPassword) {
+        throw new UnauthorizedException('Credenciales incorrectas o usuario no registrado.');
+      }
+
+      // Restricción para personal administrativo y técnico: deben ingresar obligatoriamente por correo
+      const userRole =
+        userWithPassword.userRoles && userWithPassword.userRoles.length > 0
+          ? userWithPassword.userRoles[0].rol?.slug
+          : 'client';
+
+      if (userRole !== 'client' && userRole !== 'cliente') {
+        throw new UnauthorizedException(
+          'El personal administrativo y técnico debe iniciar sesión con su correo electrónico institucional.',
+        );
+      }
+    } else {
+      // Búsqueda por correo electrónico
+      const cleanEmail = rawInput.toLowerCase();
+      userWithPassword = await this.usersService.findByEmail(cleanEmail, true);
+
+      if (!userWithPassword) {
+        throw new UnauthorizedException('Credenciales incorrectas o usuario no registrado.');
+      }
+    }
+
+    // Validación fundamental: si el cliente no tiene contraseña configurada, no permitir acceso
+    if (!userWithPassword.password) {
+      throw new UnauthorizedException(
+        'Esta cuenta aún no ha sido activada. Por favor, acérquese a recepción para solicitar la activación presencial de su cuenta.',
+      );
+    }
+
+    // Validación segura de la contraseña con bcrypt
     const isPasswordValid = await bcryptjs.compare(password, userWithPassword.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Credenciales inválidas');
+      throw new UnauthorizedException('Credenciales incorrectas.');
     }
 
     const payload = {
-      sub: user.id,
-      correo: user.correo,
+      sub: userWithPassword.id,
+      correo: userWithPassword.correo,
+      cedula: userWithPassword.cedula,
     };
 
     const token = await this.jwtService.signAsync(payload);
 
-    // ✅ Obtener el primer rol del usuario (desde userRoles)
-    const userRole = user.userRoles && user.userRoles.length > 0 
-      ? user.userRoles[0].rol.slug 
-      : 'client'; // fallback a 'client' si no tiene roles
+    // Obtener el rol principal del usuario
+    const userRole =
+      userWithPassword.userRoles && userWithPassword.userRoles.length > 0
+        ? userWithPassword.userRoles[0].rol.slug
+        : 'client';
 
-    // ✅ Obtener los permisos asociados a su rol en el login
-    const permissionsSlugs = user.userRoles && user.userRoles.length > 0 && user.userRoles[0].rol.rolePermissions
-      ? user.userRoles[0].rol.rolePermissions.map((rp) => rp.permission?.slug).filter(Boolean)
-      : [];
+    // Obtener los permisos asociados
+    const permissionsSlugs =
+      userWithPassword.userRoles &&
+      userWithPassword.userRoles.length > 0 &&
+      userWithPassword.userRoles[0].rol.rolePermissions
+        ? userWithPassword.userRoles[0].rol.rolePermissions
+            .map((rp) => rp.permission?.slug)
+            .filter(Boolean)
+        : [];
 
     return {
       token,
       user: {
-        id: user.id,
-        cedula: user.cedula,
-        nombre: user.nombre,
-        apellido: user.apellido,
-        correo: user.correo,
-        telefono: user.telefono,
-        direccion: user.direccion,
-        ciudad: user.ciudad,
+        id: userWithPassword.id,
+        cedula: userWithPassword.cedula,
+        nombre: userWithPassword.nombre,
+        apellido: userWithPassword.apellido,
+        correo: userWithPassword.correo,
+        telefono: userWithPassword.telefono,
+        direccion: userWithPassword.direccion,
+        ciudad: userWithPassword.ciudad,
         role: userRole,
-        permissions: permissionsSlugs, // ✅ Retornar los slugs de permisos
+        permissions: permissionsSlugs,
       },
     };
   }
 
-  async profile({ correo }: { correo: string }) {
-    const user = await this.usersService.findByEmail(correo);
+  async profile(activeUser: any) {
+    let user: any = null;
+    if (activeUser?.id || activeUser?.sub) {
+      user = await this.usersService.findOne(activeUser.id || activeUser.sub);
+    } else if (activeUser?.correo) {
+      user = await this.usersService.findByEmail(activeUser.correo);
+    }
+
     if (!user) {
       throw new UnauthorizedException('Usuario no encontrado');
     }
 
-    const userRole = user.userRoles && user.userRoles.length > 0 
-      ? user.userRoles[0].rol.slug 
-      : 'client';
+    const userRole =
+      user.userRoles && user.userRoles.length > 0
+        ? user.userRoles[0].rol.slug
+        : 'client';
 
-    const permissionsSlugs = user.userRoles && user.userRoles.length > 0 && user.userRoles[0].rol.rolePermissions
-      ? user.userRoles[0].rol.rolePermissions.map((rp) => rp.permission?.slug).filter(Boolean)
-      : [];
+    const permissionsSlugs =
+      user.userRoles &&
+      user.userRoles.length > 0 &&
+      user.userRoles[0].rol.rolePermissions
+        ? user.userRoles[0].rol.rolePermissions
+            .map((rp) => rp.permission?.slug)
+            .filter(Boolean)
+        : [];
 
     return {
       id: user.id,
@@ -149,6 +217,7 @@ export class AuthService {
       permissions: permissionsSlugs,
     };
   }
+
 
   async enviarInvitacion(dto: EnviarInvitacionDto) {
     // 1. Buscar al usuario por correo

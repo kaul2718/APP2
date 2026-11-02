@@ -22,6 +22,12 @@ export interface Equipo {
     id: number;
     nombre: string;
   } | null;
+  ordenActiva?: {
+    id: number;
+    workOrderNumber: string;
+    estadoId?: number;
+    estadoNombre: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -40,6 +46,10 @@ interface UpdateEquipoDto {
   marcaId?: number;
   modeloId?: number;
   estado?: boolean;
+}
+
+interface UseEquiposOptions {
+  defaultLimit?: number;
 }
 
 interface UseEquiposReturn {
@@ -67,8 +77,9 @@ interface UseEquiposReturn {
   restoreEquipo: (id: number) => Promise<boolean>;
 }
 
-export function useEquipos(): UseEquiposReturn {
+export function useEquipos(options: UseEquiposOptions = {}): UseEquiposReturn {
   const { data: session, status } = useSession();
+  const limit = options.defaultLimit || 10;
   const {
     items: equipos,
     loading,
@@ -87,7 +98,7 @@ export function useEquipos(): UseEquiposReturn {
     setSearchTerm,
     setShowInactive,
   } = useCrud<Equipo, CreateEquipoDto, UpdateEquipoDto>('/equipos', {
-    defaultLimit: 10,
+    defaultLimit: limit,
     listPath: '/equipos/all',
     messages: {
       created: 'Equipo creado exitosamente',
@@ -108,7 +119,7 @@ export function useEquipos(): UseEquiposReturn {
 
   // Nueva función refetch
   const refetch = async () => {
-    await fetchEquipos(currentPage, 10, searchTerm, showInactive);
+    await fetchEquipos(currentPage, limit, searchTerm, showInactive);
   };
 
   const createEquipo = async (equipoData: CreateEquipoDto): Promise<Equipo> => {
@@ -184,9 +195,9 @@ export function useEquipos(): UseEquiposReturn {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetchEquipos(1, 10, searchTerm, showInactive);
+      fetchEquipos(1, limit, searchTerm, showInactive);
     }
-  }, [status, searchTerm, showInactive]);
+  }, [status, searchTerm, showInactive, limit]);
 
   return {
     equipos,

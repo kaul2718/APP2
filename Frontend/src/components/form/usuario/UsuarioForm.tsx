@@ -22,6 +22,7 @@ import {
     EyeSlashIcon,
 } from "@heroicons/react/24/outline";
 import { AsYouType } from 'libphonenumber-js';
+import AvatarUpload from "@/components/common/AvatarUpload";
 
 interface UsuarioFormProps {
     mode: UsuarioFormMode;
@@ -180,6 +181,29 @@ export default function UsuarioForm({
     function renderFormFields() {
         return (
             <>
+                {/* Foto de Perfil */}
+                <div className="col-span-full flex flex-col items-center justify-center pb-2">
+                    <AvatarUpload
+                        currentPhotoUrl={formData.fotoPerfilUrl}
+                        nombre={formData.nombre}
+                        apellido={formData.apellido}
+                        onFileSelect={(file) => {
+                            handleChange("fotoFile", file);
+                            if (file) {
+                                handleChange("fotoPerfilUrl", URL.createObjectURL(file));
+                            } else {
+                                handleChange("fotoPerfilUrl", null);
+                            }
+                        }}
+                        disabled={isLoading}
+                    />
+                    {isEditMode && camposModificados.has("fotoFile") && (
+                        <span className="text-[11px] text-amber-500 font-medium mt-1">
+                            Foto modificada (se guardará al enviar)
+                        </span>
+                    )}
+                </div>
+
                 {/* ID - Solo en edit mode */}
                 {isEditMode && formData.id && (
                     <div>

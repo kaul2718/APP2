@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, UseInterceptors, ClassSerializerInterceptor, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, UseInterceptors, ClassSerializerInterceptor, BadRequestException, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -151,4 +152,38 @@ export class UsersController {
       updatePasswordDto.newPassword
     );
   }
-}
+
+  /**
+   * Sube o actualiza la foto de perfil del usuario en Cloudflare R2
+   */
+  @Auth('admin', 'recep', 'tech', 'client')
+  @Post(':id/avatar')
+  @UseInterceptors(
+    FileInterceptor('foto', {
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB máx
+    }),
+  )
+  async subirAvatar(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Debe adjuntar una imagen válida (PNG, JPG o WEBP).');
+    }
+    const mimeTypesPermitidos = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!mimeTypesPermitidos.includes(file.mimetype)) {
+      throw new BadRequestException('El formato de imagen debe ser PNG, JPG o WEBP.');
+    }
+    return await this.usersService.subirAvatar(id, file.buffer, file.mimetype);
+  }
+
+  /**
+   * Elimina la foto de perfil y vuelve al icono/iniciales por defecto
+   */
+  @Auth('admin', 'recep', 'tech', 'client')
+  @Delete(':id/avatar')
+  async eliminarAvatar(@Param('id', ParseIntPipe) id: number) {
+    await this.usersService.eliminarAvatar(id);
+    return { success: true, message: 'Foto de perfil eliminada' };
+  }
+}

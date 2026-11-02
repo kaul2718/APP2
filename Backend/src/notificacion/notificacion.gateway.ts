@@ -36,6 +36,9 @@ export class NotificacionGateway implements OnGatewayConnection, OnGatewayDiscon
 
   // Método para enviar notificaciones a un usuario específico
   enviarNotificacionAUsuario(usuarioId: number, notificacion: any) {
+    if (!this.server) {
+      return;
+    }
     const room = `user_${usuarioId}`;
     this.server.to(room).emit('nueva-notificacion', notificacion);
     console.log(`Emitido nueva-notificacion a la sala: ${room}`);

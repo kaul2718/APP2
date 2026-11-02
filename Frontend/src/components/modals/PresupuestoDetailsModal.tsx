@@ -14,13 +14,15 @@ import {
     TrashIcon,
     PlusIcon,
     WrenchScrewdriverIcon,
-    CubeIcon
+    CubeIcon,
+    PencilSquareIcon,
 } from "@heroicons/react/24/outline";
 import { apiRequest } from "@/lib/api";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import AgregarItemsPresupuestoModal from "./AgregarItemsPresupuestoModal";
 import ConfirmDialog from "./ConfirmDialog";
+import AutorizarPresupuestoPresencialModal from "./AutorizarPresupuestoPresencialModal";
 
 interface PresupuestoOrderView {
     workOrderNumber?: string;
@@ -128,6 +130,7 @@ export default function PresupuestoDetailsModal({
     const [view, setView] = useState<'details' | 'addItem'>('details');
     const [resumen, setResumen] = useState<any>(initialResumen);
     const [loadingDelete, setLoadingDelete] = useState<number | null>(null);
+    const [isPresencialModalOpen, setIsPresencialModalOpen] = useState(false);
     const [confirmConfig, setConfirmConfig] = useState<{
         isOpen: boolean;
         title: string;
@@ -470,36 +473,26 @@ export default function PresupuestoDetailsModal({
                             </div>
                         </div>
 
-                        {/* Botones para cambiar estado */}
+                        {/* Botones para formalizar autorización o cambiar estado */}
                         {!presupuesto.deletedAt && (
-                            <div className="mt-6 flex gap-3">
-                                {presupuesto.estado?.id !== 2 && ( // Mostrar si no está aprobado
-                                    <button
-                                        onClick={() => handleChangeStatus(2, "Aprobado")}
-                                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-green-500/10 transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                                        Aprobar
-                                    </button>
-                                )}
-
-                                {presupuesto.estado?.id !== 4 && ( // Mostrar si no está rechazado
-                                    <button
-                                        onClick={() => handleChangeStatus(4, "Rechazado")}
-                                        className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-red-500/10 transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <XMarkIcon className="h-5 w-5" aria-hidden="true" />
-                                        Rechazar
-                                    </button>
-                                )}
+                            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsPresencialModalOpen(true)}
+                                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-emerald-500/10 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <PencilSquareIcon className="h-5 w-5" aria-hidden="true" />
+                                    <span>Autorizar Presupuesto (Firma Presencial)</span>
+                                </button>
 
                                 {presupuesto.estado?.id !== 1 && ( // Mostrar si no está pendiente
                                     <button
+                                        type="button"
                                         onClick={() => handleChangeStatus(1, "Pendiente")}
-                                        className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-yellow-500/10 transition-all flex items-center justify-center gap-2"
+                                        className="sm:w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-2"
                                     >
                                         <ClockIcon className="h-5 w-5" aria-hidden="true" />
-                                        Poner Pendiente
+                                        <span>Poner Pendiente</span>
                                     </button>
                                 )}
                             </div>
@@ -526,6 +519,19 @@ export default function PresupuestoDetailsModal({
                     destructive={confirmConfig.destructive}
                     onConfirm={confirmConfig.onConfirm}
                     onClose={() => setConfirmConfig(null)}
+                />
+            )}
+
+            {isPresencialModalOpen && (
+                <AutorizarPresupuestoPresencialModal
+                    isOpen={isPresencialModalOpen}
+                    onClose={() => setIsPresencialModalOpen(false)}
+                    order={presupuesto?.orden || { id: presupuesto?.ordenId, workOrderNumber: `ORD-${presupuesto?.ordenId}` }}
+                    presupuesto={{ ...presupuesto, costoTotal: resumen?.costoTotal || (presupuesto as any)?.total || 0 }}
+                    onSuccess={() => {
+                        if (onSuccess) onSuccess();
+                        onClose();
+                    }}
                 />
             )}
         </CrudModal>

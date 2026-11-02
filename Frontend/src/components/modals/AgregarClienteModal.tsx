@@ -145,10 +145,10 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
             newErrors.nombre = "El nombre debe tener al menos 2 caracteres";
         }
 
-        if (!formData.correo.trim()) {
-            newErrors.correo = "El correo es requerido";
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.correo)) {
-            newErrors.correo = "Correo electrónico inválido";
+        if (formData.correo && formData.correo.trim() !== '') {
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.correo)) {
+                newErrors.correo = "Correo electrónico inválido";
+            }
         }
 
         if (!formData.telefono.trim()) {
@@ -215,8 +215,11 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
         }
 
         try {
-            // Limpiar datos para enviar (no enviar password si es null)
-            const { ...payload } = formData;
+            const tieneCorreo = Boolean(formData.correo && formData.correo.trim() !== '');
+            const payload = {
+                ...formData,
+                correo: tieneCorreo ? formData.correo.trim().toLowerCase() : null,
+            };
             
             // 1. Registrar usuario
             const registroResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/users`, {
@@ -246,10 +249,7 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
 
             const nuevoUsuario = await registroResponse.json();
 
-            // 2. Enviar invitación por correo
-            await enviarCorreoInvitacion(formData.correo);
-
-            toast.success("Cliente registrado e invitación enviada con éxito ✅");
+            toast.success("Cliente registrado con éxito ✅");
 
             // Reset form
             setFormData({
@@ -351,7 +351,9 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
 
                             {/* Correo */}
                             <div>
-                                <Label htmlFor={correoInputId}>Correo Electrónico *</Label>
+                                <Label htmlFor={correoInputId}>
+                                    Correo Electrónico <span className="text-xs text-slate-500 font-normal dark:text-slate-400">(Opcional para clientes presenciales)</span>
+                                </Label>
                                 <div className="relative">
                                     <EnvelopeIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
                                     <Input
@@ -359,7 +361,7 @@ export default function AgregarClienteModal({ isOpen, onClose, onSuccess }: Prop
                                         type="email"
                                         value={formData.correo}
                                         onChange={(e) => handleChange("correo", e.target.value)}
-                                        placeholder="Ej: usuario@example.com"
+                                        placeholder="Opcional (Ej: cliente@correo.com)"
                                         className="pl-10 bg-white dark:bg-gray-800 text-black dark:text-white"
                                     />
                                 </div>

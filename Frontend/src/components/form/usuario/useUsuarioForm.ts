@@ -28,7 +28,7 @@ export function useUsuarioForm({ initialData, mode }: UseUsuarioFormProps) {
     const [camposModificados, setCamposModificados] = useState<Set<string>>(new Set());
 
     const handleChange = useCallback(
-        (field: keyof UsuarioFormData, value: string | number | boolean | undefined) => {
+        (field: keyof UsuarioFormData, value: any) => {
             setFormData((prev) => ({ ...prev, [field]: value }));
 
             // Track modified fields for edit mode

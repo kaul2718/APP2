@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Like, Repository } from 'typeorm';
 import { CreateEquipoDto } from './dto/create-equipo.dto';
@@ -29,12 +29,31 @@ export class EquipoService {
 
     // Verificar número de serie único (incluyendo eliminados)
     const existingEquipo = await this.equipoRepository.findOne({
-      where: { numeroSerie },
+      where: { numeroSerie: numeroSerie.trim() },
       withDeleted: true,
+      relations: ['tipoEquipo', 'marca', 'modelo'],
     });
 
     if (existingEquipo) {
-      throw new BadRequestException('El número de serie ya está registrado.');
+      const ordenActiva = await this.orderRepository.createQueryBuilder('order')
+        .leftJoinAndSelect('order.estadoOrden', 'estadoOrden')
+        .where('order.equipoId = :equipoId', { equipoId: existingEquipo.id })
+        .andWhere('order.estado = true')
+        .andWhere('order.deletedAt IS NULL')
+        .andWhere('LOWER(estadoOrden.nombre) NOT IN (:...estadosFinales)', {
+          estadosFinales: ['archivados', 'anulado', 'cancelado'],
+        })
+        .getOne();
+
+      if (ordenActiva) {
+        throw new ConflictException(
+          `El equipo con número de serie '${numeroSerie}' ya está registrado y se encuentra actualmente en taller bajo la orden #${ordenActiva.workOrderNumber} (Estado: ${ordenActiva.estadoOrden?.nombre || 'En taller'}).`
+        );
+      }
+
+      throw new ConflictException(
+        `El equipo con número de serie '${numeroSerie}' ya se encuentra registrado en el sistema (${existingEquipo.marca?.nombre || ''} ${existingEquipo.modelo?.nombre || ''}). Puede seleccionarlo directamente en la lista de equipos.`
+      );
     }
 
     // Verificar relaciones
@@ -61,11 +80,15 @@ export class EquipoService {
   }
 
   async findAll(includeDeleted = false): Promise<Equipo[]> {
-    return this.equipoRepository.find({
+    const equipos = await this.equipoRepository.find({
       where: includeDeleted ? {} : { estado: true },
       withDeleted: includeDeleted,
       relations: ['ordenes', 'tipoEquipo', 'marca', 'modelo'],
     });
+
+    await this.enriquecerConOrdenActiva(equipos);
+
+    return equipos;
   }
 
   async findOne(id: number, includeDeleted = false): Promise<Equipo> {
@@ -78,6 +101,8 @@ export class EquipoService {
     if (!equipo) {
       throw new NotFoundException('Equipo no encontrado.');
     }
+
+    await this.enriquecerConOrdenActiva([equipo]);
 
     return equipo;
   }
@@ -186,7 +211,44 @@ export class EquipoService {
       take: limitNum,
     });
 
+    await this.enriquecerConOrdenActiva(data);
+
     return { data, total };
+  }
+
+  /**
+   * Enriquece una lista de equipos con los datos de su orden activa si se encuentra en taller.
+   */
+  private async enriquecerConOrdenActiva(equipos: Equipo[]): Promise<Equipo[]> {
+    if (!equipos || equipos.length === 0) return equipos;
+
+    const equipoIds = equipos.map(e => e.id);
+    const activeOrders = await this.orderRepository.createQueryBuilder('order')
+      .leftJoinAndSelect('order.estadoOrden', 'estadoOrden')
+      .where('order.equipoId IN (:...equipoIds)', { equipoIds })
+      .andWhere('order.estado = :estado', { estado: true })
+      .andWhere('order.deletedAt IS NULL')
+      .andWhere('LOWER(estadoOrden.nombre) NOT IN (:...estadosFinales)', {
+        estadosFinales: ['archivados', 'anulado', 'cancelado'],
+      })
+      .select(['order.id', 'order.workOrderNumber', 'order.equipoId', 'estadoOrden.id', 'estadoOrden.nombre'])
+      .getMany();
+
+    const activeOrderMap = new Map<number, any>();
+    for (const ord of activeOrders) {
+      activeOrderMap.set(ord.equipoId, {
+        id: ord.id,
+        workOrderNumber: ord.workOrderNumber,
+        estadoId: ord.estadoOrden?.id,
+        estadoNombre: ord.estadoOrden?.nombre || 'En taller',
+      });
+    }
+
+    for (const eq of equipos) {
+      (eq as any).ordenActiva = activeOrderMap.get(eq.id) || null;
+    }
+
+    return equipos;
   }
 
   async actualizarEstado(id: number, estado: boolean): Promise<Equipo> {

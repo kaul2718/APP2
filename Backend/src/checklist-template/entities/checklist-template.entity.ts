@@ -17,7 +17,7 @@ export class ChecklistTemplate {
   tipoEquipoId: number;
 
   @Column({ type: 'jsonb' })
-  items: string[]; // Lista de strings con los nombres de los ítems a revisar
+  items: any; // Lista de strings o estructura categorizada { fisica?: string[], funcional?: string[] }
 
   @Column({ default: true })
   estado: boolean;

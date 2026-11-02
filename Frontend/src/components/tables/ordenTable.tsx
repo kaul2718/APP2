@@ -106,7 +106,7 @@ export default function OrdenTable() {
 
   const handleSaveOrder = async (updatedData: UpdateOrderData) => {
     try {
-      if (!selectedOrder) return false;
+      if (!selectedOrder) return { success: false };
 
       await updateOrder(selectedOrder.id, {
         technicianId: updatedData.technicianId,
@@ -118,13 +118,21 @@ export default function OrdenTable() {
         userId: updatedData.userId,
         esperaRepuesto: updatedData.esperaRepuesto,
         tiempoEstimadoReparacion: updatedData.tiempoEstimadoReparacion,
+        version: (updatedData as any).version !== undefined ? (updatedData as any).version : (selectedOrder as any).version,
       });
 
       await fetchOrders(currentPage, 10, searchTerm, showInactive, estadoOrdenId);
-      return true;
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error al guardar cambios");
-      return false;
+      return { success: true };
+    } catch (error: any) {
+      if (error?.message?.includes('Conflicto de concurrencia') || error?.status === 409) {
+        toast.warn('⚠️ Conflicto de concurrencia: Otro usuario modificó esta orden. Tus modificaciones se conservan en pantalla.', {
+          autoClose: 8000,
+        });
+        return { success: false, conflict: true, message: error?.message || 'Conflicto de concurrencia' };
+      } else {
+        toast.error(error instanceof Error ? error.message : "Error al guardar cambios");
+        return { success: false, message: error instanceof Error ? error.message : 'Error al guardar' };
+      }
     }
   };
 

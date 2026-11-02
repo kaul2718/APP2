@@ -9,10 +9,8 @@ export class CreateChecklistTemplateDto {
   @IsNotEmpty()
   tipoEquipoId: number;
 
-  @IsArray()
-  @IsString({ each: true })
   @IsNotEmpty()
-  items: string[];
+  items: any;
 }
 
 export class UpdateChecklistTemplateDto {
@@ -24,12 +22,11 @@ export class UpdateChecklistTemplateDto {
   @IsOptional()
   tipoEquipoId?: number;
 
-  @IsArray()
-  @IsString({ each: true })
   @IsOptional()
-  items?: string[];
+  items?: any;
 
   @IsBoolean()
   @IsOptional()
   estado?: boolean;
 }
+

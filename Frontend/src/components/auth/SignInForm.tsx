@@ -4,28 +4,29 @@ import Checkbox from "@/components/form/input/Checkbox";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
 import Button from "@/components/ui/button/Button";
-import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "@/icons";
+import { EyeCloseIcon, EyeIcon } from "@/icons";
 import Link from "next/link";
 import React, { useState } from "react";
 import { useLogin } from "@/hooks/useLogin";
+import { ExclamationCircleIcon } from "@heroicons/react/24/outline";
 
 export default function SignInForm() {
   const {
     showPassword,
     toggleShowPassword,
-    correo,
+    identificador,
     password,
     errors,
-    handleCorreoChange,
+    loading,
+    handleIdentificadorChange,
     handlePasswordChange,
     handleSubmit,
   } = useLogin();
 
-  const [isChecked, setIsChecked] = useState(false); // Este estado puede quedar aquí
+  const [isChecked, setIsChecked] = useState(false);
 
   return (
     <div className="flex flex-col flex-1 lg:w-1/2 w-full">
-     
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
         <div>
           <div className="mb-5 sm:mb-8">
@@ -33,33 +34,35 @@ export default function SignInForm() {
               Iniciar Sesión
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Ingresa tu correo y contraseña para iniciar sesión
+              Ingresa tu cédula o correo electrónico y tu contraseña para acceder al sistema
             </p>
           </div>
-          <div>  
+          <div>
             {/* FORMULARIO */}
             <form onSubmit={handleSubmit}>
               <div className="space-y-6">
                 <div>
-                  <Label>
-                    Correo <span className="text-error-500">*</span>{" "}
+                  <Label htmlFor="identificador">
+                    Cédula o correo electrónico <span className="text-error-500">*</span>
                   </Label>
                   <Input
-                    type="email"
-                    placeholder="info@gmail.com"
-                    value={correo}
-                    onChange={handleCorreoChange}
-                    autoComplete="email"
+                    id="identificador"
+                    type="text"
+                    placeholder="1712345678 o usuario@correo.com"
+                    value={identificador}
+                    onChange={handleIdentificadorChange}
+                    autoComplete="username"
                   />
                 </div>
                 <div>
-                  <Label>
-                    Contraseña <span className="text-error-500">*</span>{" "}
+                  <Label htmlFor="password">
+                    Contraseña <span className="text-error-500">*</span>
                   </Label>
                   <div className="relative">
                     <Input
+                      id="password"
                       type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
+                      placeholder="Ingresa tu contraseña"
                       value={password}
                       onChange={handlePasswordChange}
                       autoComplete="current-password"
@@ -67,6 +70,8 @@ export default function SignInForm() {
                     <span
                       onClick={toggleShowPassword}
                       className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
+                      role="button"
+                      aria-label={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
                     >
                       {showPassword ? (
                         <EyeIcon className="fill-gray-500 dark:fill-gray-400" />
@@ -91,8 +96,8 @@ export default function SignInForm() {
                   </Link>
                 </div>
                 <div>
-                  <Button className="w-full" size="sm" type="submit">
-                    Iniciar sesión
+                  <Button className="w-full" size="sm" type="submit" disabled={loading}>
+                    {loading ? "Iniciando sesión..." : "Iniciar sesión"}
                   </Button>
                 </div>
               </div>
@@ -100,8 +105,9 @@ export default function SignInForm() {
 
             {/* Mostrar errores */}
             {errors.length > 0 && (
-              <div className="mt-5 text-red-600">
-                <ul>
+              <div className="mt-5 p-3.5 rounded-xl border border-red-200 bg-red-50 text-red-700 dark:border-red-800/40 dark:bg-red-900/20 dark:text-red-400 text-sm flex items-start gap-2.5">
+                <ExclamationCircleIcon className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" />
+                <ul className="space-y-1">
                   {errors.map((err) => (
                     <li key={err}>{err}</li>
                   ))}
@@ -111,12 +117,12 @@ export default function SignInForm() {
 
             <div className="mt-5">
               <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
-                ¿No tienes cuenta?{" "}
+                ¿Dejaste un equipo y quieres consultar el estado?{" "}
                 <Link
-                  href="/signup"
-                  className="text-brand-500 hover:text-brand-600 dark:text-brand-400"
+                  href="/consulta"
+                  className="font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400"
                 >
-                  Regístrate
+                  Consultar orden con QR / Cédula
                 </Link>
               </p>
             </div>

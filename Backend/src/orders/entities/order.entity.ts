@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn, OneToMany, OneToOne, DeleteDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn, OneToMany, OneToOne, DeleteDateColumn, VersionColumn } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { ActividadTecnica } from '../../actividad-tecnica/entities/actividad-tecnica.entity';
 import { Presupuesto } from '../../presupuesto/entities/presupuesto.entity';
@@ -9,6 +9,7 @@ import { EvidenciaTecnica } from 'src/evidencia-tecnica/entities/evidencia-tecni
 import { EstadoOrden } from 'src/estado-orden/entities/estado-orden.entity';
 import { HistorialEstadoOrden } from 'src/historial-estado-orden/entities/historial-estado-orden.entity';
 import { OrderType } from 'src/common/enums/order-type.enum';
+import { DocumentoOrden } from '../../documentos-orden/entities/documento-orden.entity';
 
 @Entity('orders')
 export class Order {
@@ -120,9 +121,12 @@ export class Order {
 
     //RELACION CON HISTORIAL DE ESTADOS
 
-    @OneToMany(() => HistorialEstadoOrden, (historial) => historial.orden, {
-    })
+    @OneToMany(() => HistorialEstadoOrden, (historial) => historial.orden)
     historialEstados: HistorialEstadoOrden[];
+
+    // RELACION CON DOCUMENTOS FIRMADOS (ACTA DE INGRESO / ENTREGA)
+    @OneToMany(() => DocumentoOrden, (doc) => doc.orden)
+    documentos: DocumentoOrden[];
 
 
     //ELIMINACION LOGICA
@@ -141,4 +145,38 @@ export class Order {
     @UpdateDateColumn({ type: 'timestamp' })
     updatedAt: Date;
 
+    @VersionColumn({ default: 1 })
+    version: number;
+
+    @Column({ type: 'varchar', length: 100, nullable: true, unique: true })
+    clientRequestId: string | null;
+
+    // Credencial criptográfica privada (128 bits de entropía - hash SHA-256 almacenado)
+    @Column({ type: 'varchar', length: 64, nullable: true, select: false })
+    tokenAccesoHash: string | null;
+
+    @Column({ type: 'timestamp', nullable: true })
+    tokenAccesoExpiracion: Date | null;
+
+    @Column({ type: 'boolean', default: false })
+    tokenAccesoRevocado: boolean;
+
+    @Column({ type: 'int', default: 0 })
+    tokenAccesoIntentosFallidos: number;
+
+    @Column({ type: 'timestamp', nullable: true })
+    tokenAccesoBloqueadoHasta: Date | null;
+
+    @Column({ type: 'timestamp', nullable: true })
+    tokenAccesoUltimoUso: Date | null;
+
+    // Ingreso por tercero / familiar autorizado
+    @Column({ type: 'varchar', length: 150, nullable: true })
+    entregadoPorNombre: string | null;
+
+    @Column({ type: 'varchar', length: 20, nullable: true })
+    entregadoPorCedula: string | null;
+
+    @Column({ type: 'varchar', length: 50, nullable: true })
+    entregadoPorParentesco: string | null;
 }

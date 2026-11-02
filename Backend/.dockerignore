@@ -1,0 +1,17 @@
+node_modules
+dist
+.env
+.env.*
+.git
+.gitignore
+.vscode
+.idea
+npm-debug.log
+test
+coverage
+certs/*.p12
+certs/*.key
+certs/*.pem
+uploads/*
+!uploads/.gitkeep
+

@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Metadata } from 'next';
 import ClientComponent from '../ClientComponent';
 
 export const metadata: Metadata = {
-  title: 'Rendimiento y Facturación de Técnicos | Hospital del Computador',
-  description: 'Auditoría del dinero total generado por técnico y asignaciones de ODS',
+  title: 'Productividad y Carga de Trabajo por Técnico | Hospital del Computador',
+  description: 'Auditoría de órdenes en proceso, finalizadas e intervenciones técnicas registradas',
 };
 
 export default function Page() {
-  return <ClientComponent initialTab="techs" standalone={true} />;
+  return (
+    <Suspense fallback={<div className="p-6 text-gray-400">Cargando reporte de técnicos...</div>}>
+      <ClientComponent initialTab="techs" />
+    </Suspense>
+  );
 }

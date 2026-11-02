@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn, DeleteDateColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Exclude } from 'class-transformer';
 import { Order } from '../../orders/entities/order.entity';
 import { EstadoCasillero } from '../../common/enums/estadoCasillero.enum';
 @Entity()
@@ -19,6 +20,7 @@ export class Casillero {
   estado: boolean;
 
   //RELACIONES//
+  @Exclude()
   @OneToOne(() => Order, (order) => order.casillero)
   @JoinColumn({ name: 'orderId' })
   order: Order;

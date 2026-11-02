@@ -26,14 +26,26 @@ export default function UserDropdown() {
         onClick={toggleDropdown}
         className="flex items-center text-gray-700 dark:text-gray-400 dropdown-toggle"
       >
-        <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <svg
-            className="w-10 h-10 text-gray-400 dark:text-gray-300"
-            fill="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
-          </svg>
+        <span className="mr-3 overflow-hidden rounded-full h-11 w-11 flex items-center justify-center bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex-shrink-0">
+          {usuario?.fotoPerfilUrl ? (
+            <img
+              src={usuario.fotoPerfilUrl}
+              alt={usuario.nombre || 'Avatar'}
+              className="w-full h-full object-cover rounded-full"
+            />
+          ) : usuario?.nombre ? (
+            <span className="font-bold text-xs text-brand-600 dark:text-brand-400">
+              {`${usuario.nombre.charAt(0)}${usuario.apellido ? usuario.apellido.charAt(0) : ''}`.toUpperCase()}
+            </span>
+          ) : (
+            <svg
+              className="w-10 h-10 text-gray-400 dark:text-gray-300"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
+            </svg>
+          )}
         </span>
         
         <span className="block mr-1 font-medium text-theme-sm">

@@ -41,7 +41,7 @@ export default function IngresarActividadTecnicaForm({ onSuccess, onClose, defau
         diagnostico: "",
         trabajoRealizado: ""
     });
-    const [errors, setErrors] = React.useState<Partial<FormData>>({});
+    const [errors, setErrors] = React.useState<Partial<Record<keyof FormData, string>>>({});
     const [loading, setLoading] = React.useState(false);
 
     const handleChange = (field: keyof FormData, value: string | number) => {
@@ -52,7 +52,7 @@ export default function IngresarActividadTecnicaForm({ onSuccess, onClose, defau
     };
 
     const validateFields = () => {
-        const newErrors: Partial<FormData> = {};
+        const newErrors: Partial<Record<keyof FormData, string>> = {};
 
         if (!formData.ordenId) {
             newErrors.ordenId = "Debe seleccionar una orden";
@@ -147,7 +147,7 @@ export default function IngresarActividadTecnicaForm({ onSuccess, onClose, defau
                             .filter(order => order.estado) // Solo órdenes activas
                             .map((order) => (
                                 <option key={order.id} value={order.id}>
-                                    #{order.workOrderNumber} - {order.equipo?.nombre || 'Sin equipo'}
+                                    #{order.workOrderNumber} - {order.equipo?.modelo?.nombre || order.equipo?.tipoEquipo?.nombre || order.equipo?.numeroSerie || 'Sin equipo'}
                                 </option>
                             ))}
                     </Select>

@@ -12,20 +12,25 @@ import {
   Req,
   UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
   ParseIntPipe
 } from '@nestjs/common';
+import { Request } from 'express';
 import { OrderService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { ConvertirOrdenCompletaDto } from './dto/convertir-orden.dto';
+import { AutorizarPresupuestoPrivadoDto } from './dto/autorizar-presupuesto-privado.dto';
+import { AutorizarPresupuestoPresencialDto } from './dto/autorizar-presupuesto-presencial.dto';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { RequirePermissions } from 'src/decorators/permissions.decorator';
+import { CurrentUser, CurrentUser as UserDecorator } from 'src/auth/decorators/user.decorator';
 
 import { Order } from './entities/order.entity';
 import { CreateActividadTecnicaDto } from 'src/actividad-tecnica/dto/create-actividad-tecnica.dto';
 import { CreatePresupuestoDto } from 'src/presupuesto/dto/create-presupuesto.dto';
 import { CreateCasilleroDto } from 'src/casillero/dto/create-casillero.dto';
 import { CreateEvidenciaTecnicaDto } from 'src/evidencia-tecnica/dto/create-evidencia-tecnica.dto';
-import { CurrentUser, CurrentUser as UserDecorator } from 'src/auth/decorators/user.decorator';
 import { User } from 'src/users/entities/user.entity';
 
 @UseInterceptors(ClassSerializerInterceptor)
@@ -145,17 +150,34 @@ export class OrderController {
 
   @Auth('admin', 'tech', 'recep', 'client')
   @Get(':id')
-  findOne(
+  async findOne(
     @Param('id') id: string,
     @Query('includeInactive') includeInactive?: string,
+    @CurrentUser() user?: any,
   ): Promise<Order> {
     const parsedId = parseInt(id, 10);
     if (isNaN(parsedId) || parsedId <= 0) {
       throw new BadRequestException('ID debe ser un número positivo');
     }
     const parsedIncludeInactive = includeInactive === 'true';
-    return this.orderService.findOne(parsedId, parsedIncludeInactive);
+    const order = await this.orderService.findOne(parsedId, parsedIncludeInactive);
+
+    const isClient =
+      user?.role === 'client' ||
+      user?.role === 'cliente' ||
+      (user?.userRoles &&
+        user.userRoles.some((r: any) =>
+          ['client', 'cliente'].includes(r.rol?.slug || r.rol?.nombre),
+        ));
+
+    const userId = user?.sub || user?.id;
+    if (isClient && order.client?.id !== userId) {
+      throw new ForbiddenException('No tiene permisos para consultar esta orden de servicio.');
+    }
+
+    return order;
   }
+
 
   // Endpoint unificado para actualización (incluye casillero y estado)
   @Auth('tech', 'recep', 'admin')
@@ -210,6 +232,17 @@ export class OrderController {
       throw new BadRequestException('ID debe ser un número positivo');
     }
     return this.orderService.toggleStatus(parsedId);
+  }
+
+  @Auth('admin', 'tech', 'recep')
+  @Patch(':id/convertir-completa')
+  async convertirACompleta(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ConvertirOrdenCompletaDto,
+    @UserDecorator() user: User,
+  ) {
+    const userId = user?.id || (user as any)?.sub;
+    return this.orderService.convertirOrdenACompleta(id, dto, userId);
   }
 
   @Auth('admin', 'tech', 'recep')
@@ -280,14 +313,75 @@ export class OrderController {
   async getPublicOrder(
     @Query('cedula') cedula: string,
     @Query('workorder') workorder: string,
+    @Query('token') token?: string,
   ) {
-    return this.orderService.findPublicOrder(cedula, workorder);
+    return this.orderService.findPublicOrder(cedula, workorder, token);
   }
 
+  /**
+   * Endpoint de compatibilidad revocado permanentemente:
+   * Bloquea cualquier intento de aprobar/rechazar presupuestos únicamente con cédula y número de orden.
+   */
   @Post('public/consulta/presupuesto/action')
-  async handlePublicPresupuestoAction(
-    @Body() body: { cedula: string, workorder: string, action: string }
+  async handlePublicPresupuestoAction() {
+    throw new ForbiddenException(
+      'El método de aprobación directa por cédula ha sido revocado permanentemente por motivos de seguridad. Utilice la autorización verificada mediante la credencial privada o en mostrador.',
+    );
+  }
+
+  /**
+   * Autorización verificada mediante credencial criptográfica privada (Token de ODS / QR físico)
+   */
+  @Post('public/consulta/presupuesto/autorizar-privado')
+  async handlePrivatePresupuestoAction(
+    @Body() dto: AutorizarPresupuestoPrivadoDto,
+    @Req() req: Request,
   ) {
-    return this.orderService.handlePublicPresupuestoAction(body.cedula, body.workorder, body.action);
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || req.ip;
+    const userAgent = req.headers['user-agent'];
+    return this.orderService.handlePrivatePresupuestoAction(dto, ip, userAgent);
+  }
+
+  /**
+   * Autorización presencial asistida en mostrador con firma táctil manuscrita
+   */
+  @Auth('admin', 'tech', 'recep')
+  @Post(':id/presupuesto/autorizar-presencial')
+  async handlePresupuestoActionPresencial(
+    @Param('id', ParseIntPipe) orderId: number,
+    @Body() dto: AutorizarPresupuestoPresencialDto,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    const operadorId = user.sub || user.id;
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || req.ip;
+    const userAgent = req.headers['user-agent'];
+    return this.orderService.handlePresupuestoActionPresencial(orderId, dto, operadorId, ip, userAgent);
+  }
+
+  /**
+   * Regeneración de credencial privada de orden por pérdida o extravío
+   */
+  @Auth('admin', 'tech', 'recep')
+  @Post(':id/credencial/regenerar')
+  async regenerarCredencial(
+    @Param('id', ParseIntPipe) orderId: number,
+    @CurrentUser() user: any,
+  ) {
+    const operadorId = user.sub || user.id;
+    return this.orderService.regenerarCredencialOrden(orderId, operadorId);
+  }
+
+  /**
+   * Revocación de credencial privada de orden
+   */
+  @Auth('admin', 'tech', 'recep')
+  @Post(':id/credencial/revocar')
+  async revocarCredencial(
+    @Param('id', ParseIntPipe) orderId: number,
+    @CurrentUser() user: any,
+  ) {
+    const operadorId = user.sub || user.id;
+    return this.orderService.revocarCredencialOrden(orderId, operadorId);
   }
 }

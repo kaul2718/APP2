@@ -8,6 +8,9 @@ export interface UserBasic {
   nombre: string;
   apellido?: string;
   role: string;
+  cedula?: string;
+  correo?: string;
+  telefono?: string;
 }
 
 export interface EquipoBasic {
@@ -75,6 +78,11 @@ export interface OrderEvidenciaTecnica {
   id: number;
   urlImagen?: string;
   archivoUrl?: string;
+  storageKey?: string;
+  nombreOriginal?: string;
+  mimeType?: string;
+  tamanoBytes?: number;
+  tipoArchivo?: 'imagen' | 'video';
   actividadId?: number;
   descripcion?: string;
   fechaSubida: string;
@@ -118,4 +126,12 @@ export interface Order {
   checklistData?: any;
   esperaRepuesto?: boolean;
   tiempoEstimadoReparacion?: number;
+  tokenAccesoExpiracion?: string | null;
+  tokenAccesoRevocado?: boolean;
+  tokenAccesoIntentosFallidos?: number;
+  tokenAccesoBloqueadoHasta?: string | null;
+  tokenAccesoUltimoUso?: string | null;
+  entregadoPorNombre?: string | null;
+  entregadoPorCedula?: string | null;
+  entregadoPorParentesco?: string | null;
 }

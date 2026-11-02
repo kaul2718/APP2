@@ -65,4 +65,20 @@ export class CreateOrderDto {
 
   @IsOptional()
   tiempoEstimadoReparacion?: number;
+
+  @IsOptional()
+  @IsString({ message: 'clientRequestId debe ser una cadena de texto' })
+  clientRequestId?: string;
+
+  @IsOptional()
+  @IsString()
+  entregadoPorNombre?: string;
+
+  @IsOptional()
+  @IsString()
+  entregadoPorCedula?: string;
+
+  @IsOptional()
+  @IsString()
+  entregadoPorParentesco?: string;
 }

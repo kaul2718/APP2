@@ -11,6 +11,7 @@ import type {
   Order,
   UserBasic,
 } from "@/types/order.types";
+import { OrderType } from "@/types/order.types";
 
 type PaginatedOrderResponse = PaginatedResponse<Order>;
 export type { UserBasic, EquipoBasic, EstadoOrdenBasic, Order };
@@ -145,6 +146,10 @@ export function useOrders() {
     fechaPrometidaEntrega?: string;
     technicianId?: number;
     estadoOrdenId?: number;
+    tipoOrden?: OrderType;
+    checklistData?: any;
+    tiempoEstimadoReparacion?: number;
+    clientRequestId?: string;
   }) => {
     try {
       // Validación adicional
@@ -160,8 +165,6 @@ export function useOrders() {
         recepcionistaId: session?.user?.id
       };
 
-      //console.log('Enviando al backend:', payload);
-
       const data = await apiRequest<Order>(
         '/orders',
         {
@@ -173,7 +176,6 @@ export function useOrders() {
 
       return data;
     } catch (error) {
-      //console.error('Error en createOrder:', error);
       throw error;
     }
   };
@@ -188,6 +190,10 @@ export function useOrders() {
     userId?: number;
     esperaRepuesto?: boolean;
     tiempoEstimadoReparacion?: number;
+    checklistData?: any;
+    clientId?: number;
+    equipoId?: number;
+    version?: number;
   }) => {
     try {
       if (!session?.accessToken || !session.user?.id) {
@@ -196,7 +202,7 @@ export function useOrders() {
 
       const payload = {
         ...orderData,
-        userId: session.user.id, // 👈 lo agregas tú aquí
+        userId: session.user.id,
       };
 
       return await apiRequest<Order>(
@@ -208,7 +214,6 @@ export function useOrders() {
         session,
       );
     } catch (error) {
-      //console.error("Error updating order:", error);
       throw error;
     }
   };

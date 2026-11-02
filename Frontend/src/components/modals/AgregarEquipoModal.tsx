@@ -247,8 +247,11 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
             });
 
             if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.message || "Error al registrar equipo");
+                const errorData = await res.json().catch(() => ({}));
+                const msg = Array.isArray(errorData.message)
+                    ? errorData.message.join(', ')
+                    : (errorData.message || "Error al registrar equipo");
+                throw new Error(msg);
             }
 
             const nuevoEquipo = await res.json();

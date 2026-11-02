@@ -18,7 +18,11 @@ export default function IngresarChecklistTemplateForm({ onSuccess, template }: P
     const { tiposEquipo } = useTipoEquipo();
     const [nombre, setNombre] = useState(template?.nombre || "");
     const [tipoEquipoId, setTipoEquipoId] = useState<number>(template?.tipoEquipo?.id || 0);
-    const [items, setItems] = useState<string[]>(template?.items || ["Enciende", "Imagen", "Teclado", "Touchpad", "Batería"]);
+    const [items, setItems] = useState<string[]>(() => {
+        if (!template?.items) return ["Enciende", "Imagen", "Teclado", "Touchpad", "Batería"];
+        if (Array.isArray(template.items)) return template.items;
+        return [...(template.items.fisica || []), ...(template.items.funcional || [])];
+    });
     const [newItem, setNewItem] = useState("");
 
     const nameInputId = React.useId();
@@ -32,9 +36,15 @@ export default function IngresarChecklistTemplateForm({ onSuccess, template }: P
         const nombreChanged = nombre !== template.nombre;
         const tipoEquipoChanged = tipoEquipoId !== template.tipoEquipo?.id;
         
+        const originalItems: string[] = Array.isArray(template.items)
+            ? template.items
+            : template.items
+            ? [...(template.items.fisica || []), ...(template.items.funcional || [])]
+            : [];
+
         // Comparar arreglos de items
-        const itemsChanged = items.length !== template.items.length || 
-                           items.some((item, index) => item !== template.items[index]);
+        const itemsChanged = items.length !== originalItems.length || 
+                           items.some((item, index) => item !== originalItems[index]);
 
         return nombreChanged || tipoEquipoChanged || itemsChanged;
     }, [template, nombre, tipoEquipoId, items]);

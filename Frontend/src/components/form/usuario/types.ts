@@ -11,6 +11,8 @@ export interface UsuarioFormData {
     confirmPassword?: string;
     id?: string | number;
     estado?: boolean;
+    fotoPerfilUrl?: string | null;
+    fotoFile?: File | null;
     createdAt?: string;
     updatedAt?: string;
     deletedAt?: string | null;

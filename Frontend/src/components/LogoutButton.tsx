@@ -7,6 +7,17 @@ import { toast } from "react-toastify";
 export default function LogoutButton() {
 
     const handleLogout = async () => {
+        // Limpiar borradores sensibles de recepción para proteger privacidad en tabletas compartidas
+        try {
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('hdc_orden_draft_')) {
+                    localStorage.removeItem(key);
+                }
+            });
+        } catch (e) {
+            // Ignorar errores de acceso
+        }
+
         await signOut({ redirect: false });
         toast.success("Sesión cerrada correctamente", {
             position: "top-right",

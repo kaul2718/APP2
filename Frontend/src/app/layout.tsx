@@ -1,7 +1,6 @@
 import { Outfit } from "next/font/google";
 import "./globals.css";
 
-import { SidebarProvider } from "@/context/SidebarContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { FontSizeProvider } from "@/context/FontSizeContext";
 import SessionAuthProvider from "@/context/SessionAuthProvider";
@@ -13,9 +12,15 @@ const outfit = Outfit({
   subsets: ["latin"],
 });
 
+import { getMetadataBase } from "@/lib/seoConfig";
+
 export const metadata = {
-  title: "Hospital del Computador - Gestión de Órdenes",
-  description: "Sistema integral de gestión para servicio técnico",
+  metadataBase: getMetadataBase(),
+  title: {
+    default: "Hospital del Computador | Servicio Técnico en Riobamba",
+    template: "%s | Hospital del Computador",
+  },
+  description: "Taller y laboratorio especializado en reparación de laptops, computadoras e impresoras en Riobamba, Ecuador.",
   icons: {
     icon: "/images/logo/logo-icon.svg",
     shortcut: "/images/logo/logo-icon.svg",
@@ -29,26 +34,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
+    <html lang="es-EC">
       <body className={`${outfit.className} dark:bg-gray-900`}>
         <SessionAuthProvider>
           <FontSizeProvider>
             <ThemeProvider>
-              <SidebarProvider>
-                {children}
-                <ToastContainer
-                  position="top-right"
-                  autoClose={3000}
-                  hideProgressBar={false}
-                  newestOnTop={false}
-                  closeOnClick
-                  pauseOnHover
-                  draggable
-                  theme="colored"
-                  role="status"
-                  style={{ position: "fixed", top: 20, right: 20, zIndex: 99999 }}
-                />
-              </SidebarProvider>
+              {children}
+              <ToastContainer
+                position="top-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                pauseOnHover
+                draggable
+                theme="colored"
+                role="status"
+                style={{ position: "fixed", top: 20, right: 20, zIndex: 99999 }}
+              />
             </ThemeProvider>
           </FontSizeProvider>
         </SessionAuthProvider>

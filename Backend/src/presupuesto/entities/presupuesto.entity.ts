@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, OneToMany, DeleteDateColumn } from 'typeorm';
+import { Exclude } from 'class-transformer';
 import { Order } from 'src/orders/entities/order.entity';
 import { EstadoPresupuesto } from '../../estado-presupuesto/entities/estado-presupuesto.entity';
 import { DetallePresupuestoItem } from 'src/detalle-presupuesto-item/entities/detalle-presupuesto-item.entity';
@@ -8,6 +9,7 @@ export class Presupuesto {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Exclude()
   @ManyToOne(() => Order, orden => orden.presupuesto)
   @JoinColumn({ name: 'ordenId' })
   orden: Order;
@@ -32,6 +34,12 @@ export class Presupuesto {
 
 
 
+  @Column({ type: 'int', default: 1 })
+  version: number;
+
+  @OneToMany('AutorizacionPresupuesto', (autorizacion: any) => autorizacion.presupuesto)
+  autorizaciones: any[];
+
   @Column({ type: 'text', nullable: true })
   descripcion: string;
 
@@ -43,5 +51,4 @@ export class Presupuesto {
 
   @UpdateDateColumn({ type: 'timestamp' })
   updatedAt: Date;
-
 }

@@ -77,7 +77,9 @@ export default function OrdenComponent() {
                         </div>
                     }
                 >
-                    <OrdenListLayout key={refreshKey} />
+                    <React.Suspense fallback={<div className="p-6 text-center text-sm text-gray-400">Cargando órdenes...</div>}>
+                        <OrdenListLayout key={refreshKey} />
+                    </React.Suspense>
                 </ComponentCard>
 
                 <Modal
@@ -115,12 +117,12 @@ export default function OrdenComponent() {
                     }}
                 />
 
-                {/* Modal de Confirmación de Impresión */}
+                {/* Modal de Confirmación de Impresión y Firma */}
                 <ConfirmDialog
                     isOpen={showPrintConfirm}
                     title="Orden Creada Exitosamente"
-                    description={`La orden #${orderToPrint?.workOrderNumber} ha sido registrada. ¿Desea imprimir el comprobante de ingreso ahora?`}
-                    confirmText="Sí, imprimir"
+                    description={`La orden #${orderToPrint?.workOrderNumber} ha sido registrada. ¿Desea abrir el comprobante de ingreso para firmarlo en tablet o imprimirlo ahora?`}
+                    confirmText="Sí, abrir comprobante"
                     cancelText="No, después"
                     onConfirm={() => {
                         setShowPrintConfirm(false);

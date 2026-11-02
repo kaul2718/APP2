@@ -9,6 +9,8 @@ import Label from "../form/Label";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { Spinner } from "../ui/spinner";
 import { toast } from "react-toastify";
+import { useSession } from "next-auth/react";
+import AvatarUpload from "../common/AvatarUpload";
 
 export default function UserMetaCard() {
   const { isOpen, openModal, closeModal } = useModal();
@@ -20,17 +22,23 @@ export default function UserMetaCard() {
     passwordData,
     setEditando: setDatosEditables,
     actualizarPerfil: guardarCambios,
+    actualizarAvatar,
+    eliminarAvatar,
+    refetch,
     cambiarContrasena,
     handleInputChange: handleChangeCampo,
     handlePasswordChange: handleChangePassword,
     resetearEdicion,
   } = useUserProfile();
 
+  const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState<'profile' | 'password'>('profile');
+  const [avatarFile, setAvatarFile] = useState<File | null | 'DELETE'>(null);
 
   const handleOpenModal = () => {
     openModal();
     resetearEdicion();
+    setAvatarFile(null);
     setActiveTab('profile');
   };
 
@@ -68,8 +76,19 @@ export default function UserMetaCard() {
       return;
     }
 
+    // Subir o eliminar avatar si hubo cambios
+    let avatarUpdated = false;
+    if (avatarFile instanceof File) {
+      const newUrl = await actualizarAvatar(avatarFile);
+      if (newUrl) avatarUpdated = true;
+    } else if (avatarFile === 'DELETE') {
+      const deleted = await eliminarAvatar();
+      if (deleted) avatarUpdated = true;
+    }
+
     const success = await guardarCambios();
-    if (success) {
+    if (success || avatarUpdated) {
+      setAvatarFile(null);
       closeModal();
     }
   };
@@ -143,14 +162,26 @@ export default function UserMetaCard() {
       <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-col items-center w-full gap-6 xl:flex-row">
-            <div className="w-20 h-20 flex items-center justify-center rounded-full border border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-gray-700">
-              <svg
-                className="w-10 h-10 text-gray-400 dark:text-gray-300"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
-              </svg>
+            <div className="w-20 h-20 flex items-center justify-center rounded-full border border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-gray-700 overflow-hidden flex-shrink-0">
+              {datosUsuario?.fotoPerfilUrl ? (
+                <img
+                  src={datosUsuario.fotoPerfilUrl}
+                  alt={datosUsuario.nombre || "Avatar"}
+                  className="w-full h-full object-cover"
+                />
+              ) : datosUsuario?.nombre ? (
+                <span className="font-bold text-xl text-brand-600 dark:text-brand-400">
+                  {`${datosUsuario.nombre.charAt(0)}${datosUsuario.apellido ? datosUsuario.apellido.charAt(0) : ''}`.toUpperCase()}
+                </span>
+              ) : (
+                <svg
+                  className="w-10 h-10 text-gray-400 dark:text-gray-300"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
+                </svg>
+              )}
             </div>
             <div className="order-3 xl:order-2">
               <p className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
@@ -246,6 +277,16 @@ export default function UserMetaCard() {
                   <p className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                     Información del usuario
                   </p>
+
+                  <div className="flex justify-center pb-4">
+                    <AvatarUpload
+                      currentPhotoUrl={datosUsuario?.fotoPerfilUrl}
+                      nombre={datosEditables?.nombre || datosUsuario?.nombre}
+                      apellido={datosEditables?.apellido || datosUsuario?.apellido}
+                      onFileSelect={(file) => setAvatarFile(file === null ? 'DELETE' : file)}
+                      disabled={cargando}
+                    />
+                  </div>
 
                   <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                     <div className="col-span-2 lg:col-span-1">

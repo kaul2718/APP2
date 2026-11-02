@@ -146,7 +146,15 @@ export default function OrdenCard({
             <Badge size="sm" color={getEstadoColor(order.estadoOrden?.nombre || '')}>
               {order.estadoOrden?.nombre || 'Sin estado'}
             </Badge>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
+              order.tipoOrden === 'EXPRESS'
+                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
+                : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700'
+            }`}>
+              {order.tipoOrden === 'EXPRESS' ? '⚡ Express' : '📋 Completa'}
+            </span>
             {waitingTimeBadge}
+
             {order.presupuesto?.estado && (
               <Badge 
                 size="sm" 

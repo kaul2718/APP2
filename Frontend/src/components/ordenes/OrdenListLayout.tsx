@@ -13,7 +13,7 @@ import type { Order } from "@/types/order.types";
 
 import OrdenDetailsModal from "@/components/modals/OrdenDetailsModal";
 import OrdenEditModal from "@/components/modals/OrdenEditModal";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AgregarPresupuestoModal from "@/components/modals/AgregarPresupuestoModal";
 import PresupuestoDetailsModal from "@/components/modals/PresupuestoDetailsModal";
 import AgregarActividadTecnicaModal from "@/components/modals/AgregarActividadTecnicaModal";
@@ -56,6 +56,7 @@ interface UpdateOrderData {
 
 export default function OrdenListLayout() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fechaInicioId = React.useId();
   const fechaFinId = React.useId();
   const searchId = React.useId();
@@ -85,6 +86,16 @@ export default function OrdenListLayout() {
     fechaFin,
     setFechaFin,
   } = useOrders();
+
+  React.useEffect(() => {
+    const estadoParam = searchParams.get("estadoId");
+    if (estadoParam) {
+      const parsedId = Number(estadoParam);
+      if (!isNaN(parsedId)) {
+        setEstadoOrdenId(parsedId);
+      }
+    }
+  }, [searchParams, setEstadoOrdenId]);
 
   const { clientes } = useClientes();
   const { equipos } = useEquipos();
@@ -226,7 +237,7 @@ export default function OrdenListLayout() {
 
   const handleSaveOrder = async (updatedData: UpdateOrderData) => {
     try {
-      if (!selectedOrder) return false;
+      if (!selectedOrder) return { success: false };
 
       await updateOrder(selectedOrder.id, {
         technicianId: updatedData.technicianId,
@@ -238,14 +249,22 @@ export default function OrdenListLayout() {
         userId: updatedData.userId,
         esperaRepuesto: updatedData.esperaRepuesto,
         tiempoEstimadoReparacion: updatedData.tiempoEstimadoReparacion,
+        version: (updatedData as any).version !== undefined ? (updatedData as any).version : (selectedOrder as any).version,
       });
 
       updateLastModifiedOrder(selectedOrder.id);
       await fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
-      return true;
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error al guardar cambios");
-      return false;
+      return { success: true };
+    } catch (error: any) {
+      if (error?.message?.includes('Conflicto de concurrencia') || error?.status === 409) {
+        toast.warn('⚠️ Conflicto de concurrencia: Otro usuario modificó esta orden. Tus modificaciones se conservan en pantalla.', {
+          autoClose: 8000,
+        });
+        return { success: false, conflict: true, message: error?.message || 'Conflicto de concurrencia' };
+      } else {
+        toast.error(error instanceof Error ? error.message : "Error al guardar cambios");
+        return { success: false, message: error instanceof Error ? error.message : 'Error al guardar' };
+      }
     }
   };
 
@@ -818,7 +837,7 @@ export default function OrdenListLayout() {
                   : confirmAction.warningType === "sin_casillero"
                   ? `La orden #${confirmAction.order.workOrderNumber} no tiene un casillero asignado en Control/Almacén. ¿Deseas asignarle un casillero ahora o pasar directamente a la fase de "${confirmAction.nextState?.nombre}" (Entrega)?`
                   : confirmAction.warningType === "imprimir_acta"
-                  ? `La orden #${confirmAction.order.workOrderNumber} pasará a su estado final de "${confirmAction.nextState?.nombre}". ¿Deseas imprimir / generar el Acta de Entrega en PDF ahora o pasar directamente al siguiente estado?`
+                  ? `La orden #${confirmAction.order.workOrderNumber} pasará a su estado final de "${confirmAction.nextState?.nombre}". ¿Deseas capturar la firma de conformidad en tablet y generar el Acta de Entrega ahora o pasar directamente al siguiente estado?`
                   : (confirmAction.order.actividades && confirmAction.order.actividades.length > 0
                       ? `¿Deseas avanzar la orden #${confirmAction.order.workOrderNumber} a la fase de "${confirmAction.nextState?.nombre}" o registrar otro diagnóstico?`
                       : `La orden #${confirmAction.order.workOrderNumber} no tiene un diagnóstico registrado. ¿Qué deseas hacer?`))
@@ -918,7 +937,7 @@ export default function OrdenListLayout() {
                   className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 flex items-center gap-2"
                 >
                   <PrinterIcon className="h-4 w-4" />
-                  Imprimir / Generar Acta PDF
+                  Firmar / Generar Acta PDF
                 </button>
                 <button
                   type="button"

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Presupuesto } from './entities/presupuesto.entity';
+import { AutorizacionPresupuesto } from './entities/autorizacion-presupuesto.entity';
 import { PresupuestoService } from './presupuesto.service';
 import { PresupuestoController } from './presupuesto.controller';
 import { Order } from 'src/orders/entities/order.entity';
@@ -13,6 +14,7 @@ import { NotificacionModule } from '../notificacion/notificacion.module';
   imports: [
     TypeOrmModule.forFeature([
       Presupuesto,
+      AutorizacionPresupuesto,
       Order,
       EstadoPresupuesto,
       DetallePresupuestoItem,
@@ -22,5 +24,6 @@ import { NotificacionModule } from '../notificacion/notificacion.module';
   ],
   controllers: [PresupuestoController],
   providers: [PresupuestoService],
+  exports: [PresupuestoService],
 })
 export class PresupuestoModule { }

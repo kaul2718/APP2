@@ -1,11 +1,21 @@
-import { IsString, IsNotEmpty, Length, IsEmail } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 
 export class LoginDto {
-  @IsNotEmpty()
-  @IsEmail({}, { message: 'El correo no es válido.' })
-  correo: string;
+  /**
+   * Cédula de 10 dígitos o correo electrónico del usuario.
+   */
+  @IsOptional()
+  @IsString({ message: 'El identificador debe ser una cadena de texto.' })
+  identificador?: string;
 
-  @IsString()
+  /**
+   * Campo alternativo para retrocompatibilidad con clientes anteriores.
+   */
+  @IsOptional()
+  @IsString({ message: 'El correo debe ser una cadena de texto.' })
+  correo?: string;
+
+  @IsString({ message: 'La contraseña debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'La contraseña es obligatoria.' })
   password: string;
 }

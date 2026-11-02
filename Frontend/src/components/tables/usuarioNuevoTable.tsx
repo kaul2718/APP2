@@ -18,8 +18,11 @@ import {
   ArrowPathIcon,
   NoSymbolIcon,
   CheckCircleIcon,
-  UserIcon
+  UserIcon,
+  QrCodeIcon,
+  KeyIcon
 } from "@heroicons/react/24/outline";
+import GenerarActivacionModal from "../modals/GenerarActivacionModal";
 
 interface UsuarioNuevoTableProps {
   usuarioHook?: UseUsuarioReturn;
@@ -63,6 +66,9 @@ export default function UsuarioNuevoTable({
   const [pendingToggleUsuario, setPendingToggleUsuario] = useState<Usuario | null>(null);
   const [pendingDeleteUsuario, setPendingDeleteUsuario] = useState<Usuario | null>(null);
   const [pendingRestoreUsuario, setPendingRestoreUsuario] = useState<Usuario | null>(null);
+  const [activacionUsuario, setActivacionUsuario] = useState<Usuario | null>(null);
+  const [isActivacionModalOpen, setIsActivacionModalOpen] = useState(false);
+  const [modoActivacion, setModoActivacion] = useState<"ACTIVACION" | "RECUPERACION_PRESENCIAL">("ACTIVACION");
 
   const handleViewClick = (usuario: Usuario) => {
     setSelectedUsuario(usuario);
@@ -135,8 +141,20 @@ export default function UsuarioNuevoTable({
       header: "Nombre",
       render: (usuario) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
-            <UserIcon className="h-6 w-6 text-gray-500" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden border border-gray-200 dark:border-gray-700 flex-shrink-0">
+            {usuario.fotoPerfilUrl ? (
+              <img
+                src={usuario.fotoPerfilUrl}
+                alt={usuario.nombre}
+                className="h-full w-full object-cover rounded-full"
+              />
+            ) : usuario.nombre ? (
+              <span className="font-bold text-xs text-brand-600 dark:text-brand-400">
+                {`${usuario.nombre.charAt(0)}${usuario.apellido ? usuario.apellido.charAt(0) : ''}`.toUpperCase()}
+              </span>
+            ) : (
+              <UserIcon className="h-6 w-6 text-gray-500" />
+            )}
           </div>
           <div>
             <p className="font-medium text-gray-900 dark:text-white">
@@ -195,6 +213,22 @@ export default function UsuarioNuevoTable({
     ];
 
     if (!isDeleted && hasPermission("users.update")) {
+      if (usuario.role === "client") {
+        items.push({
+          key: "activacion-qr",
+          label: (usuario as any).cuentaActivada ? <KeyIcon className="h-4 w-4" /> : <QrCodeIcon className="h-4 w-4" />,
+          text: (usuario as any).cuentaActivada ? "Restablecer clave presencial (QR)" : "Activar cuenta (QR)",
+          onClick: () => {
+            setActivacionUsuario(usuario);
+            setModoActivacion((usuario as any).cuentaActivada ? "RECUPERACION_PRESENCIAL" : "ACTIVACION");
+            setIsActivacionModalOpen(true);
+          },
+          className: (usuario as any).cuentaActivada
+            ? "flex h-8 w-8 items-center justify-center rounded-lg border border-purple-200 text-purple-600 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-400 dark:hover:bg-purple-900/30 transition-colors"
+            : "flex h-8 w-8 items-center justify-center rounded-lg border border-brand-200 text-brand-600 hover:bg-brand-50 dark:border-brand-800 dark:text-brand-400 dark:hover:bg-brand-900/30 transition-colors",
+        });
+      }
+
       items.push(
         {
           key: "edit",
@@ -315,6 +349,12 @@ export default function UsuarioNuevoTable({
         onConfirm={confirmRestoreUsuario}
         onClose={() => setPendingRestoreUsuario(null)}
         confirmText="Restaurar"
+      />
+      <GenerarActivacionModal
+        isOpen={isActivacionModalOpen}
+        onClose={() => setIsActivacionModalOpen(false)}
+        usuario={activacionUsuario}
+        modo={modoActivacion}
       />
     </>
   );

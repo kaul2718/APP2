@@ -30,8 +30,11 @@ const EvidenciaItem: React.FC<EvidenciaItemProps> = ({
                     <video
                         src={evidencia.archivoUrl}
                         controls
+                        preload="metadata"
                         className="w-full h-full object-contain"
-                    />
+                    >
+                        Tu navegador no soporta la reproducción directa de este formato de video.
+                    </video>
                 )}
                 
                 {isOwner && (

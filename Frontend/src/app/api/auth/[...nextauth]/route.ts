@@ -6,48 +6,58 @@ const handler = NextAuth({
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        correo: { label: "email", type: "email", placeholder: "kaul@gmail.com" },
+        identificador: { label: "Cédula o correo", type: "text" },
+        correo: { label: "email", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        const identificador = (credentials?.identificador || credentials?.correo || "").trim();
+        const backendBaseUrl =
+          process.env.INTERNAL_BACKEND_URL ||
+          process.env.NEXT_PUBLIC_BACKEND_URL ||
+          "http://localhost:3000/api/v1";
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/login`,
+          `${backendBaseUrl}/auth/login`,
           {
             method: "POST",
             body: JSON.stringify({
-              correo: credentials?.correo,
+              identificador,
+              correo: identificador,
               password: credentials?.password,
             }),
             headers: { "Content-Type": "application/json" },
           }
         );
-        const user = await res.json();
-        if (user.error) throw user;
+        const data = await res.json();
+        if (!res.ok || data.error || data.statusCode >= 400) {
+          const mensaje = Array.isArray(data.message)
+            ? data.message.join('. ')
+            : data.message || "Credenciales inválidas o cuenta no activada.";
+          throw new Error(mensaje);
+        }
 
-        return user;
+        return data;
       },
     }),
   ],
   callbacks: {
     async jwt({ token, user }: any) {
       if (user) {
-        token.accessToken = user.token;      // Guarda el token JWT del backend
-        token.user = user.user;              // Guarda el objeto usuario con datos claros
+        token.accessToken = user.token; // Guarda el token JWT del backend
+        token.user = user.user; // Guarda el objeto usuario con datos claros
       }
 
       return token;
     },
     async session({ session, token }: any) {
-      console.log("JWT CALLBACK token.user:", token.user); // Verifica si el role llega bien
-
-      session.user = token.user;             // Session solo tiene los datos usuario limpios
-      session.accessToken = token.accessToken;  // También puedes exponer el accessToken en la sesión
+      session.user = token.user; // Session solo tiene los datos usuario limpios
+      session.accessToken = token.accessToken; // Exponer accessToken en sesión
       return session;
     },
   },
 
   pages: {
-    signIn: "/signin", // ✅ coincidir con tu ruta real
+    signIn: "/signin",
   },
 });
 

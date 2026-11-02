@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { toast } from "react-toastify";
 
 interface Usuario {
@@ -15,6 +15,7 @@ interface Usuario {
   ciudad?: string;
   deletedAt?: string; // por si viene del backend
   role?: string;
+  fotoPerfilUrl?: string | null;
 }
 
 interface PasswordChangeData {
@@ -35,64 +36,146 @@ export function useUserProfile() {
     confirmPassword: ''
   });
 
-  useEffect(() => {
-    const obtenerDatosUsuario = async () => {
-      try {
-        setError(null);
-        setCargando(true);
+  const obtenerDatosUsuario = useCallback(async () => {
+    try {
+      setError(null);
+      setCargando(true);
 
-        if (sessionStatus === "loading") return;
+      if (sessionStatus === "loading") return;
 
-        // Salida silenciosa cuando no hay sesión (ej. justo después de logout)
-        if (sessionStatus === "unauthenticated" || !session?.user) {
-          setCargando(false);
-          return;
-        }
-
-        const userId = session.user.id;
-        const userToken = session.accessToken;
-
-        if (!userId || !userToken) {
-          throw new Error("Datos de autenticación incompletos");
-        }
-
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${userId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${userToken}`,
-              "Content-Type": "application/json",
-            },
-            cache: "no-store",
-          }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(
-            errorData.message || `Error ${response.status}: ${response.statusText}`
-          );
-        }
-
-        const userData: Usuario = await response.json();
-
-        if (!userData || typeof userData !== "object" || !userData.id) {
-          throw new Error("Datos de usuario no válidos");
-        }
-
-        setUsuario(userData);
-        setEditando(userData);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Error desconocido";
-        setError(errorMessage);
-        toast.error(`Error al cargar perfil: ${errorMessage}`);
-      } finally {
+      if (sessionStatus === "unauthenticated" || !session?.user) {
         setCargando(false);
+        return;
       }
+
+      const userId = session.user.id;
+      const userToken = session.accessToken;
+
+      if (!userId || !userToken) {
+        throw new Error("Datos de autenticación incompletos");
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${userId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Error ${response.status}: ${response.statusText}`
+        );
+      }
+
+      const userData: Usuario = await response.json();
+
+      if (!userData || typeof userData !== "object" || !userData.id) {
+        throw new Error("Datos de usuario no válidos");
+      }
+
+      setUsuario(userData);
+      setEditando(userData);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Error desconocido";
+      setError(errorMessage);
+    } finally {
+      setCargando(false);
+    }
+  }, [session, sessionStatus]);
+
+  useEffect(() => {
+    obtenerDatosUsuario();
+
+    const handleProfileUpdate = () => {
+      obtenerDatosUsuario();
     };
 
-    obtenerDatosUsuario();
-  }, [session, sessionStatus]);
+    if (typeof window !== "undefined") {
+      window.addEventListener("user-profile-updated", handleProfileUpdate);
+      return () => {
+        window.removeEventListener("user-profile-updated", handleProfileUpdate);
+      };
+    }
+  }, [obtenerDatosUsuario]);
+
+  const actualizarAvatar = async (file: File): Promise<string | null> => {
+    if (!session?.user?.id || !session.accessToken) {
+      toast.error("No hay sesión activa");
+      return null;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("foto", file);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${session.user.id}/avatar`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || "Error al subir foto de perfil");
+      }
+
+      const data = await response.json();
+      const newUrl = data.fotoPerfilUrl;
+
+      setUsuario((prev) => (prev ? { ...prev, fotoPerfilUrl: newUrl } : null));
+      setEditando((prev) => (prev ? { ...prev, fotoPerfilUrl: newUrl } : null));
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("user-profile-updated"));
+      }
+
+      toast.success("Foto de perfil actualizada con éxito ✅");
+      return newUrl;
+    } catch (err: any) {
+      toast.error(err.message || "Error al actualizar la foto");
+      return null;
+    }
+  };
+
+  const eliminarAvatar = async (): Promise<boolean> => {
+    if (!session?.user?.id || !session.accessToken) return false;
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${session.user.id}/avatar`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+        }
+      );
+      if (!response.ok) throw new Error("Error al eliminar foto");
+
+      setUsuario((prev) => (prev ? { ...prev, fotoPerfilUrl: null } : null));
+      setEditando((prev) => (prev ? { ...prev, fotoPerfilUrl: null } : null));
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("user-profile-updated"));
+      }
+
+      toast.success("Foto de perfil eliminada ✅");
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Error al eliminar la foto");
+      return false;
+    }
+  };
 
   const actualizarPerfil = async (): Promise<boolean> => {
     if (!editando) {
@@ -124,9 +207,17 @@ export function useUserProfile() {
       const backupUsuario = usuario;
       const backupEditando = editando;
 
-      // Actualización optimista (antes de la petición)
-      setUsuario(prev => ({ ...prev, ...editando }));
-      setEditando(prev => ({ ...prev, ...editando }));
+      // Actualización optimista respetando fotoPerfilUrl
+      setUsuario(prev => ({
+        ...prev,
+        ...editando,
+        fotoPerfilUrl: prev?.fotoPerfilUrl ?? editando.fotoPerfilUrl ?? null,
+      }));
+      setEditando(prev => ({
+        ...prev,
+        ...editando,
+        fotoPerfilUrl: prev?.fotoPerfilUrl ?? editando.fotoPerfilUrl ?? null,
+      }));
 
       const datosPermitidos = {
         nombre: editando.nombre,
@@ -162,9 +253,21 @@ export function useUserProfile() {
 
       const updatedUser: Usuario = await response.json();
 
-      // Sincronizar con la respuesta del servidor
-      setUsuario(updatedUser);
-      setEditando(updatedUser);
+      // Sincronizar con la respuesta del servidor respetando fotoPerfilUrl
+      setUsuario(prev => ({
+        ...prev,
+        ...updatedUser,
+        fotoPerfilUrl: updatedUser.fotoPerfilUrl ?? prev?.fotoPerfilUrl ?? null,
+      }));
+      setEditando(prev => ({
+        ...prev,
+        ...updatedUser,
+        fotoPerfilUrl: updatedUser.fotoPerfilUrl ?? prev?.fotoPerfilUrl ?? null,
+      }));
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("user-profile-updated"));
+      }
 
       toast.success("Perfil actualizado con éxito ✅");
       return true;
@@ -289,5 +392,8 @@ export function useUserProfile() {
     handleInputChange,
     handlePasswordChange,
     resetearEdicion,
+    actualizarAvatar,
+    eliminarAvatar,
+    refetch: obtenerDatosUsuario,
   };
 }

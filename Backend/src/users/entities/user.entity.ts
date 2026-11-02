@@ -20,9 +20,9 @@ export class User {
   @Column({ nullable: true })
   apellido: string;
 
-  @Column({ unique: true })
+  @Column({ unique: true, nullable: true })
   @IsEmail({}, { message: 'El correo debe ser válido.' })
-  correo: string;
+  correo: string | null;
 
   @Column({ nullable: false })
   @Matches(/^[0-9]{9,10}$/, { message: 'El número de teléfono debe tener entre 9 y 10 dígitos.' })
@@ -45,6 +45,12 @@ export class User {
 
   @Column({ default: true })
   estado: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  fotoPerfilUrl: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  storageKeyFoto: string | null;
 
   @DeleteDateColumn({ type: 'timestamp', nullable: true })
   @Exclude()

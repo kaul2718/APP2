@@ -10,7 +10,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   order: Order | null;
-  onSave: (updatedData: { casilleroId?: number | null }) => Promise<boolean>;
+  onSave: (updatedData: { casilleroId?: number | null }) => Promise<boolean | { success: boolean; conflict?: boolean; message?: string }>;
 }
 
 export default function AsignarCasilleroModal({ isOpen, onClose, order, onSave }: Props) {
@@ -36,8 +36,9 @@ export default function AsignarCasilleroModal({ isOpen, onClose, order, onSave }
         casilleroId: casilleroId ? parseInt(casilleroId) : null,
       };
 
-      const success = await onSave(updatedData);
-      if (success) {
+      const result = await onSave(updatedData);
+      const isSuccess = typeof result === 'boolean' ? result : Boolean(result?.success);
+      if (isSuccess) {
         toast.success("Casillero asignado correctamente");
         onClose();
       }

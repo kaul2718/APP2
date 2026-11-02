@@ -1,0 +1,54 @@
+# =========================================================================
+# Caddyfile - Reverse Proxy & Automatic SSL Configuration
+# Hospital del Computador
+# =========================================================================
+
+{
+    email {$ACME_EMAIL:admin@hospitaldelcomputador.com}
+    admin off
+}
+
+# Dominio público principal (o IP si aún no apunta el DNS)
+{$DOMAIN_NAME:localhost} {
+    encode gzip zstd
+
+    # Seguridad: Encabezados HTTP recomendados
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    }
+
+    # API REST NestJS
+    handle /api/* {
+        reverse_proxy backend:3000 {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # WebSockets de Socket.IO
+    handle /socket.io/* {
+        reverse_proxy backend:3000 {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Frontend Next.js (Rutas, páginas, estáticos)
+    handle {
+        reverse_proxy frontend:4000 {
+            header_up Host {upstream_hostport}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+}
+

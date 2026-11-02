@@ -75,20 +75,28 @@ export default function ChecklistTemplateTable({ onEdit }: Props) {
         {
             key: "items",
             header: "Puntos de Revisión",
-            render: (template) => (
-                <div className="flex flex-wrap gap-1.5 max-w-md">
-                    {template.items.slice(0, 4).map((item, idx) => (
-                        <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 uppercase tracking-tighter">
-                            {item}
-                        </span>
-                    ))}
-                    {template.items.length > 4 && (
-                        <span className="text-xs font-bold text-brand-500 bg-brand-50 dark:bg-brand-500/10 px-2 py-0.5 rounded">
-                            +{template.items.length - 4} más
-                        </span>
-                    )}
-                </div>
-            )
+            render: (template) => {
+                const displayItems: string[] = Array.isArray(template.items)
+                    ? template.items
+                    : [
+                        ...(template.items?.fisica || []),
+                        ...(template.items?.funcional || []),
+                      ];
+                return (
+                    <div className="flex flex-wrap gap-1.5 max-w-md">
+                        {displayItems.slice(0, 4).map((item, idx) => (
+                            <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 uppercase tracking-tighter">
+                                {item}
+                            </span>
+                        ))}
+                        {displayItems.length > 4 && (
+                            <span className="text-xs font-bold text-brand-500 bg-brand-50 dark:bg-brand-500/10 px-2 py-0.5 rounded">
+                                +{displayItems.length - 4} más
+                            </span>
+                        )}
+                    </div>
+                );
+            }
         }
     ];
 

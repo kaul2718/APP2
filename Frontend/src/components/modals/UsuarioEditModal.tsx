@@ -38,6 +38,7 @@ export default function UsuarioEditModal({ isOpen, onClose, usuario, onSave }: P
         ciudad: usuario.ciudad,
         role: roleId,
         estado: usuario.estado,
+        fotoPerfilUrl: usuario.fotoPerfilUrl,
         createdAt: usuario.createdAt,
         updatedAt: usuario.updatedAt,
         deletedAt: usuario.deletedAt,
@@ -57,6 +58,45 @@ export default function UsuarioEditModal({ isOpen, onClose, usuario, onSave }: P
 
         setCargando(true);
         try {
+            // Manejar actualización o eliminación de foto de perfil
+            if (formData.fotoFile) {
+                try {
+                    const avatarFormData = new FormData();
+                    avatarFormData.append("foto", formData.fotoFile);
+                    const avRes = await fetch(
+                        `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${usuario.id}/avatar`,
+                        {
+                            method: "POST",
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: avatarFormData,
+                        }
+                    );
+                    if (avRes.ok) {
+                        const avData = await avRes.json();
+                        usuario.fotoPerfilUrl = avData.fotoPerfilUrl;
+                    }
+                } catch (avErr) {
+                    console.error("Error al actualizar foto de perfil:", avErr);
+                }
+            } else if (formData.fotoPerfilUrl === null && usuario.fotoPerfilUrl) {
+                try {
+                    await fetch(
+                        `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${usuario.id}/avatar`,
+                        {
+                            method: "DELETE",
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                            },
+                        }
+                    );
+                    usuario.fotoPerfilUrl = null;
+                } catch (delErr) {
+                    console.error("Error al eliminar foto de perfil:", delErr);
+                }
+            }
+
             // Preparar solo los campos modificados
             const cambios: Record<string, any> = {};
 

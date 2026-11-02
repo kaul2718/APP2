@@ -29,17 +29,21 @@ export class PermissionsGuard implements CanActivate {
     }
 
     // Los admins siempre tienen permisos
-    if (user.userRoles && user.userRoles.some((ur) => ur.rol?.slug === VALID_ROLES.ADMIN)) {
+    const isAdmin =
+      (user as any).role === VALID_ROLES.ADMIN ||
+      (user.userRoles && user.userRoles.some((ur) => ur.rol?.slug === VALID_ROLES.ADMIN));
+
+    if (isAdmin) {
       return true;
     }
 
     // Obtener permisos del usuario a través de sus roles
     if (user.userRoles && user.userRoles.length > 0) {
       for (const userRole of user.userRoles) {
-        if (userRole.rol.rolePermissions) {
-          const userPermissions = userRole.rol.rolePermissions.map(
-            (rp) => rp.permission.slug,
-          );
+        if (userRole.rol?.rolePermissions) {
+          const userPermissions = userRole.rol.rolePermissions
+            .map((rp) => rp.permission?.slug)
+            .filter(Boolean);
 
           // Verificar si tiene al menos uno de los permisos requeridos
           const hasPermission = requiredPermissions.some((permission) =>

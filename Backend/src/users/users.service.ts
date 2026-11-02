@@ -10,6 +10,8 @@ import { JwtService } from '@nestjs/jwt';
 import { UsuarioRolService } from 'src/usuario-rol/usuario-rol.service';
 import { RolService } from 'src/rol/rol.service';
 import parsePhoneNumberFromString from 'libphonenumber-js';
+import { StorageService } from '../storage/storage.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class UsersService {
@@ -20,6 +22,7 @@ export class UsersService {
     private readonly jwtService: JwtService,
     private readonly usuarioRolService: UsuarioRolService,
     private readonly rolService: RolService,
+    private readonly storageService: StorageService,
   ) { }
 
   async create(createDto: CreateUserDto): Promise<User> {
@@ -30,14 +33,40 @@ export class UsersService {
     if (!createDto.nombre || createDto.nombre.trim() === '') {
       throw new BadRequestException('El nombre es requerido');
     }
-    if (!createDto.correo || createDto.correo.trim() === '') {
-      throw new BadRequestException('El correo es requerido');
+    // ✅ Determinar si es personal administrativo o técnico (el correo es estrictamente obligatorio para ellos)
+    let isStaff = Boolean(createDto.role && !['client', 'cliente'].includes(createDto.role.toLowerCase()));
+    if (!isStaff && createDto.roleIds && createDto.roleIds.length > 0) {
+      try {
+        const allRoles = await this.rolService.findAll();
+        const staffRoleIds = allRoles
+          .filter(r => !['client', 'cliente'].includes((r.slug || r.nombre || '').toLowerCase()))
+          .map(r => r.id);
+        isStaff = createDto.roleIds.some(id => staffRoleIds.includes(Number(id)));
+      } catch (err) {
+        // Fallback si rolService no responde
+      }
     }
+
+    if (isStaff && (!createDto.correo || createDto.correo.trim() === '')) {
+      throw new BadRequestException('El correo electrónico es estrictamente obligatorio para el personal administrativo y técnico.');
+    }
+
+    // Normalizar correo: si está vacío o no se proporciona para clientes, se asigna null
+    if (createDto.correo && createDto.correo.trim() !== '') {
+      createDto.correo = createDto.correo.trim().toLowerCase();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(createDto.correo)) {
+        throw new BadRequestException('El correo no es válido');
+      }
+    } else {
+      createDto.correo = null;
+    }
+
     if (!createDto.telefono || createDto.telefono.trim() === '') {
       throw new BadRequestException('El teléfono es requerido');
     }
 
-    // ✅ La contraseña es OPCIONAL - si no se proporciona, enviar invitación por correo
+    // ✅ La contraseña es OPCIONAL - si no se proporciona, no forzarla para clientes
     if (createDto.password && createDto.password.trim() === '') {
       createDto.password = undefined; // Convertir string vacío a undefined
     }
@@ -55,12 +84,6 @@ export class UsersService {
     // Guardar el número limpio en formato nacional sin espacios (ej: 0991234567 o 022123456)
     createDto.telefono = parsedPhone.formatNational().replace(/\s+/g, '');
 
-    // ✅ Validar formato de correo
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(createDto.correo)) {
-      throw new BadRequestException('El correo no es válido');
-    }
-
     // ✅ Validar fortaleza de contraseña SOLO SI se proporciona
     if (createDto.password) {
       if (createDto.password.length < 8) {
@@ -74,7 +97,7 @@ export class UsersService {
       }
     }
 
-    // Verificar si ya existe un usuario con la misma cédula o correo
+    // Verificar si ya existe un usuario con la misma cédula
     const existeCedula = await this.userRepository.findOne({
       where: { cedula: createDto.cedula },
       withDeleted: true,
@@ -84,13 +107,16 @@ export class UsersService {
       throw new BadRequestException('Ya existe un usuario con esta cédula');
     }
 
-    const existeCorreo = await this.userRepository.findOne({
-      where: { correo: createDto.correo },
-      withDeleted: true,
-    });
+    // Verificar si ya existe un usuario con el mismo correo SOLO SI se especificó correo
+    if (createDto.correo) {
+      const existeCorreo = await this.userRepository.findOne({
+        where: { correo: createDto.correo },
+        withDeleted: true,
+      });
 
-    if (existeCorreo) {
-      throw new BadRequestException('Ya existe un usuario con este correo');
+      if (existeCorreo) {
+        throw new BadRequestException('Ya existe un usuario con este correo');
+      }
     }
 
     // Encriptar la contraseña si se proporciona, sino dejarla null
@@ -160,11 +186,18 @@ export class UsersService {
       relations: ['userRoles', 'userRoles.rol'],
     });
 
-    return data.map(user => {
-      const userObj = user as any;
-      userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'client';
-      return userObj;
-    });
+    return Promise.all(
+      data.map(async (user) => {
+        const userObj = user as any;
+        userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'client';
+        if (userObj.storageKeyFoto) {
+          try {
+            userObj.fotoPerfilUrl = await this.storageService.getPresignedUrl(userObj.storageKeyFoto, 86400 * 7);
+          } catch (err) {}
+        }
+        return userObj;
+      }),
+    );
   }
 
   async findOne(id: number, includeInactive = false): Promise<User> {
@@ -185,6 +218,16 @@ export class UsersService {
 
     const userObj = user as any;
     userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'client';
+    if (userObj.storageKeyFoto) {
+      try {
+        userObj.fotoPerfilUrl = await this.storageService.getPresignedUrl(userObj.storageKeyFoto, 86400 * 7);
+      } catch (err) {}
+    }
+    const userPassCheck = await this.userRepository.findOne({
+      where: { id },
+      select: ['id', 'password'],
+    });
+    userObj.cuentaActivada = Boolean(userPassCheck?.password);
     return userObj;
   }
 
@@ -211,6 +254,31 @@ export class UsersService {
 
     return this.userRepository.findOne(options);
   }
+
+  async findByCedula(cedula: string, withPassword = false): Promise<User | undefined> {
+    if (!cedula || cedula.trim() === '') {
+      throw new BadRequestException('La cédula es requerida');
+    }
+
+    const cleanCedula = cedula.trim();
+    const options: any = {
+      where: { cedula: cleanCedula, estado: true },
+      relations: [
+        'userRoles',
+        'userRoles.rol',
+        'userRoles.rol.rolePermissions',
+        'userRoles.rol.rolePermissions.permission'
+      ],
+    };
+
+    if (withPassword) {
+      options.select = ['id', 'cedula', 'nombre', 'apellido', 'correo', 'telefono',
+        'direccion', 'ciudad', 'password', 'estado'];
+    }
+
+    return this.userRepository.findOne(options);
+  }
+
 
   async update(id: number, updateDto: UpdateUserDto, currentUserRole?: string): Promise<User> {
     const user = await this.findOne(id, true);
@@ -316,7 +384,7 @@ export class UsersService {
     }
 
     // Guardar los cambios del usuario
-    const usuarioActualizado = await this.userRepository.save(user);
+    await this.userRepository.save(user);
 
     // Actualizar roles si se proporciona roleIds
     if (updateDto.roleIds && Array.isArray(updateDto.roleIds) && updateDto.roleIds.length > 0) {
@@ -337,7 +405,7 @@ export class UsersService {
       }
     }
 
-    return usuarioActualizado;
+    return this.findOne(user.id, true);
   }
 
   async remove(id: number): Promise<{ message: string }> {
@@ -380,6 +448,7 @@ export class UsersService {
     const skip = (page - 1) * limit;
 
     const query = this.userRepository.createQueryBuilder('user')
+      .addSelect('user.password')
       .leftJoinAndSelect('user.userRoles', 'userRoles')
       .leftJoinAndSelect('userRoles.rol', 'rol');
 
@@ -416,12 +485,21 @@ export class UsersService {
 
     const [data, total] = await query.getManyAndCount();
 
-    // Transformar los usuarios para que tengan un campo 'role' mapeado desde userRoles
-    const transformedData = data.map(user => {
-      const userObj = user as any;
-      userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'client';
-      return userObj;
-    });
+    // Transformar los usuarios para que tengan un campo 'role' mapeado desde userRoles y resolver fotoPerfilUrl
+    const transformedData = await Promise.all(
+      data.map(async user => {
+        const userObj = user as any;
+        userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'client';
+        userObj.cuentaActivada = Boolean(user.password);
+        delete userObj.password;
+        if (userObj.storageKeyFoto) {
+          try {
+            userObj.fotoPerfilUrl = await this.storageService.getPresignedUrl(userObj.storageKeyFoto, 86400 * 7);
+          } catch (err) {}
+        }
+        return userObj;
+      }),
+    );
 
     return { data: transformedData, total };
   }
@@ -564,4 +642,70 @@ export class UsersService {
 
     return this.userRepository.save(user);
   }
-}
+
+  /**
+   * Sube o reemplaza el avatar del usuario a Cloudflare R2
+   */
+  async subirAvatar(
+    userId: number,
+    fileBuffer: Buffer,
+    mimeType: string,
+  ): Promise<{ fotoPerfilUrl: string }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException(`Usuario #${userId} no encontrado.`);
+    }
+
+    const uuid = uuidv4();
+    const extension = mimeType.includes('png')
+      ? 'png'
+      : mimeType.includes('webp')
+      ? 'webp'
+      : 'jpg';
+    const storageKey = `usuarios/avatars/user_${userId}_${uuid}.${extension}`;
+
+    // Subir a Cloudflare R2 o almacenamiento local
+    await this.storageService.uploadFile(storageKey, fileBuffer, mimeType, {
+      userId: String(userId),
+      tipo: 'avatar_usuario',
+    });
+
+    // Limpiar avatar anterior si existía para no dejar archivos huérfanos
+    if (user.storageKeyFoto && user.storageKeyFoto !== storageKey) {
+      try {
+        await this.storageService.deleteFile(user.storageKeyFoto);
+      } catch (err) {
+        // Silencioso
+      }
+    }
+
+    user.storageKeyFoto = storageKey;
+    const url = await this.storageService.getPresignedUrl(storageKey, 86400 * 7); // 7 días
+    user.fotoPerfilUrl = url;
+    await this.userRepository.save(user);
+
+    return { fotoPerfilUrl: url };
+  }
+
+  /**
+   * Elimina el avatar del usuario y restaura el icono/silueta predeterminado
+   */
+  async eliminarAvatar(userId: number): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException(`Usuario #${userId} no encontrado.`);
+    }
+
+    if (user.storageKeyFoto) {
+      try {
+        await this.storageService.deleteFile(user.storageKeyFoto);
+      } catch (err) {
+        // Silencioso
+      }
+    }
+
+    user.storageKeyFoto = null;
+    user.fotoPerfilUrl = null;
+    await this.userRepository.save(user);
+  }
+}

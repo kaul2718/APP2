@@ -1,23 +1,22 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import Button from "@/components/ui/button/Button";
-import Badge, { type BadgeColor } from "@/components/ui/badge/Badge";
 import { useDashboard } from "@/hooks/useDashboard";
-import { 
-  ClipboardDocumentCheckIcon, 
-  ArrowPathIcon, 
-  ExclamationCircleIcon, 
-  BellIcon,
-  ChartBarIcon,
-  BoltIcon,
-  ShieldCheckIcon,
+import {
+  ExclamationCircleIcon,
   ClockIcon,
-  UserCircleIcon
+  SparklesIcon,
 } from "@heroicons/react/24/outline";
+
+import DashboardKpiGrid from "./components/DashboardKpiGrid";
+import OrdersEvolutionChart from "./components/OrdersEvolutionChart";
+import OrderStatusDistribution from "./components/OrderStatusDistribution";
+import PriorityAttentionPanel from "./components/PriorityAttentionPanel";
+import RecentActivityTimeline from "./components/RecentActivityTimeline";
+import WorkshopPerformanceSection from "./components/WorkshopPerformanceSection";
 
 const RANGE_OPTIONS = [
   { value: "7d", label: "7 días" },
@@ -33,42 +32,6 @@ const ROLE_TITLES: Record<string, string> = {
   client: "Mi Panel de Control",
 };
 
-const QUICK_ACTIONS: Record<string, Array<{ label: string; path: string; icon: React.ReactNode }>> = {
-  admin: [
-    { label: "Gestionar Órdenes", path: "/ver-orden", icon: <ClipboardDocumentCheckIcon className="w-4 h-4" /> },
-    { label: "Presupuestos", path: "/ver-presupuesto", icon: <ChartBarIcon className="w-4 h-4" /> },
-    { label: "Inventario", path: "/ver-inventario", icon: <BoltIcon className="w-4 h-4" /> },
-  ],
-  tech: [
-    { label: "Mis Órdenes", path: "/ver-orden", icon: <ClipboardDocumentCheckIcon className="w-4 h-4" /> },
-  ],
-  recep: [
-    { label: "Nueva Orden", path: "/ver-orden", icon: <PlusIcon className="w-4 h-4" /> },
-    { label: "Clientes", path: "/ver-usuario", icon: <UserCircleIcon className="w-4 h-4" /> },
-    { label: "Equipos", path: "/ver-equipo", icon: <BoltIcon className="w-4 h-4" /> },
-  ],
-  client: [
-    { label: "Mis Órdenes", path: "/ver-orden", icon: <ClipboardDocumentCheckIcon className="w-4 h-4" /> },
-    { label: "Pagos", path: "/ver-presupuesto", icon: <ChartBarIcon className="w-4 h-4" /> },
-    { label: "Perfil", path: "/profile", icon: <UserCircleIcon className="w-4 h-4" /> },
-  ],
-};
-
-function PlusIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-    </svg>
-  );
-}
-
-function severityToBadgeColor(severity: string): BadgeColor {
-  if (severity === "error") return "error";
-  if (severity === "warning") return "warning";
-  if (severity === "success") return "success";
-  return "info";
-}
-
 function formatDate(value: string) {
   const date = new Date(value);
   return date.toLocaleString("es-EC", {
@@ -77,7 +40,7 @@ function formatDate(value: string) {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-    hour12: true
+    hour12: true,
   });
 }
 
@@ -86,75 +49,41 @@ const containerVariants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1
-    }
-  }
+      staggerChildren: 0.08,
+    },
+  },
 };
 
 const itemVariants = {
-  hidden: { y: 20, opacity: 0 },
+  hidden: { y: 15, opacity: 0 },
   visible: {
     y: 0,
-    opacity: 1
-  }
+    opacity: 1,
+    transition: { duration: 0.3 },
+  },
 };
 
 export default function RoleDashboard() {
   const router = useRouter();
   const { data, loading, error, range, setRange, refetch } = useDashboard("30d");
 
-  const kpiIcons: Record<string, React.ReactNode> = {
-    // Admin
-    "total-orders": <ClipboardDocumentCheckIcon className="w-6 h-6" />,
-    "active-orders": <ArrowPathIcon className="w-6 h-6" />,
-    "pending-budgets": <ChartBarIcon className="w-6 h-6" />,
-    "unread-notifications": <BellIcon className="w-6 h-6" />,
-    // Tech
-    "assigned-orders": <ClipboardDocumentCheckIcon className="w-6 h-6" />,
-    "in-progress-orders": <ArrowPathIcon className="w-6 h-6" />,
-    "due-today": <ClockIcon className="w-6 h-6" />,
-    "activities-today": <ShieldCheckIcon className="w-6 h-6" />,
-    // Recep
-    "orders-created": <ClipboardDocumentCheckIcon className="w-6 h-6" />,
-    "orders-today": <BoltIcon className="w-6 h-6" />,
-    "pending-assign": <UserCircleIcon className="w-6 h-6" />,
-    // Client
-    "my-orders": <ClipboardDocumentCheckIcon className="w-6 h-6" />,
-    "my-active": <BoltIcon className="w-6 h-6" />,
-    "pending-bud": <ChartBarIcon className="w-6 h-6" />,
-    "unread-notif": <BellIcon className="w-6 h-6" />,
-  };
-
-  const kpiColors: Record<string, string> = {
-    // Admin
-    "total-orders": "text-brand-500 bg-brand-500/10",
-    "active-orders": "text-amber-500 bg-amber-500/10",
-    "pending-budgets": "text-blue-500 bg-blue-500/10",
-    "unread-notifications": "text-rose-500 bg-rose-500/10",
-    // Tech
-    "assigned-orders": "text-brand-500 bg-brand-500/10",
-    "in-progress-orders": "text-amber-500 bg-amber-500/10",
-    "due-today": "text-rose-500 bg-rose-500/10",
-    "activities-today": "text-emerald-500 bg-emerald-500/10",
-    // Recep
-    "orders-created": "text-brand-500 bg-brand-500/10",
-    "orders-today": "text-emerald-500 bg-emerald-500/10",
-    "pending-assign": "text-amber-500 bg-amber-500/10",
-    // Client
-    "my-orders": "text-brand-500 bg-brand-500/10",
-    "my-active": "text-amber-500 bg-amber-500/10",
-    "pending-bud": "text-blue-500 bg-blue-500/10",
-    "unread-notif": "text-rose-500 bg-rose-500/10",
-  };
-
   if (loading) {
     return (
       <div className="space-y-6">
-        <PageBreadcrumb pageTitle="Cargando..." />
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-32 animate-pulse rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700" />
+        <div className="h-8 w-56 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse mb-6" />
+        {/* KPI Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div
+              key={index}
+              className="h-28 animate-pulse rounded-2xl bg-white dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800"
+            />
           ))}
+        </div>
+        {/* Charts Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-7 h-80 animate-pulse rounded-2xl bg-white dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800" />
+          <div className="lg:col-span-5 h-80 animate-pulse rounded-2xl bg-white dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800" />
         </div>
       </div>
     );
@@ -163,47 +92,63 @@ export default function RoleDashboard() {
   if (error || !data) {
     return (
       <div className="p-6">
-        <PageBreadcrumb pageTitle="Dashboard" />
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white mb-6">
+          Dashboard
+        </h1>
         <div className="mt-6 rounded-2xl border border-rose-100 bg-rose-50 p-8 text-center dark:border-rose-900/30 dark:bg-rose-900/10">
           <ExclamationCircleIcon className="mx-auto h-12 w-12 text-rose-500" />
-          <h3 className="mt-4 text-lg font-bold text-rose-900 dark:text-rose-400">Error de Conexión</h3>
-          <p className="mt-2 text-sm text-rose-700 dark:text-rose-300">{error || "No hay datos disponibles."}</p>
-          <Button onClick={() => void refetch()} className="mt-6" variant="primary">Reintentar</Button>
+          <h3 className="mt-4 text-lg font-bold text-rose-900 dark:text-rose-400">
+            Error de Conexión
+          </h3>
+          <p className="mt-2 text-sm text-rose-700 dark:text-rose-300">
+            {error || "No se pudieron cargar los datos del taller."}
+          </p>
+          <Button onClick={() => void refetch()} className="mt-6" variant="primary">
+            Reintentar
+          </Button>
         </div>
       </div>
     );
   }
 
   const roleTitle = ROLE_TITLES[data.role] || "Dashboard";
-  const chart = data.charts[0];
-  const quickActions = QUICK_ACTIONS[data.role] || QUICK_ACTIONS.client;
+  // Encontrar gráficas correspondientes
+  const evolutionChart = data.charts.find((c) => c.key === "orders-evolution") || data.charts[0];
+  const statusChart = data.charts.find((c) => c.key === "orders-status") || data.charts[1] || data.charts[0];
+
+  const isAdmin = data.role === "admin";
 
   return (
-    <motion.div 
+    <motion.div
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="space-y-6"
+      className="space-y-6 pb-8 w-full"
     >
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Header con Título, Badge de Propuesta y Filtros de Fecha */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-gray-100 dark:border-gray-800/60">
         <div>
-          <PageBreadcrumb pageTitle={roleTitle} />
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 flex items-center gap-1">
-            <ClockIcon className="w-4 h-4" />
-            Última actualización: {formatDate(data.generatedAt)}
+          <div className="flex items-center flex-wrap gap-2.5 sm:gap-3">
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white">
+              {roleTitle}
+            </h1>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 flex items-center gap-1.5 font-medium">
+            <ClockIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+            <span>Última sincronización: {formatDate(data.generatedAt)}</span>
           </p>
         </div>
-        
-        <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+
+        {/* Date Range Selector */}
+        <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800/90 p-1.5 rounded-xl border border-gray-200 dark:border-gray-700/60 shadow-xs">
           {RANGE_OPTIONS.map((option) => (
             <button
               key={option.value}
               onClick={() => void setRange(option.value)}
-              className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                range === option.value 
-                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' 
-                : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-              }`}
+              className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${range === option.value
+                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-xs"
+                : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                }`}
             >
               {option.label}
             </button>
@@ -211,197 +156,48 @@ export default function RoleDashboard() {
         </div>
       </div>
 
-      {/* KPI Section */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        {data.kpis.map((kpi) => (
-          <motion.div
-            key={kpi.key}
-            variants={itemVariants}
-            whileHover={{ y: -5 }}
-            className="relative overflow-hidden group p-6 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm"
-          >
-            <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 opacity-[0.03] transition-transform group-hover:scale-110`}>
-                {kpiIcons[kpi.key] || <BoltIcon />}
-            </div>
-            <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-2xl ${kpiColors[kpi.key] || 'bg-gray-100 text-gray-500'}`}>
-                {kpiIcons[kpi.key] || <BoltIcon className="w-6 h-6" />}
-              </div>
-              <div>
-                <p className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">{kpi.label}</p>
-                <h2 className="text-3xl font-black text-gray-900 dark:text-white mt-1">
-                  {kpi.value}
-                </h2>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+      {/* 1. SECCIÓN: SEIS TARJETAS KPI (WIRE FRAME NIVEL 1) */}
+      <motion.section variants={itemVariants}>
+        <DashboardKpiGrid kpis={data.kpis} />
+      </motion.section>
 
-      <div className="grid grid-cols-12 gap-6">
-        {/* Main Chart Section */}
-        <motion.div variants={itemVariants} className="col-span-12 xl:col-span-8">
-          <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm h-full">
-            <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-amber-500/10 rounded-xl">
-                        <ChartBarIcon className="w-5 h-5 text-amber-500" />
-                    </div>
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">{chart?.title || "Estado de Órdenes"}</h2>
-                </div>
+      {/* 2. SECCIÓN: GRÁFICAS DE GESTIÓN (WIRE FRAME NIVEL 2) */}
+      <motion.section variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {isAdmin && evolutionChart ? (
+          <>
+            <div className="lg:col-span-7">
+              <OrdersEvolutionChart chart={evolutionChart} />
             </div>
-
-            {chart && chart.categories.length > 0 ? (
-              <div className="space-y-6">
-                {chart.categories.map((category, index) => {
-                  const value = chart.series[0]?.data[index] || 0;
-                  const max = Math.max(...chart.series[0].data, 1);
-                  const percentage = Math.round((value / max) * 100);
-                  
-                  return (
-                    <div key={`${category}-${index}`} className="group">
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="text-sm font-bold text-gray-700 dark:text-gray-300 group-hover:text-amber-500 transition-colors">{category}</span>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">{percentage}%</span>
-                            <span className="text-sm font-black text-gray-900 dark:text-white">{value}</span>
-                        </div>
-                      </div>
-                      <div className="h-3 rounded-full bg-gray-50 dark:bg-gray-800 overflow-hidden border border-gray-100 dark:border-gray-700/50">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${Math.max(4, percentage)}%` }}
-                          transition={{ duration: 1, delay: 0.5 + (index * 0.1) }}
-                          className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-600 shadow-inner"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-64 text-gray-600 dark:text-gray-400">
-                <BoltIcon className="w-12 h-12 opacity-20 mb-2" />
-                <p className="text-sm">No hay datos suficientes para generar el gráfico</p>
-              </div>
-            )}
+            <div className="lg:col-span-5">
+              <OrderStatusDistribution chart={statusChart} />
+            </div>
+          </>
+        ) : (
+          <div className="lg:col-span-12">
+            <OrderStatusDistribution chart={statusChart} />
           </div>
-        </motion.div>
+        )}
+      </motion.section>
 
-        {/* Right Column: Actions and Alerts */}
-        <div className="col-span-12 xl:col-span-4 space-y-6">
-          <motion.div variants={itemVariants}>
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                    <BoltIcon className="w-5 h-5 text-brand-500" />
-                    Acciones Rápidas
-                </h3>
-                <div className="grid grid-cols-1 gap-3">
-                {quickActions.map((action) => (
-                    <button 
-                        key={action.path}
-                        onClick={() => router.push(action.path)}
-                        className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-800 hover:bg-brand-500 group transition-all duration-300"
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-xl bg-white dark:bg-gray-700 text-brand-500 group-hover:bg-white/20 group-hover:text-white transition-colors">
-                                {action.icon}
-                            </div>
-                            <span className="font-bold text-gray-700 dark:text-gray-200 group-hover:text-white transition-colors">{action.label}</span>
-                        </div>
-                        <PlusIcon className="w-5 h-5 text-gray-400 group-hover:text-white/80 transition-colors" />
-                    </button>
-                ))}
-                </div>
-            </div>
-          </motion.div>
-
-          <motion.div variants={itemVariants}>
-            <div className="bg-white dark:bg-gray-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm border-l-4 border-l-rose-500">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                    <BellIcon className="w-5 h-5 text-rose-500" />
-                    Alertas Críticas
-                </h3>
-                <div className="space-y-4">
-                    {data.alerts.length > 0 ? (
-                    data.alerts.map((alert) => (
-                        <div key={alert.id} className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Badge size="sm" color={severityToBadgeColor(alert.severity)}>
-                                    {alert.severity.toUpperCase()}
-                                </Badge>
-                            </div>
-                            <p className="text-sm font-medium text-rose-800 dark:text-rose-300 leading-relaxed">{alert.message}</p>
-                        </div>
-                    ))
-                    ) : (
-                    <div className="flex items-center gap-3 p-4 rounded-2xl bg-green-50 dark:bg-green-900/10 text-green-700 dark:text-green-400 border border-green-100 dark:border-green-900/30">
-                        <ShieldCheckIcon className="w-5 h-5" />
-                        <p className="text-sm font-bold">Todo bajo control</p>
-                    </div>
-                    )}
-                </div>
-            </div>
-          </motion.div>
+      {/* 3. SECCIÓN: PANEL DE ATENCIÓN INMEDIATA Y ACTIVIDAD (WIRE FRAME NIVEL 3) */}
+      <motion.section variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-6">
+          <PriorityAttentionPanel alerts={data.alerts} />
         </div>
+        <div className="lg:col-span-6">
+          <RecentActivityTimeline recent={data.recent} />
+        </div>
+      </motion.section>
 
-        {/* Full Width Section: Recent Activity */}
-        <motion.div variants={itemVariants} className="col-span-12">
-            <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-gray-50 dark:border-gray-800 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-brand-500/10 rounded-xl">
-                            <ArrowPathIcon className="w-5 h-5 text-brand-500" />
-                        </div>
-                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Actividad Reciente</h2>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => router.push('/ver-orden')}>
-                        Ver Todo
-                    </Button>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-50 dark:divide-gray-800">
-                        <thead className="bg-gray-50/50 dark:bg-gray-800/50">
-                        <tr>
-                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400">Orden</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400">Detalle</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400">Estado</th>
-                            <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400">Fecha</th>
-                        </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
-                        {data.recent.map((item) => (
-                            <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors group">
-                                <td className="px-6 py-5">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-400 font-bold text-xs border border-gray-100 dark:border-gray-700">
-                                            #{item.title.split('#')[1] || '??'}
-                                        </div>
-                                        <span className="text-sm font-black text-gray-900 dark:text-white">{item.title}</span>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-5">
-                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{item.subtitle}</p>
-                                </td>
-                                <td className="px-6 py-5">
-                                    <Badge size="sm" variant="light" color={item.status === 'Entregado' ? 'success' : 'primary'}>
-                                        {item.status}
-                                    </Badge>
-                                </td>
-                                <td className="px-6 py-5">
-                                    <div className="flex flex-col">
-                                        <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{formatDate(item.createdAt).split(',')[0]}</span>
-                                        <span className="text-xs text-gray-600 dark:text-gray-400">{formatDate(item.createdAt).split(',')[1]}</span>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </motion.div>
-      </div>
+      {/* 4. SECCIÓN: RENDIMIENTO TÉCNICO Y TALLER (WIRE FRAME NIVEL 4) */}
+      {isAdmin && (
+        <motion.section variants={itemVariants}>
+          <WorkshopPerformanceSection
+            turnaroundTimes={data.turnaroundTimes}
+            technicianWorkloads={data.technicianWorkloads}
+          />
+        </motion.section>
+      )}
     </motion.div>
   );
 }

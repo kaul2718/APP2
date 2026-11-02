@@ -7,6 +7,7 @@ import {
   ArchiveBoxIcon,
   Cog8ToothIcon,
   ChartBarIcon,
+  ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 
 export type SubNavItem = {
@@ -148,6 +149,13 @@ export const navItems: NavItem[] = [
         permission: "reportes.view",
       },
     ],
+  },
+  {
+    icon: <ShieldCheckIcon className="w-5 h-5" />,
+    name: "Firma Electrónica",
+    path: "/ver-firma-electronica",
+    roles: ["admin"],
+    permission: "roles.manage",
   },
   {
     icon: <Cog8ToothIcon className="w-5 h-5" />,

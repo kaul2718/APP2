@@ -5,8 +5,9 @@ import Label from "@/components/form/Label";
 import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
-import { CameraIcon, PhotoIcon, VideoCameraIcon, XMarkIcon, ArrowLeftIcon, ArrowRightIcon } from "@heroicons/react/24/outline";
+import { CameraIcon, PhotoIcon, VideoCameraIcon, XMarkIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import { useEvidenciaTecnica } from "@/hooks/useEvidenciaTecnica";
+import { optimizeImageClient, ImageOptimizationResult, formatBytes } from "@/utils/imageOptimizer";
 import TextArea from "@/components/form/input/TextArea";
 import EvidenciaItem from "../EvidenciaItem";
 import ConfirmDialog from "@/components/modals/ConfirmDialog";
@@ -32,7 +33,11 @@ export default function EvidenciaTecnicaModal({
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const cameraStreamRef = useRef<MediaStream | null>(null);
+    const rawFileRef = useRef<File | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [highDetailMode, setHighDetailMode] = useState(false);
+    const [optimizing, setOptimizing] = useState(false);
+    const [optimizationStats, setOptimizationStats] = useState<ImageOptimizationResult | null>(null);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [cameraError, setCameraError] = useState<string | null>(null);
     const [cameraReady, setCameraReady] = useState(false);
@@ -49,6 +54,7 @@ export default function EvidenciaTecnicaModal({
         evidencias,
         loading,
         uploading,
+        uploadProgress,
         totalItems,
         currentPage,
         totalPages,
@@ -79,17 +85,63 @@ export default function EvidenciaTecnicaModal({
         };
     }, [isOpen]);
 
-    const setFileData = (file: File) => {
-        setSelectedFile(file);
-        const type = file.type.startsWith("image") ? "imagen" : "video";
-        setFileType(type);
+    const processAndSetFile = async (file: File, highDetail: boolean) => {
+        const lowerName = file.name.toLowerCase();
+        const isImage = file.type.startsWith("image") || lowerName.endsWith(".heic") || lowerName.endsWith(".heif");
 
-        const reader = new FileReader();
-        reader.onload = () => {
-            setFilePreview(reader.result as string);
+        if (!isImage) {
+            setSelectedFile(file);
+            setFileType("video");
+            setOptimizationStats(null);
+            setOptimizing(false);
+            const objectUrl = URL.createObjectURL(file);
+            setFilePreview(objectUrl);
             setErrors((prev) => ({ ...prev, file: "" }));
-        };
-        reader.readAsDataURL(file);
+            return;
+        }
+
+        setFileType("imagen");
+        setOptimizing(true);
+
+        // Previsualización inicial
+        let initialUrl = "";
+        try {
+            initialUrl = URL.createObjectURL(file);
+            setFilePreview(initialUrl);
+        } catch {
+            // Ignorar error de URL en archivos especiales
+        }
+        setErrors((prev) => ({ ...prev, file: "" }));
+
+        try {
+            const opt = await optimizeImageClient(file, {
+                highDetailMode: highDetail,
+                maxOriginalSizeMB: 100,
+            });
+            setSelectedFile(opt.file);
+            setOptimizationStats(opt);
+            const optimizedUrl = URL.createObjectURL(opt.file);
+            setFilePreview(optimizedUrl);
+            if (initialUrl) URL.revokeObjectURL(initialUrl);
+        } catch (err: any) {
+            console.warn("Optimización de imagen en navegador no disponible, usando original:", err);
+            setSelectedFile(file);
+            setOptimizationStats(null);
+        } finally {
+            setOptimizing(false);
+        }
+    };
+
+    const setFileData = (file: File) => {
+        rawFileRef.current = file;
+        processAndSetFile(file, highDetailMode);
+    };
+
+    const handleToggleHighDetail = (checked: boolean) => {
+        setHighDetailMode(checked);
+        if (rawFileRef.current && fileType === "imagen") {
+            processAndSetFile(rawFileRef.current, checked);
+        }
     };
 
     const waitForVideoReady = async (video: HTMLVideoElement, timeoutMs: number = 2500): Promise<boolean> => {
@@ -227,7 +279,11 @@ export default function EvidenciaTecnicaModal({
         stopCamera();
         setDescripcion("");
         setFilePreview(null);
-        setSelectedFile(null); // <- limpiar aquí
+        setSelectedFile(null);
+        rawFileRef.current = null;
+        setOptimizationStats(null);
+        setOptimizing(false);
+        setHighDetailMode(false);
         setCameraError(null);
         setCameraReady(false);
         setErrors({ file: "", descripcion: "" });
@@ -235,7 +291,6 @@ export default function EvidenciaTecnicaModal({
             fileInputRef.current.value = "";
         }
     };
-
 
     const handleClose = () => {
         resetForm();
@@ -247,20 +302,22 @@ export default function EvidenciaTecnicaModal({
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Validar tamaño
-        if (file.size > 10 * 1024 * 1024) {
-            setErrors(prev => ({ ...prev, file: "El archivo no debe exceder 10MB" }));
+        // Validar tamaño (hasta 100MB para imágenes y videos)
+        if (file.size > 100 * 1024 * 1024) {
+            setErrors((prev) => ({ ...prev, file: "El archivo no debe exceder 100MB" }));
             return;
         }
 
         setFileData(file);
     };
 
-
     const removeFile = () => {
         stopCamera();
         setFilePreview(null);
-        setSelectedFile(null);    // ← agregar
+        setSelectedFile(null);
+        rawFileRef.current = null;
+        setOptimizationStats(null);
+        setOptimizing(false);
         setCameraError(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
@@ -291,15 +348,12 @@ export default function EvidenciaTecnicaModal({
         }
 
         try {
-            // Llamada única a createEvidencia con el selectedFile de estado
-            await createEvidencia(orderId, selectedFile, descripcion);
-            //toast.success("Evidencia técnica agregada exitosamente");
+            await createEvidencia(orderId, selectedFile, descripcion, { highDetailMode });
             resetForm();
             setActiveTab('ver');
             onSuccess?.();
         } catch (error) {
-            //console.error("Error en el modal:", error);
-            // El handleApiError de tu hook ya mostrará el toast correspondiente
+            // El handleApiError del hook ya mostrará el toast correspondiente
         }
     };
 
@@ -360,28 +414,91 @@ export default function EvidenciaTecnicaModal({
                                     <Label htmlFor="evidencia-file-input" className="mb-2 block">Archivo <span aria-hidden="true">*</span></Label>
 
                                     {filePreview ? (
-                                        <div className="relative group">
-                                            {fileType === "imagen" ? (
-                                                <img
-                                                    src={filePreview}
-                                                    alt="Preview"
-                                                    className="w-full h-64 object-contain rounded-lg border border-gray-300 dark:border-gray-600"
-                                                />
-                                            ) : (
-                                                <video
-                                                    src={filePreview}
-                                                    controls
-                                                    className="w-full h-64 object-contain rounded-lg border border-gray-300 dark:border-gray-600"
-                                                />
+                                        <div>
+                                            <div className="relative group">
+                                                {fileType === "imagen" ? (
+                                                    <img
+                                                        src={filePreview}
+                                                        alt="Preview"
+                                                        className="w-full h-64 object-contain rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/40"
+                                                    />
+                                                ) : (
+                                                    <video
+                                                        src={filePreview}
+                                                        controls
+                                                        className="w-full h-64 object-contain rounded-lg border border-gray-300 dark:border-gray-600 bg-black"
+                                                    />
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={removeFile}
+                                                    className="absolute top-2 right-2 p-2 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    aria-label="Eliminar archivo"
+                                                >
+                                                    <XMarkIcon className="w-5 h-5 text-white" />
+                                                </button>
+                                            </div>
+
+                                            {/* Indicadores de Optimización Inteligente */}
+                                            {optimizing && (
+                                                <div className="flex items-center gap-2 p-3 mt-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-medium">
+                                                    <ArrowPathIcon className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
+                                                    <span>Optimizando fotografía con algoritmos inteligentes WebP...</span>
+                                                </div>
                                             )}
-                                            <button
-                                                type="button"
-                                                onClick={removeFile}
-                                                className="absolute top-2 right-2 p-2 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                                aria-label="Eliminar archivo"
-                                            >
-                                                <XMarkIcon className="w-5 h-5 text-white" />
-                                            </button>
+
+                                            {optimizationStats && !optimizing && (
+                                                <div className="flex flex-col gap-1.5 p-3 mt-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100 rounded-lg text-xs">
+                                                    <div className="flex items-center justify-between font-semibold">
+                                                        <span className="flex items-center gap-1.5">
+                                                            <SparklesIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                                            {optimizationStats.wasOptimized
+                                                                ? "Fotografía optimizada automáticamente"
+                                                                : "Formato óptimo conservado"}
+                                                        </span>
+                                                        <span className="bg-emerald-200/60 dark:bg-emerald-800/60 px-2 py-0.5 rounded text-emerald-900 dark:text-emerald-100 font-mono text-[11px]">
+                                                            {optimizationStats.wasOptimized
+                                                                ? `-${optimizationStats.compressionRatio}%`
+                                                                : "100% Calidad"}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-gray-600 dark:text-gray-300">
+                                                        <span>
+                                                            {formatBytes(optimizationStats.originalSize)} →{" "}
+                                                            <strong className="text-emerald-700 dark:text-emerald-300 font-semibold">
+                                                                {formatBytes(optimizationStats.optimizedSize)}
+                                                            </strong>
+                                                        </span>
+                                                        {optimizationStats.finalDimensions.width > 0 && (
+                                                            <span className="text-gray-500 dark:text-gray-400">
+                                                                {optimizationStats.finalDimensions.width}x
+                                                                {optimizationStats.finalDimensions.height} px • WebP
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Selector de Modo Detalle Técnico para imágenes */}
+                                            {fileType === "imagen" && (
+                                                <div className="mt-2.5 flex items-center justify-between p-2.5 bg-gray-50 dark:bg-gray-800/60 rounded-lg border border-gray-200 dark:border-gray-700">
+                                                    <label
+                                                        htmlFor="high-detail-mode"
+                                                        className="flex items-center gap-2.5 cursor-pointer text-xs font-medium text-gray-700 dark:text-gray-300 select-none"
+                                                    >
+                                                        <input
+                                                            id="high-detail-mode"
+                                                            type="checkbox"
+                                                            checked={highDetailMode}
+                                                            onChange={(e) => handleToggleHighDetail(e.target.checked)}
+                                                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                                                        />
+                                                        <span>
+                                                            Modo Detalle Técnico (Mayor resolución 4K para placas, componentes y números de serie)
+                                                        </span>
+                                                    </label>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : isCameraOpen ? (
                                         <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-3">
@@ -425,7 +542,7 @@ export default function EvidenciaTecnicaModal({
                                                     Selecciona cómo quieres agregar la evidencia
                                                 </p>
                                                 <p className="text-sm text-gray-400">
-                                                    Formatos soportados: JPG, PNG, GIF, MP4, MOV, AVI (max 10MB)
+                                                    Formatos soportados: JPG, PNG, WebP, HEIC (iPhone), MP4, MOV, WebM (hasta 100MB)
                                                 </p>
                                                 <div className="mt-3 flex flex-wrap justify-center gap-2">
                                                     <Button
@@ -452,7 +569,7 @@ export default function EvidenciaTecnicaModal({
                                                 id="evidencia-file-input"
                                                 ref={fileInputRef}
                                                 type="file"
-                                                accept="image/*, video/*"
+                                                accept="image/*, video/*, .heic, .heif"
                                                 onChange={handleFileChange}
                                                 className="hidden"
                                                 aria-label="Selector de archivos"
@@ -491,6 +608,29 @@ export default function EvidenciaTecnicaModal({
                             </div>
                         </div>
 
+                        {uploading && (
+                            <div className="mx-6 mb-4 p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60">
+                                <div className="flex justify-between items-center mb-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                                    <span className="flex items-center gap-2">
+                                        <ArrowPathIcon className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
+                                        {uploadProgress !== null && uploadProgress < 100
+                                            ? `Subiendo directamente a Cloudflare R2 (${uploadProgress}%)...`
+                                            : "Registrando y confirmando metadatos en el servidor..."}
+                                    </span>
+                                    <span>{uploadProgress !== null ? `${uploadProgress}%` : ""}</span>
+                                </div>
+                                <div className="w-full bg-blue-200 dark:bg-blue-900/60 rounded-full h-2 overflow-hidden">
+                                    <div
+                                        className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300 ease-out"
+                                        style={{ width: `${uploadProgress ?? 100}%` }}
+                                    />
+                                </div>
+                                <p className="mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                                    Transferencia directa y segura mediante URL prefirmada (SigV4).
+                                </p>
+                            </div>
+                        )}
+
                         <p className="px-6 pb-2 text-xs text-gray-500 dark:text-gray-400">* Campo obligatorio</p>
 
                         <div className="flex justify-end gap-4 mt-4 px-6 pb-6 border-t dark:border-gray-700 pt-4">
@@ -505,8 +645,8 @@ export default function EvidenciaTecnicaModal({
                             <Button
                                 type="submit"
                                 variant="primary"
-                                disabled={!filePreview || uploading}
-                                loading={uploading}
+                                disabled={!filePreview || uploading || optimizing}
+                                loading={uploading || optimizing}
                                 className="flex items-center gap-2"
                             >
                                 {fileType === "imagen" ? (
@@ -514,7 +654,11 @@ export default function EvidenciaTecnicaModal({
                                 ) : (
                                     <VideoCameraIcon className="w-5 h-5" />
                                 )}
-                                Subir Evidencia
+                                {uploading
+                                    ? (uploadProgress !== null ? `Subiendo (${uploadProgress}%)...` : "Subiendo a R2...")
+                                    : optimizing
+                                    ? "Optimizando imagen..."
+                                    : "Subir Evidencia"}
                             </Button>
                         </div>
                     </form>

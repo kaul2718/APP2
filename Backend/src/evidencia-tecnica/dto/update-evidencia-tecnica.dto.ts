@@ -1,26 +1,13 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateEvidenciaTecnicaDto } from './create-evidencia-tecnica.dto';
-import { IsNotEmpty, IsNumber, IsOptional, IsString, IsUrl } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class UpdateEvidenciaTecnicaDto extends PartialType(CreateEvidenciaTecnicaDto) {
-    @IsNumber()
-    @IsNotEmpty()
-    ordenId: number;
+  @IsString()
+  @IsOptional()
+  descripcion?: string;
 
-    @IsNumber()
-    @IsNotEmpty()
-    subidoPorId: number;
-
-    @IsString()
-    @IsUrl()
-    @IsNotEmpty()
-    archivoUrl: string;
-
-    @IsString()
-    @IsOptional()
-    descripcion?: string;
-
-    @IsString()
-    @IsOptional()
-    tipoArchivo?: 'imagen' | 'video';
+  @IsString()
+  @IsOptional()
+  tipoArchivo?: 'imagen' | 'video';
 }

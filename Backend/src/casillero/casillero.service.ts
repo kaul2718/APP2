@@ -168,7 +168,14 @@ export class CasilleroService {
     casillero.orderId = order.id;
     casillero.situacion = EstadoCasillero.OCUPADO;
 
-    return this.casilleroRepository.save(casillero);
+    const saved = await this.casilleroRepository.save(casillero);
+
+    // Mantener coherencia bidireccional en la orden
+    order.casilleroId = saved.id;
+    order.casillero = saved;
+    await this.orderRepository.save(order);
+
+    return saved;
   }
 
   async releaseCasillero(id: number): Promise<Casillero> {
@@ -179,12 +186,26 @@ export class CasilleroService {
       throw new BadRequestException('El casillero ya está disponible');
     }
 
+    const previousOrderId = casillero.orderId ?? casillero.order?.id;
+
     // Liberar el casillero
     casillero.order = null;
     casillero.orderId = null;
     casillero.situacion = EstadoCasillero.DISPONIBLE;
 
-    return this.casilleroRepository.save(casillero);
+    const saved = await this.casilleroRepository.save(casillero);
+
+    // Mantener coherencia bidireccional en la orden si existía
+    if (previousOrderId) {
+      const order = await this.orderRepository.findOne({ where: { id: previousOrderId } });
+      if (order && (order.casilleroId === id || order.casillero?.id === id)) {
+        order.casillero = null;
+        order.casilleroId = null;
+        await this.orderRepository.save(order);
+      }
+    }
+
+    return saved;
   }
 
   async toggleStatus(id: number): Promise<Casillero> {

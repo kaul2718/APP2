@@ -1,1498 +1,534 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { motion, AnimatePresence } from 'framer-motion';
-import PageBreadcrumb from '@/components/common/PageBreadCrumb';
-import {
-  UsersIcon,
-  ArchiveBoxIcon,
-  BanknotesIcon,
-  ClipboardDocumentCheckIcon,
-  WrenchScrewdriverIcon,
-  ComputerDesktopIcon,
-  ArrowDownTrayIcon,
-  CalendarIcon,
-  FunnelIcon,
-  ShoppingBagIcon,
-  PrinterIcon,
-  ArrowPathIcon,
-  ArrowTrendingUpIcon,
-} from '@heroicons/react/24/outline';
-import { toast } from 'react-toastify';
-import Link from 'next/link';
 import { usePermissions } from '@/hooks/usePermissions';
-
-// ─── Interfaces ──────────────────────────────────────────────────────────────
-interface KPIStats {
-  ordersCount: number;
-  budgetsCount: number;
-  purchasesCount: number;
-  clientsCount: number;
-  revenue: number;
-  expenses: number;
-  netProfit?: number;
-  profitMargin?: number;
-}
-
-interface ClientReport {
-  id: number;
-  nombreCompleto: string;
-  correo: string;
-  telefono: string;
-  ordersCount: number;
-}
-
-interface InventoryReport {
-  id: number;
-  codigo: string;
-  nombre: string;
-  categoria: string;
-  stock: number;
-  stockMinimo: number;
-  precio: number;
-  activo: boolean;
-}
-
-interface PurchaseReport {
-  id: number;
-  numeroFactura: string;
-  fecha: string;
-  total: number;
-  proveedor: string;
-  comprador: string;
-  estado: string;
-}
-
-interface BudgetReport {
-  id: number;
-  fecha: string;
-  descripcion: string;
-  estado: string;
-  orden: string;
-  cliente: string;
-  total: number;
-}
-
-interface OrderReport {
-  id: number;
-  workOrderNumber: string;
-  cliente: string;
-  tecnico: string;
-  estado: string;
-  fechaIngreso: string;
-  fechaPrometida: string;
-}
-
-interface TechReport {
-  id: number;
-  nombreCompleto: string;
-  totalAssigned: number;
-  servicesGenerated: number;
-  partsGenerated: number;
-  moneyGenerated: number;
-}
-
-interface TechOrderDetailReport {
-  id: number;
-  workOrderNumber: string;
-  cliente: string;
-  estado: string;
-  fechaIngreso: string;
-  servicesGenerated: number;
-  partsGenerated: number;
-  moneyGenerated: number;
-}
-
-interface EquipmentReport {
-  brand: string;
-  count: number;
-}
-
-type TabType = 'clients' | 'inventory' | 'purchases' | 'budgets' | 'orders' | 'techs' | 'equip';
+import {
+  ReportType,
+  DatePreset,
+  ReportFilterState,
+  ReportFilterOptions,
+  ReportKpi,
+} from '@/components/reportes/types';
+import { ReportFilterBar } from '@/components/reportes/ReportFilterBar';
+import { ReportKpiCards } from '@/components/reportes/ReportKpiCards';
+import { ReportDataTable } from '@/components/reportes/ReportDataTable';
+import { ReportExportActions } from '@/components/reportes/ReportExportActions';
+import { ReportPreviewModal } from '@/components/reportes/ReportPreviewModal';
+import {
+  ExclamationTriangleIcon,
+  InformationCircleIcon,
+  LockClosedIcon,
+  CubeIcon,
+  WrenchScrewdriverIcon,
+  ClockIcon,
+  CheckCircleIcon,
+} from '@heroicons/react/24/outline';
 
 interface ClientComponentProps {
-  initialTab?: TabType;
+  initialTab?: ReportType | string;
   standalone?: boolean;
 }
 
-export default function ClientComponent({ initialTab, standalone = false }: ClientComponentProps) {
+const REPORT_TITLES: Record<ReportType, string> = {
+  orders: 'Reporte General de Órdenes de Servicio',
+  delivered: 'Reporte de Equipos Recibidos vs. Físicamente Entregados',
+  delayed: 'Reporte de Órdenes Atrasadas y Tiempos de Atención SLA',
+  budgets: 'Reporte de Presupuestos y Tasa de Conversión',
+  inventory: 'Reporte de Inventario Físico y Valoración de Almacén',
+  techs: 'Reporte de Productividad y Carga de Trabajo por Técnico',
+  clients: 'Reporte de Clientes y Equipos Recurrentes',
+  purchases: 'Reporte de Compras a Proveedores',
+};
+
+// Mapear pestaña inicial de forma segura soportando nombres en inglés, español y aliases
+const normalizeTab = (tab?: string | null): ReportType => {
+  if (!tab) return 'orders';
+  const clean = String(tab).toLowerCase().trim();
+  if (['inventory', 'inventario', 'stock'].includes(clean)) return 'inventory';
+  if (['purchases', 'compras', 'compra', 'proveedores'].includes(clean)) return 'purchases';
+  if (['budgets', 'budget', 'presupuestos', 'presupuesto'].includes(clean)) return 'budgets';
+  if (['techs', 'tech', 'tecnicos', 'tecnico', 'technicians', 'technician'].includes(clean)) return 'techs';
+  if (['clients', 'client', 'clientes', 'cliente', 'recurring-clients'].includes(clean)) return 'clients';
+  if (['delivered', 'entregas', 'entrega', 'equipos', 'equipo', 'equip', 'equipos-entregados'].includes(clean)) return 'delivered';
+  if (['delayed', 'atrasadas', 'atrasada', 'sla'].includes(clean)) return 'delayed';
+  return 'orders';
+};
+
+export default function ClientComponent({
+  initialTab = 'orders',
+  standalone = false,
+}: ClientComponentProps) {
   const { data: session } = useSession();
-  const { hasPermission, loading: permissionsLoading } = usePermissions();
+  const { role, hasPermission, loading: permissionsLoading } = usePermissions();
+  const searchParams = useSearchParams();
+  const queryTab = searchParams?.get('tab') || searchParams?.get('type');
+
+  const [filters, setFilters] = useState<ReportFilterState>(() => ({
+    reportType: normalizeTab(queryTab || initialTab),
+    preset: 'month',
+    startDate: '',
+    endDate: '',
+    tecnicoId: '',
+    estadoId: '',
+    tipoOrden: 'todos',
+    filtroStock: 'todos',
+    tipoItem: 'productos',
+    search: '',
+    page: 1,
+    limit: 25,
+  }));
+
+  // Sincronizar reporte si cambia la prop initialTab o query param
+  useEffect(() => {
+    const target = queryTab || initialTab;
+    const normalized = normalizeTab(target);
+    setFilters((prev) => {
+      if (prev.reportType !== normalized) {
+        setData([]);
+        setKpis([]);
+        return {
+          ...prev,
+          reportType: normalized,
+          tipoItem: normalized === 'inventory' ? 'productos' : prev.tipoItem,
+          page: 1,
+        };
+      }
+      return prev;
+    });
+  }, [initialTab, queryTab]);
+
+  const [filterOptions, setFilterOptions] = useState<ReportFilterOptions>({
+    estados: [],
+    tecnicos: [],
+    estadosPresupuesto: [],
+    tiposOrden: [
+      { id: 'todos', label: 'Todos' },
+      { id: 'EXPRESS', label: 'Express' },
+      { id: 'COMPLETA', label: 'Completa' },
+    ],
+    filtrosStock: [
+      { id: 'todos', label: 'Todos' },
+      { id: 'critico', label: 'Stock Crítico' },
+      { id: 'agotado', label: 'Agotado (0)' },
+      { id: 'disponible', label: 'Disponible' },
+    ],
+  });
+
+  const [data, setData] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [kpis, setKpis] = useState<ReportKpi[]>([]);
+  const [dateRangeLabel, setDateRangeLabel] = useState('Este Mes');
+  const [disclosure, setDisclosure] = useState<string | null>(null);
+  const [topConsumed, setTopConsumed] = useState<any[]>([]);
+  const [topServices, setTopServices] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
   const token = session?.accessToken;
 
-  // ─── State ──────────────────────────────────────────────────────────────────
-  const startDateId = React.useId();
-  const endDateId = React.useId();
-  const techSelectId = React.useId();
-  const itemsPerPageId = React.useId();
-  const categoryFilterId = React.useId();
-  const rotationFilterId = React.useId();
-  const stockFilterId = React.useId();
-  const clientSegmentFilterId = React.useId();
-  const purchaseEstadoFilterId = React.useId();
-  const purchaseMinTotalId = React.useId();
-  const purchaseMaxTotalId = React.useId();
-  const budgetEstadoFilterId = React.useId();
-  const budgetSortById = React.useId();
-  const orderEstadoFilterId = React.useId();
-  const orderTechFilterId = React.useId();
-  const techSortById = React.useId();
-  const techMinOrdersId = React.useId();
-  const equipSortById = React.useId();
-  const equipMinCountId = React.useId();
+  // Verificación de permisos según RBAC del sistema
+  const canView = role === 'admin' || hasPermission('reportes.view');
+  const canExport = role === 'admin' || hasPermission('reportes.export');
 
-  const [useCalendar, setUseCalendar] = useState<boolean>(false);
-  const [range, setRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
-
-  // Calendarios
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-
-  const [activeTab, setActiveTab] = useState<TabType>(initialTab || 'clients');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  // Dynamic filter states
-  const [categoriesList, setCategoriesList] = useState<{ id: number; nombre: string }[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [selectedRotation, setSelectedRotation] = useState<string>('');
-  const [selectedStockStatus, setSelectedStockStatus] = useState<string>('');
-  const [selectedClientSegment, setSelectedClientSegment] = useState<string>('');
-
-  // Compras filters
-  const [selectedPurchaseEstado, setSelectedPurchaseEstado] = useState<string>('');
-  const [purchaseMinTotal, setPurchaseMinTotal] = useState<string>('');
-  const [purchaseMaxTotal, setPurchaseMaxTotal] = useState<string>('');
-
-  // Presupuestos filters
-  const [budgetEstadosList, setBudgetEstadosList] = useState<string[]>([]);
-  const [selectedBudgetEstado, setSelectedBudgetEstado] = useState<string>('');
-  const [budgetSortBy, setBudgetSortBy] = useState<string>('');
-
-  // Órdenes filters
-  const [orderEstadosList, setOrderEstadosList] = useState<string[]>([]);
-  const [selectedOrderEstado, setSelectedOrderEstado] = useState<string>('');
-  const [selectedOrderTechId, setSelectedOrderTechId] = useState<string>('');
-
-  // Técnicos filters (summary mode only)
-  const [techSortBy, setTechSortBy] = useState<string>('');
-  const [techMinOrders, setTechMinOrders] = useState<string>('');
-
-  // Equipos filters
-  const [equipSortBy, setEquipSortBy] = useState<string>('');
-  const [equipMinCount, setEquipMinCount] = useState<string>('');
-
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-
-  // Data states
-  const [kpi, setKpi] = useState<KPIStats | null>(null);
-  const [clients, setClients] = useState<ClientReport[]>([]);
-  const [inventory, setInventory] = useState<InventoryReport[]>([]);
-  const [purchases, setPurchases] = useState<PurchaseReport[]>([]);
-  const [budgets, setBudgets] = useState<BudgetReport[]>([]);
-  const [orders, setOrders] = useState<OrderReport[]>([]);
-
-  // Técnicos states (Resumen y Detallado)
-  const [techList, setTechList] = useState<{ id: number; nombreCompleto: string }[]>([]);
-  const [selectedTechId, setSelectedTechId] = useState<string>('');
-  const [isTechDetail, setIsTechDetail] = useState<boolean>(false);
-  const [techs, setTechs] = useState<TechReport[]>([]);
-  const [techOrders, setTechOrders] = useState<TechOrderDetailReport[]>([]);
-
-  const [equip, setEquip] = useState<EquipmentReport[]>([]);
-
-  // Synchronize dynamic tab if initialTab changes
-  useEffect(() => {
-    if (initialTab) {
-      setActiveTab(initialTab);
-    }
-  }, [initialTab]);
-
-  // Load categories list dynamically
+  // 1. Cargar opciones de filtros al montar
   useEffect(() => {
     if (!token) return;
-    const fetchCats = async () => {
+    const fetchOptions = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/categorias/all?limit=1000`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const res = await fetch(`${backendUrl}/reports/filters`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         });
         if (res.ok) {
-          const data = await res.json();
-          const items = data.items || data || [];
-          const filteredCats = items.filter((cat: any) => {
-            const name = (cat.nombre || '').toLowerCase();
-            return name !== 'servicio' && name !== 'servicios';
-          });
-          setCategoriesList(filteredCats);
+          const opts = await res.json();
+          setFilterOptions((prev) => ({
+            ...prev,
+            ...opts,
+          }));
         }
-      } catch (err) { }
+      } catch (err) {
+        console.warn('No se pudieron cargar opciones de filtro:', err);
+      }
     };
-    fetchCats();
-  }, [token]);
+    fetchOptions();
+  }, [backendUrl, token]);
 
-  // Load dynamic estados for presupuestos and órdenes
-  useEffect(() => {
-    if (!token) return;
-    const headers = { Authorization: `Bearer ${token}` };
-    const fetchEstados = async () => {
-      try {
-        const [budgetEstRes, orderEstRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/reports/budgets/estados`, { headers }),
-          fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/reports/orders/estados`, { headers }),
-        ]);
-        if (budgetEstRes.ok) setBudgetEstadosList(await budgetEstRes.json());
-        if (orderEstRes.ok) setOrderEstadosList(await orderEstRes.json());
-      } catch (err) { }
-    };
-    fetchEstados();
-  }, [token]);
+  // 2. Cargar datos del reporte actual
+  const loadReportData = useCallback(async () => {
+    if (!token || !canView) return;
+    setIsLoading(true);
+    setErrorMessage(null);
 
-  // Reset page to 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab, searchQuery, range, startDate, endDate, itemsPerPage, selectedTechId, selectedCategory, selectedRotation, selectedStockStatus, selectedClientSegment, selectedPurchaseEstado, purchaseMinTotal, purchaseMaxTotal, selectedBudgetEstado, budgetSortBy, selectedOrderEstado, selectedOrderTechId, techSortBy, techMinOrders, equipSortBy, equipMinCount]);
-
-  // ─── Fetching Data ──────────────────────────────────────────────────────────
-  const fetchAllReports = async () => {
-    if (!token) return;
-    setLoading(true);
     try {
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      };
-
-      // Cargar lista dropdown de técnicos sólo si no está cargada (se necesita en 'techs' y en 'orders' para el filtro)
-      if ((activeTab === 'techs' || activeTab === 'orders') && techList.length === 0) {
-        const techListRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/reports/technicians/list`, { headers });
-        if (techListRes.ok) {
-          const list = await techListRes.json();
-          setTechList(list);
-        }
-      }
-
-      // Query Params
       const params = new URLSearchParams();
-      if (useCalendar) {
-        if (startDate) params.set('startDate', startDate);
-        if (endDate) params.set('endDate', endDate);
+      params.append('preset', filters.preset);
+      if (filters.preset === 'custom' && filters.startDate && filters.endDate) {
+        params.append('startDate', filters.startDate);
+        params.append('endDate', filters.endDate);
+      }
+      if (filters.tecnicoId) params.append('tecnicoId', filters.tecnicoId);
+      if (filters.estadoId) params.append('estadoId', filters.estadoId);
+      if (filters.tipoOrden && filters.tipoOrden !== 'todos') params.append('tipoOrden', filters.tipoOrden);
+      if (filters.filtroStock && filters.filtroStock !== 'todos') params.append('filtroStock', filters.filtroStock);
+      if (filters.reportType === 'inventory' && filters.tipoItem) params.append('tipoItem', filters.tipoItem);
+      if (filters.search) params.append('search', filters.search);
+      params.append('page', String(filters.page));
+      params.append('limit', String(filters.limit));
+
+      let endpoint = 'orders';
+      if (filters.reportType === 'delivered') endpoint = 'delivered-vs-received';
+      else if (filters.reportType === 'delayed') endpoint = 'delayed-sla';
+      else if (filters.reportType === 'budgets') endpoint = 'budgets';
+      else if (filters.reportType === 'inventory') endpoint = 'inventory';
+      else if (filters.reportType === 'techs') endpoint = 'technicians';
+      else if (filters.reportType === 'clients') endpoint = 'recurring-clients';
+      else if (filters.reportType === 'purchases') endpoint = 'purchases';
+
+      const res = await fetch(`${backendUrl}/reports/${endpoint}?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Error ${res.status}: No se pudo cargar el reporte`);
+      }
+
+      const result = await res.json();
+
+      if (filters.reportType === 'delayed') {
+        setData(result.delayedOrders || []);
+        setTotal(result.totalAtrasadas || 0);
+        setTotalPages(1);
+      } else if (filters.reportType === 'techs') {
+        setData(result.technicians || []);
+        setTotal(result.technicians?.length || 0);
+        setTotalPages(1);
+      } else if (filters.reportType === 'clients') {
+        setData(result.recurringClients || []);
+        setTotal(result.recurringClients?.length || 0);
+        setTotalPages(1);
       } else {
-        params.set('range', range);
+        setData(result.data || []);
+        setTotal(result.total || 0);
+        setTotalPages(result.totalPages || 1);
       }
 
-      // Filtrar por técnico seleccionado en vista de técnicos
-      if (activeTab === 'techs') {
-        if (selectedTechId) {
-          params.set('technicianId', selectedTechId);
-        } else {
-          // summary mode filters
-          if (techSortBy) params.set('sortBy', techSortBy);
-          if (techMinOrders) params.set('minOrders', techMinOrders);
-        }
+      setKpis(result.kpis || []);
+      setDisclosure(result.disclosure || null);
+      setTopConsumed(result.topConsumed || []);
+      setTopServices(result.topServices || []);
+      if (result.dateRangeLabel) {
+        setDateRangeLabel(result.dateRangeLabel);
       }
-
-      // Filtrar por categoría, rotación y stock en inventario
-      if (activeTab === 'inventory') {
-        if (selectedCategory) params.set('categoryId', selectedCategory);
-        if (selectedRotation) params.set('rotation', selectedRotation);
-        if (selectedStockStatus) params.set('stockStatus', selectedStockStatus);
-      }
-
-      // Filtrar por segmento de clientes
-      if (activeTab === 'clients') {
-        if (selectedClientSegment) params.set('segment', selectedClientSegment);
-      }
-
-      // Filtrar compras
-      if (activeTab === 'purchases') {
-        if (selectedPurchaseEstado) params.set('estado', selectedPurchaseEstado);
-        if (purchaseMinTotal) params.set('minTotal', purchaseMinTotal);
-        if (purchaseMaxTotal) params.set('maxTotal', purchaseMaxTotal);
-      }
-
-      // Filtrar presupuestos
-      if (activeTab === 'budgets') {
-        if (selectedBudgetEstado) params.set('estado', selectedBudgetEstado);
-        if (budgetSortBy) params.set('sortBy', budgetSortBy);
-      }
-
-      // Filtrar órdenes
-      if (activeTab === 'orders') {
-        if (selectedOrderEstado) params.set('estado', selectedOrderEstado);
-        if (selectedOrderTechId) params.set('technicianId', selectedOrderTechId);
-      }
-
-      // Filtrar equipos
-      if (activeTab === 'equip') {
-        if (equipSortBy) params.set('sortBy', equipSortBy);
-        if (equipMinCount) params.set('minCount', equipMinCount);
-      }
-
-      const queryParams = params.toString();
-
-      const [kpiRes, tabRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/reports/dashboard?${queryParams}`, { headers }),
-        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/reports/${activeTab === 'techs' ? 'technicians' : activeTab === 'equip' ? 'equipment' : activeTab}?${queryParams}`, { headers }),
-      ]);
-
-      if (!kpiRes.ok || !tabRes.ok) throw new Error('Error al descargar reportes');
-
-      const kpiData = await kpiRes.json();
-      const tabData = await tabRes.json();
-
-      setKpi(kpiData);
-
-      if (activeTab === 'clients') setClients(tabData);
-      else if (activeTab === 'inventory') setInventory(tabData);
-      else if (activeTab === 'purchases') setPurchases(tabData);
-      else if (activeTab === 'budgets') setBudgets(tabData);
-      else if (activeTab === 'orders') setOrders(tabData);
-      else if (activeTab === 'techs') {
-        if (tabData.isDetail) {
-          setIsTechDetail(true);
-          setTechOrders(tabData.orders);
-        } else {
-          setIsTechDetail(false);
-          setTechs(tabData.technicians);
-        }
-      }
-      else if (activeTab === 'equip') setEquip(tabData);
-
-    } catch (err) {
-      toast.error('Ocurrió un error al cargar las analíticas.');
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Error al comunicarse con el servidor');
+      setData([]);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  };
+  }, [backendUrl, token, canView, filters]);
 
   useEffect(() => {
-    fetchAllReports();
-  }, [token, range, activeTab, useCalendar, startDate, endDate, selectedTechId, selectedCategory, selectedRotation, selectedStockStatus, selectedClientSegment, selectedPurchaseEstado, purchaseMinTotal, purchaseMaxTotal, selectedBudgetEstado, budgetSortBy, selectedOrderEstado, selectedOrderTechId, techSortBy, techMinOrders, equipSortBy, equipMinCount]);
+    loadReportData();
+  }, [loadReportData]);
 
-  // ─── CSV Export Handler ──────────────────────────────────────────────────────
-  const exportToCSV = () => {
-    let csvContent = 'data:text/csv;charset=utf-8,';
-    let filename = `reporte-${activeTab}-${useCalendar ? `${startDate || 'inicio'}_a_${endDate || 'fin'}` : range}.csv`;
+  // 3. Manejadores de Exportación Binaria Real
+  const handleExport = async (format: 'excel' | 'pdf') => {
+    if (!token || !canExport) return;
+    const isExcel = format === 'excel';
+    if (isExcel) setIsExportingExcel(true);
+    else setIsExportingPdf(true);
 
-    if (activeTab === 'clients') {
-      csvContent += 'ID,Nombre Completo,Correo,Telefono,Total Ordenes\n';
-      clients.forEach(c => {
-        csvContent += `"${c.id}","${c.nombreCompleto}","${c.correo}","${c.telefono}","${c.ordersCount}"\n`;
-      });
-    } else if (activeTab === 'inventory') {
-      csvContent += 'ID,Codigo,Nombre,Categoria,Stock,Stock Minimo,Precio,Activo\n';
-      inventory.forEach(i => {
-        csvContent += `"${i.id}","${i.codigo}","${i.nombre}","${i.categoria}","${i.stock}","${i.stockMinimo}","${i.precio}","${i.activo}"\n`;
-      });
-    } else if (activeTab === 'purchases') {
-      csvContent += 'ID,Factura,Fecha,Proveedor,Comprador,Total,Estado\n';
-      purchases.forEach(p => {
-        csvContent += `"${p.id}","${p.numeroFactura}","${p.fecha}","${p.proveedor}","${p.comprador}","${p.total}","${p.estado}"\n`;
-      });
-    } else if (activeTab === 'budgets') {
-      csvContent += 'ID,Fecha,Cliente,Orden,Total,Estado\n';
-      budgets.forEach(b => {
-        csvContent += `"${b.id}","${b.fecha}","${b.cliente}","${b.orden}","${b.total}","${b.estado}"\n`;
-      });
-    } else if (activeTab === 'orders') {
-      csvContent += 'ID,Numero Orden,Cliente,Tecnico,Estado,Fecha Ingreso\n';
-      orders.forEach(o => {
-        csvContent += `"${o.id}","${o.workOrderNumber}","${o.cliente}","${o.tecnico}","${o.estado}","${o.fechaIngreso}"\n`;
-      });
-    } else if (activeTab === 'techs') {
-      if (isTechDetail) {
-        csvContent += 'Código ODS,Cliente,Estado,Mano de Obra (Servicios),Repuestos (Componentes),Total Generado,Fecha\n';
-        techOrders.forEach(to => {
-          csvContent += `"${to.workOrderNumber}","${to.cliente}","${to.estado}","${to.servicesGenerated}","${to.partsGenerated}","${to.moneyGenerated}","${new Date(to.fechaIngreso).toLocaleDateString()}"\n`;
-        });
-      } else {
-        csvContent += 'ID Técnico,Técnico Responsable,Órdenes Asignadas,Mano de Obra (Servicios),Repuestos (Componentes),Total Facturado\n';
-        techs.forEach(t => {
-          csvContent += `"${t.id}","${t.nombreCompleto}","${t.totalAssigned}","${t.servicesGenerated}","${t.partsGenerated}","${t.moneyGenerated}"\n`;
-        });
+    try {
+      const params = new URLSearchParams();
+      params.append('type', filters.reportType);
+      params.append('preset', filters.preset);
+      if (filters.preset === 'custom' && filters.startDate && filters.endDate) {
+        params.append('startDate', filters.startDate);
+        params.append('endDate', filters.endDate);
       }
-    } else if (activeTab === 'equip') {
-      csvContent += 'Marca,Cantidad Equipos\n';
-      equip.forEach(eq => {
-        csvContent += `"${eq.brand}","${eq.count}"\n`;
+      if (filters.tecnicoId) params.append('tecnicoId', filters.tecnicoId);
+      if (filters.estadoId) params.append('estadoId', filters.estadoId);
+      if (filters.tipoOrden && filters.tipoOrden !== 'todos') params.append('tipoOrden', filters.tipoOrden);
+      if (filters.filtroStock && filters.filtroStock !== 'todos') params.append('filtroStock', filters.filtroStock);
+      if (filters.reportType === 'inventory' && filters.tipoItem) params.append('tipoItem', filters.tipoItem);
+      if (filters.search) params.append('search', filters.search);
+
+      const endpoint = isExcel ? 'export/excel' : 'export/pdf';
+      const res = await fetch(`${backendUrl}/reports/${endpoint}?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
+
+      if (!res.ok) {
+        let errMsg = `Error en servidor (${res.status}) al generar ${format.toUpperCase()}`;
+        try {
+          const errData = await res.json();
+          if (errData?.message) {
+            errMsg = Array.isArray(errData.message) ? errData.message.join(', ') : errData.message;
+          }
+        } catch (_) {}
+        throw new Error(errMsg);
+      }
+
+      const blob = await res.blob();
+      const ext = isExcel ? 'xlsx' : 'pdf';
+      const filename = `reporte_${filters.reportType}_${Date.now()}.${ext}`;
+
+      // Crear enlace temporal de descarga segura
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err: any) {
+      alert(`No se pudo descargar el archivo: ${err.message}`);
+    } finally {
+      if (isExcel) setIsExportingExcel(false);
+      else setIsExportingPdf(false);
     }
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success('Reporte exportado en Excel (CSV) correctamente');
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  // ─── Strongly-Typed Filter & Pagination Sub-arrays ─────────────────────────
-  const filteredClients = clients.filter(c =>
-    c.nombreCompleto.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.correo.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const paginatedClients = filteredClients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const filteredInventory = inventory.filter(i =>
-    i.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    i.codigo.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const paginatedInventory = filteredInventory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const filteredPurchases = purchases.filter(p =>
-    p.numeroFactura.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.proveedor.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const paginatedPurchases = filteredPurchases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const filteredBudgets = budgets.filter(b =>
-    b.cliente.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    b.orden.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const paginatedBudgets = filteredBudgets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const filteredOrders = orders.filter(o =>
-    o.workOrderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    o.cliente.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    o.tecnico.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const paginatedOrders = filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  // Técnicos
-  const filteredTechs = techs.filter(t =>
-    t.nombreCompleto.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const paginatedTechs = filteredTechs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const filteredTechOrders = techOrders.filter(to =>
-    to.workOrderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    to.cliente.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const paginatedTechOrders = filteredTechOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const filteredEquip = equip.filter(eq =>
-    eq.brand.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const paginatedEquip = filteredEquip.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  // Compute active totals
-  const getActiveTotals = () => {
-    if (activeTab === 'clients') return filteredClients.length;
-    if (activeTab === 'inventory') return filteredInventory.length;
-    if (activeTab === 'purchases') return filteredPurchases.length;
-    if (activeTab === 'budgets') return filteredBudgets.length;
-    if (activeTab === 'orders') return filteredOrders.length;
-    if (activeTab === 'techs') {
-      return isTechDetail ? filteredTechOrders.length : filteredTechs.length;
-    }
-    return filteredEquip.length;
-  };
-
-  const totalItems = getActiveTotals();
-  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-
-  const getBreadcrumbTitle = () => {
-    const labelMap: Record<TabType, string> = {
-      clients: 'Reporte de Clientes',
-      inventory: 'Reporte de Inventario',
-      purchases: 'Reporte de Compras',
-      budgets: 'Reporte de Presupuestos',
-      orders: 'Reporte de Órdenes',
-      techs: 'Rendimiento de Técnicos',
-      equip: 'Volumen por Equipos',
-    };
-    return labelMap[activeTab];
-  };
-
-  if (permissionsLoading) {
+  // Estado si no tiene permisos
+  if (!permissionsLoading && !canView) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-brand-500"></div>
-      </div>
-    );
-  }
-
-  if (!hasPermission("reportes.view")) {
-    return (
-      <div className="p-10 text-center bg-white dark:bg-gray-900 rounded-lg border border-gray-150 dark:border-gray-800 shadow-theme-xs">
-        <h2 className="text-lg font-bold text-red-500">Acceso Denegado</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-          No tienes los permisos asignados por el administrador para ver el módulo de Reportes. Por favor, contacta al administrador del sistema.
+      <div className="p-8 text-center bg-gray-900 border border-red-500/30 rounded-2xl max-w-lg mx-auto my-12 shadow-xl">
+        <div className="inline-flex items-center justify-center p-3.5 bg-red-500/10 rounded-full mb-3 text-red-400">
+          <LockClosedIcon className="w-8 h-8" />
+        </div>
+        <h3 className="text-base font-bold text-white">Acceso Restringido</h3>
+        <p className="text-xs text-gray-400 mt-2">
+          Tu rol actual no tiene asignado el permiso <span className="font-mono text-red-400">reportes.view</span>.
+          Solicita autorización a la administración para consultar métricas y reportes del sistema.
         </p>
       </div>
     );
   }
+
+  const currentTitle =
+    filters.reportType === 'inventory'
+      ? filters.tipoItem === 'servicios'
+        ? 'Catálogo de Tarifas y Servicios Técnicos'
+        : filters.tipoItem === 'todos'
+        ? 'Reporte de Catálogo e Inventario General'
+        : 'Reporte de Inventario Físico y Valoración de Almacén'
+      : REPORT_TITLES[filters.reportType] || 'Reporte Administrativo';
 
   return (
-    <div className="mx-auto max-w-screen-2xl p-4 md:p-6 2xl:p-10 space-y-6">
-
-      {/* Estilos CSS específicos para Impresión limpia / PDF */}
-      <style jsx global>{`
-        @media print {
-          body {
-            background: white !important;
-            color: black !important;
-          }
-          aside, header, nav, .print\\:hidden, button, input, select {
-            display: none !important;
-          }
-          .max-w-screen-2xl {
-            max-width: 100% !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-          .lg\\:col-span-9, .lg\\:col-span-12 {
-            width: 100% !important;
-          }
-          .lg\\:col-span-3 {
-            display: none !important;
-          }
-          .shadow-sm, .shadow-md, .shadow-lg {
-            box-shadow: none !important;
-            border: none !important;
-          }
-          table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-          }
-          th, td {
-            border-bottom: 1px solid #ddd !important;
-            padding: 8px !important;
-          }
-        }
-      `}</style>
-
-      <div className="print:hidden">
-        <PageBreadcrumb pageTitle={standalone ? getBreadcrumbTitle() : "Dashboard General de Reportes"} />
-      </div>
-
-      {/* Cabecera exclusiva para versión impresa / PDF */}
-      <div className="hidden print:block text-center border-b pb-4 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">HOSPITAL DEL COMPUTADOR</h1>
-        <p className="text-xs text-gray-600 dark:text-gray-400 font-semibold mt-1">Reporte Consolidado de Negocio y Operaciones</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-          Fecha de Emisión: {new Date().toLocaleDateString()} | Generado por: {session?.user?.name || 'Administrador'}
-        </p>
-        <div className="text-xs text-gray-600 dark:text-gray-400 mt-2 font-mono">
-          Módulo: {getBreadcrumbTitle()} | Rango: {useCalendar ? `Desde ${startDate || 'Inicio'} hasta ${endDate || 'Hoy'}` : range === '7d' ? 'Últimos 7 días' : range === '30d' ? 'Últimos 30 días' : range === '90d' ? 'Últimos 90 días' : 'Histórico completo'}
-        </div>
-      </div>
-
-      {/* ─── Global Filters Bar (print:hidden) ─── */}
-      <div className="print:hidden flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6 bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm">
-
-        {/* Toggle Mode */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex items-center gap-2">
-            <FunnelIcon className="w-5 h-5 text-gray-500" />
-            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Modo de Filtro:</span>
+    <div className="space-y-6 animate-fade-in text-gray-100">
+      {/* Encabezado Superior del Módulo */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-gray-800">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+              {currentTitle}
+            </h1>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+              UTC-5 Ecuador
+            </span>
           </div>
-          <div className="flex gap-2 bg-gray-50 dark:bg-gray-800/40 p-1.5 rounded-xl border border-gray-100 dark:border-gray-800/60">
-            <button
-              onClick={() => setUseCalendar(false)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${!useCalendar
-                ? 'bg-white dark:bg-gray-800 text-brand-600 dark:text-brand-400 shadow-sm border border-gray-100 dark:border-gray-700'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
-                }`}
-            >
-              Presets Rápidos
-            </button>
-            <button
-              onClick={() => setUseCalendar(true)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${useCalendar
-                ? 'bg-white dark:bg-gray-800 text-brand-600 dark:text-brand-400 shadow-sm border border-gray-100 dark:border-gray-700'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
-                }`}
-            >
-              📅 Rango de Calendario
-            </button>
-          </div>
+          <p className="text-xs text-gray-400 mt-1">
+            Auditoría integral, exactitud operativa y trazabilidad en tiempo real de Hospital del Computador.
+          </p>
         </div>
 
-        {/* Inputs correspondientes */}
-        <div className="flex flex-col sm:flex-row items-center gap-4 flex-1 max-w-2xl">
-          <div className="w-full">
-            <AnimatePresence mode="wait">
-              {!useCalendar ? (
-                <motion.div
-                  key="presets"
-                  initial={{ opacity: 0, y: -5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 5 }}
-                  className="flex flex-wrap gap-2"
-                >
-                  {(['7d', '30d', '90d', 'all'] as const).map((r) => (
-                    <button
-                      key={r}
-                      onClick={() => setRange(r)}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${range === r
-                        ? 'bg-brand-500 text-white'
-                        : 'bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                        }`}
+        {/* Botones de Exportación */}
+        <ReportExportActions
+          canExport={canExport}
+          isExportingExcel={isExportingExcel}
+          isExportingPdf={isExportingPdf}
+          onPreview={() => setIsPreviewOpen(true)}
+          onExportExcel={() => handleExport('excel')}
+          onExportPdf={() => handleExport('pdf')}
+        />
+      </div>
+
+      {/* Barra de Filtros Combinables */}
+      <ReportFilterBar
+        filters={filters}
+        filterOptions={filterOptions}
+        dateRangeLabel={dateRangeLabel}
+        isStandalone={standalone}
+        onFilterChange={(newFilters) => {
+          if (newFilters.reportType && newFilters.reportType !== filters.reportType) {
+            setData([]);
+            setKpis([]);
+          }
+          setFilters((prev) => ({ ...prev, ...newFilters }));
+        }}
+        onRefresh={loadReportData}
+      />
+
+      {/* Mensaje de Error si ocurre */}
+      {errorMessage && (
+        <div className="p-3 bg-red-900/30 border border-red-500/40 rounded-xl text-xs text-red-200 flex items-center gap-2">
+          <ExclamationTriangleIcon className="w-4 h-4 text-red-400 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
+      {/* Tarjetas KPI Reales */}
+      <ReportKpiCards kpis={kpis} isLoading={isLoading} />
+
+      {/* Nota de Transparencia de Inventario si existe */}
+      {disclosure && (
+        <div className="p-3 bg-blue-950/40 border border-blue-500/30 rounded-xl text-xs text-blue-200 flex items-center gap-2.5 shadow-sm">
+          <InformationCircleIcon className="w-5 h-5 text-blue-400 shrink-0" />
+          <span>{disclosure}</span>
+        </div>
+      )}
+
+      {/* Tabla de Datos Paginada */}
+      <ReportDataTable
+        reportType={filters.reportType}
+        tipoItem={filters.tipoItem}
+        data={data}
+        total={total}
+        page={filters.page}
+        limit={filters.limit}
+        totalPages={totalPages}
+        isLoading={isLoading}
+        onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
+        onLimitChange={(limit) => setFilters((prev) => ({ ...prev, limit, page: 1 }))}
+      />
+
+      {/* Análisis de Consumo del Período vs Stock Físico Actual */}
+      {filters.reportType === 'inventory' && (
+        <div className="bg-gray-800/80 border border-gray-700/70 rounded-xl p-5 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-gray-700/60">
+            <div>
+              <div className="flex items-center gap-2">
+                <ClockIcon className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-sm font-bold text-white">
+                  Movimientos y Rotación del Período ({dateRangeLabel})
+                </h3>
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Los indicadores superiores reflejan el <span className="text-blue-300 font-semibold">Stock Actual Físico en Almacén</span>. A continuación se detallan los consumos autorizados en presupuestos aprobados del período seleccionado.
+              </p>
+            </div>
+            <span className="self-start sm:self-auto px-2.5 py-1 rounded-full text-[11px] font-medium bg-gray-900 text-gray-300 border border-gray-700">
+              Período Activo: {dateRangeLabel}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Tarjeta 1: Repuestos Físicos Consumidos */}
+            <div className="bg-gray-900/60 border border-gray-700/50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <CubeIcon className="w-4 h-4 text-blue-400" />
+                  <span className="text-xs font-bold text-gray-200">
+                    Repuestos Físicos Consumidos en Órdenes Aprobadas
+                  </span>
+                </div>
+                <span className="text-[10px] text-gray-400">Top 10</span>
+              </div>
+              {topConsumed.length > 0 ? (
+                <div className="space-y-2">
+                  {topConsumed.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded bg-gray-800/60 border border-gray-700/40"
                     >
-                      {r === '7d' ? 'Últimos 7 días' : r === '30d' ? 'Últimos 30 días' : r === '90d' ? 'Últimos 90 días' : 'Todo el tiempo'}
-                    </button>
+                      <div className="flex items-center gap-2 min-w-0 pr-2">
+                        <span className="font-mono text-gray-400 text-[11px]">{item.codigo}</span>
+                        <span className="text-gray-200 font-medium truncate">{item.nombre}</span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="font-mono font-bold text-blue-300">{item.cantidadConsumida} uds.</span>
+                        <span className="font-mono text-gray-300">$ {Number(item.montoTotal).toFixed(2)}</span>
+                      </div>
+                    </div>
                   ))}
-                </motion.div>
+                </div>
               ) : (
-                <motion.div
-                  key="calendar"
-                  initial={{ opacity: 0, y: -5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 5 }}
-                  className="flex flex-col sm:flex-row items-center gap-3 w-full"
-                >
-                  <div className="relative w-full sm:flex-1">
-                    <label htmlFor={startDateId} className="absolute left-3 top-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block pointer-events-none">
-                      Desde
-                    </label>
-                    <input
-                      id={startDateId}
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      onClick={(e) => {
-                        try {
-                          e.currentTarget.showPicker();
-                        } catch (err) { }
-                      }}
-                      className="w-full pl-3 pr-10 pt-5 pb-1 text-xs border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
-                    />
-                  </div>
-                  <div className="relative w-full sm:flex-1">
-                    <label htmlFor={endDateId} className="absolute left-3 top-2.5 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block pointer-events-none">
-                      Hasta
-                    </label>
-                    <input
-                      id={endDateId}
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      onClick={(e) => {
-                        try {
-                          e.currentTarget.showPicker();
-                        } catch (err) { }
-                      }}
-                      className="w-full pl-3 pr-10 pt-5 pb-1 text-xs border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
-                    />
-                  </div>
-                  <button
-                    onClick={fetchAllReports}
-                    className="w-full sm:w-auto px-4 py-3 bg-brand-500 text-white rounded-xl text-xs font-bold hover:bg-brand-600 transition-all flex items-center justify-center gap-1.5 shadow-sm"
-                  >
-                    <ArrowPathIcon className="w-4 h-4" />
-                    <span>Filtrar</span>
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* 🛠️ Dropdown Selector de Técnico (Se muestra sólo en la pestaña de Técnicos) */}
-          {activeTab === 'techs' && (
-            <div className="flex items-center gap-2 border-l pl-4 border-gray-100 dark:border-gray-800 w-full sm:w-auto">
-              <label htmlFor={techSelectId} className="text-xs text-gray-500 dark:text-gray-405 font-bold whitespace-nowrap">Técnico:</label>
-              <select
-                id={techSelectId}
-                value={selectedTechId}
-                onChange={(e) => setSelectedTechId(e.target.value)}
-                className="w-full sm:w-auto px-3.5 py-2.5 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
-              >
-                <option value="">Resumen (Todos)</option>
-                {techList.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.nombreCompleto}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ─── Executive KPI Grid ─── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-2xl shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-xs text-gray-600 dark:text-gray-400 font-semibold block">Total Ingresos</span>
-            <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1 block">
-              ${kpi?.revenue?.toFixed(2) || '0.00'}
-            </span>
-          </div>
-          <div className="print:hidden w-12 h-12 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-            <BanknotesIcon className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-2xl shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-xs text-gray-600 dark:text-gray-400 font-semibold block">Total Egresos</span>
-            <span className="text-2xl font-bold text-rose-600 dark:text-rose-400 mt-1 block">
-              ${kpi?.expenses?.toFixed(2) || '0.00'}
-            </span>
-          </div>
-          <div className="print:hidden w-12 h-12 bg-rose-50 dark:bg-rose-950/40 rounded-xl flex items-center justify-center text-rose-600 dark:text-rose-400">
-            <ShoppingBagIcon className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-2xl shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-xs text-gray-600 dark:text-gray-400 font-semibold block">Utilidad Neta</span>
-            <span className={`text-2xl font-bold mt-1 block ${(kpi?.netProfit ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-              ${kpi?.netProfit?.toFixed(2) || '0.00'}
-            </span>
-          </div>
-          <div className="print:hidden w-12 h-12 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-            <BanknotesIcon className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-2xl shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-xs text-gray-600 dark:text-gray-400 font-semibold block">Margen Utilidad</span>
-            <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1 block">
-              {kpi?.profitMargin?.toFixed(1) || '0.0'}%
-            </span>
-          </div>
-          <div className="print:hidden w-12 h-12 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-            <ArrowTrendingUpIcon className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-2xl shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-xs text-gray-600 dark:text-gray-400 font-semibold block">Órdenes</span>
-            <span className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1 block">
-              {kpi?.ordersCount || 0}
-            </span>
-          </div>
-          <div className="print:hidden w-12 h-12 bg-blue-50 dark:bg-blue-950/40 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400">
-            <ClipboardDocumentCheckIcon className="w-6 h-6" />
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 rounded-2xl shadow-sm flex items-center justify-between">
-          <div>
-            <span className="text-xs text-gray-600 dark:text-gray-400 font-semibold block">Clientes Activos</span>
-            <span className="text-2xl font-bold text-brand-600 dark:text-brand-400 mt-1 block">
-              {kpi?.clientsCount || 0}
-            </span>
-          </div>
-          <div className="print:hidden w-12 h-12 bg-brand-50 dark:bg-brand-950/40 rounded-xl flex items-center justify-center text-brand-600 dark:text-brand-400">
-            <UsersIcon className="w-6 h-6" />
-          </div>
-        </div>
-      </div>
-
-      {/* ─── Tabs & Tables Workspace ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
-        {/* Left Side Tab Selector (visible only when NOT in standalone mode) */}
-        {!standalone && (
-          <div className="print:hidden lg:col-span-3 bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm space-y-2">
-            <span className="text-[10px] font-bold tracking-wider text-gray-400 block px-3 uppercase mb-2">
-              Módulos Analíticos
-            </span>
-            {[
-              { id: 'clients', label: 'Clientes', icon: UsersIcon },
-              { id: 'inventory', label: 'Inventario', icon: ArchiveBoxIcon },
-              { id: 'purchases', label: 'Compras', icon: ShoppingBagIcon },
-              { id: 'budgets', label: 'Presupuestos', icon: BanknotesIcon },
-              { id: 'orders', label: 'Órdenes de Servicio', icon: ClipboardDocumentCheckIcon },
-              { id: 'techs', label: 'Técnicos', icon: WrenchScrewdriverIcon },
-              { id: 'equip', label: 'Equipos', icon: ComputerDesktopIcon },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id as TabType);
-                    setSearchQuery('');
-                  }}
-                  className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 ${activeTab === tab.id
-                    ? 'bg-brand-500 text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/40'
-                    }`}
-                >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Right Side Data Grid Panel */}
-        <div className={`${standalone ? 'lg:col-span-12' : 'lg:col-span-9'} bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm p-6 space-y-4`}>
-
-          <div className="hidden print:block border-b pb-2 mb-2">
-            <h3 className="text-md font-bold uppercase tracking-wider text-gray-800">
-              Módulo: {getBreadcrumbTitle()} {activeTab === 'techs' && selectedTechId && `(Técnico Detallado)`}
-            </h3>
-          </div>
-
-          <div className="print:hidden flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <input
-              type="text"
-              placeholder="Buscar dentro de este reporte..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label="Buscar dentro de este reporte"
-              className="w-full sm:max-w-xs px-4 py-2 text-xs border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-gray-700 dark:text-gray-300"
-            />
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={exportToCSV}
-                className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-800 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all shadow-sm"
-              >
-                <ArrowDownTrayIcon className="w-4 h-4 text-emerald-600" />
-                <span>Exportar Excel (XLS)</span>
-              </button>
-
-              <button
-                onClick={handlePrint}
-                className="flex items-center justify-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-800 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all shadow-sm"
-              >
-                <PrinterIcon className="w-4 h-4 text-brand-500" />
-                <span>Generar PDF / Imprimir</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Dynamic Advanced Filters for Inventory Tab */}
-          {activeTab === 'inventory' && (
-            <div className="print:hidden flex flex-wrap items-center gap-4 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-800/60">
-              <div className="flex items-center gap-2">
-                <label htmlFor={categoryFilterId} className="text-xs text-gray-650 dark:text-gray-400 font-bold">Categoría:</label>
-                <select
-                  id={categoryFilterId}
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-750 dark:text-gray-300"
-                >
-                  <option value="">Todas</option>
-                  {categoriesList.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.nombre}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <label htmlFor={rotationFilterId} className="text-xs text-gray-650 dark:text-gray-400 font-bold">Rotación:</label>
-                <select
-                  id={rotationFilterId}
-                  value={selectedRotation}
-                  onChange={(e) => setSelectedRotation(e.target.value)}
-                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-750 dark:text-gray-300"
-                >
-                  <option value="">Todas</option>
-                  <option value="high">Alta Rotación</option>
-                  <option value="low">Baja Rotación</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <label htmlFor={stockFilterId} className="text-xs text-gray-655 dark:text-gray-400 font-bold">Stock:</label>
-                <select
-                  id={stockFilterId}
-                  value={selectedStockStatus}
-                  onChange={(e) => setSelectedStockStatus(e.target.value)}
-                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-750 dark:text-gray-300"
-                >
-                  <option value="">Todos</option>
-                  <option value="low">Por Agotarse (Bajo Stock)</option>
-                  <option value="normal">Normal</option>
-                </select>
-              </div>
-            </div>
-          )}
-
-          {/* Dynamic Advanced Filters for Clients Tab */}
-          {activeTab === 'clients' && (
-            <div className="print:hidden flex flex-wrap items-center gap-4 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-800/60">
-              <div className="flex items-center gap-2">
-                <label htmlFor={clientSegmentFilterId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Fidelización de Clientes:</label>
-                <select
-                  id={clientSegmentFilterId}
-                  value={selectedClientSegment}
-                  onChange={(e) => setSelectedClientSegment(e.target.value)}
-                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
-                >
-                  <option value="">Todos los Clientes</option>
-                  <option value="frequent">Clientes Frecuentes (Leales)</option>
-                  <option value="inactive">Clientes Inactivos (&gt; 90 días sin ODS)</option>
-                </select>
-              </div>
-            </div>
-          )}
-
-          {/* Dynamic Advanced Filters for Purchases Tab */}
-          {activeTab === 'purchases' && (
-            <div className="print:hidden flex flex-wrap items-center gap-3 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-800/60">
-              <div className="flex items-center gap-2">
-                <label htmlFor={purchaseEstadoFilterId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Estado:</label>
-                <select
-                  id={purchaseEstadoFilterId}
-                  value={selectedPurchaseEstado}
-                  onChange={(e) => setSelectedPurchaseEstado(e.target.value)}
-                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
-                >
-                  <option value="">Todos los estados</option>
-                  <option value="Completado">Completado</option>
-                  <option value="Anulado">Anulado</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor={purchaseMinTotalId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Monto mínimo $:</label>
-                <input
-                  id={purchaseMinTotalId}
-                  type="number"
-                  min="0"
-                  placeholder="0.00"
-                  value={purchaseMinTotal}
-                  onChange={(e) => setPurchaseMinTotal(e.target.value)}
-                  className="w-24 px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor={purchaseMaxTotalId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Monto máximo $:</label>
-                <input
-                  id={purchaseMaxTotalId}
-                  type="number"
-                  min="0"
-                  placeholder="Sin límite"
-                  value={purchaseMaxTotal}
-                  onChange={(e) => setPurchaseMaxTotal(e.target.value)}
-                  className="w-28 px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
-                />
-              </div>
-              {(selectedPurchaseEstado || purchaseMinTotal || purchaseMaxTotal) && (
-                <button
-                  onClick={() => { setSelectedPurchaseEstado(''); setPurchaseMinTotal(''); setPurchaseMaxTotal(''); }}
-                  className="px-3 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all"
-                >✕ Limpiar</button>
+                <p className="text-xs text-gray-500 italic text-center py-4">
+                  No se registraron repuestos físicos consumidos en el período seleccionado.
+                </p>
               )}
             </div>
-          )}
 
-          {/* Dynamic Advanced Filters for Budgets Tab */}
-          {activeTab === 'budgets' && (
-            <div className="print:hidden flex flex-wrap items-center gap-3 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-800/60">
-              <div className="flex items-center gap-2">
-                <label htmlFor={budgetEstadoFilterId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Estado:</label>
-                <select
-                  id={budgetEstadoFilterId}
-                  value={selectedBudgetEstado}
-                  onChange={(e) => setSelectedBudgetEstado(e.target.value)}
-                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
-                >
-                  <option value="">Todos los estados</option>
-                  {budgetEstadosList.map((est) => (
-                    <option key={est} value={est}>{est}</option>
-                  ))}
-                </select>
+            {/* Tarjeta 2: Servicios Técnicos Ejecutados */}
+            <div className="bg-gray-900/60 border border-gray-700/50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <WrenchScrewdriverIcon className="w-4 h-4 text-indigo-400" />
+                  <span className="text-xs font-bold text-gray-200">
+                    Servicios Técnicos Ejecutados (Mano de Obra)
+                  </span>
+                </div>
+                <span className="text-[10px] text-gray-400">Top 10</span>
               </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor={budgetSortById} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Ordenar por:</label>
-                <select
-                  id={budgetSortById}
-                  value={budgetSortBy}
-                  onChange={(e) => setBudgetSortBy(e.target.value)}
-                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
-                >
-                  <option value="">Más recientes</option>
-                  <option value="total_desc">Mayor monto primero</option>
-                  <option value="total_asc">Menor monto primero</option>
-                </select>
-              </div>
-              {(selectedBudgetEstado || budgetSortBy) && (
-                <button
-                  onClick={() => { setSelectedBudgetEstado(''); setBudgetSortBy(''); }}
-                  className="px-3 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all"
-                >✕ Limpiar</button>
-              )}
-            </div>
-          )}
-
-          {/* Dynamic Advanced Filters for Orders Tab */}
-          {activeTab === 'orders' && (
-            <div className="print:hidden flex flex-wrap items-center gap-3 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-800/60">
-              <div className="flex items-center gap-2">
-                <label htmlFor={orderEstadoFilterId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Estado:</label>
-                <select
-                  id={orderEstadoFilterId}
-                  value={selectedOrderEstado}
-                  onChange={(e) => setSelectedOrderEstado(e.target.value)}
-                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
-                >
-                  <option value="">Todos los estados</option>
-                  {orderEstadosList.map((est) => (
-                    <option key={est} value={est}>{est}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor={orderTechFilterId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Técnico:</label>
-                <select
-                  id={orderTechFilterId}
-                  value={selectedOrderTechId}
-                  onChange={(e) => setSelectedOrderTechId(e.target.value)}
-                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
-                >
-                  <option value="">Todos los técnicos</option>
-                  {techList.map((t) => (
-                    <option key={t.id} value={t.id}>{t.nombreCompleto}</option>
-                  ))}
-                </select>
-              </div>
-              {(selectedOrderEstado || selectedOrderTechId) && (
-                <button
-                  onClick={() => { setSelectedOrderEstado(''); setSelectedOrderTechId(''); }}
-                  className="px-3 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all"
-                >✕ Limpiar</button>
-              )}
-            </div>
-          )}
-
-          {/* Dynamic Advanced Filters for Técnicos Tab (summary mode only) */}
-          {activeTab === 'techs' && !selectedTechId && (
-            <div className="print:hidden flex flex-wrap items-center gap-3 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-800/60">
-              <div className="flex items-center gap-2">
-                <label htmlFor={techSortById} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Ordenar por:</label>
-                <select
-                  id={techSortById}
-                  value={techSortBy}
-                  onChange={(e) => setTechSortBy(e.target.value)}
-                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
-                >
-                  <option value="">Por defecto</option>
-                  <option value="total_desc">Mayor facturado primero</option>
-                  <option value="total_asc">Menor facturado primero</option>
-                  <option value="orders_desc">Más órdenes primero</option>
-                  <option value="orders_asc">Menos órdenes primero</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor={techMinOrdersId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Mín. órdenes:</label>
-                <input
-                  id={techMinOrdersId}
-                  type="number"
-                  min="1"
-                  placeholder="Sin mínimo"
-                  value={techMinOrders}
-                  onChange={(e) => setTechMinOrders(e.target.value)}
-                  className="w-28 px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
-                />
-              </div>
-              {(techSortBy || techMinOrders) && (
-                <button
-                  onClick={() => { setTechSortBy(''); setTechMinOrders(''); }}
-                  className="px-3 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all"
-                >✕ Limpiar</button>
-              )}
-            </div>
-          )}
-
-          {/* Dynamic Advanced Filters for Equipos Tab */}
-          {activeTab === 'equip' && (
-            <div className="print:hidden flex flex-wrap items-center gap-3 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-100 dark:border-gray-800/60">
-              <div className="flex items-center gap-2">
-                <label htmlFor={equipSortById} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Ordenar por:</label>
-                <select
-                  id={equipSortById}
-                  value={equipSortBy}
-                  onChange={(e) => setEquipSortBy(e.target.value)}
-                  className="px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
-                >
-                  <option value="">Mayor volumen primero</option>
-                  <option value="count_asc">Menor volumen primero</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <label htmlFor={equipMinCountId} className="text-xs text-gray-600 dark:text-gray-400 font-bold">Mín. equipos:</label>
-                <input
-                  id={equipMinCountId}
-                  type="number"
-                  min="1"
-                  placeholder="Sin mínimo"
-                  value={equipMinCount}
-                  onChange={(e) => setEquipMinCount(e.target.value)}
-                  className="w-28 px-3 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl focus:outline-none font-bold text-gray-700 dark:text-gray-300"
-                />
-              </div>
-              {(equipSortBy || equipMinCount) && (
-                <button
-                  onClick={() => { setEquipSortBy(''); setEquipMinCount(''); }}
-                  className="px-3 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-all"
-                >✕ Limpiar</button>
-              )}
-            </div>
-          )}
-
-          <AnimatePresence mode="wait">
-            {loading ? (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="py-20 flex flex-col items-center justify-center space-y-3 print:hidden"
-              >
-                <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-xs text-gray-400 font-semibold">Generando reporte consolidado...</span>
-              </motion.div>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="overflow-x-auto space-y-6"
-              >
-                {/* 👥 Clientes Table */}
-                {activeTab === 'clients' && (
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
-                        <th className="py-3 px-4">Cliente</th>
-                        <th className="py-3 px-4">Correo</th>
-                        <th className="py-3 px-4">Teléfono</th>
-                        <th className="py-3 px-4 text-center">Frecuencia ODS</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50 dark:divide-gray-800/60 text-gray-700 dark:text-gray-300">
-                      {paginatedClients.map(c => (
-                        <tr key={c.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/10">
-                          <td className="py-3.5 px-4 font-semibold">{c.nombreCompleto}</td>
-                          <td className="py-3.5 px-4">{c.correo}</td>
-                          <td className="py-3.5 px-4">{c.telefono}</td>
-                          <td className="py-3.5 px-4 text-center">
-                            <span className="px-2.5 py-1 bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 font-bold rounded-lg">
-                              {c.ordersCount}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-
-                {/* 📦 Inventario Table */}
-                {activeTab === 'inventory' && (
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
-                        <th className="py-3 px-4">Código</th>
-                        <th className="py-3 px-4">Artículo</th>
-                        <th className="py-3 px-4">Categoría</th>
-                        <th className="py-3 px-4 text-right">Precio (PVP)</th>
-                        <th className="py-3 px-4 text-center">Stock</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50 dark:divide-gray-800/60 text-gray-700 dark:text-gray-300">
-                      {paginatedInventory.map(i => (
-                        <tr key={i.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/10">
-                          <td className="py-3.5 px-4 font-mono text-gray-500 dark:text-gray-400">{i.codigo}</td>
-                          <td className="py-3.5 px-4 font-semibold">{i.nombre}</td>
-                          <td className="py-3.5 px-4 text-gray-500 dark:text-gray-400">{i.categoria}</td>
-                          <td className="py-3.5 px-4 text-right font-bold text-gray-900 dark:text-white">
-                            ${i.precio.toFixed(2)}
-                          </td>
-                          <td className="py-3.5 px-4 text-center">
-                            <span
-                              className={`px-2.5 py-1 font-bold rounded-lg ${i.stock <= i.stockMinimo
-                                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400'
-                                : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'
-                                }`}
-                            >
-                              {i.stock} / {i.stockMinimo}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-
-                {/* 💳 Compras Table */}
-                {activeTab === 'purchases' && (
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
-                        <th className="py-3 px-4">Factura No.</th>
-                        <th className="py-3 px-4">Fecha</th>
-                        <th className="py-3 px-4">Proveedor</th>
-                        <th className="py-3 px-4">Efectuado por</th>
-                        <th className="py-3 px-4 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50 dark:divide-gray-800/60 text-gray-700 dark:text-gray-300">
-                      {paginatedPurchases.map(p => (
-                        <tr key={p.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/10">
-                          <td className="py-3.5 px-4 font-bold">{p.numeroFactura}</td>
-                          <td className="py-3.5 px-4 text-gray-500 dark:text-gray-400">{new Date(p.fecha).toLocaleDateString()}</td>
-                          <td className="py-3.5 px-4 font-semibold">{p.proveedor}</td>
-                          <td className="py-3.5 px-4 text-gray-500 dark:text-gray-400">{p.comprador}</td>
-                          <td className="py-3.5 px-4 text-right font-bold text-rose-600 dark:text-rose-400">
-                            ${p.total.toFixed(2)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-
-                {/* 💵 Presupuestos Table */}
-                {activeTab === 'budgets' && (
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
-                        <th className="py-3 px-4">ID Presupuesto</th>
-                        <th className="py-3 px-4">Asociado a</th>
-                        <th className="py-3 px-4">Cliente</th>
-                        <th className="py-3 px-4">Estado</th>
-                        <th className="py-3 px-4 text-right">Total Estimado</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50 dark:divide-gray-800/60 text-gray-700 dark:text-gray-300">
-                      {paginatedBudgets.map(b => (
-                        <tr key={b.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/10">
-                          <td className="py-3.5 px-4 font-mono text-gray-500 dark:text-gray-400">Pres. #{b.id}</td>
-                          <td className="py-3.5 px-4 font-bold">{b.orden}</td>
-                          <td className="py-3.5 px-4">{b.cliente}</td>
-                          <td className="py-3.5 px-4">
-                            <span className="px-2 py-0.5 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 font-semibold rounded-md">
-                              {b.estado}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
-                            ${b.total.toFixed(2)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-
-                {/* 🔧 Órdenes de Servicio Table */}
-                {activeTab === 'orders' && (
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
-                        <th className="py-3 px-4">Código ODS</th>
-                        <th className="py-3 px-4">Cliente</th>
-                        <th className="py-3 px-4">Técnico Asignado</th>
-                        <th className="py-3 px-4">Estado</th>
-                        <th className="py-3 px-4">Ingreso</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50 dark:divide-gray-800/60 text-gray-700 dark:text-gray-300">
-                      {paginatedOrders.map(o => (
-                        <tr key={o.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/10">
-                          <td className="py-3.5 px-4 font-bold">ODS #{o.workOrderNumber}</td>
-                          <td className="py-3.5 px-4">{o.cliente}</td>
-                          <td className="py-3.5 px-4 text-gray-500 dark:text-gray-400 font-semibold">{o.tecnico}</td>
-                          <td className="py-3.5 px-4">
-                            <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold rounded-md">
-                              {o.estado}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 text-gray-500 dark:text-gray-400">{new Date(o.fechaIngreso).toLocaleDateString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-
-                {/* 🛠️ Técnicos View Grid (Summary OR Detail mode based on selectedTechId) */}
-                {activeTab === 'techs' && (
-                  <>
-                    {isTechDetail ? (
-                      /* ─── Detaillado (Trabajos por Técnico) ─── */
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
-                            <th className="py-3 px-4">Código ODS</th>
-                            <th className="py-3 px-4">Cliente</th>
-                            <th className="py-3 px-4">Estado</th>
-                            <th className="py-3 px-4 text-right">Servicios (Mano de Obra)</th>
-                            <th className="py-3 px-4 text-right">Repuestos (Componentes)</th>
-                            <th className="py-3 px-4 text-right">Total ODS</th>
-                            <th className="py-3 px-4 text-center">Fecha Ingreso</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50 dark:divide-gray-800/60 text-gray-700 dark:text-gray-300">
-                          {paginatedTechOrders.map(to => (
-                            <tr key={to.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/10">
-                              <td className="py-3.5 px-4 font-bold">ODS #{to.workOrderNumber}</td>
-                              <td className="py-3.5 px-4">{to.cliente}</td>
-                              <td className="py-3.5 px-4">
-                                <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold rounded-md">
-                                  {to.estado}
-                                </span>
-                              </td>
-                              <td className="py-3.5 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
-                                ${to.servicesGenerated.toFixed(2)}
-                              </td>
-                              <td className="py-3.5 px-4 text-right text-gray-500 dark:text-gray-400 font-semibold">
-                                ${to.partsGenerated.toFixed(2)}
-                              </td>
-                              <td className="py-3.5 px-4 text-right font-bold text-gray-900 dark:text-white">
-                                ${to.moneyGenerated.toFixed(2)}
-                              </td>
-                              <td className="py-3.5 px-4 text-center text-gray-500 dark:text-gray-400">{new Date(to.fechaIngreso).toLocaleDateString()}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    ) : (
-                      /* ─── Resumen (Todos los Técnicos) ─── */
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
-                            <th className="py-3 px-4">Código ID</th>
-                            <th className="py-3 px-4">Técnico Responsable</th>
-                            <th className="py-3 px-4 text-center">Órdenes Completadas</th>
-                            <th className="py-3 px-4 text-right">Servicios (Mano de Obra)</th>
-                            <th className="py-3 px-4 text-right">Repuestos (Componentes)</th>
-                            <th className="py-3 px-4 text-right">Total Facturado</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50 dark:divide-gray-800/60 text-gray-700 dark:text-gray-300">
-                          {paginatedTechs.map(t => (
-                            <tr key={t.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/10">
-                              <td className="py-3.5 px-4 font-mono text-gray-500 dark:text-gray-400 font-semibold">TEC-{t.id}</td>
-                              <td className="py-3.5 px-4 font-bold text-gray-800 dark:text-gray-200">{t.nombreCompleto}</td>
-                              <td className="py-3.5 px-4 text-center">
-                                <button
-                                  onClick={() => setSelectedTechId(String(t.id))}
-                                  className="px-3 py-1 bg-brand-500/10 text-brand-600 dark:text-brand-400 hover:bg-brand-500 hover:text-white transition-all font-bold rounded-lg text-xs"
-                                >{t.totalAssigned} órdenes (Ver trabajos)
-                                </button>
-                              </td>
-                              <td className="py-3.5 px-4 text-right font-extrabold text-emerald-600 dark:text-emerald-400">
-                                ${t.servicesGenerated.toFixed(2)}
-                              </td>
-                              <td className="py-3.5 px-4 text-right text-gray-500 dark:text-gray-400 font-semibold">
-                                ${t.partsGenerated.toFixed(2)}
-                              </td>
-                              <td className="py-3.5 px-4 text-right font-extrabold text-gray-900 dark:text-white text-sm">
-                                ${t.moneyGenerated.toFixed(2)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </>
-                )}
-
-                {/* 💻 Equipos Table */}
-                {activeTab === 'equip' && (
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-gray-100 dark:border-gray-800 text-gray-500 dark:text-gray-400 font-bold">
-                        <th className="py-3 px-4">Marca de Equipo</th>
-                        <th className="py-3 px-4 text-center">Volumen de Ingresos</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50 dark:divide-gray-800/60 text-gray-700 dark:text-gray-300">
-                      {paginatedEquip.map((eq, i) => (
-                        <tr key={i} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/10">
-                          <td className="py-3.5 px-4 font-bold">{eq.brand}</td>
-                          <td className="py-3.5 px-4 text-center">
-                            <span className="px-2.5 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-extrabold rounded-lg">
-                              {eq.count} equipos
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-
-                {/* ─── Premium Pagination Controls ─── */}
-                {totalItems > 0 && (
-                  <div className="print:hidden flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-6 border-t border-gray-100 dark:border-gray-850 pt-6">
-                    <div className="text-xs text-gray-500 dark:text-gray-400 font-semibold">
-                      Mostrando del {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)} al {Math.min(currentPage * itemsPerPage, totalItems)} de {totalItems} registros
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-4">
-                      {/* Por Página Selector */}
-                      <div className="flex items-center gap-2">
-                        <label htmlFor={itemsPerPageId} className="text-xs text-gray-500 dark:text-gray-400 font-medium">Por página:</label>
-                        <select
-                          id={itemsPerPageId}
-                          value={itemsPerPage}
-                          onChange={(e) => {
-                            setItemsPerPage(Number(e.target.value));
-                            setCurrentPage(1);
-                          }}
-                          className="px-2 py-1.5 text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-750 rounded-xl focus:outline-none font-semibold text-gray-700 dark:text-gray-300"
-                        >
-                          <option value={10}>10</option>
-                          <option value={25}>25</option>
-                          <option value={50}>50</option>
-                        </select>
+              {topServices.length > 0 ? (
+                <div className="space-y-2">
+                  {topServices.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded bg-gray-800/60 border border-gray-700/40"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 pr-2">
+                        <span className="font-mono text-indigo-400 text-[11px]">{item.codigo}</span>
+                        <span className="text-gray-200 font-medium truncate">{item.nombre}</span>
                       </div>
-
-                      {/* Navigation Pages Buttons */}
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          disabled={currentPage === 1}
-                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                          className="px-3.5 py-2 rounded-xl text-xs font-bold transition-all bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200/50 dark:border-gray-800"
-                        >
-                          Anterior
-                        </button>
-
-                        {Array.from({ length: totalPages }, (_, i) => i + 1)
-                          .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-                          .map((p, idx, arr) => {
-                            const showEllipsis = idx > 0 && p - arr[idx - 1] > 1;
-                            return (
-                              <React.Fragment key={p}>
-                                {showEllipsis && <span className="px-1 text-gray-400 text-xs">...</span>}
-                                <button
-                                  onClick={() => setCurrentPage(p)}
-                                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${currentPage === p
-                                    ? 'bg-brand-500 text-white border-brand-500 shadow-sm'
-                                    : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 border-gray-200/50 dark:border-gray-800'
-                                    }`}
-                                >
-                                  {p}
-                                </button>
-                              </React.Fragment>
-                            );
-                          })}
-
-                        <button
-                          disabled={currentPage === totalPages}
-                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                          className="px-3.5 py-2 rounded-xl text-xs font-bold transition-all bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200/50 dark:border-gray-800"
-                        >
-                          Siguiente
-                        </button>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="font-mono font-bold text-indigo-300">{item.cantidadRealizada} intervenciones</span>
+                        <span className="font-mono text-emerald-400 font-semibold">$ {Number(item.montoTotal).toFixed(2)}</span>
                       </div>
                     </div>
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500 italic text-center py-4">
+                  No se registraron servicios técnicos en presupuestos aprobados del período.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Nota de Integridad y Transparencia Administrativa al pie */}
+      <div className="p-4 bg-gray-900/50 border border-gray-800 rounded-xl text-[11px] text-gray-500 flex items-start gap-3">
+        <InformationCircleIcon className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+        <div>
+          <span className="font-semibold text-gray-400">Reglas de Integridad Contable y Operativa:</span>
+          <p className="mt-0.5">
+            Los valores de presupuestos aprobados representan compromisos cotizados con aceptación del cliente y no ingresos cobrados en caja.
+            Las entregas físicas se computan exclusivamente mediante transiciones confirmadas al estado &quot;Entrega&quot; en el historial de trazabilidad.
+            Los reingresos de equipos reflejan recurrencia de servicio técnico y no constituyen garantía legal sin confirmación pericial previa.
+          </p>
         </div>
       </div>
+
+      {/* Modal de Vista Previa A4 */}
+      <ReportPreviewModal
+        isOpen={isPreviewOpen}
+        reportType={filters.reportType}
+        title={currentTitle}
+        dateRangeLabel={dateRangeLabel}
+        data={data}
+        kpis={kpis}
+        canExport={canExport}
+        onClose={() => setIsPreviewOpen(false)}
+        onExportExcel={() => handleExport('excel')}
+        onExportPdf={() => handleExport('pdf')}
+      />
     </div>
   );
 }

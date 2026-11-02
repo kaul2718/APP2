@@ -7,6 +7,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthModule } from '../auth/auth.module';
 import { UsuarioRolModule } from '../usuario-rol/usuario-rol.module';
 import { RolModule } from '../rol/rol.module';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { RolModule } from '../rol/rol.module';
     forwardRef(() => AuthModule),
     UsuarioRolModule,
     RolModule,
+    StorageModule,
   ],
   controllers: [UsersController],
   providers: [UsersService],

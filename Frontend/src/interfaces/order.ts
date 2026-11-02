@@ -1,6 +1,7 @@
 export type {
   EquipoBasic,
   EstadoOrdenBasic,
+  EstadoOrdenBasic as EstadoOrden,
   Order,
   OrderActividad as ActividadTecnica,
   OrderDetallePresupuestoItem as DetallePresupuestoItem,
@@ -8,4 +9,5 @@ export type {
   OrderHistorialEstado as HistorialEstado,
   OrderPresupuesto as Presupuesto,
   UserBasic,
+  UserBasic as User,
 } from "@/types/order.types";

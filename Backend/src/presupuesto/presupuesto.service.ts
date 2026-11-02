@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, InternalServerErrorException, BadRequest
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, IsNull } from 'typeorm';
 import { Presupuesto } from './entities/presupuesto.entity';
+import { AutorizacionPresupuesto } from './entities/autorizacion-presupuesto.entity';
 import { CreatePresupuestoDto } from './dto/create-presupuesto.dto';
 import { UpdatePresupuestoDto } from './dto/update-presupuesto.dto';
 import { Order } from 'src/orders/entities/order.entity';
@@ -27,6 +28,9 @@ export class PresupuestoService {
 
     @InjectRepository(Parte)
     private readonly parteRepository: Repository<Parte>,
+
+    @InjectRepository(AutorizacionPresupuesto)
+    private readonly autorizacionRepository: Repository<AutorizacionPresupuesto>,
 
     private readonly dataSource: DataSource,
     private readonly notificacionService: NotificacionService,
@@ -147,6 +151,22 @@ export class PresupuestoService {
       const nuevoEstadoNombre = nuevoEstado.nombre.toLowerCase();
 
       if (presupuesto.estadoId !== updateDto.estadoId) {
+        if (nuevoEstadoNombre === 'aprobado' || nuevoEstadoNombre === 'rechazado') {
+          const autorizacion = await this.autorizacionRepository.findOne({
+            where: {
+              presupuestoId: presupuesto.id,
+              versionPresupuesto: presupuesto.version,
+            },
+            order: { id: 'DESC' },
+          });
+
+          if (!autorizacion) {
+            throw new BadRequestException(
+              `No se puede marcar el presupuesto como '${nuevoEstado.nombre}' sin una autorización verificable previa para la versión ${presupuesto.version}. Utilice el módulo de autorización presencial con firma táctil o el portal privado del comprobante.`
+            );
+          }
+        }
+
         if (nuevoEstadoNombre === 'aprobado' && estadoAnteriorNombre !== 'aprobado') {
           await this.descontarInventario(presupuesto.id);
         }
@@ -238,7 +258,7 @@ export class PresupuestoService {
     return { data, total };
   }
 
-  private async descontarInventario(presupuestoId: number) {
+  public async descontarInventario(presupuestoId: number) {
     const detalles = await this.detallePresupuestoItemsRepository.find({
       where: { presupuestoId, estado: true }, // Solo descontamos stock para detalles activos
       relations: ['parte'],
@@ -265,7 +285,7 @@ export class PresupuestoService {
     }
   }
 
-  private async revertirInventario(presupuestoId: number) {
+  public async revertirInventario(presupuestoId: number) {
     const detalles = await this.detallePresupuestoItemsRepository.find({
       where: { presupuestoId, estado: true }, // Solo devolvemos stock para detalles activos que no hayan sido eliminados previamente
       relations: ['parte'],

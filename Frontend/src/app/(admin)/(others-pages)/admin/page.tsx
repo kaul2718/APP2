@@ -18,6 +18,8 @@ import {
   ArrowTopRightOnSquareIcon,
   ShieldCheckIcon,
   KeyIcon,
+  Cog6ToothIcon,
+  HashtagIcon,
 } from "@heroicons/react/24/outline";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -104,6 +106,21 @@ const adminGroups: AdminGroup[] = [
     ],
   },
   {
+    id: "configuracion",
+    title: "Configuración General",
+    color: "text-brand-500",
+    dotColor: "bg-brand-500",
+    icon: <Cog6ToothIcon className="w-3.5 h-3.5" />,
+    items: [
+      {
+        label: "Parámetros del Sistema",
+        description: "Numeración de órdenes, datos del taller, IVA y políticas",
+        path: "/ver-configuracion",
+        icon: <HashtagIcon className="w-3.5 h-3.5" />,
+      },
+    ],
+  },
+  {
     id: "seguridad",
     title: "Seguridad y Accesos",
     color: "text-amber-500",
@@ -112,6 +129,7 @@ const adminGroups: AdminGroup[] = [
     items: [
       { label: "Gestión de Roles", description: "Administrar roles de usuarios y sus accesos", path: "/ver-roles", icon: <ShieldCheckIcon className="w-3.5 h-3.5" /> },
       { label: "Catálogo de Permisos", description: "Administrar permisos de módulos del sistema", path: "/ver-permisos", icon: <KeyIcon className="w-3.5 h-3.5" /> },
+      { label: "Firma Electrónica (FirmaEC)", description: "Configurar certificado digital PKCS#12 (.p12) del Gerente", path: "/ver-firma-electronica", icon: <ShieldCheckIcon className="w-3.5 h-3.5" /> },
     ],
   },
 ];

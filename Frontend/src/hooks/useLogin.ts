@@ -7,15 +7,16 @@ import { useRouter } from "next/navigation";
 
 export function useLogin() {
   const [showPassword, setShowPassword] = useState(false);
-  const [correo, setCorreo] = useState("");
+  const [identificador, setIdentificador] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const toggleShowPassword = () => setShowPassword(!showPassword);
 
-  const handleCorreoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCorreo(e.target.value);
+  const handleIdentificadorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIdentificador(e.target.value);
   };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -25,39 +26,52 @@ export function useLogin() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setErrors([]);
-    // 🔍 Mostrar los datos que se están enviando
-    console.log("Enviando datos al signIn:", {
-      correo,
-      password,
-    });
 
-    const response = await signIn("credentials", {
-      correo,
-      password,
-      redirect: false,
-    });
-
-
-    if (response instanceof Response) {
-      console.log("Es un Response real, vamos a extraer su JSON manualmente");
-      const json = await response.json();
-      console.log("Contenido del response.json():", json);
+    const cleanInput = identificador.trim();
+    if (!cleanInput) {
+      setErrors(["Por favor, ingresa tu cédula o correo electrónico."]);
+      return;
+    }
+    if (!password) {
+      setErrors(["Por favor, ingresa tu contraseña."]);
+      return;
     }
 
-    if (response?.ok) {
-      router.push("/dashboard"); // Redirige solo si login fue exitoso
-    } else {
-      setErrors(["Credenciales incorrectas o usuario no encontrado."]);
+    setLoading(true);
+    try {
+      const response = await signIn("credentials", {
+        identificador: cleanInput,
+        correo: cleanInput,
+        password,
+        redirect: false,
+      });
+
+      if (response?.ok) {
+        router.push("/dashboard");
+      } else {
+        const errorMsg =
+          response?.error && response.error !== "CredentialsSignin"
+            ? response.error
+            : "Credenciales incorrectas o usuario no encontrado.";
+        setErrors([errorMsg]);
+      }
+    } catch (err: any) {
+      setErrors([err.message || "Error al conectar con el servidor."]);
+    } finally {
+      setLoading(false);
     }
   };
 
   return {
     showPassword,
     toggleShowPassword,
-    correo,
+    identificador,
+    correo: identificador, // Retrocompatibilidad
     password,
     errors,
-    handleCorreoChange,
+    loading,
+    handleIdentificadorChange,
+    handleCorreoChange: handleIdentificadorChange, // Retrocompatibilidad
     handlePasswordChange,
     handleSubmit,
   };

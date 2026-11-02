@@ -36,6 +36,10 @@ import { ProveedorModule } from './proveedor/proveedor.module';
 import { CompraModule } from './compra/compra.module';
 import { ReportsModule } from './reports/reports.module';
 import { SriModule } from './sri/sri.module';
+import { StorageModule } from './storage/storage.module';
+import { DocumentosOrdenModule } from './documentos-orden/documentos-orden.module';
+import { FirmaElectronicaModule } from './firma-electronica/firma-electronica.module';
+import { ConfiguracionSistemaModule } from './configuracion-sistema/configuracion-sistema.module';
 
 @Module({
   imports: [
@@ -49,12 +53,12 @@ import { SriModule } from './sri/sri.module';
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DB_HOST,
-      port: parseInt(process.env.DB_PORT),
+      port: parseInt(process.env.DB_PORT || '5432', 10),
       username: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_DATABASE,
       autoLoadEntities: true,
-      synchronize: true,
+      synchronize: process.env.NODE_ENV === 'production' ? false : (process.env.DB_SYNCHRONIZE === 'true'),
       ssl: process.env.DB_SSL === 'true',
       extra: {
         ssl:
@@ -96,6 +100,10 @@ import { SriModule } from './sri/sri.module';
     CompraModule,
     ReportsModule,
     SriModule,
+    StorageModule,
+    DocumentosOrdenModule,
+    FirmaElectronicaModule,
+    ConfiguracionSistemaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,4 +1,5 @@
 import { IsEmail, IsBoolean, IsNotEmpty, IsOptional, Matches, MinLength, IsArray, IsNumber } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CreateUserDto {
   @IsNotEmpty({ message: 'La cédula es requerida' })
@@ -11,9 +12,10 @@ export class CreateUserDto {
   @IsOptional()
   apellido: string;
 
-  @IsNotEmpty({ message: 'El correo es requerido' })
+  @IsOptional()
   @IsEmail({}, { message: 'El correo debe ser válido.' })
-  correo: string;
+  @Transform(({ value }) => (value && typeof value === 'string' && value.trim() !== '' ? value.trim().toLowerCase() : null))
+  correo?: string | null;
 
   @IsNotEmpty({ message: 'El teléfono es requerido' })
   @Matches(/^[0-9\s\-+()]{9,16}$/, { message: 'El número de teléfono debe tener entre 9 y 16 caracteres.' })
@@ -45,4 +47,10 @@ export class CreateUserDto {
   @IsOptional()
   @IsBoolean()
   estado?: boolean;
+
+  @IsOptional()
+  fotoPerfilUrl?: string;
+
+  @IsOptional()
+  storageKeyFoto?: string;
 }

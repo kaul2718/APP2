@@ -104,6 +104,26 @@ export default function IngresarUsuarioNuevoForm() {
                 throw new Error("Respuesta inválida del servidor");
             }
 
+            // Si se seleccionó una foto de perfil, subirla
+            if (formData.fotoFile && data.id) {
+                try {
+                    const avatarFormData = new FormData();
+                    avatarFormData.append("foto", formData.fotoFile);
+                    await fetch(
+                        `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${data.id}/avatar`,
+                        {
+                            method: "POST",
+                            headers: {
+                                Authorization: `Bearer ${session.accessToken}`,
+                            },
+                            body: avatarFormData,
+                        }
+                    );
+                } catch (avErr) {
+                    console.error("Error al subir foto de perfil:", avErr);
+                }
+            }
+
             toast.success("Usuario registrado con éxito ✅");
 
             // Redirección con manejo de error
