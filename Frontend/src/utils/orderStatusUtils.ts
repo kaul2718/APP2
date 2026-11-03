@@ -36,17 +36,15 @@ export function findRecepcionStatus<T extends { nombre: string; estado?: boolean
 }
 
 /**
- * Asigna una prioridad numérica a cada estado según el flujo de negocio:
+ * Asigna una prioridad numérica a cada estado según el flujo de negocio (8 estados):
  * 0: Recepción
  * 1: Diagnóstico
- * 2: Presupuestado / Presupuesto
- * 3: Aprobado / Aprobación
- * 4: En Reparación / Reparación
- * 5: Esperando Repuesto / Repuestos
- * 6: Control de Calidad / Control
- * 7: Listo para Entrega / Entrega / Entregado
- * 8: Archivados
- * 9: Anulado
+ * 2: Repuestos
+ * 3: Aprobación
+ * 4: Reparación
+ * 5: Control
+ * 6: Entrega
+ * 7: Archivados
  * 99: Otros no catalogados
  */
 export function getStatusWorkflowPriority(nombre: string): number {
@@ -54,14 +52,12 @@ export function getStatusWorkflowPriority(nombre: string): number {
 
   if (norm.includes('recepci')) return 0;
   if (norm.includes('diagno')) return 1;
-  if (norm.includes('presupuest')) return 2;
-  if (norm.includes('aprob')) return 3;
+  if (norm.includes('repuesto')) return 2;
+  if (norm.includes('aprob') || norm.includes('presupuest')) return 3;
   if (norm.includes('repara')) return 4;
-  if (norm.includes('repuesto')) return 5;
-  if (norm.includes('control') || norm.includes('calidad')) return 6;
-  if (norm.includes('entrega')) return 7;
-  if (norm.includes('archiv')) return 8;
-  if (norm.includes('anulad')) return 9;
+  if (norm.includes('control') || norm.includes('calidad')) return 5;
+  if (norm.includes('entrega')) return 6;
+  if (norm.includes('archiv')) return 7;
 
   return 99;
 }
@@ -191,4 +187,36 @@ export async function fetchCompleteEstadoOrdenCatalog(
   }
 
   return [];
+}
+
+/**
+ * Retorna el siguiente estado activo en el flujo de trabajo funcional,
+ * sin depender de que los IDs sean consecutivos.
+ */
+export function getNextWorkflowState<T extends { id: number; nombre: string; estado?: boolean }>(
+  currentStateId: number | undefined,
+  activeEstados: T[]
+): T | undefined {
+  if (!activeEstados || activeEstados.length === 0 || currentStateId === undefined) return undefined;
+  const currentIndex = activeEstados.findIndex((e) => e.id === currentStateId);
+  if (currentIndex >= 0 && currentIndex < activeEstados.length - 1) {
+    return activeEstados[currentIndex + 1];
+  }
+  return undefined;
+}
+
+/**
+ * Retorna el estado activo previo en el flujo de trabajo funcional,
+ * sin depender de que los IDs sean consecutivos.
+ */
+export function getPrevWorkflowState<T extends { id: number; nombre: string; estado?: boolean }>(
+  currentStateId: number | undefined,
+  activeEstados: T[]
+): T | undefined {
+  if (!activeEstados || activeEstados.length === 0 || currentStateId === undefined) return undefined;
+  const currentIndex = activeEstados.findIndex((e) => e.id === currentStateId);
+  if (currentIndex > 0) {
+    return activeEstados[currentIndex - 1];
+  }
+  return undefined;
 }

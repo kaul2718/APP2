@@ -231,19 +231,16 @@ export class SeederService {
   }
 
   private async seedCatalogs() {
-    // 1. Estado de Órdenes
+    // 1. Estado de Órdenes (Catálogo definitivo oficial de 8 estados)
     const estadosOrden = [
       { nombre: 'Recepción', descripcion: 'Equipo recibido en recepción y registrado' },
       { nombre: 'Diagnóstico', descripcion: 'Equipo en evaluación y diagnóstico técnico' },
-      { nombre: 'Presupuestado', descripcion: 'Presupuesto emitido a la espera de autorización' },
-      { nombre: 'Aprobado', descripcion: 'Presupuesto aprobado por el cliente' },
-      { nombre: 'En Reparación', descripcion: 'Equipo en proceso de reparación técnica' },
-      { nombre: 'Esperando Repuesto', descripcion: 'En espera de repuestos o suministros' },
-      { nombre: 'Control de Calidad', descripcion: 'Pruebas finales y control de calidad' },
-      { nombre: 'Listo para Entrega', descripcion: 'Equipo listo para entrega al cliente' },
-      { nombre: 'Entregado', descripcion: 'Equipo entregado a satisfacción del cliente' },
-      { nombre: 'Archivados', descripcion: 'Orden archivada y cerrada' },
-      { nombre: 'Anulado', descripcion: 'Orden anulada' },
+      { nombre: 'Repuestos', descripcion: 'En espera o cotización de repuestos y suministros' },
+      { nombre: 'Aprobación', descripcion: 'Presupuesto y orden en proceso de aprobación por el cliente' },
+      { nombre: 'Reparación', descripcion: 'Equipo en proceso de reparación técnica' },
+      { nombre: 'Control', descripcion: 'Pruebas finales y control de calidad' },
+      { nombre: 'Entrega', descripcion: 'Equipo listo para entrega o entregado al cliente' },
+      { nombre: 'Archivados', descripcion: 'Orden archivada y finalizada' },
     ];
 
     for (const item of estadosOrden) {

@@ -123,8 +123,8 @@ function getStepIndexByState(estadoNombre: string = ''): number {
   const norm = estadoNombre.toLowerCase();
   if (norm.includes('recep') || norm.includes('ingreso')) return 0;
   if (norm.includes('diagn') || norm.includes('revis')) return 1;
-  if (norm.includes('aprob') || norm.includes('presupuesto')) return 2;
-  if (norm.includes('repar') || norm.includes('repuesto') || norm.includes('taller')) return 3;
+  if (norm.includes('repuesto') || norm.includes('aprob') || norm.includes('presupuesto')) return 2;
+  if (norm.includes('repar') || norm.includes('taller')) return 3;
   if (norm.includes('control') || norm.includes('prueba') || norm.includes('calidad')) return 4;
   if (norm.includes('entreg') || norm.includes('listo') || norm.includes('archiv')) return 5;
   return 0;

@@ -341,6 +341,87 @@ export class OrderService {
     return estado;
   }
 
+  /**
+   * Valida las transiciones de estado para Órdenes de Servicio en Hospital del Computador.
+   * Flujo funcional de 8 estados:
+   * Recepción -> Diagnóstico -> Repuestos -> Aprobación -> Reparación -> Control -> Entrega -> Archivados
+   *
+   * Impide saltos indebidos y regresiones arbitrarias, preservando flujos excepcionales legítimos.
+   */
+  public validarTransicionEstado(
+    estadoActual: EstadoOrden | null | undefined,
+    nuevoEstado: EstadoOrden,
+    usuario?: User | null
+  ): void {
+    if (!estadoActual || estadoActual.id === nuevoEstado.id) {
+      return;
+    }
+
+    const normalize = (name: string) =>
+      name ? name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() : '';
+
+    // Catálogo canónico de los 8 estados oficiales
+    const getCanonicalState = (name: string): string | null => {
+      const norm = normalize(name);
+      if (norm.includes('recep')) return 'recepcion';
+      if (norm.includes('diagn')) return 'diagnostico';
+      if (norm.includes('repuesto')) return 'repuestos';
+      if (norm.includes('aprob') || norm.includes('presupuest')) return 'aprobacion';
+      if (norm.includes('repar')) return 'reparacion';
+      if (norm.includes('control') || norm.includes('calidad')) return 'control';
+      if (norm.includes('entreg')) return 'entrega';
+      if (norm.includes('archiv')) return 'archivados';
+      return null;
+    };
+
+    const claveActual = getCanonicalState(estadoActual.nombre);
+    if (!claveActual) {
+      throw new BadRequestException(
+        `Estado actual no reconocido: "${estadoActual.nombre}" no pertenece al catálogo oficial de estados.`
+      );
+    }
+
+    const claveDestino = getCanonicalState(nuevoEstado.nombre);
+    if (!claveDestino) {
+      throw new BadRequestException(
+        `Estado destino no reconocido: "${nuevoEstado.nombre}" no pertenece al catálogo oficial de estados.`
+      );
+    }
+
+    if (claveActual === claveDestino) {
+      return; // Mismo estado canónico, no-op
+    }
+
+    const isAdmin = usuario?.userRoles?.some((ur: any) => ur.rol?.slug === 'admin') || false;
+    if (isAdmin) {
+      return; // El administrador tiene facultad de rectificación administrativa entre estados del catálogo oficial
+    }
+
+    if (claveActual === 'archivados') {
+      throw new BadRequestException('Una orden en estado Archivados está cerrada y no permite cambios de estado.');
+    }
+
+    // Mapa estricto de transiciones oficiales y flujos excepcionales verificados
+    const TRANSICIONES_PERMITIDAS: Record<string, string[]> = {
+      'recepcion': ['diagnostico'],
+      'diagnostico': ['repuestos', 'aprobacion', 'recepcion'],
+      'repuestos': ['aprobacion', 'diagnostico'],
+      'aprobacion': ['reparacion', 'control', 'entrega', 'repuestos', 'diagnostico'],
+      'reparacion': ['control', 'repuestos', 'diagnostico'],
+      'control': ['entrega', 'reparacion'],
+      'entrega': ['archivados', 'control'],
+    };
+
+    const destinosPermitidos = TRANSICIONES_PERMITIDAS[claveActual] || [];
+    const esValido = destinosPermitidos.includes(claveDestino);
+
+    if (!esValido) {
+      throw new BadRequestException(
+        `Transición de estado no permitida: no se puede cambiar de "${estadoActual.nombre}" a "${nuevoEstado.nombre}".`
+      );
+    }
+  }
+
   private async getDefaultEstadoOrden(): Promise<EstadoOrden> {
     // Intentamos encontrar el estado Recepción o su equivalente
     const qb = this.estadoOrdenRepository.createQueryBuilder("estado");
@@ -428,17 +509,22 @@ export class OrderService {
       throw new BadRequestException(`ID de orden debe ser un número positivo`);
     }
 
+    // SEGURIDAD: La identidad para autorización y trazabilidad proviene exclusivamente
+    // del usuario autenticado mediante JWT recibido desde el controlador.
+    // Se rechaza tajantemente el uso de updateDto.userId como fallback.
+    if (!userId || userId <= 0) {
+      throw new UnauthorizedException('Se requiere un usuario autenticado para actualizar la orden');
+    }
+
     const orden = await this.findOne(id, true);
     const cambiosHistorial: string[] = [];
 
-    // Validar usuario de cambio si viene en DTO o argumento
-    const effectiveUserId = updateDto.userId || userId;
-    let usuarioCambio: User | null = null;
-    if (effectiveUserId) {
-      usuarioCambio = await this.userRepository.findOneBy({ id: effectiveUserId });
-      if (!usuarioCambio) {
-        throw new NotFoundException(`Usuario con ID ${effectiveUserId} no encontrado`);
-      }
+    const usuarioCambio = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['userRoles', 'userRoles.rol'],
+    });
+    if (!usuarioCambio) {
+      throw new NotFoundException(`Usuario autenticado con ID ${userId} no encontrado`);
     }
 
     // 1. Control de Concurrencia Optimista (Escenario A)
@@ -630,6 +716,8 @@ export class OrderService {
       if (!usuarioCambio) {
         throw new BadRequestException('Se requiere un usuario válido para cambiar el estado');
       }
+
+      this.validarTransicionEstado(orden.estadoOrden, estadoOrden, usuarioCambio);
 
       const historialEstado = new HistorialEstadoOrden();
       historialEstado.orden = { id: orden.id } as Order;  // **solo ID, evitar problemas**
@@ -1142,7 +1230,8 @@ export class OrderService {
     }
 
     const usuario = await this.userRepository.findOne({
-      where: { id: userId }
+      where: { id: userId },
+      relations: ['userRoles', 'userRoles.rol'],
     });
 
     if (!usuario) {
@@ -1152,6 +1241,8 @@ export class OrderService {
     if (usuario.deletedAt) {
       throw new BadRequestException('El usuario ha sido eliminado');
     }
+
+    this.validarTransicionEstado(orden.estadoOrden, nuevoEstado, usuario);
 
     // Registrar en el historial
     const historial = new HistorialEstadoOrden();

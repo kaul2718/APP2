@@ -54,7 +54,7 @@ export class OrderController {
   ) {
     const parsedPage = page ? parseInt(page, 10) : 1;
     const parsedLimit = limit ? parseInt(limit, 10) : 10;
-    
+
     const result = await this.orderService.findAllPaginated(
       parsedPage,
       parsedLimit,
@@ -196,10 +196,8 @@ export class OrderController {
       throw new UnauthorizedException('Usuario no autenticado');
     }
 
-    return await this.orderService.update(parsedId, {
-      ...dto,
-      userId: user.sub || user.id
-    });
+    const authenticatedUserId = Number(user.sub || user.id);
+    return await this.orderService.update(parsedId, dto, authenticatedUserId);
   }
 
   @Auth('admin')
