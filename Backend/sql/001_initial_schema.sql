@@ -498,7 +498,7 @@ CREATE TABLE IF NOT EXISTS "configuracion_sistema" (
     "ruc" VARCHAR(13) NOT NULL DEFAULT '1792999999001',
     "telefono" VARCHAR(20) NOT NULL DEFAULT '022123456',
     "whatsapp" VARCHAR(25) NOT NULL DEFAULT '+593 96 962 0222',
-    "correoContacto" VARCHAR(100) NOT NULL DEFAULT 'soporte@hospitaldelcomputador.com',
+    "correoContacto" VARCHAR(100) NOT NULL DEFAULT 'soporte@elhospitaldelcomputador.com',
     "direccion" TEXT NOT NULL DEFAULT 'Quito, Pichincha, Ecuador',
     "ciudad" VARCHAR(100) NOT NULL DEFAULT 'Quito',
     "slogan" VARCHAR(200) NOT NULL DEFAULT 'Servicio Técnico Especializado en Computación, Laptops y Servidores',

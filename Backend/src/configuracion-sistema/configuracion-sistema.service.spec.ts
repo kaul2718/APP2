@@ -30,7 +30,7 @@ describe('ConfiguracionSistemaService', () => {
     ruc: '1792999999001',
     telefono: '022123456',
     whatsapp: '+593 96 962 0222',
-    correoContacto: 'soporte@hospitaldelcomputador.com',
+    correoContacto: 'soporte@elhospitaldelcomputador.com',
     direccion: 'Quito, Ecuador',
     ciudad: 'Quito',
     slogan: 'Servicio Técnico',

@@ -381,7 +381,7 @@ export class SeederService {
       nuevaConfig.ruc = '1792999999001';
       nuevaConfig.telefono = '032999999';
       nuevaConfig.whatsapp = '+593 96 962 0222';
-      nuevaConfig.correoContacto = 'soporte@hospitaldelcomputador.com';
+      nuevaConfig.correoContacto = 'soporte@elhospitaldelcomputador.com';
       nuevaConfig.direccion = 'Riobamba, Chimborazo, Ecuador';
       nuevaConfig.ciudad = 'Riobamba';
       nuevaConfig.slogan = 'Servicio Técnico Especializado en Computación, Laptops y Servidores';

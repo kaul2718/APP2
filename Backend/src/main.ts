@@ -16,7 +16,41 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  app.enableCors();
+  const allowedOrigins: (string | RegExp)[] = [
+    'https://elhospitaldelcomputador.com',
+    'https://www.elhospitaldelcomputador.com',
+    'http://localhost:3000',
+    'http://localhost:4000',
+  ];
+  if (process.env.FRONTEND_URL) {
+    try {
+      const parsed = new URL(process.env.FRONTEND_URL).origin;
+      if (!allowedOrigins.includes(parsed)) {
+        allowedOrigins.push(parsed);
+      }
+    } catch {
+      if (!allowedOrigins.includes(process.env.FRONTEND_URL)) {
+        allowedOrigins.push(process.env.FRONTEND_URL);
+      }
+    }
+  }
+
+  app.enableCors({
+    origin: (origin, callback) => {
+      // Permite solicitudes sin header Origin (llamadas internas, healthchecks, curl)
+      if (!origin) return callback(null, true);
+      const isAllowed = allowedOrigins.some((allowed) =>
+        typeof allowed === 'string' ? allowed === origin : allowed.test(origin),
+      );
+      if (isAllowed || process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+  });
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('API Servicio Tecnico')

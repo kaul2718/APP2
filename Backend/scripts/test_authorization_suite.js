@@ -61,7 +61,10 @@ async function runTestSuite() {
 
     // Buscar usuario staff/admin existente para witness de pruebas
     const adminUser = await dataSource.getRepository('User').findOne({
-      where: { correo: 'admin@hospitaldelcomputador.com' },
+      where: [
+        { correo: 'admin@elhospitaldelcomputador.com' },
+        { correo: 'admin@hospitaldelcomputador.com' },
+      ],
     }) || await dataSource.getRepository('User').findOne({
       where: { estado: true },
     });
@@ -196,10 +199,10 @@ async function runTestSuite() {
       telefono: '0994445566',
       direccion: 'Av. Amazonas 456',
       ciudad: 'Quito',
-      correo: 'maria.test.audit@hospitaldelcomputador.com',
+      correo: 'maria.test.audit@elhospitaldelcomputador.com',
       roleIds: [clienteRole.id],
     });
-    assert(clienteConCorreo && clienteConCorreo.correo === 'maria.test.audit@hospitaldelcomputador.com', 'Cliente con correo registrado preservando compatibilidad');
+    assert(clienteConCorreo && clienteConCorreo.correo === 'maria.test.audit@elhospitaldelcomputador.com', 'Cliente con correo registrado preservando compatibilidad');
 
     // -----------------------------------------------------------------
     // ESCENARIO 4: Creación de orden y generación de secreto de 128 bits

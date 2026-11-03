@@ -124,7 +124,7 @@ export class ReportsExportService {
     worksheet.getCell('C2').value = `RUC: ${config.ruc || '1792999999001'}  |  Telf: ${config.telefono || config.whatsapp || '0969620222'}`;
     worksheet.getCell('C2').font = { name: 'Arial', size: 9, color: { argb: 'FF64748B' } };
 
-    worksheet.getCell('C3').value = `Dirección: ${config.direccion || 'Riobamba, Ecuador'}  |  Email: ${config.correoContacto || 'soporte@hospitaldelcomputador.com'}`;
+    worksheet.getCell('C3').value = `Dirección: ${config.direccion || 'Riobamba, Ecuador'}  |  Email: ${config.correoContacto || 'soporte@elhospitaldelcomputador.com'}`;
     worksheet.getCell('C3').font = { name: 'Arial', size: 9, color: { argb: 'FF64748B' } };
 
     // 2. Metadatos del Reporte (Filas 5 a 7)

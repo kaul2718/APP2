@@ -55,7 +55,7 @@ services:
       DB_SYNCHRONIZE: "false"
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-2h}
-      FRONTEND_URL: ${FRONTEND_URL}
+      FRONTEND_URL: ${FRONTEND_URL:-https://elhospitaldelcomputador.com}
       # Integración de Correo (Brevo)
       BREVO_API_KEY: ${BREVO_API_KEY}
       BREVO_SENDER_EMAIL: ${BREVO_SENDER_EMAIL}
@@ -106,18 +106,18 @@ services:
       context: ./Frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL}
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-https://elhospitaldelcomputador.com/api/v1}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://elhospitaldelcomputador.com}
     container_name: hdc_frontend
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 4000
       INTERNAL_BACKEND_URL: http://backend:3000/api/v1
-      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://elhospitaldelcomputador.com}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL}
-      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+      NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-https://elhospitaldelcomputador.com/api/v1}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://elhospitaldelcomputador.com}
     depends_on:
       backend:
         condition: service_healthy
@@ -149,8 +149,8 @@ services:
       - "443:443"
       - "443:443/udp" # Soporte para HTTP/3 QUIC
     environment:
-      DOMAIN_NAME: ${DOMAIN_NAME:-localhost}
-      ACME_EMAIL: ${ACME_EMAIL:-admin@hospitaldelcomputador.com}
+      DOMAIN_NAME: ${DOMAIN_NAME:-elhospitaldelcomputador.com}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@elhospitaldelcomputador.com}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

@@ -35,7 +35,7 @@ export const DEFAULT_CONFIG: PublicLandingConfig = {
   slogan: 'Servicio Técnico Especializado en Computación, Laptops y Electrónica',
   telefono: '022123456',
   whatsapp: '0969620222',
-  correoContacto: 'soporte@hospitaldelcomputador.com',
+  correoContacto: 'soporte@elhospitaldelcomputador.com',
   direccion: 'Riobamba, Chimborazo, Ecuador',
   ciudad: 'Riobamba',
   logoUrl: '/images/logo/logo.svg',

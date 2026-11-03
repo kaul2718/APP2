@@ -50,7 +50,7 @@ export class ConfiguracionSistema {
   @Column({ type: 'varchar', length: 25, default: '+593 96 962 0222' })
   whatsapp: string;
 
-  @Column({ type: 'varchar', length: 100, default: 'soporte@hospitaldelcomputador.com' })
+  @Column({ type: 'varchar', length: 100, default: 'soporte@elhospitaldelcomputador.com' })
   correoContacto: string;
 
   @Column({ type: 'text', default: 'Quito, Pichincha, Ecuador' })

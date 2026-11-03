@@ -1,18 +1,24 @@
 # =========================================================================
 # Caddyfile - Reverse Proxy & Automatic SSL Configuration
-# Hospital del Computador
+# Hospital del Computador - Producción
+# Dominio Oficial: elhospitaldelcomputador.com
 # =========================================================================
 
 {
-    email {$ACME_EMAIL:admin@hospitaldelcomputador.com}
+    email {$ACME_EMAIL:admin@elhospitaldelcomputador.com}
     admin off
 }
 
-# Dominio público principal (o IP si aún no apunta el DNS)
-{$DOMAIN_NAME:localhost} {
+# 1. Redirección canónica permanente (301): www -> raíz
+www.{$DOMAIN_NAME:elhospitaldelcomputador.com} {
+    redir https://{$DOMAIN_NAME:elhospitaldelcomputador.com}{uri} permanent
+}
+
+# 2. Dominio principal con TLS automático (Let's Encrypt / ZeroSSL)
+{$DOMAIN_NAME:elhospitaldelcomputador.com} {
     encode gzip zstd
 
-    # Seguridad: Encabezados HTTP recomendados
+    # Seguridad: Encabezados HTTP estándar de producción
     header {
         X-Content-Type-Options "nosniff"
         X-Frame-Options "SAMEORIGIN"
@@ -21,7 +27,7 @@
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
     }
 
-    # API REST NestJS
+    # API REST NestJS (/api/v1/...)
     handle /api/* {
         reverse_proxy backend:3000 {
             header_up Host {upstream_hostport}
@@ -31,7 +37,7 @@
         }
     }
 
-    # WebSockets de Socket.IO
+    # WebSockets de Socket.IO (/socket.io/...)
     handle /socket.io/* {
         reverse_proxy backend:3000 {
             header_up Host {upstream_hostport}
@@ -41,7 +47,7 @@
         }
     }
 
-    # Frontend Next.js (Rutas, páginas, estáticos)
+    # Frontend Next.js (Rutas públicas, dashboard, auth, static assets)
     handle {
         reverse_proxy frontend:4000 {
             header_up Host {upstream_hostport}
@@ -51,4 +57,3 @@
         }
     }
 }
-

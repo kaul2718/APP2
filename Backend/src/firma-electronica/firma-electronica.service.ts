@@ -279,7 +279,7 @@ export class FirmaElectronicaService {
       pdflibAddPlaceholder({
         pdfDoc,
         reason: razon,
-        contactInfo: 'gerencia@hospitaldelcomputador.com',
+        contactInfo: 'gerencia@elhospitaldelcomputador.com',
         name: config.titularNombre || 'Hospital del Computador',
         location: location,
         signatureLength: 8192,
