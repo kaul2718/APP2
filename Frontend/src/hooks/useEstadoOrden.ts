@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useCrud } from "@/hooks/useCrud";
 import { apiRequest } from "@/lib/api";
+import { fetchCompleteEstadoOrdenCatalog } from "@/utils/orderStatusUtils";
 
 export interface EstadoOrden {
   id: number;
@@ -29,8 +30,16 @@ interface UpdateEstadoOrdenDto {
   estado?: boolean;
 }
 
-export function useEstadoOrden() {
+export interface UseEstadoOrdenOptions {
+  defaultLimit?: number;
+  paginated?: boolean;
+}
+
+export function useEstadoOrden(options: UseEstadoOrdenOptions = {}) {
   const { data: session, status } = useSession();
+  const isPaginatedMode = options.paginated === true;
+  const defaultLimit = options.defaultLimit || 10;
+
   const {
     items: estadosOrden,
     loading,
@@ -49,7 +58,7 @@ export function useEstadoOrden() {
     setSearchTerm,
     setShowInactive,
   } = useCrud<EstadoOrden, CreateEstadoOrdenDto, UpdateEstadoOrdenDto>('/estados-orden', {
-    defaultLimit: 10,
+    defaultLimit,
     listPath: '/estados-orden/all',
     messages: {
       created: 'Estado de orden creado exitosamente',
@@ -67,7 +76,44 @@ export function useEstadoOrden() {
     },
   });
 
-  const fetchEstadosOrden = fetchItems;
+  const loadCompleteCatalog = useCallback(
+    async (includeInactive: boolean = false): Promise<EstadoOrden[]> => {
+      if (!session?.accessToken) return [];
+      try {
+        const fullList = await fetchCompleteEstadoOrdenCatalog(session, includeInactive);
+        if (Array.isArray(fullList) && fullList.length > 0) {
+          setEstadosOrden(fullList);
+        }
+        return fullList;
+      } catch (error) {
+        console.error("Error al cargar catálogo completo de estados de orden:", error);
+        return [];
+      }
+    },
+    [session, setEstadosOrden]
+  );
+
+  const fetchEstadosOrden = useCallback(
+    async (
+      page?: number,
+      limit?: number,
+      search?: string,
+      includeInactive?: boolean,
+      extraFilters?: Record<string, string | number | boolean | undefined | null>,
+      listPathOverride?: string,
+    ) => {
+      // Si no se especifica paginación ni búsqueda y no está forzado el modo paginado,
+      // cargamos el catálogo completo.
+      if (page === undefined && limit === undefined && !search && !isPaginatedMode) {
+        await loadCompleteCatalog(includeInactive ?? showInactive);
+        return;
+      }
+
+      await fetchItems(page, limit, search, includeInactive, extraFilters, listPathOverride);
+    },
+    [fetchItems, isPaginatedMode, loadCompleteCatalog, showInactive]
+  );
+
   const createEstadoOrden = createItem;
   const updateEstadoOrden = updateItem;
   const toggleEstadoOrdenStatus = toggleItemStatus;
@@ -88,9 +134,13 @@ export function useEstadoOrden() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      fetchEstadosOrden(1, 10, searchTerm, showInactive);
+      if (isPaginatedMode || searchTerm) {
+        fetchItems(1, defaultLimit, searchTerm, showInactive);
+      } else {
+        loadCompleteCatalog(showInactive);
+      }
     }
-  }, [status, session, searchTerm, showInactive]);
+  }, [status, session, searchTerm, showInactive, isPaginatedMode, defaultLimit, fetchItems, loadCompleteCatalog]);
 
   return {
     estadosOrden,
@@ -101,6 +151,7 @@ export function useEstadoOrden() {
     searchTerm,
     showInactive,
     fetchEstadosOrden,
+    loadCompleteCatalog,
     createEstadoOrden,
     updateEstadoOrden,
     toggleEstadoOrdenStatus,

@@ -25,6 +25,7 @@ import GenerarPdfEntregaModal from "@/components/modals/GenerarPdfEntregaModal";
 import GenerarPdfIngresoModal from "@/components/modals/GenerarPdfIngresoModal";
 
 import StateTabsBar from "./StateTabsBar";
+import { sortEstadosOrden, resolveActiveTabId } from "@/utils/orderStatusUtils";
 import OrdenCard from "./OrdenCard";
 import Pagination from "@/components/tables/Pagination";
 import { 
@@ -107,37 +108,20 @@ export default function OrdenListLayout() {
   const canDeleteOrders = hasPermission("orders.delete");
   
   const sortedEstadosOrden = React.useMemo(() => {
-    const normalizeString = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    const STATUS_ORDER = [
-      "recepcion", 
-      "diagnostico", 
-      "repuestos", 
-      "aprobacion", 
-      "reparacion", 
-      "control", 
-      "entrega", 
-      "archivados"
-    ];
-    return [...estadosOrden].sort((a, b) => {
-      const aIdx = STATUS_ORDER.indexOf(normalizeString(a.nombre));
-      const bIdx = STATUS_ORDER.indexOf(normalizeString(b.nombre));
-      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
-      if (aIdx !== -1) return -1;
-      if (bIdx !== -1) return 1;
-      return a.nombre.localeCompare(b.nombre);
-    });
+    return sortEstadosOrden(estadosOrden);
   }, [estadosOrden]);
 
   React.useEffect(() => {
-    if (sortedEstadosOrden.length > 0 && estadoOrdenId === undefined) {
-      const savedTab = sessionStorage.getItem('lastActiveTab');
-      const activeEstados = sortedEstadosOrden.filter(e => e.estado);
-      
-      if (savedTab && activeEstados.some(e => e.id === Number(savedTab))) {
-        setEstadoOrdenId(Number(savedTab));
-      } else if (activeEstados.length > 0) {
-        setEstadoOrdenId(activeEstados[0].id);
-      }
+    if (sortedEstadosOrden.length === 0) return;
+
+    const activeEstados = sortedEstadosOrden.filter((e) => e.estado);
+    if (activeEstados.length === 0) return;
+
+    const savedTab = typeof window !== 'undefined' ? sessionStorage.getItem('lastActiveTab') : null;
+    const resolvedId = resolveActiveTabId(estadoOrdenId, activeEstados, savedTab);
+
+    if (resolvedId !== undefined && resolvedId !== estadoOrdenId) {
+      setEstadoOrdenId(resolvedId);
     }
   }, [sortedEstadosOrden, estadoOrdenId, setEstadoOrdenId]);
 

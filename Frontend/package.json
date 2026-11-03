@@ -6,7 +6,8 @@
     "dev": "cross-env PORT=4000 next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --test src/__tests__/orderStatusCatalog.test.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
