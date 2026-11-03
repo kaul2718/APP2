@@ -55,14 +55,18 @@ export class ParteService {
     const categoria = await this.categoriaRepository.findOne({ where: { id: createDto.categoriaId } });
     if (!categoria) throw new NotFoundException('Categoría no encontrada');
 
-    const marca = await this.marcaRepository.findOne({ where: { id: createDto.marcaId } });
-    if (!marca) throw new NotFoundException('Marca no encontrada');
+    let marca: Marca | null = null;
+    if (createDto.marcaId && createDto.marcaId > 0) {
+      marca = await this.marcaRepository.findOne({ where: { id: createDto.marcaId } });
+      if (!marca) throw new NotFoundException('Marca no encontrada');
+    }
 
     // 4. Mapeo y Creación
     const nuevo = this.parteRepository.create({
       ...createDto,
       categoria,
-      marca,
+      marca: marca || undefined,
+      marcaId: marca ? marca.id : undefined,
     });
 
     const parteGuardada = await this.parteRepository.save(nuevo);
