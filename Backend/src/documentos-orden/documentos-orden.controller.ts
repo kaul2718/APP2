@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Param,
+  Query,
   Body,
   ParseIntPipe,
   Req,
@@ -97,7 +98,9 @@ export class DocumentosOrdenController {
   async getPdfPreview(
     @Param('id', ParseIntPipe) orderId: number,
     @Param('tipo') tipo: string,
+    @Query('tokenActivacion') tokenActivacion: string | undefined,
     @CurrentUser() user: any,
+    @Req() req: Request,
     @Res() res: Response,
   ) {
     const isClient = user?.role === 'client' || user?.role === 'cliente';
@@ -113,16 +116,28 @@ export class DocumentosOrdenController {
       throw new BadRequestException(`Tipo de documento inválido: ${tipo}`);
     }
     const operadorId = user?.sub || user?.id || 1;
+
+    // Priorizar header HTTP seguro x-token-activacion (evita logs de URLs, referer y almacenamiento en historial)
+    const headerToken = (req.headers['x-token-activacion'] as string) || undefined;
+    const tokenProvisto = headerToken || tokenActivacion;
+
+    // Solo personal autorizado (no cliente) puede suministrar token de activación efímero para previsualizar/imprimir
+    const effectiveToken = isClient ? undefined : tokenProvisto;
     const pdfBuffer = await this.documentosService.obtenerPdfBuffer(
       orderId,
       tipoEnum,
       operadorId,
+      effectiveToken,
     );
 
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="ODS_${orderId}_${tipoEnum}.pdf"`,
       'Content-Length': pdfBuffer.length,
+      'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Referrer-Policy': 'no-referrer',
     });
     res.end(pdfBuffer);
   }

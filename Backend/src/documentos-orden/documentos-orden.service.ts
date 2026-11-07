@@ -14,6 +14,7 @@ import {
 import { FirmarDocumentoDto } from './dto/firmar-documento.dto';
 import { Order } from '../orders/entities/order.entity';
 import { User } from '../users/entities/user.entity';
+import { ActivacionCuenta } from '../auth/entities/activacion-cuenta.entity';
 import { StorageService } from '../storage/storage.service';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import * as crypto from 'crypto';
@@ -143,6 +144,8 @@ export class DocumentosOrdenService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(ActivacionCuenta)
+    private readonly activacionRepository: Repository<ActivacionCuenta>,
     private readonly storageService: StorageService,
     private readonly firmaElectronicaService: FirmaElectronicaService,
     private readonly configuracionSistemaService: ConfiguracionSistemaService,
@@ -225,6 +228,7 @@ export class DocumentosOrdenService {
     orderId: number,
     tipo: TipoDocumentoOrden,
     operadorId: number,
+    tokenActivacion?: string,
   ): Promise<Buffer> {
     const orden = await this.orderRepository.findOne({
       where: { id: orderId },
@@ -271,6 +275,7 @@ export class DocumentosOrdenService {
       firmanteNombre: clienteNombre,
       firmanteIdentificacion: clienteCedula,
       estadoFirma: EstadoFirmaDocumento.PENDIENTE,
+      tokenActivacion,
     };
 
     const operador =
@@ -316,6 +321,21 @@ export class DocumentosOrdenService {
     });
     if (!operador) {
       throw new NotFoundException(`Usuario operador #${operadorId} no encontrado.`);
+    }
+
+    // Prevenir sobrescritura accidental de un documento ya firmado y sellado en R2
+    const docExistente = await this.documentoRepository.findOne({
+      where: { ordenId: orderId, tipoDocumento: dto.tipoDocumento },
+      order: { fechaFirma: 'DESC' },
+    });
+
+    if (
+      docExistente?.storageKeyPdf &&
+      docExistente.estadoFirma === EstadoFirmaDocumento.FIRMADO
+    ) {
+      throw new BadRequestException(
+        `El acta de ${dto.tipoDocumento} para la ODS #${orden.workOrderNumber} ya fue firmada y sellada previamente. No se puede reemplazar un documento oficial existente.`,
+      );
     }
 
     const isFirmado =
@@ -1381,22 +1401,60 @@ export class DocumentosOrdenService {
       let qrTitle: string;
       let qrDesc: string;
 
-      const tokenActivacion =
+      const rawToken =
         (dto as any)?.tokenActivacion ||
         (orden as any)?.tokenActivacion ||
         (orden as any)?.activacion?.token;
 
-      if (!tienePassword && tokenActivacion && typeof tokenActivacion === 'string' && tokenActivacion.trim() !== '') {
-        // Cliente nuevo / pendiente de activación con token válido recién generado
-        qrUrl = `${frontendUrl}/activar-cuenta?token=${encodeURIComponent(tokenActivacion.trim())}`;
-        qrTitle = 'ACTIVAR CUENTA';
-        qrDesc = 'Cree su clave personal (48h)';
-      } else {
-        // Cliente con cuenta ya activada O reimpresión sin token activo
-        // Nunca revelar tokens antiguos si la cuenta ya está activada
+      if (tienePassword) {
+        // ✅ Caso 1: Cliente con cuenta ya activada
+        // Siempre dirigir a /signin para autenticarse con su cédula y contraseña personal
         qrUrl = `${frontendUrl}/signin`;
         qrTitle = 'CONSULTA DIGITAL';
-        qrDesc = 'Ingrese con su cédula a /signin';
+        qrDesc = 'Ingrese con su cédula y contraseña';
+      } else {
+        // ✅ Caso 2: Cliente con cuenta pendiente de activación (password IS NULL)
+        let tokenValido = false;
+
+        if (rawToken && typeof rawToken === 'string' && rawToken.trim() !== '' && clientId) {
+          const tokenHash = crypto
+            .createHash('sha256')
+            .update(rawToken.trim())
+            .digest('hex');
+
+          const actRegistro = await this.activacionRepository.findOne({
+            where: {
+              tokenHash,
+              usuarioId: clientId,
+            },
+          });
+
+          if (
+            actRegistro &&
+            !actRegistro.usedAt &&
+            !actRegistro.revokedAt &&
+            new Date() < new Date(actRegistro.expiresAt)
+          ) {
+            tokenValido = true;
+          } else {
+            this.logger.warn(
+              `Token de activación provisto para ODS #${orden.workOrderNumber} no es válido, expiró o está revocado. Se omitirá del PDF.`,
+            );
+          }
+        }
+
+        if (tokenValido) {
+          // Emisión inicial o autorizada con token efímero vigente
+          qrUrl = `${frontendUrl}/activar-cuenta?token=${encodeURIComponent(rawToken.trim())}`;
+          qrTitle = 'ACTIVAR CUENTA';
+          qrDesc = 'Cree su clave personal (48h)';
+        } else {
+          // Reimpresión posterior sin token efímero o token no utilizable.
+          // NUNCA mostrar QR de login (/signin) para una cuenta que no tiene contraseña.
+          qrUrl = `${frontendUrl}/activar-cuenta`;
+          qrTitle = 'CUENTA PENDIENTE';
+          qrDesc = 'Solicite activación en recepción';
+        }
       }
 
       const qrPngBuffer = await QRCode.toBuffer(qrUrl, {

@@ -1537,6 +1537,7 @@ export default function PerfilOrdenPage() {
           isOpen={Boolean(invitacionGenerada)}
           onClose={() => setInvitacionGenerada(null)}
           order={{
+            ...order,
             id: order?.id || 0,
             workOrderNumber: order?.workOrderNumber || '',
             client: order?.client,
@@ -1548,6 +1549,20 @@ export default function PerfilOrdenPage() {
               qrDataUrl: invitacionGenerada.qrDataUrl,
               expiresAt: invitacionGenerada.expiresAt,
             },
+          }}
+          onOpenPdfModal={() => {
+            const token = invitacionGenerada.token;
+            setOrder((prev: any) =>
+              prev
+                ? {
+                    ...prev,
+                    tokenActivacion: token,
+                    activacion: invitacionGenerada,
+                  }
+                : prev,
+            );
+            setInvitacionGenerada(null);
+            setIsPdfIngresoOpen(true);
           }}
           onFinalize={() => setInvitacionGenerada(null)}
         />

@@ -171,33 +171,68 @@ export default function ActivarCuentaComponent() {
     );
   }
 
-  // Estado 2: Token inválido o expirado
+  // Estado 2: Token inválido, expirado, consumido o no provisto
   if (!tokenValido && !exito) {
+    const isSinToken = !token || tokenMensaje.includes("No se proporcionó");
+    const isUtilizada = tokenMensaje.toLowerCase().includes("utilizada");
+    const isExpirada = tokenMensaje.toLowerCase().includes("expirad");
+    const isRevocada = tokenMensaje.toLowerCase().includes("cancelada") || tokenMensaje.toLowerCase().includes("sustituida");
+
+    let tituloEstado = "Credencial no válida";
+    let descEstado = tokenMensaje || "La credencial de activación no es válida o ha caducado.";
+    let ayudaEstado = "Por motivos de seguridad, los códigos QR y enlaces de activación se emiten de forma segura en Hospital del Computador.";
+
+    if (isSinToken) {
+      tituloEstado = "Enlace de activación requerido";
+      descEstado = "Para activar tu cuenta y configurar tu contraseña personal se requiere el enlace único o código QR generado en recepción al ingresar tu equipo.";
+      ayudaEstado = "Si acabas de registrar un equipo, solicita en recepción escanear el código QR del mostrador o recibir el enlace directo por WhatsApp.";
+    } else if (isUtilizada) {
+      tituloEstado = "Esta invitación ya fue utilizada";
+      descEstado = "La contraseña personal para esta cuenta ya fue establecida previamente. No es necesario volver a activar tu cuenta.";
+      ayudaEstado = "Ya puedes ingresar directamente con tu número de cédula y tu contraseña personal para consultar tus órdenes y autorizar presupuestos.";
+    } else if (isExpirada) {
+      tituloEstado = "Invitación de activación expirada";
+      descEstado = "Por seguridad, las invitaciones de activación tienen una vigencia de 48 horas y esta credencial ha concluido su plazo.";
+      ayudaEstado = "Puedes acercarte a recepción o contactar a soporte para que emitan una nueva invitación de activación a tu número de cédula.";
+    } else if (isRevocada) {
+      tituloEstado = "Invitación sustituida o revocada";
+      descEstado = "Esta invitación fue cancelada debido a que se emitió un nuevo código QR o enlace más reciente para tu cuenta.";
+      ayudaEstado = "Por favor abre el código QR o enlace más reciente que recibiste de recepción.";
+    }
+
     return (
       <div className="flex flex-col flex-1 lg:w-1/2 w-full p-6 sm:p-12 justify-center">
         <div className="w-full max-w-md mx-auto space-y-6">
-          <div className="p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-center space-y-3">
-            <div className="inline-flex p-2.5 rounded-full bg-red-100 dark:bg-red-800/40 text-red-600 dark:text-red-400">
+          <div className={`p-5 rounded-2xl border text-center space-y-3 ${
+            isUtilizada
+              ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
+              : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+          }`}>
+            <div className={`inline-flex p-2.5 rounded-full ${
+              isUtilizada
+                ? "bg-amber-100 dark:bg-amber-800/40 text-amber-600 dark:text-amber-400"
+                : "bg-red-100 dark:bg-red-800/40 text-red-600 dark:text-red-400"
+            }`}>
               <ExclamationCircleIcon className="w-8 h-8" />
             </div>
-            <h2 className="text-lg font-bold text-red-700 dark:text-red-400">
-              Credencial no válida o expirada
+            <h2 className={`text-lg font-bold ${
+              isUtilizada
+                ? "text-amber-800 dark:text-amber-300"
+                : "text-red-700 dark:text-red-400"
+            }`}>
+              {tituloEstado}
             </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {tokenMensaje ||
-                "Este enlace o código QR de activación ya fue utilizado o su vigencia de 15 minutos ha concluido."}
+            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+              {descEstado}
             </p>
           </div>
 
           <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-400 space-y-2">
             <p className="font-semibold text-gray-800 dark:text-gray-200">
-              ¿Cómo obtener un nuevo código?
+              ¿Qué debes hacer?
             </p>
-            <p>
-              Por motivos de seguridad, los códigos QR de activación se emiten únicamente de forma presencial tras verificar tu cédula de identidad en Hospital del Computador.
-            </p>
-            <p>
-              Solicita a la recepcionista generar un nuevo código QR de activación.
+            <p className="leading-relaxed">
+              {ayudaEstado}
             </p>
           </div>
 
@@ -206,7 +241,7 @@ export default function ActivarCuentaComponent() {
               href="/signin"
               className="w-full py-2.5 px-4 text-center rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-medium text-sm transition-colors shadow-sm"
             >
-              Ir a Iniciar Sesión
+              {isUtilizada ? "Iniciar Sesión con mi Cédula" : "Ir a Iniciar Sesión"}
             </Link>
             <Link
               href="/consulta"

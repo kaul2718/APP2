@@ -63,16 +63,26 @@ export default function GenerarPdfIngresoModal({
 
   // Carga el PDF oficial desde el backend (R2 o en memoria si aún es borrador)
   const loadPdf = React.useCallback(
-    async (targetOrderId: number) => {
+    async (targetOrderId: number, customToken?: string) => {
       try {
         setPdfLoading(true);
+        const tokenAct =
+          customToken ||
+          (order as any)?.tokenActivacion ||
+          (order as any)?.activacion?.token ||
+          (initialOrder as any)?.tokenActivacion ||
+          (initialOrder as any)?.activacion?.token;
+
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${session?.accessToken}`,
+        };
+        if (tokenAct) {
+          headers['x-token-activacion'] = tokenAct;
+        }
+
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_BACKEND_URL}/orders/${targetOrderId}/documentos/preview/RECEPCION`,
-          {
-            headers: {
-              Authorization: `Bearer ${session?.accessToken}`,
-            },
-          },
+          { headers },
         );
         if (res.ok) {
           const blob = await res.blob();
@@ -88,7 +98,7 @@ export default function GenerarPdfIngresoModal({
         setPdfLoading(false);
       }
     },
-    [session?.accessToken],
+    [session?.accessToken, order, initialOrder],
   );
 
   // Carga inicial al abrir el modal
@@ -99,7 +109,10 @@ export default function GenerarPdfIngresoModal({
       setOrder(initialOrder);
       setLoadingOrder(false);
       fetchSignedDoc(initialOrder.id);
-      loadPdf(initialOrder.id);
+      const token =
+        (initialOrder as any)?.tokenActivacion ||
+        (initialOrder as any)?.activacion?.token;
+      loadPdf(initialOrder.id, token);
     } else if (orderId) {
       const fetchOrder = async () => {
         try {

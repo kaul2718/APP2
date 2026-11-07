@@ -56,6 +56,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-2h}
       FRONTEND_URL: ${FRONTEND_URL:-https://elhospitaldelcomputador.com}
+      ACTIVACION_EXPIRATION_HOURS: ${ACTIVACION_EXPIRATION_HOURS:-48}
       # Integración de Correo (Brevo)
       BREVO_API_KEY: ${BREVO_API_KEY}
       BREVO_SENDER_EMAIL: ${BREVO_SENDER_EMAIL}

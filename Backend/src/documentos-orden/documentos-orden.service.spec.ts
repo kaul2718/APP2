@@ -5,6 +5,7 @@ import { DocumentosOrdenService } from './documentos-orden.service';
 import { DocumentoOrden, TipoDocumentoOrden } from './entities/documento-orden.entity';
 import { Order } from '../orders/entities/order.entity';
 import { User } from '../users/entities/user.entity';
+import { ActivacionCuenta } from '../auth/entities/activacion-cuenta.entity';
 import { StorageService } from '../storage/storage.service';
 import { FirmaElectronicaService } from '../firma-electronica/firma-electronica.service';
 import { ConfiguracionSistemaService } from '../configuracion-sistema/configuracion-sistema.service';
@@ -23,6 +24,10 @@ describe('DocumentosOrdenService - Generación de PDF y Word-Wrap', () => {
   };
 
   const mockUserRepo = {
+    findOne: jest.fn(),
+  };
+
+  const mockActivacionRepo = {
     findOne: jest.fn(),
   };
 
@@ -61,6 +66,10 @@ describe('DocumentosOrdenService - Generación de PDF y Word-Wrap', () => {
         {
           provide: getRepositoryToken(User),
           useValue: mockUserRepo,
+        },
+        {
+          provide: getRepositoryToken(ActivacionCuenta),
+          useValue: mockActivacionRepo,
         },
         {
           provide: StorageService,
@@ -253,6 +262,13 @@ describe('DocumentosOrdenService - Generación de PDF y Word-Wrap', () => {
         id: 77,
         password: null,
       });
+      mockActivacionRepo.findOne.mockResolvedValueOnce({
+        id: 1,
+        usuarioId: 77,
+        usedAt: null,
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 86400000),
+      });
 
       const qrSpy = jest.spyOn(QRCode, 'toBuffer');
 
@@ -305,7 +321,7 @@ describe('DocumentosOrdenService - Generación de PDF y Word-Wrap', () => {
       expect(lastCallUrl).not.toContain('token_que_no_debe_usarse');
     });
 
-    it('debe generar QR a /signin en reimpresión de comprobante histórico si no hay token efímero activo', async () => {
+    it('debe generar QR de cuenta pendiente (sin dirigir engañosamente a /signin) en reimpresión sin token efímero', async () => {
       // Cliente sin contraseña pero en reimpresión histórica sin token activo
       mockUserRepo.findOne.mockResolvedValueOnce({
         id: 77,
@@ -329,8 +345,111 @@ describe('DocumentosOrdenService - Generación de PDF y Word-Wrap', () => {
 
       expect(pdfBytes).toBeDefined();
       const lastCallUrl = qrSpy.mock.calls[qrSpy.mock.calls.length - 1][0];
-      expect(lastCallUrl).toContain('/signin');
-      expect(lastCallUrl).not.toContain('/activar-cuenta');
+      expect(lastCallUrl).toContain('/activar-cuenta');
+      expect(lastCallUrl).not.toContain('/signin');
+    });
+
+    it('debe descartar un token caducado o revocado y mostrar QR de cuenta pendiente', async () => {
+      mockUserRepo.findOne.mockResolvedValueOnce({
+        id: 77,
+        password: null,
+      });
+      mockActivacionRepo.findOne.mockResolvedValueOnce({
+        id: 1,
+        usuarioId: 77,
+        usedAt: new Date(),
+        revokedAt: null,
+        expiresAt: new Date(Date.now() - 3600000),
+      });
+
+      const qrSpy = jest.spyOn(QRCode, 'toBuffer');
+      const dto: any = {
+        tipoDocumento: TipoDocumentoOrden.RECEPCION,
+        firmanteNombre: 'GEOVANY SALAZAR',
+        firmanteIdentificacion: '0103644480',
+        tokenActivacion: 'token_caducado_123',
+      };
+
+      const pdfBytes = await (service as any).generarPdfCanonico(
+        ordenBase,
+        dto,
+        operador,
+        null,
+      );
+
+      expect(pdfBytes).toBeDefined();
+      const lastCallUrl = qrSpy.mock.calls[qrSpy.mock.calls.length - 1][0];
+      expect(lastCallUrl).toContain('/activar-cuenta');
+      expect(lastCallUrl).not.toContain('token_caducado_123');
+    });
+
+    it('debe rechazar un token válido que pertenezca a otro cliente distinto al de la orden', async () => {
+      // Orden pertenece a cliente 77
+      mockUserRepo.findOne.mockResolvedValueOnce({
+        id: 77,
+        password: null,
+      });
+      // En la base de datos se busca con usuarioId: 77, pero el token pertenece a usuario 99 -> no coincide
+      mockActivacionRepo.findOne.mockResolvedValueOnce(null);
+
+      const qrSpy = jest.spyOn(QRCode, 'toBuffer');
+      const dto: any = {
+        tipoDocumento: TipoDocumentoOrden.RECEPCION,
+        firmanteNombre: 'GEOVANY SALAZAR',
+        firmanteIdentificacion: '0103644480',
+        tokenActivacion: 'token_de_otro_usuario_9999',
+      };
+
+      const pdfBytes = await (service as any).generarPdfCanonico(
+        ordenBase,
+        dto,
+        operador,
+        null,
+      );
+
+      expect(pdfBytes).toBeDefined();
+      const lastCallUrl = qrSpy.mock.calls[qrSpy.mock.calls.length - 1][0];
+      expect(lastCallUrl).toContain('/activar-cuenta');
+      expect(lastCallUrl).not.toContain('token_de_otro_usuario_9999');
+    });
+
+    it('debe retornar el PDF firmado de R2 sin alterarlo si ya existe firmado', async () => {
+      mockOrderRepo.findOne.mockResolvedValueOnce(ordenBase);
+      mockDocumentoRepo.findOne.mockResolvedValueOnce({
+        id: 10,
+        ordenId: 1,
+        tipoDocumento: TipoDocumentoOrden.RECEPCION,
+        storageKeyPdf: 'ordenes/ODS-00001/documentos/acta_recepcion_firmada.pdf',
+        estadoFirma: 'FIRMADO',
+      });
+
+      const pdfR2Mock = Buffer.from('%PDF-1.4 mock R2 signed pdf content');
+      mockStorageService.getFileBuffer.mockResolvedValueOnce(pdfR2Mock);
+
+      const result = await service.obtenerPdfBuffer(1, TipoDocumentoOrden.RECEPCION, 1, 'token_que_debe_ignorarse');
+      expect(result).toEqual(pdfR2Mock);
+      expect(mockStorageService.getFileBuffer).toHaveBeenCalledWith('ordenes/ODS-00001/documentos/acta_recepcion_firmada.pdf');
+    });
+
+    it('debe impedir sobrescribir un documento de recepción que ya fue firmado y sellado', async () => {
+      mockOrderRepo.findOne.mockResolvedValueOnce(ordenBase);
+      mockUserRepo.findOne.mockResolvedValueOnce(operador);
+      mockDocumentoRepo.findOne.mockResolvedValueOnce({
+        id: 10,
+        ordenId: 1,
+        tipoDocumento: TipoDocumentoOrden.RECEPCION,
+        storageKeyPdf: 'ordenes/ODS-00001/documentos/acta_recepcion_firmada.pdf',
+        estadoFirma: 'FIRMADO',
+      });
+
+      const dto: any = {
+        tipoDocumento: TipoDocumentoOrden.RECEPCION,
+        firmanteNombre: 'GEOVANY SALAZAR',
+        firmanteIdentificacion: '0103644480',
+        firmaBase64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      };
+
+      await expect(service.registrarFirma(1, dto, 1)).rejects.toThrow('ya fue firmada y sellada previamente');
     });
   });
   });

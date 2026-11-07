@@ -227,6 +227,7 @@ export default function TabletSignatureModal({
         estadoFirma: clienteRechazaFirma ? 'RECHAZADO_CLIENTE' : 'FIRMADO',
         motivoSinFirma: clienteRechazaFirma ? motivoSinFirma.trim() : undefined,
         tokenAccesoRaw: (order as any)?.tokenAccesoRaw,
+        tokenActivacion: (order as any)?.tokenActivacion || (order as any)?.activacion?.token,
       };
 
       const res = await fetch(

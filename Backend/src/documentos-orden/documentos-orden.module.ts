@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { DocumentoOrden } from './entities/documento-orden.entity';
 import { Order } from '../orders/entities/order.entity';
 import { User } from '../users/entities/user.entity';
+import { ActivacionCuenta } from '../auth/entities/activacion-cuenta.entity';
 import { DocumentosOrdenService } from './documentos-orden.service';
 import { DocumentosOrdenController } from './documentos-orden.controller';
 import { StorageModule } from '../storage/storage.module';
@@ -11,7 +12,7 @@ import { ConfiguracionSistemaModule } from '../configuracion-sistema/configuraci
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([DocumentoOrden, Order, User]),
+    TypeOrmModule.forFeature([DocumentoOrden, Order, User, ActivacionCuenta]),
     StorageModule,
     FirmaElectronicaModule,
     ConfiguracionSistemaModule,
