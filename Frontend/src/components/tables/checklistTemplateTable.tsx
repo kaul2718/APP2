@@ -2,21 +2,33 @@
 
 import React, { useState } from "react";
 import { useChecklistTemplate } from "@/hooks/useChecklistTemplate";
-import { TrashIcon, PencilSquareIcon, DocumentTextIcon, Squares2X2Icon, TagIcon } from "@heroicons/react/24/outline";
-import type { ChecklistTemplate } from "@/types/checklist.types";
+import {
+    TrashIcon,
+    PencilSquareIcon,
+    EyeIcon,
+    DocumentTextIcon,
+    TagIcon,
+    CheckCircleIcon,
+    XCircleIcon,
+    ArrowPathRoundedSquareIcon,
+} from "@heroicons/react/24/outline";
+import { ChecklistTemplate, normalizeTemplateItems } from "@/types/checklist.types";
 import ConfirmDialog from "@/components/modals/ConfirmDialog";
+import VerChecklistTemplateModal from "@/components/modals/VerChecklistTemplateModal";
 import { usePermissions } from "@/hooks/usePermissions";
 import { DataTable, ColumnDef, ActionDef } from "./DataTable";
 
 interface Props {
     onEdit: (template: ChecklistTemplate) => void;
+    onRefreshStats?: () => void;
 }
 
-export default function ChecklistTemplateTable({ onEdit }: Props) {
+export default function ChecklistTemplateTable({ onEdit, onRefreshStats }: Props) {
     const { 
         templates, 
         loading, 
         deleteTemplate,
+        toggleTemplateStatus,
         totalPages,
         totalItems,
         currentPage,
@@ -28,15 +40,26 @@ export default function ChecklistTemplateTable({ onEdit }: Props) {
     } = useChecklistTemplate();
     const { hasPermission } = usePermissions();
     const [confirmDeleteId, setConfirmDeleteId] = useState<{ id: number, nombre: string } | null>(null);
+    const [viewingTemplate, setViewingTemplate] = useState<ChecklistTemplate | null>(null);
 
     const handleConfirmDelete = (id: number, nombre: string) => {
         setConfirmDeleteId({ id, nombre });
     };
 
-    const executeDelete = () => {
+    const executeDelete = async () => {
         if (confirmDeleteId) {
-            deleteTemplate(confirmDeleteId.id);
+            const ok = await deleteTemplate(confirmDeleteId.id);
             setConfirmDeleteId(null);
+            if (ok && onRefreshStats) {
+                onRefreshStats();
+            }
+        }
+    };
+
+    const handleToggleStatus = async (template: ChecklistTemplate) => {
+        await toggleTemplateStatus(template.id);
+        if (onRefreshStats) {
+            onRefreshStats();
         }
     };
 
@@ -74,34 +97,76 @@ export default function ChecklistTemplateTable({ onEdit }: Props) {
         },
         {
             key: "items",
-            header: "Puntos de Revisión",
+            header: "Puntos de Peritaje",
             render: (template) => {
-                const displayItems: string[] = Array.isArray(template.items)
-                    ? template.items
-                    : [
-                        ...(template.items?.fisica || []),
-                        ...(template.items?.funcional || []),
-                      ];
+                const { fisica, funcional } = normalizeTemplateItems(template.items);
+                const total = fisica.length + funcional.length;
+
                 return (
-                    <div className="flex flex-wrap gap-1.5 max-w-md">
-                        {displayItems.slice(0, 4).map((item, idx) => (
-                            <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 uppercase tracking-tighter">
-                                {item}
+                    <div className="space-y-1.5 max-w-md">
+                        <div className="flex items-center gap-2 text-xs">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full font-medium bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200/50 dark:border-amber-800/40">
+                                {fisica.length} físicas
                             </span>
-                        ))}
-                        {displayItems.length > 4 && (
-                            <span className="text-xs font-bold text-brand-500 bg-brand-50 dark:bg-brand-500/10 px-2 py-0.5 rounded">
-                                +{displayItems.length - 4} más
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full font-medium bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800/40">
+                                {funcional.length} funcionales
                             </span>
-                        )}
+                            <span className="text-gray-400 font-mono text-[11px]">
+                                ({total} en total)
+                            </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                            {[...fisica, ...funcional].slice(0, 3).map((item, idx) => (
+                                <span
+                                    key={idx}
+                                    className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 truncate max-w-[140px]"
+                                    title={item}
+                                >
+                                    {item}
+                                </span>
+                            ))}
+                            {total > 3 && (
+                                <span className="text-[11px] font-bold text-brand-600 bg-brand-50 dark:bg-brand-500/10 px-1.5 py-0.5 rounded">
+                                    +{total - 3} más
+                                </span>
+                            )}
+                        </div>
                     </div>
                 );
             }
+        },
+        {
+            key: "estado",
+            header: "Estado",
+            render: (template) => (
+                <div>
+                    {template.estado ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                            <CheckCircleIcon className="w-3.5 h-3.5" />
+                            Activa
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                            <XCircleIcon className="w-3.5 h-3.5" />
+                            Inactiva
+                        </span>
+                    )}
+                </div>
+            )
         }
     ];
 
     const rowActions = (template: ChecklistTemplate): ActionDef[] => {
-        const actions: ActionDef[] = [];
+        const actions: ActionDef[] = [
+            {
+                key: "view",
+                label: <EyeIcon className="h-4 w-4" />,
+                text: "Ver detalles de plantilla",
+                onClick: () => setViewingTemplate(template),
+                className: "flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
+            }
+        ];
+
         if (canManage) {
             actions.push(
                 {
@@ -110,6 +175,17 @@ export default function ChecklistTemplateTable({ onEdit }: Props) {
                     text: "Editar plantilla",
                     onClick: () => onEdit(template),
                     className: "flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors"
+                },
+                {
+                    key: "toggle",
+                    label: <ArrowPathRoundedSquareIcon className="h-4 w-4" />,
+                    text: template.estado ? "Desactivar plantilla" : "Activar plantilla",
+                    onClick: () => handleToggleStatus(template),
+                    className: `flex h-8 w-8 items-center justify-center rounded-lg border transition-colors ${
+                        template.estado
+                            ? "border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400"
+                            : "border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400"
+                    }`
                 },
                 {
                     key: "delete",
@@ -149,7 +225,14 @@ export default function ChecklistTemplateTable({ onEdit }: Props) {
                 getRowKey={(t) => t.id}
             />
 
-            {/* Modal de Confirmación */}
+            {/* Modal de Visualización Previa */}
+            <VerChecklistTemplateModal
+                isOpen={!!viewingTemplate}
+                template={viewingTemplate}
+                onClose={() => setViewingTemplate(null)}
+            />
+
+            {/* Modal de Confirmación de Eliminación */}
             <ConfirmDialog
                 isOpen={!!confirmDeleteId}
                 title="Eliminar Plantilla"

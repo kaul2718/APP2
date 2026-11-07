@@ -20,7 +20,7 @@ export default function EditarChecklistTemplateModal({ isOpen, onClose, onSucces
             isOpen={isOpen}
             onClose={onClose}
             title={`Editar Plantilla: ${template.nombre}`}
-            className="max-w-2xl"
+            className="max-w-3xl"
         >
             <div className="p-4 sm:p-6">
                 <IngresarChecklistTemplateForm 

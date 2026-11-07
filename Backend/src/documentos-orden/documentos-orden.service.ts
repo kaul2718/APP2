@@ -60,6 +60,77 @@ function formatFuncionalPdf(val?: string): string {
       return 'No probado';
   }
 }
+/**
+ * Divide un texto en líneas que no superen maxWidth, respetando saltos de línea explícitos (\n, \r\n, \n)
+ * y dividiendo por palabras completas con cálculo exacto en puntos tipográficos.
+ */
+function wrapText(
+  text: string,
+  font: any,
+  fontSize: number,
+  maxWidth: number,
+): string[] {
+  if (!text || typeof text !== 'string') return [];
+
+  const normalizedText = text
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\r\n/g, '\n')
+    .replace(/\n/g, '\n')
+    .replace(/\r/g, '\n');
+
+  const paragraphs = normalizedText.split('\n');
+  const resultLines: string[] = [];
+
+  for (const paragraph of paragraphs) {
+    const trimmedPara = paragraph.trim();
+    if (!trimmedPara) continue;
+
+    const words = trimmedPara.split(/\s+/);
+    let currentLine = '';
+
+    for (const word of words) {
+      const candidate = currentLine ? `${currentLine} ${word}` : word;
+      const width = font.widthOfTextAtSize(candidate, fontSize);
+
+      if (width <= maxWidth) {
+        currentLine = candidate;
+      } else {
+        if (currentLine) {
+          resultLines.push(currentLine);
+          if (font.widthOfTextAtSize(word, fontSize) > maxWidth) {
+            let part = '';
+            for (const char of word) {
+              if (font.widthOfTextAtSize(`${part}${char}...`, fontSize) <= maxWidth) {
+                part += char;
+              } else break;
+            }
+            resultLines.push(`${part}...`);
+            currentLine = '';
+          } else {
+            currentLine = word;
+          }
+        } else {
+          let part = '';
+          for (const char of word) {
+            if (font.widthOfTextAtSize(`${part}${char}...`, fontSize) <= maxWidth) {
+              part += char;
+            } else break;
+          }
+          resultLines.push(`${part}...`);
+          currentLine = '';
+        }
+      }
+    }
+
+    if (currentLine) {
+      resultLines.push(currentLine);
+    }
+  }
+
+  return resultLines;
+}
+
 
 @Injectable()
 export class DocumentosOrdenService {
@@ -674,9 +745,30 @@ export class DocumentosOrdenService {
     });
 
     // --- 3. PROBLEMA REPORTADO EN RECEPCIÓN ---
-    y = cardY - 14;
-    const probHeight = 44;
+    y = cardY - 12;
+    const probContentWidth = width - 80 - 24; // Margen útil interior
+    const probFont = fontOblique;
+    const probFontSize = 8;
+    const probLineHeight = 11;
+
+    const rawProb = orden.problemaReportado?.trim() || 'Sin reporte detallado registrado.';
+    let probLines = wrapText(`"${rawProb}"`, probFont, probFontSize, probContentWidth);
+    if (probLines.length === 0) {
+      probLines = ['"Sin reporte detallado registrado."'];
+    }
+    // Máximo 4 líneas seguras en portada para mantener diagramación óptima
+    if (probLines.length > 4) {
+      probLines = probLines.slice(0, 4);
+      const lastLine = probLines[3];
+      if (!lastLine.endsWith('..."')) {
+        probLines[3] = `${lastLine.replace(/["\s]+$/, '')}..."`;
+      }
+    }
+
+    // Altura calculada dinámicamente según la cantidad real de líneas
+    const probHeight = Math.max(44, 26 + probLines.length * probLineHeight + 8);
     const probY = y - probHeight;
+
     page.drawRectangle({
       x: 40,
       y: probY,
@@ -686,21 +778,27 @@ export class DocumentosOrdenService {
       borderColor: borderLight,
       color: bgLight,
     });
+
     page.drawText('PROBLEMA REPORTADO EN RECEPCIÓN', {
       x: 52,
-      y: probY + probHeight - 15,
+      y: probY + probHeight - 14,
       size: 7.5,
       font: fontBold,
       color: textMuted,
     });
-    const probStr = (orden.problemaReportado || 'Sin reporte detallado').substring(0, 140);
-    page.drawText(`"${probStr}"`, {
-      x: 52,
-      y: probY + 14,
-      size: 8.5,
-      font: fontOblique,
-      color: textDark,
-    });
+
+    // Renderizar líneas ordenadamente de arriba hacia abajo
+    let currentProbLineY = probY + probHeight - 26;
+    for (const pLine of probLines) {
+      page.drawText(pLine, {
+        x: 52,
+        y: currentProbLineY,
+        size: probFontSize,
+        font: probFont,
+        color: textDark,
+      });
+      currentProbLineY -= probLineHeight;
+    }
 
     // --- 4. SECCIONES INTERMEDIAS SEGÚN RECEPCIÓN O ENTREGA ---
     if (!isRecepcion) {
@@ -855,18 +953,22 @@ export class DocumentosOrdenService {
       }
     } else {
       // Recepción: Accesorios y Peritaje
-      y = probY - 14;
+      y = probY - 12;
       const accStr =
         orden.accesorios && orden.accesorios.length > 0
           ? orden.accesorios.join(', ')
           : 'Ninguno registrado';
-      page.drawText(`Accesorios entregados por el cliente: ${accStr}`, {
-        x: 40,
-        y,
-        size: 7.8,
-        font: fontBold,
-        color: textDark,
-      });
+      const accLines = wrapText(`Accesorios entregados por el cliente: ${accStr}`, fontBold, 7.8, width - 80);
+      for (const line of accLines.slice(0, 2)) {
+        page.drawText(line, {
+          x: 40,
+          y,
+          size: 7.8,
+          font: fontBold,
+          color: textDark,
+        });
+        y -= 10;
+      }
 
       const checklist = orden.checklistData;
 
@@ -1030,47 +1132,60 @@ export class DocumentosOrdenService {
 
     let terminosLineas: string[] = [];
     if (isRecepcion) {
-      if (config?.terminosRecepcion) {
-        terminosLineas = config.terminosRecepcion
-          .split('\n')
-          .map((l: string) => l.trim())
-          .filter(Boolean);
-      } else {
-        terminosLineas = [
-          '1. RESPALDO DE INFORMACIÓN: Hospital del Computador no se responsabiliza por la pérdida de datos o software instalado en los dispositivos de almacenamiento.',
-          '2. CLÁUSULA DE ABANDONO: Equipos no retirados tras el plazo reglamentario causarán costos de bodegaje y podrán ser considerados legalmente en abandono.',
-          '3. DIAGNÓSTICO PRELIMINAR: La revisión inicial es presuntiva y sujeta a confirmación en laboratorio tras apertura y revisión especializada.',
-        ];
-      }
+      const rawTerminos =
+        config?.terminosRecepcion ||
+        [
+          '1. RESPALDO DE INFORMACIÓN: Hospital del Computador no se responsabiliza por la pérdida de datos o software en discos de almacenamiento.',
+          '2. CLÁUSULA DE ABANDONO: Equipos no retirados tras el plazo reglamentario causarán costos de bodegaje y podrán ser considerados en abandono legal.',
+          '3. DIAGNÓSTICO PRELIMINAR: La recepción inicial es presuntiva sujeta a confirmación en laboratorio.',
+        ].join('\n');
+
+      terminosLineas = rawTerminos
+        .replace(/\\r\\n/g, '\n')
+        .replace(/\\n/g, '\n')
+        .replace(/\r\n/g, '\n')
+        .replace(/\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .split('\n')
+        .map((l: string) => l.trim())
+        .filter(Boolean);
     } else {
-      if (config?.terminosEntrega) {
-        terminosLineas = config.terminosEntrega
-          .split('\n')
-          .map((l: string) => l.trim())
-          .filter(Boolean);
-      } else {
-        terminosLineas = [
-          'El cliente declara haber recibido el equipo especificado en el presente documento a su entera conformidad, habiendo verificado su correcto',
-          'funcionamiento tras la realización del servicio técnico. Toda reparación cuenta con una garantía limitada según los términos establecidos por la',
-          'empresa a partir de la fecha de entrega. Esta garantía no cubre daños por mal uso, golpes, humedad o intervención de terceros.',
-        ];
-      }
+      const rawTerminos =
+        config?.terminosEntrega ||
+        [
+          'El cliente declara haber recibido el equipo especificado en el presente documento a su entera conformidad, habiendo verificado su correcto funcionamiento tras la realización del servicio técnico.',
+          'Toda reparación cuenta con una garantía limitada según los términos establecidos por la empresa a partir de la fecha de entrega.',
+          'Esta garantía no cubre daños por mal uso, golpes, humedad o intervención de terceros.',
+        ].join('\n');
+
+      terminosLineas = rawTerminos
+        .replace(/\\r\\n/g, '\n')
+        .replace(/\\n/g, '\n')
+        .replace(/\r\n/g, '\n')
+        .replace(/\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .split('\n')
+        .map((l: string) => l.trim())
+        .filter(Boolean);
     }
 
-    for (const t of terminosLineas.slice(0, 4)) {
-      y -= 9;
-      page.drawText(t.substring(0, 140), {
-        x: 40,
-        y,
-        size: 6.3,
-        font: fontRegular,
-        color: textMuted,
-      });
+    for (const t of terminosLineas.slice(0, 5)) {
+      const wrapped = wrapText(t, fontRegular, 6.3, width - 80);
+      for (const subLine of wrapped.slice(0, 2)) {
+        y -= 8.5;
+        page.drawText(subLine, {
+          x: 40,
+          y,
+          size: 6.3,
+          font: fontRegular,
+          color: textMuted,
+        });
+      }
     }
 
     // --- 6. BLOQUE DE FIRMAS (Idéntico a imagen 2) ---
     const signBoxWidth = 200;
-    const signY = isRecepcion ? 100 : Math.max(y - 65, 75);
+    const signY = Math.min(100, Math.max(y - 50, 65));
 
     // Firma del Cliente
     if (firmaBuffer && dto.estadoFirma !== EstadoFirmaDocumento.RECHAZADO_CLIENTE) {
@@ -1897,8 +2012,12 @@ export class DocumentosOrdenService {
       ? 'El autorizante declara haber sido informado del peritaje técnico, repuestos requeridos, tiempos estimados y costos totales. En ejercicio libre de su voluntad, AUTORIZA la intervención técnica y suministro de partes descritas, comprometiéndose al pago de los valores aprobados conforme a los términos de servicio de Hospital del Computador.'
       : 'El autorizante manifiesta de forma voluntaria su decisión de NO ACEPTAR el presupuesto formulado para su equipo, solicitando el cierre de la orden en el estado actual y autorizando la devolución del equipo bajo las condiciones de entrega del taller.';
 
-    page.drawText(textoDeclaracion.substring(0, 195), { x: 48, y: y - 24, size: 6.2, font: fontRegular, color: textDark });
-    page.drawText(textoDeclaracion.substring(195, 390), { x: 48, y: y - 34, size: 6.2, font: fontRegular, color: textDark });
+    const declLines = wrapText(textoDeclaracion, fontRegular, 6.2, width - 80 - 16);
+    let declY = y - 22;
+    for (const dLine of declLines.slice(0, 3)) {
+      page.drawText(dLine, { x: 48, y: declY, size: 6.2, font: fontRegular, color: textDark });
+      declY -= 9;
+    }
 
     y -= 75;
 

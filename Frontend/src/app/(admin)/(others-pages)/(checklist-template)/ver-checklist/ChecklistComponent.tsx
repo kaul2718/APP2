@@ -137,6 +137,7 @@ export default function ChecklistComponent() {
                     <ChecklistTemplateTable 
                         key={tableRefreshKey} 
                         onEdit={handleEdit}
+                        onRefreshStats={() => setTableRefreshKey((prev) => prev + 1)}
                     />
                 </div>
             </motion.div>

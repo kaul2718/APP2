@@ -2,20 +2,22 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import { toast } from "react-toastify";
 import { useCrud } from "@/hooks/useCrud";
-import { ChecklistTemplate } from "@/types/checklist.types";
+import { ChecklistTemplate, ChecklistTemplateItems } from "@/types/checklist.types";
 import { apiRequest } from "@/lib/api";
 
-interface CreateChecklistTemplateDto {
+export interface CreateChecklistTemplateDto {
     nombre: string;
     tipoEquipoId: number;
-    items: string[];
+    items: ChecklistTemplateItems;
+    estado?: boolean;
 }
 
-interface UpdateChecklistTemplateDto {
+export interface UpdateChecklistTemplateDto {
     nombre?: string;
     tipoEquipoId?: number;
-    items?: string[];
+    items?: ChecklistTemplateItems;
     estado?: boolean;
 }
 
@@ -30,6 +32,7 @@ export function useChecklistTemplate() {
         fetchItems,
         createItem,
         updateItem,
+        toggleItemStatus,
         deleteItem,
         setSearchTerm,
         setShowInactive,
@@ -58,32 +61,42 @@ export function useChecklistTemplate() {
     const createTemplate = createItem;
     const updateTemplate = updateItem;
     const deleteTemplate = deleteItem;
+    const toggleTemplateStatus = toggleItemStatus;
 
-    const getTemplateByTipoEquipo = React.useCallback(async (tipoEquipoId: number) => {
+    const getTemplateByTipoEquipo = useCallback(async (tipoEquipoId: number) => {
+        if (!tipoEquipoId) {
+            setSelectedTemplate(null);
+            return null;
+        }
+
         setLoadingTemplate(true);
         try {
-            // First check if we have it in our locally loaded templates
-            const localTemplate = templates.find(t => t.tipoEquipoId === tipoEquipoId);
-            if (localTemplate) {
-                setSelectedTemplate(localTemplate);
-                return localTemplate;
-            }
-
-            const data = await apiRequest<ChecklistTemplate>(`/checklist-template/tipo-equipo/${tipoEquipoId}`, {}, session);
+            const data = await apiRequest<ChecklistTemplate>(
+                `/checklist-template/tipo-equipo/${tipoEquipoId}`,
+                {},
+                session,
+            );
             setSelectedTemplate(data);
             return data;
         } catch (error: any) {
             if (error?.status === 404) {
-                console.log(`No hay plantilla para el tipo de equipo ${tipoEquipoId}`);
-            } else {
-                console.error('Error al obtener plantilla por tipo de equipo:', error);
+                // Comportamiento esperado cuando no hay plantilla activa para ese tipo de equipo
+                setSelectedTemplate(null);
+                return null;
             }
+            // Error real de red, autenticación o servidor (500, 401, 403, ECONNREFUSED...)
+            console.error('Error al obtener plantilla por tipo de equipo:', error);
+            toast.error(
+                `Error al consultar plantilla técnica (${error?.status || 'Conexión'}): ${
+                    error?.message || 'Fallo de comunicación con el servidor'
+                }`,
+            );
             setSelectedTemplate(null);
-            return null;
+            throw error;
         } finally {
             setLoadingTemplate(false);
         }
-    }, [session, templates]);
+    }, [session]);
 
     useEffect(() => {
         if (status === "authenticated") {
@@ -99,6 +112,7 @@ export function useChecklistTemplate() {
         fetchTemplates,
         createTemplate,
         updateTemplate,
+        toggleTemplateStatus,
         deleteTemplate,
         getTemplateByTipoEquipo,
         setSearchTerm,

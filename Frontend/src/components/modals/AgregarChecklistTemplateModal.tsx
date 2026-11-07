@@ -15,8 +15,8 @@ export default function AgregarChecklistTemplateModal({ isOpen, onClose, onSucce
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Agregar Plantilla de Checklist"
-            className="max-w-2xl"
+            title="Agregar Plantilla de Peritaje Técnico"
+            className="max-w-3xl"
         >
             <div className="p-4 sm:p-6">
                 <IngresarChecklistTemplateForm 

@@ -1,3 +1,10 @@
+export interface ChecklistTemplateItemsGrouped {
+  fisica: string[];
+  funcional: string[];
+}
+
+export type ChecklistTemplateItems = string[] | ChecklistTemplateItemsGrouped;
+
 export interface ChecklistTemplate {
   id: number;
   nombre: string;
@@ -6,10 +13,35 @@ export interface ChecklistTemplate {
     id: number;
     nombre: string;
   };
-  items: any;
+  items: ChecklistTemplateItems;
   estado: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Normaliza los items de una plantilla independientemente de si vienen en formato
+ * legado (array plano de strings) o formato moderno estructurado ({ fisica, funcional }).
+ */
+export function normalizeTemplateItems(items: any): { fisica: string[]; funcional: string[] } {
+  if (!items) {
+    return { fisica: [], funcional: [] };
+  }
+  if (Array.isArray(items)) {
+    return {
+      fisica: items.filter((it: string) =>
+        /carcasa|tapa|bisagra|pantalla|vidrio|cristal|panel|chasis|gabinete|teclado fisico|puerto|conector|tornillo|boton/i.test(it),
+      ),
+      funcional: items.filter(
+        (it: string) =>
+          !/carcasa|tapa|bisagra|pantalla|vidrio|cristal|panel|chasis|gabinete|teclado fisico|puerto|conector|tornillo|boton/i.test(it),
+      ),
+    };
+  }
+  return {
+    fisica: Array.isArray(items.fisica) ? items.fisica : [],
+    funcional: Array.isArray(items.funcional) ? items.funcional : [],
+  };
 }
 
 // ==========================================
@@ -100,4 +132,3 @@ export function isChecklistV2(data: any): data is ChecklistDataV2 {
 export function isChecklistV1(data: any): data is ChecklistData {
   return Boolean(data && Array.isArray(data.results));
 }
-

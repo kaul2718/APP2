@@ -17,10 +17,14 @@ export class ChecklistTemplateController {
   findAllAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('includeInactive') includeInactive?: string,
+    @Query('search') search?: string,
   ) {
     return this.checklistTemplateService.findAll(
       page ? parseInt(page) : 1,
-      limit ? parseInt(limit) : 100
+      limit ? parseInt(limit) : 100,
+      includeInactive === 'true' || includeInactive === '1',
+      search,
     );
   }
 
@@ -28,10 +32,14 @@ export class ChecklistTemplateController {
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('includeInactive') includeInactive?: string,
+    @Query('search') search?: string,
   ) {
     return this.checklistTemplateService.findAll(
       page ? parseInt(page) : 1,
-      limit ? parseInt(limit) : 100
+      limit ? parseInt(limit) : 100,
+      includeInactive === 'true' || includeInactive === '1',
+      search,
     );
   }
 
