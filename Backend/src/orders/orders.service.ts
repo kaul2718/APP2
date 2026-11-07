@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, ConflictException, Logger, InternalServerErrorException, UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ConflictException, Logger, InternalServerErrorException, UnauthorizedException, HttpException, HttpStatus, Inject, Optional, forwardRef, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { Order } from './entities/order.entity';
@@ -24,6 +24,9 @@ import { DocumentosOrdenService } from '../documentos-orden/documentos-orden.ser
 import { AutorizacionPresupuesto, DecisionPresupuesto, ModalidadAutorizacion } from 'src/presupuesto/entities/autorizacion-presupuesto.entity';
 import { AutorizarPresupuestoPrivadoDto } from './dto/autorizar-presupuesto-privado.dto';
 import { AutorizarPresupuestoPresencialDto } from './dto/autorizar-presupuesto-presencial.dto';
+import { ResponderPresupuestoClienteDto } from './dto/responder-presupuesto-cliente.dto';
+import { ActivacionService } from '../auth/activacion.service';
+import { TipoActivacion } from '../auth/entities/activacion-cuenta.entity';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -58,6 +61,9 @@ export class OrderService {
     private readonly presupuestoService: PresupuestoService,
     private readonly configuracionSistemaService: ConfiguracionSistemaService,
     private readonly documentosOrdenService: DocumentosOrdenService,
+    @Inject(forwardRef(() => ActivacionService))
+    @Optional()
+    private readonly activacionService?: ActivacionService,
   ) { }
 
   async create(createDto: CreateOrderDto): Promise<Order> {
@@ -212,10 +218,47 @@ export class OrderService {
       await this.notificacionService.notificarCambioEstadoOds(ordenGuardada.id, client.id, workOrderNumber, estadoOrden.nombre);
     }
 
-    // Adjuntar la credencial en texto claro de forma efímera para la impresión del comprobante/ODS
+    // Verificar si el cliente tiene contraseña o su cuenta está pendiente de activación
+    let cuentaPendiente = false;
+    let activacionResult: any = null;
+
+    if (client?.id) {
+      const clientUser = await this.userRepository.findOne({
+        where: { id: client.id },
+        select: ['id', 'password', 'nombre', 'apellido', 'cedula'],
+      });
+      cuentaPendiente = !clientUser?.password;
+
+      // Si no tiene contraseña y el servicio de activación está disponible, generar credencial de 48h
+      if (cuentaPendiente && this.activacionService) {
+        try {
+          const operadorId = recepcionista?.id || 1;
+          activacionResult = await this.activacionService.generarTokenActivacion(
+            { usuarioId: client.id, tipo: TipoActivacion.ACTIVACION },
+            operadorId,
+          );
+        } catch (actErr: any) {
+          this.logger.warn(
+            `No se pudo generar token de activación automática para cliente #${client.id}: ${actErr.message}`,
+          );
+        }
+      }
+    }
+
+    // Adjuntar credenciales efímeras para el modal de recepción y generación del comprobante PDF
     const resultado = {
       ...ordenGuardada,
       tokenAccesoRaw: rawSecret,
+      cuentaPendiente,
+      tokenActivacion: activacionResult?.token || null,
+      activacion: activacionResult
+        ? {
+            token: activacionResult.token,
+            qrUrl: activacionResult.qrUrl,
+            qrDataUrl: activacionResult.qrDataUrl,
+            expiresAt: activacionResult.expiresAt,
+          }
+        : null,
     };
 
     return resultado as any;
@@ -1874,6 +1917,131 @@ export class OrderService {
       documentoOrdenId: docFirmado.id,
       hashIntegridad,
     };
+  }
+
+  /**
+   * Autorización de presupuesto por cliente autenticado mediante su sesión JWT
+   */
+  async handleClientPresupuestoAction(
+    orderId: number,
+    userId: number,
+    dto: ResponderPresupuestoClienteDto,
+    ip?: string,
+    userAgent?: string,
+  ): Promise<{ success: boolean; message: string; hashIntegridad: string; data?: any }> {
+    const rawAction = dto.action;
+    if (!rawAction) {
+      throw new BadRequestException('La decisión sobre el presupuesto es obligatoria');
+    }
+
+    let actionUpper = rawAction.toUpperCase();
+    if (actionUpper === 'APROBADO') actionUpper = 'ACEPTADO';
+    if (!['ACEPTADO', 'RECHAZADO'].includes(actionUpper)) {
+      throw new BadRequestException('Acción inválida. Debe ser ACEPTADO o RECHAZADO');
+    }
+
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId, estado: true, deletedAt: null },
+      relations: [
+        'client',
+        'presupuesto',
+        'presupuesto.estado',
+        'presupuesto.detallesPresupuestoItems',
+        'presupuesto.detallesPresupuestoItems.parte',
+      ],
+    });
+
+    if (!order) {
+      throw new NotFoundException(`No se encontró ninguna orden activa con ID #${orderId}`);
+    }
+
+    if (!order.client || order.client.id !== userId) {
+      throw new ForbiddenException('No tiene permisos para responder presupuestos de esta orden de servicio.');
+    }
+
+    if (!order.presupuesto) {
+      throw new BadRequestException('Esta orden no tiene un presupuesto asignado.');
+    }
+
+    const estadoPresupuesto = order.presupuesto.estado?.nombre?.toUpperCase();
+    if (estadoPresupuesto === 'APROBADO' || estadoPresupuesto === 'RECHAZADO') {
+      throw new BadRequestException(`El presupuesto ya ha sido ${estadoPresupuesto.toLowerCase()} previamente.`);
+    }
+
+    return await this.orderRepository.manager.transaction(async (manager) => {
+      // Bloqueo pesimista para evitar concurrencia
+      await manager
+        .createQueryBuilder(Order, 'order')
+        .setLock('pessimistic_write')
+        .where('order.id = :id', { id: order.id })
+        .getOne();
+
+      const itemsSnapshot = (order.presupuesto.detallesPresupuestoItems || []).map((it) => ({
+        parteId: it.parteId,
+        nombre: it.parte?.nombre || 'Item sin nombre',
+        cantidad: Number(it.cantidad),
+        precioUnitario: Number(it.precioUnitario),
+        subtotal: Number(it.cantidad) * Number(it.precioUnitario),
+      }));
+
+      const montoTotal = itemsSnapshot.reduce((acc, curr) => acc + curr.subtotal, 0);
+      const versionActual = order.presupuesto.version || 1;
+      const ahora = new Date();
+
+      const hashIntegridad = crypto
+        .createHash('sha256')
+        .update(
+          `${order.id}|${order.presupuesto.id}|${versionActual}|${montoTotal.toFixed(2)}|${actionUpper}|${order.client.cedula}|${ahora.toISOString()}`,
+        )
+        .digest('hex');
+
+      const nuevaAutorizacion = manager.create(AutorizacionPresupuesto, {
+        presupuestoId: order.presupuesto.id,
+        ordenId: order.id,
+        versionPresupuesto: versionActual,
+        decision: actionUpper === 'ACEPTADO' ? DecisionPresupuesto.APROBADO : DecisionPresupuesto.RECHAZADO,
+        modalidad: ModalidadAutorizacion.PORTAL_CLIENTE_AUTENTICADO,
+        montoAprobado: montoTotal,
+        alcanceResumen: itemsSnapshot,
+        autorizanteNombre: `${order.client.nombre || ''} ${order.client.apellido || ''}`.trim() || 'Cliente Autenticado',
+        autorizanteIdentificacion: order.client.cedula,
+        autorizanteParentesco: 'TITULAR',
+        ipOrigen: ip || null,
+        userAgent: userAgent || null,
+        hashIntegridad,
+        fechaAutorizacion: ahora,
+      });
+
+      await manager.save(AutorizacionPresupuesto, nuevaAutorizacion);
+
+      const targetStateName = actionUpper === 'ACEPTADO' ? 'Aprobado' : 'Rechazado';
+      const nuevoEstado = await manager.getRepository('EstadoPresupuesto').findOne({
+        where: { nombre: targetStateName },
+      });
+
+      if (!nuevoEstado) {
+        throw new InternalServerErrorException(`No se encontró el estado de presupuesto [${targetStateName}] en el sistema.`);
+      }
+
+      await manager.update('Presupuesto', order.presupuesto.id, {
+        estadoId: (nuevoEstado as any).id,
+      });
+
+      this.logger.log(
+        `✓ Presupuesto v${versionActual} de orden #${order.workOrderNumber} ${actionUpper} vía PORTAL_CLIENTE_AUTENTICADO por ${order.client.nombre} (${order.client.cedula}). Hash: ${hashIntegridad}`,
+      );
+
+      return {
+        success: true,
+        message: `Presupuesto ${actionUpper === 'ACEPTADO' ? 'aprobado' : 'rechazado'} exitosamente desde tu portal de cliente.`,
+        hashIntegridad,
+        data: {
+          hashIntegridad,
+          decision: actionUpper,
+          versionPresupuesto: versionActual,
+        },
+      };
+    });
   }
 
   async regenerarCredencialOrden(orderId: number, operadorId: number): Promise<{ rawSecret: string; expiracion: Date }> {

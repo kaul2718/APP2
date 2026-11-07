@@ -5,12 +5,12 @@ import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-toastify';
-import { 
-  ArrowLeftIcon, 
-  PencilIcon, 
-  PlusIcon, 
-  PhotoIcon, 
-  DocumentTextIcon, 
+import {
+  ArrowLeftIcon,
+  PencilIcon,
+  PlusIcon,
+  PhotoIcon,
+  DocumentTextIcon,
   PrinterIcon,
   ChevronRightIcon,
   CurrencyDollarIcon,
@@ -54,6 +54,7 @@ import PresupuestoEditModal from "@/components/modals/PresupuestoEditModal";
 import ConfirmDialog from "@/components/modals/ConfirmDialog";
 import ConvertirOrdenModal from "@/components/modals/ConvertirOrdenModal";
 import AutorizarPresupuestoPresencialModal from "@/components/modals/AutorizarPresupuestoPresencialModal";
+import OrdenCreadaModal from "@/components/modals/OrdenCreadaModal";
 
 export default function PerfilOrdenPage() {
   const { id } = useParams();
@@ -61,7 +62,7 @@ export default function PerfilOrdenPage() {
   const { data: session } = useSession();
   const { role } = session?.user || {};
   const isClient = role === 'client';
-  
+
   const { updateOrder } = useOrders();
   const { updatePresupuesto } = usePresupuesto();
   const [order, setOrder] = useState<Order | null>(null);
@@ -80,12 +81,17 @@ export default function PerfilOrdenPage() {
   const [isConvertirModalOpen, setIsConvertirModalOpen] = useState(false);
   const [documentos, setDocumentos] = useState<any[]>([]);
 
+  // Estados para respuesta de presupuesto y gestión de invitaciones de clientes
+  const [isRespondingPresupuesto, setIsRespondingPresupuesto] = useState(false);
+  const [isGenerandoInvitacion, setIsGenerandoInvitacion] = useState(false);
+  const [invitacionGenerada, setInvitacionGenerada] = useState<any | null>(null);
+
   // Estados para credencial criptográfica privada (128 bits SHA-256)
   const [isRegeneratingToken, setIsRegeneratingToken] = useState(false);
   const [regeneratedToken, setRegeneratedToken] = useState<string | null>(null);
   const [isRevokingToken, setIsRevokingToken] = useState(false);
   const [isTokenCopied, setIsTokenCopied] = useState(false);
-  
+
   // Estados para evidencias
   const [viewerMedia, setViewerMedia] = useState<{ url: string; type: 'imagen' | 'video' } | null>(null);
   const [deleteConfig, setDeleteConfig] = useState<{ isOpen: boolean; id: number | null }>({
@@ -185,6 +191,86 @@ export default function PerfilOrdenPage() {
     toast.info(includeToken ? "Enlace directo con clave copiado" : "Enlace de consulta pública copiado", { position: "top-center" });
   };
 
+  const handleClientResponderPresupuesto = async (decision: 'ACEPTADO' | 'RECHAZADO') => {
+    if (!order) return;
+    const accionTexto = decision === 'ACEPTADO' ? 'aprobar' : 'rechazar';
+    const confirmado = window.confirm(
+      `¿Confirmas que deseas ${accionTexto} el presupuesto de la orden #${order.workOrderNumber}?`
+    );
+    if (!confirmado) return;
+
+    try {
+      setIsRespondingPresupuesto(true);
+      const token = (session as any)?.accessToken || (session as any)?.token;
+      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000/api/v1';
+      const res = await fetch(`${baseUrl}/orders/${order.id}/presupuesto/responder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ action: decision }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || 'Error al procesar la respuesta del presupuesto');
+      }
+
+      toast.success(
+        `Presupuesto ${decision === 'ACEPTADO' ? 'aprobado' : 'rechazado'} exitosamente.`,
+        { position: 'top-center' }
+      );
+      await fetchOrder();
+    } catch (err: any) {
+      toast.error(err.message || 'No se pudo registrar la respuesta', { position: 'top-center' });
+    } finally {
+      setIsRespondingPresupuesto(false);
+    }
+  };
+
+  const handleGenerarInvitacionCliente = async (tipo: 'ACTIVACION' | 'RECUPERACION_PRESENCIAL' = 'ACTIVACION') => {
+    if (!order?.client?.id) return;
+
+    try {
+      setIsGenerandoInvitacion(true);
+      const token = (session as any)?.accessToken || (session as any)?.token;
+      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000/api/v1';
+      const res = await fetch(`${baseUrl}/auth/activacion/generar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          usuarioId: order.client.id,
+          tipo,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.message?.includes('ya tiene una cuenta activa')) {
+          const resetConfirm = window.confirm(
+            'El cliente ya tiene contraseña configurada. ¿Desea generar una credencial de RESTABLECIMIENTO presencial de contraseña?'
+          );
+          if (resetConfirm) {
+            return handleGenerarInvitacionCliente('RECUPERACION_PRESENCIAL');
+          }
+          return;
+        }
+        throw new Error(data.message || 'Error al generar invitación');
+      }
+
+      setInvitacionGenerada(data);
+      toast.success('¡Credencial de acceso generada exitosamente!', { position: 'top-center' });
+    } catch (err: any) {
+      toast.error(err.message || 'No se pudo generar la invitación', { position: 'top-center' });
+    } finally {
+      setIsGenerandoInvitacion(false);
+    }
+  };
+
   const fetchOrder = async () => {
     if (!id || !session) return;
     try {
@@ -251,10 +337,10 @@ export default function PerfilOrdenPage() {
           descripcion: updatedPresupuesto.descripcion
         });
       }
-      
+
       sessionStorage.setItem('lastModifiedOrderId', order.id.toString());
       await fetchOrder();
-      
+
       if (shouldClose) {
         setIsEditPresupuestoModalOpen(false);
       }
@@ -310,17 +396,17 @@ export default function PerfilOrdenPage() {
 
   // Encontrar el índice del estado actual para la barra de progreso (más robusto)
   const currentStatusName = order.estadoOrden?.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") || '';
-  
+
   const currentStepIndex = STATUS_STEPS.findIndex(step => {
     const stepId = step.id;
     if (currentStatusName.includes(stepId)) return true;
-    
+
     // Casos especiales de mapeo
     if (stepId === 'presupuesto' && (currentStatusName.includes('repuesto') || currentStatusName.includes('aprobacion'))) return true;
     if (stepId === 'recepcion' && (currentStatusName.includes('ingresad') || currentStatusName.includes('recibido'))) return true;
     if (stepId === 'entrega' && (currentStatusName.includes('listo') || currentStatusName.includes('finalizad'))) return true;
     if (stepId === 'archivado' && (currentStatusName.includes('archivad') || currentStatusName.includes('entregad'))) return true;
-    
+
     return false;
   });
 
@@ -355,8 +441,8 @@ export default function PerfilOrdenPage() {
 
     if (diffDays > 0) {
       label = `${diffDays} ${diffDays === 1 ? 'día' : 'días'}`;
-      classes = diffDays >= 3 
-        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800/30' 
+      classes = diffDays >= 3
+        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800/30'
         : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800/30';
     } else if (diffHours > 0) {
       label = `${diffHours} ${diffHours === 1 ? 'hora' : 'horas'}`;
@@ -393,7 +479,7 @@ export default function PerfilOrdenPage() {
               <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 ODS-{order.workOrderNumber}
                 <span className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${
-                  order.estadoOrden?.nombre.toLowerCase().includes('entrega') 
+                  order.estadoOrden?.nombre.toLowerCase().includes('entrega')
                     ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                     : 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
                 }`}>
@@ -418,7 +504,7 @@ export default function PerfilOrdenPage() {
             {!isClient && (
               <>
                 {order.tipoOrden === OrderType.EXPRESS && (
-                  <button 
+                  <button
                     onClick={() => setIsConvertirModalOpen(true)}
                     className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-sm font-bold text-indigo-700 shadow-sm hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-900/60 transition-all"
                     title="Escalar de Orden Express a Orden Completa con diagnóstico técnico e inspección complementaria"
@@ -428,7 +514,7 @@ export default function PerfilOrdenPage() {
                   </button>
                 )}
 
-                <button 
+                <button
                   onClick={() => setIsEditModalOpen(true)}
                   className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
@@ -436,7 +522,7 @@ export default function PerfilOrdenPage() {
                   <span className="hidden sm:inline">Editar</span>
                 </button>
 
-                <button 
+                <button
                   onClick={() => setIsActividadModalOpen(true)}
                   className="flex items-center gap-2 rounded-lg border border-transparent bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600"
                 >
@@ -444,7 +530,7 @@ export default function PerfilOrdenPage() {
                   <span className="hidden sm:inline">Actividad</span>
                 </button>
 
-                <button 
+                <button
                   onClick={() => order.presupuesto ? setIsEditPresupuestoModalOpen(true) : setIsPresupuestoModalOpen(true)}
                   className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
@@ -452,7 +538,7 @@ export default function PerfilOrdenPage() {
                   <span className="hidden sm:inline">Presupuesto</span>
                 </button>
 
-                <button 
+                <button
                   onClick={() => setIsEvidenciaModalOpen(true)}
                   className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
@@ -466,15 +552,15 @@ export default function PerfilOrdenPage() {
 
             {!isClient && (
               <>
-                <button 
+                <button
                   onClick={() => setIsPdfIngresoOpen(true)}
                   className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   <PrinterIcon className="h-4 w-4" />
                   <span className="hidden lg:inline">PDF Ingreso</span>
                 </button>
-                
-                <button 
+
+                <button
                   onClick={() => setIsPdfEntregaOpen(true)}
                   className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
@@ -488,7 +574,7 @@ export default function PerfilOrdenPage() {
       </div>
 
       <div className="mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">
-        
+
         {/* Success Banner for Archived Orders */}
         <AnimatePresence>
           {isArchived && (
@@ -519,7 +605,7 @@ export default function PerfilOrdenPage() {
         </AnimatePresence>
 
         {/* Progress Stepper with Framer Motion */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-10 overflow-hidden rounded-3xl bg-white p-8 shadow-lg border border-gray-100 dark:bg-gray-800/50 dark:border-gray-700"
@@ -527,7 +613,7 @@ export default function PerfilOrdenPage() {
           <div className="relative">
             {/* Background Line */}
             <div className="absolute top-6 left-0 h-1.5 w-full bg-gray-100 dark:bg-gray-700/50 rounded-full" aria-hidden="true">
-              <motion.div 
+              <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${(activeIndex / (STATUS_STEPS.length - 1)) * 100}%` }}
                 transition={{ duration: 1.5, ease: "circOut" }}
@@ -553,12 +639,12 @@ export default function PerfilOrdenPage() {
                           transition={{ duration: 2, repeat: Infinity }}
                         />
                       )}
-                      
-                      <motion.div 
+
+                      <motion.div
                         whileHover={{ scale: 1.1 }}
                         className={`relative flex h-12 w-12 items-center justify-center rounded-full transition-all duration-500 z-10 border-4 ${
-                          isCompleted ? 'bg-brand-500 border-brand-500 text-white shadow-lg shadow-brand-500/20' : 
-                          isCurrent ? 'bg-white border-brand-500 text-brand-600 dark:bg-gray-800 shadow-[0_0_20px_rgba(197,242,66,0.4)]' : 
+                          isCompleted ? 'bg-brand-500 border-brand-500 text-white shadow-lg shadow-brand-500/20' :
+                          isCurrent ? 'bg-white border-brand-500 text-brand-600 dark:bg-gray-800 shadow-[0_0_20px_rgba(197,242,66,0.4)]' :
                           'bg-gray-50 border-gray-100 text-gray-300 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-700'
                         }`}
                       >
@@ -574,14 +660,14 @@ export default function PerfilOrdenPage() {
 
                     <div className="mt-4 flex flex-col items-center">
                       <span className={`text-xs font-black uppercase tracking-[0.2em] ${
-                        isCurrent ? 'text-brand-600 dark:text-brand-400' : 
+                        isCurrent ? 'text-brand-600 dark:text-brand-400' :
                         isCompleted ? 'text-gray-600 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'
                       }`}>
                         {step.name}
                       </span>
-                      
+
                       {isCurrent && (
-                        <motion.span 
+                        <motion.span
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           className="mt-1 flex items-center gap-1.5"
@@ -603,23 +689,46 @@ export default function PerfilOrdenPage() {
         </motion.div>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
-          
+
           {/* Main Content Column (3/4) */}
           <div className="space-y-8 lg:col-span-3">
-            
+
             {/* Cliente & Equipo Info Bar */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex items-start gap-4 rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
                   <UserCircleIcon className="h-7 w-7" />
                 </div>
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">Datos del Cliente</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">Datos del Cliente</p>
+                    {order.client?.cedula && (
+                      <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                        C.I. {order.client.cedula}
+                      </span>
+                    )}
+                  </div>
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">{formatUserName(order.client)}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{order.client.role === 'client' ? 'Cliente Externo' : 'Usuario Sistema'}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{order.client.telefono || order.client.correo || (order.client.role === 'client' ? 'Cliente' : 'Usuario Sistema')}</p>
+
+                  {!isClient && order.client?.id && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-gray-500 font-medium">Acceso al portal:</span>
+                      <button
+                        type="button"
+                        onClick={() => handleGenerarInvitacionCliente('ACTIVACION')}
+                        disabled={isGenerandoInvitacion}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-2.5 py-1 text-xs font-bold text-brand-700 hover:bg-brand-100 dark:bg-brand-950/50 dark:text-brand-300 dark:hover:bg-brand-900/60 transition-colors cursor-pointer border border-brand-200 dark:border-brand-800"
+                        title="Generar enlace o QR para que el cliente active su acceso"
+                      >
+                        <SparklesIcon className="h-3.5 w-3.5" />
+                        <span>{isGenerandoInvitacion ? 'Generando...' : 'Invitación / QR'}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-4 rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
                   <ComputerDesktopIcon className="h-7 w-7" />
@@ -634,205 +743,13 @@ export default function PerfilOrdenPage() {
               </div>
             </div>
 
-            {/* SECCIÓN DE SEGURIDAD & CREDENCIAL PRIVADA (128-BIT / ZERO-KNOWLEDGE) */}
-            <div className="overflow-hidden rounded-2xl bg-white shadow-sm dark:bg-gray-800/50 border border-slate-200 dark:border-gray-700">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-6 text-white border-b border-slate-700/60">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/20 text-blue-300 ring-1 ring-blue-400/30">
-                      <ShieldCheckIcon className="h-6 w-6 text-blue-400" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-lg font-bold text-white tracking-tight">Comprobante y Consulta del Cliente</h2>
-                        <span className="inline-flex items-center rounded-md bg-blue-500/20 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-blue-300 border border-blue-500/30">
-                          Acceso Digital
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-300 mt-0.5">
-                        Enlace y código QR para que el cliente consulte su equipo y responda presupuestos desde su celular
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Status badge */}
-                  <div>
-                    {order.tokenAccesoBloqueadoHasta && new Date(order.tokenAccesoBloqueadoHasta) > new Date() ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 px-3 py-1 text-xs font-bold text-red-300 border border-red-500/30">
-                        <span className="h-2 w-2 rounded-full bg-red-400 animate-pulse"></span>
-                        Bloqueado por intentos fallidos (5)
-                      </span>
-                    ) : order.tokenAccesoRevocado ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 border border-amber-500/30">
-                        <span className="h-2 w-2 rounded-full bg-amber-400"></span>
-                        Acceso Digital Suspendido
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 border border-emerald-500/30">
-                        <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
-                        Acceso Digital Activo
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Card Body */}
-              <div className="p-6 sm:p-8 space-y-6">
-                {/* Information cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-2 rounded-xl bg-slate-50 dark:bg-slate-900/50 p-4 border border-slate-200/80 dark:border-slate-800">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                      Acceso Mediante Comprobante Físico
-                    </p>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                      El cliente puede consultar el estado de su orden y aprobar el presupuesto escaneando el <strong>código QR impreso en su comprobante físico de recepción</strong>. El sistema valida automáticamente su identidad sin solicitar contraseñas complejas ni correos.
-                    </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-500 mt-2">
-                      Si el cliente extravió su ticket, el personal puede generar un nuevo acceso seguro inmediatamente sin alterar los datos de la orden.
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl bg-slate-50 dark:bg-slate-900/50 p-4 border border-slate-200/80 dark:border-slate-800 space-y-2">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
-                      Estado de Consultas
-                    </p>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Intentos fallidos:</span>
-                      <span className={`font-mono font-bold ${order.tokenAccesoIntentosFallidos && order.tokenAccesoIntentosFallidos >= 3 ? 'text-red-500' : 'text-slate-700 dark:text-slate-300'}`}>
-                        {order.tokenAccesoIntentosFallidos || 0} / 5
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Última consulta:</span>
-                      <span className="text-slate-700 dark:text-slate-300 font-medium">
-                        {order.tokenAccesoUltimoUso ? formatDate(order.tokenAccesoUltimoUso) : 'Sin consultas aún'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Estado de acceso:</span>
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                        {order.tokenAccesoRevocado ? 'Suspendido' : 'Habilitado'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Regenerated Token Alert Box (if user clicked Generar Nuevo Ticket) */}
-                {regeneratedToken && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="rounded-2xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-orange-50 p-6 dark:border-amber-500 dark:bg-gradient-to-br dark:from-amber-950/40 dark:to-orange-950/30 shadow-lg"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200 dark:border-amber-800">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-3 w-3 rounded-full bg-amber-500 animate-ping"></span>
-                        <span className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-200">
-                          Nueva Clave de Ticket Generada para el Cliente:
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handleCopyToken}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white shadow hover:bg-amber-700 transition-colors cursor-pointer"
-                        >
-                          <ClipboardDocumentIcon className="h-4 w-4" />
-                          {isTokenCopied ? "¡Copiada!" : "Copiar Clave"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyConsultaLink(true)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs font-bold text-amber-900 dark:text-amber-200 shadow-sm hover:bg-amber-50 transition-colors cursor-pointer"
-                        >
-                          Copiar Link con Clave
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="mt-4">
-                      <code className="block select-all rounded-xl bg-white dark:bg-gray-900 p-4 font-mono text-xl sm:text-2xl font-black tracking-widest text-amber-700 dark:text-amber-300 text-center border border-amber-300 dark:border-amber-700/60 shadow-inner">
-                        {regeneratedToken}
-                      </code>
-                      <div className="mt-3 flex flex-col sm:flex-row items-center justify-between text-xs text-amber-800 dark:text-amber-300 gap-2">
-                        <p className="italic">
-                          ℹ️ Esta nueva clave se incluirá en el nuevo comprobante de recepción impreso o digital.
-                        </p>
-                        <a
-                          href={`/consulta?workorder=${encodeURIComponent(order.workOrderNumber)}&cedula=${encodeURIComponent(order.client?.cedula || '')}&token=${encodeURIComponent(regeneratedToken)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-bold underline hover:text-amber-950 dark:hover:text-amber-100 flex-shrink-0"
-                        >
-                          Probar Consulta Directa ↗
-                        </a>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Action buttons */}
-                {!isClient && (
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleCopyConsultaLink(false)}
-                        className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition-all cursor-pointer"
-                        title="Copiar enlace para consulta pública básica"
-                      >
-                        <ClipboardDocumentIcon className="h-4 w-4 text-gray-500" />
-                        Copiar Enlace de Consulta
-                      </button>
-
-                      {regeneratedToken && (
-                        <button
-                          type="button"
-                          onClick={() => handleCopyConsultaLink(true)}
-                          className="inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs font-bold text-amber-800 shadow-sm hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200 transition-all cursor-pointer"
-                          title="Copiar enlace directo con credencial de acceso incluida"
-                        >
-                          <KeyIcon className="h-4 w-4 text-amber-600" />
-                          Copiar Enlace con Acceso Directo
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        disabled={isRegeneratingToken}
-                        onClick={handleRegenerarCredencial}
-                        className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-amber-700 disabled:opacity-50 transition-all cursor-pointer"
-                      >
-                        <KeyIcon className="h-4 w-4" />
-                        {isRegeneratingToken ? "Generando..." : "🔄 Generar Nuevo Ticket / QR"}
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={isRevokingToken || order.tokenAccesoRevocado}
-                        onClick={handleRevocarCredencial}
-                        className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-700 hover:bg-red-100 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300 disabled:opacity-50 transition-all cursor-pointer"
-                      >
-                        <ShieldCheckIcon className="h-4 w-4 text-red-500" />
-                        {isRevokingToken ? "Suspendiendo..." : order.tokenAccesoRevocado ? "⚪ Acceso Suspendido" : "⛔ Suspender Acceso Digital"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
             {/* Problem & Accessories */}
             <div className="rounded-2xl bg-white p-8 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-2 mb-6">
                 <div className="h-8 w-1 bg-brand-500 rounded-full"></div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">Descripción del Servicio</h2>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
                   <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">Problema Reportado</p>
@@ -868,10 +785,10 @@ export default function PerfilOrdenPage() {
                   <div className="h-8 w-1 bg-brand-500 rounded-full"></div>
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white">Evidencias Fotográficas</h2>
                 </div>
-                
+
                 <div className="flex items-center gap-3">
                   <label htmlFor="filter-status-select" className="text-xs font-bold uppercase text-gray-600 dark:text-gray-400">Filtrar por estado:</label>
-                  <select 
+                  <select
                     id="filter-status-select"
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
@@ -894,14 +811,14 @@ export default function PerfilOrdenPage() {
                     .map((ev, idx) => (
                     <div key={ev.id} className="group relative aspect-square overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 hover:ring-2 hover:ring-brand-500 transition-all bg-gray-100 dark:bg-gray-800">
                       {ev.tipoArchivo === 'video' ? (
-                        <div 
+                        <div
                           className="h-full w-full relative flex items-center justify-center cursor-pointer bg-black/80"
                           onClick={() => setViewerMedia({ url: ev.archivoUrl || ev.urlImagen || '', type: 'video' })}
                         >
-                          <video 
-                            src={ev.archivoUrl || ev.urlImagen} 
+                          <video
+                            src={ev.archivoUrl || ev.urlImagen}
                             preload="metadata"
-                            className="h-full w-full object-cover opacity-80" 
+                            className="h-full w-full object-cover opacity-80"
                           />
                           <div className="absolute inset-0 flex items-center justify-center">
                             <span className="p-3 rounded-full bg-black/60 text-white shadow-lg group-hover:scale-110 transition-transform">
@@ -910,17 +827,17 @@ export default function PerfilOrdenPage() {
                           </div>
                         </div>
                       ) : (
-                        <img 
-                          src={ev.archivoUrl || ev.urlImagen} 
-                          alt={`Evidencia ${idx + 1}`} 
+                        <img
+                          src={ev.archivoUrl || ev.urlImagen}
+                          alt={`Evidencia ${idx + 1}`}
                           className="h-full w-full object-cover transition-transform group-hover:scale-110 cursor-pointer"
                           onClick={() => setViewerMedia({ url: ev.archivoUrl || ev.urlImagen || '', type: 'imagen' })}
                         />
                       )}
-                      
+
                       {/* Action Overlay */}
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                        <button 
+                        <button
                           onClick={() => setViewerMedia({ url: ev.archivoUrl || ev.urlImagen || '', type: ev.tipoArchivo || 'imagen' })}
                           className="p-2 bg-white/20 hover:bg-white/40 rounded-full text-white backdrop-blur-sm transition-all"
                           aria-label="Ver evidencia"
@@ -928,7 +845,7 @@ export default function PerfilOrdenPage() {
                           <EyeIcon className="h-6 w-6" aria-hidden="true" />
                         </button>
                         {!isClient && (
-                          <button 
+                          <button
                             onClick={() => setDeleteConfig({ isOpen: true, id: ev.id })}
                             className="p-2 bg-red-500/20 hover:bg-red-500/40 rounded-full text-red-200 backdrop-blur-sm transition-all"
                             aria-label="Eliminar evidencia"
@@ -988,7 +905,7 @@ export default function PerfilOrdenPage() {
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white">Historial de Actividades Técnicas</h2>
                 </div>
                 {!isClient && (
-                  <button 
+                  <button
                     onClick={() => setIsActividadModalOpen(true)}
                     className="text-sm font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1"
                   >
@@ -1042,7 +959,7 @@ export default function PerfilOrdenPage() {
 
           {/* Sidebar Column (1/4) */}
           <div className="space-y-8">
-            
+
             {/* Quick Status Info */}
             <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
               <h3 className="text-sm font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 mb-4">Información de Entrega</h3>
@@ -1085,7 +1002,7 @@ export default function PerfilOrdenPage() {
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-xs font-black uppercase text-gray-600 dark:text-gray-400 tracking-widest">Resumen Financiero</p>
                       {!isClient && (
-                        <button 
+                        <button
                           onClick={() => setIsEditPresupuestoModalOpen(true)}
                           aria-label="Editar presupuesto"
                           className="p-1.5 rounded-lg bg-gray-50 text-gray-500 hover:bg-brand-50 hover:text-brand-600 transition-colors dark:bg-gray-900"
@@ -1108,7 +1025,7 @@ export default function PerfilOrdenPage() {
                         {order.presupuesto.descripcion || 'Sin descripción adicional.'}
                       </p>
                     </div>
-                    
+
                     {/* Items loop (Only Products) */}
                     {order.presupuesto.detallesPresupuestoItems && order.presupuesto.detallesPresupuestoItems.filter(i => i.estado !== false && !i.deletedAt && i.parte?.unidadMedida !== 'Servicio').length > 0 && (
                       <div className="space-y-2 border-y border-gray-100 py-3 dark:border-gray-700">
@@ -1166,14 +1083,30 @@ export default function PerfilOrdenPage() {
                     )}
 
                     {isClient && String(order.presupuesto.estado?.nombre || order.presupuesto.estado).toLowerCase().includes('pend') && (
-                      <div className="mt-4 pt-4 border-t border-brand-200 dark:border-brand-800">
-                        <a
-                          href={`/consulta?workorder=${encodeURIComponent(order.workOrderNumber)}&cedula=${encodeURIComponent(order.client?.cedula || (session?.user as any)?.cedula || '')}`}
-                          className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-brand-700 transition-all"
-                        >
-                          <KeyIcon className="h-4 w-4" />
-                          <span>Autorizar con Credencial Privada</span>
-                        </a>
+                      <div className="mt-4 pt-4 border-t border-brand-200 dark:border-brand-800 space-y-2">
+                        <p className="text-xs font-bold text-gray-700 dark:text-gray-300 text-center">
+                          Respuesta de Presupuesto
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={isRespondingPresupuesto}
+                            onClick={() => handleClientResponderPresupuesto('ACEPTADO')}
+                            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition-all cursor-pointer"
+                          >
+                            <CheckIcon className="h-4 w-4" />
+                            <span>Aprobar</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isRespondingPresupuesto}
+                            onClick={() => handleClientResponderPresupuesto('RECHAZADO')}
+                            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700 disabled:opacity-50 transition-all cursor-pointer"
+                          >
+                            <XMarkIcon className="h-4 w-4" />
+                            <span>Rechazar</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1181,7 +1114,7 @@ export default function PerfilOrdenPage() {
                   <div className="text-center py-4">
                     <p className="text-xs text-gray-600 dark:text-gray-400 italic">No hay presupuesto generado.</p>
                     {!isClient && (
-                      <button 
+                      <button
                         onClick={() => setIsPresupuestoModalOpen(true)}
                         className="mt-3 text-xs font-bold text-brand-600 hover:underline cursor-pointer"
                       >
@@ -1598,6 +1531,27 @@ export default function PerfilOrdenPage() {
         )}
       </AnimatePresence>
 
-    </div>
+
+      {invitacionGenerada && (
+        <OrdenCreadaModal
+          isOpen={Boolean(invitacionGenerada)}
+          onClose={() => setInvitacionGenerada(null)}
+          order={{
+            id: order?.id || 0,
+            workOrderNumber: order?.workOrderNumber || '',
+            client: order?.client,
+            cuentaPendiente: true,
+            tokenActivacion: invitacionGenerada.token,
+            activacion: {
+              token: invitacionGenerada.token,
+              qrUrl: invitacionGenerada.qrUrl,
+              qrDataUrl: invitacionGenerada.qrDataUrl,
+              expiresAt: invitacionGenerada.expiresAt,
+            },
+          }}
+          onFinalize={() => setInvitacionGenerada(null)}
+        />
+      )}
+</div>
   );
 }

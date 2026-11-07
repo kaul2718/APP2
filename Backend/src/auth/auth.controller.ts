@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Header,
   Param,
   Post,
   Req,
@@ -48,6 +49,7 @@ export class AuthController {
 
   // ✅ Emisión presencial de código QR de activación (Recepción / Admin)
   @Auth('admin', 'recep')
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   @Post('activacion/generar')
   generarActivacion(
     @Body() dto: GenerarActivacionDto,
@@ -63,12 +65,14 @@ export class AuthController {
   }
 
   // ✅ Validación de token de activación antes de renderizar formulario cliente
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   @Get('activacion/validar/:token')
   validarActivacion(@Param('token') token: string) {
     return this.activacionService.validarTokenActivacion(token);
   }
 
   // ✅ Consumo de credencial y establecimiento de contraseña por el cliente
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   @Post('activacion/consumir')
   consumirActivacion(
     @Body() dto: ConsumirActivacionDto,

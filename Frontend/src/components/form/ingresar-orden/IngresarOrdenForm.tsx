@@ -14,6 +14,8 @@ import { useEstadoOrden } from "@/hooks/useEstadoOrden";
 import { Role } from "@/types/role";
 import AgregarClienteModal from "@/components/modals/AgregarClienteModal";
 import AgregarEquipoModal from "@/components/modals/AgregarEquipoModal";
+import OrdenCreadaModal from "@/components/modals/OrdenCreadaModal";
+import GenerarPdfIngresoModal from "@/components/modals/GenerarPdfIngresoModal";
 import { Combobox } from '@headlessui/react'
 import { MagnifyingGlassIcon, ClipboardDocumentCheckIcon, BoltIcon } from '@heroicons/react/24/outline'
 import { OrderType } from "@/types/order.types";
@@ -57,6 +59,9 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     // Estados para controlar los modales
     const [isClienteModalOpen, setIsClienteModalOpen] = React.useState(false);
     const [isEquipoModalOpen, setIsEquipoModalOpen] = React.useState(false);
+    const [createdOrder, setCreatedOrder] = React.useState<any | null>(null);
+    const [isOrderCreatedModalOpen, setIsOrderCreatedModalOpen] = React.useState(false);
+    const [isPdfModalOpen, setIsPdfModalOpen] = React.useState(false);
 
     // IDs de Accesibilidad
     const accessoryInputId = React.useId();
@@ -535,15 +540,6 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
 
             const tokenRaw = (result as any)?.tokenAccesoRaw;
 
-            if (onSuccess) {
-                onSuccess({
-                    id: result.id,
-                    workOrderNumber: result.workOrderNumber,
-                    ...(tokenRaw ? { tokenAccesoRaw: tokenRaw } as any : {}),
-                });
-                return;
-            }
-
             // Reset del formulario
             setFormData({
                 clientId: null,
@@ -559,8 +555,17 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                 tiempoEstimadoReparacion: 0
             });
 
+            if (onSuccess) {
+                onSuccess({
+                    ...result,
+                    ...(tokenRaw ? { tokenAccesoRaw: tokenRaw } as any : {}),
+                });
+                return;
+            }
+
             if (!embeddedMode) {
-                setTimeout(() => router.push('/ver-orden'), 1500);
+                setCreatedOrder(result);
+                setIsOrderCreatedModalOpen(true);
             }
 
         } catch (error: any) {
@@ -1143,6 +1148,32 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                 onClose={() => setIsEquipoModalOpen(false)}
                 onSuccess={handleEquipoCreado}
             />
+
+            <OrdenCreadaModal
+                isOpen={isOrderCreatedModalOpen}
+                onClose={() => setIsOrderCreatedModalOpen(false)}
+                order={createdOrder}
+                onOpenPdfModal={() => {
+                    setIsOrderCreatedModalOpen(false);
+                    setIsPdfModalOpen(true);
+                }}
+                onFinalize={() => {
+                    setIsOrderCreatedModalOpen(false);
+                    router.push('/ver-orden');
+                }}
+            />
+
+            {createdOrder && (
+                <GenerarPdfIngresoModal
+                    isOpen={isPdfModalOpen}
+                    onClose={() => {
+                        setIsPdfModalOpen(false);
+                        router.push('/ver-orden');
+                    }}
+                    order={createdOrder}
+                    orderId={createdOrder.id}
+                />
+            )}
         </>
     );
 }

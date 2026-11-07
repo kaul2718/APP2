@@ -1,3 +1,4 @@
+import * as QRCode from 'qrcode';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DocumentosOrdenService } from './documentos-orden.service';
@@ -217,6 +218,121 @@ describe('DocumentosOrdenService - Generación de PDF y Word-Wrap', () => {
       const header = Buffer.from(pdfBytes.slice(0, 4)).toString();
       expect(header).toBe('%PDF');
     });
+
+  describe('Código QR en Comprobante PDF según Estado de Cuenta', () => {
+    const ordenBase: any = {
+      id: 7,
+      workOrderNumber: '00007',
+      createdAt: new Date('2026-11-07'),
+      client: {
+        id: 77,
+        nombre: 'GEOVANY',
+        apellido: 'SALAZAR',
+        cedula: '0103644480',
+        telefono: '0969492150',
+      },
+      equipo: {
+        tipoEquipo: { nombre: 'Laptop' },
+        marca: { nombre: 'Lenovo' },
+        modelo: { nombre: 'G40-70' },
+        numeroSerie: 'SN777777',
+      },
+      estadoOrden: { nombre: 'Recepción' },
+      problemaReportado: 'Problema de prueba para comprobante',
+    };
+
+    const operador: any = {
+      id: 1,
+      nombre: 'Recepción',
+      apellido: 'HDC',
+    };
+
+    it('debe generar QR a /activar-cuenta con token de 48h si el cliente está pendiente de activación', async () => {
+      // Cliente sin contraseña
+      mockUserRepo.findOne.mockResolvedValueOnce({
+        id: 77,
+        password: null,
+      });
+
+      const qrSpy = jest.spyOn(QRCode, 'toBuffer');
+
+      const dto: any = {
+        tipoDocumento: TipoDocumentoOrden.RECEPCION,
+        firmanteNombre: 'GEOVANY SALAZAR',
+        firmanteIdentificacion: '0103644480',
+        tokenActivacion: 'token_activacion_valido_12345678',
+      };
+
+      const pdfBytes = await (service as any).generarPdfCanonico(
+        ordenBase,
+        dto,
+        operador,
+        null,
+      );
+
+      expect(pdfBytes).toBeDefined();
+      expect(qrSpy).toHaveBeenCalled();
+      const lastCallUrl = qrSpy.mock.calls[qrSpy.mock.calls.length - 1][0];
+      expect(lastCallUrl).toContain('/activar-cuenta?token=token_activacion_valido_12345678');
+    });
+
+    it('debe generar QR a /signin si el cliente ya tiene cuenta activada con contraseña', async () => {
+      // Cliente con contraseña
+      mockUserRepo.findOne.mockResolvedValueOnce({
+        id: 77,
+        password: '$2a$10$hashed_password_exists',
+      });
+
+      const qrSpy = jest.spyOn(QRCode, 'toBuffer');
+
+      const dto: any = {
+        tipoDocumento: TipoDocumentoOrden.RECEPCION,
+        firmanteNombre: 'GEOVANY SALAZAR',
+        firmanteIdentificacion: '0103644480',
+        tokenActivacion: 'token_que_no_debe_usarse',
+      };
+
+      const pdfBytes = await (service as any).generarPdfCanonico(
+        ordenBase,
+        dto,
+        operador,
+        null,
+      );
+
+      expect(pdfBytes).toBeDefined();
+      const lastCallUrl = qrSpy.mock.calls[qrSpy.mock.calls.length - 1][0];
+      expect(lastCallUrl).toContain('/signin');
+      expect(lastCallUrl).not.toContain('token_que_no_debe_usarse');
+    });
+
+    it('debe generar QR a /signin en reimpresión de comprobante histórico si no hay token efímero activo', async () => {
+      // Cliente sin contraseña pero en reimpresión histórica sin token activo
+      mockUserRepo.findOne.mockResolvedValueOnce({
+        id: 77,
+        password: null,
+      });
+
+      const qrSpy = jest.spyOn(QRCode, 'toBuffer');
+
+      const dto: any = {
+        tipoDocumento: TipoDocumentoOrden.RECEPCION,
+        firmanteNombre: 'GEOVANY SALAZAR',
+        firmanteIdentificacion: '0103644480',
+      };
+
+      const pdfBytes = await (service as any).generarPdfCanonico(
+        ordenBase,
+        dto,
+        operador,
+        null,
+      );
+
+      expect(pdfBytes).toBeDefined();
+      const lastCallUrl = qrSpy.mock.calls[qrSpy.mock.calls.length - 1][0];
+      expect(lastCallUrl).toContain('/signin');
+      expect(lastCallUrl).not.toContain('/activar-cuenta');
+    });
+  });
   });
 });
 

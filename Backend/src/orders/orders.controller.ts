@@ -22,6 +22,7 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { ConvertirOrdenCompletaDto } from './dto/convertir-orden.dto';
 import { AutorizarPresupuestoPrivadoDto } from './dto/autorizar-presupuesto-privado.dto';
 import { AutorizarPresupuestoPresencialDto } from './dto/autorizar-presupuesto-presencial.dto';
+import { ResponderPresupuestoClienteDto } from './dto/responder-presupuesto-cliente.dto';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { RequirePermissions } from 'src/decorators/permissions.decorator';
 import { CurrentUser, CurrentUser as UserDecorator } from 'src/auth/decorators/user.decorator';
@@ -338,6 +339,23 @@ export class OrderController {
     const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || req.ip;
     const userAgent = req.headers['user-agent'];
     return this.orderService.handlePrivatePresupuestoAction(dto, ip, userAgent);
+  }
+
+  /**
+   * Autorización de presupuesto por cliente autenticado (Portal de Clientes con sesión JWT)
+   */
+  @Auth('client')
+  @Post(':id/presupuesto/responder')
+  async handleClientPresupuestoAction(
+    @Param('id', ParseIntPipe) orderId: number,
+    @Body() dto: ResponderPresupuestoClienteDto,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    const userId = user?.sub || user?.id;
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || req.ip;
+    const userAgent = req.headers['user-agent'];
+    return this.orderService.handleClientPresupuestoAction(orderId, userId, dto, ip, userAgent);
   }
 
   /**

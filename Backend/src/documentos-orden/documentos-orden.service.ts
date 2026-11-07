@@ -1358,17 +1358,46 @@ export class DocumentosOrdenService {
       color: textMuted,
     });
 
-    // --- CÓDIGO QR PARA CONSULTA Y SEGUIMIENTO DEL CLIENTE ---
+    // --- CÓDIGO QR PARA CONSULTA / ACTIVACIÓN DEL CLIENTE ---
     try {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4000';
-      const clientCedula = (orden.client as any)?.cedula || dto.firmanteIdentificacion || '';
-      let qrUrl = `${frontendUrl}/consulta?workorder=${encodeURIComponent(orden.workOrderNumber)}&cedula=${encodeURIComponent(clientCedula)}`;
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        (process.env.NODE_ENV === 'production'
+          ? 'https://elhospitaldelcomputador.com'
+          : 'http://localhost:4000');
+      const clientId = orden.client?.id;
 
-      const tokenPrivado = (dto as any)?.tokenAccesoRaw || (orden as any)?.tokenAccesoRaw;
-      if (tokenPrivado && typeof tokenPrivado === 'string' && tokenPrivado.trim() !== '') {
-        qrUrl += `&token=${encodeURIComponent(tokenPrivado.trim())}`;
+      // Verificar si el cliente ya tiene contraseña activa en la base de datos
+      let tienePassword = false;
+      if (clientId) {
+        const clientWithPass = await this.userRepository.findOne({
+          where: { id: clientId },
+          select: ['id', 'password'],
+        });
+        tienePassword = Boolean(clientWithPass?.password);
       }
 
+      let qrUrl: string;
+      let qrTitle: string;
+      let qrDesc: string;
+
+      const tokenActivacion =
+        (dto as any)?.tokenActivacion ||
+        (orden as any)?.tokenActivacion ||
+        (orden as any)?.activacion?.token;
+
+      if (!tienePassword && tokenActivacion && typeof tokenActivacion === 'string' && tokenActivacion.trim() !== '') {
+        // Cliente nuevo / pendiente de activación con token válido recién generado
+        qrUrl = `${frontendUrl}/activar-cuenta?token=${encodeURIComponent(tokenActivacion.trim())}`;
+        qrTitle = 'ACTIVAR CUENTA';
+        qrDesc = 'Cree su clave personal (48h)';
+      } else {
+        // Cliente con cuenta ya activada O reimpresión sin token activo
+        // Nunca revelar tokens antiguos si la cuenta ya está activada
+        qrUrl = `${frontendUrl}/signin`;
+        qrTitle = 'CONSULTA DIGITAL';
+        qrDesc = 'Ingrese con su cédula a /signin';
+      }
 
       const qrPngBuffer = await QRCode.toBuffer(qrUrl, {
         type: 'png',
@@ -1389,7 +1418,6 @@ export class DocumentosOrdenService {
         height: qrSize,
       });
 
-      const qrTitle = 'CONSULTA DIGITAL';
       page.drawText(qrTitle, {
         x: qrX + (qrSize - fontBold.widthOfTextAtSize(qrTitle, 5.5)) / 2,
         y: qrY + qrSize + 4,
@@ -1398,7 +1426,6 @@ export class DocumentosOrdenService {
         color: brandDark,
       });
 
-      const qrDesc = 'Escanee para estado y presupuesto';
       page.drawText(qrDesc, {
         x: qrX + (qrSize - fontRegular.widthOfTextAtSize(qrDesc, 4.5)) / 2,
         y: qrY - 7,

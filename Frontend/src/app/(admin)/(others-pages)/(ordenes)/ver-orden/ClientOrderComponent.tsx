@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useOrders } from "@/hooks/useOrders";
 import { Order } from "@/types/order.types";
 import PageBreadcrumb from "@/components/common/PageBreadCrumb";
@@ -19,30 +20,35 @@ import Button from "@/components/ui/button/Button";
 import { toast } from "react-toastify";
 
 export default function ClientOrderComponent() {
+  const { data: session } = useSession();
   const { orders, loading, fetchOrders } = useOrders();
   const router = useRouter();
   const [actionLoading, setActionLoading] = useState(false);
 
-  const handlePresupuestoAction = async (orderId: number, cedula: string, workorder: string, action: 'ACEPTADO' | 'RECHAZADO') => {
+  const handlePresupuestoAction = async (orderId: number, action: 'ACEPTADO' | 'RECHAZADO') => {
+    const accionTexto = action === 'ACEPTADO' ? 'aprobar' : 'rechazar';
+    const confirmado = window.confirm(`¿Confirmas que deseas ${accionTexto} el presupuesto de esta orden?`);
+    if (!confirmado) return;
+
     setActionLoading(true);
     try {
       const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000/api/v1';
-      const res = await fetch(`${baseUrl}/orders/public/consulta/presupuesto/action`, {
+      const token = (session as any)?.accessToken || (session as any)?.token;
+      const res = await fetch(`${baseUrl}/orders/${orderId}/presupuesto/responder`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cedula,
-          workorder,
-          action
-        })
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ action }),
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || 'Error al procesar la acción del presupuesto');
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || 'Error al procesar la acción del presupuesto');
       }
 
-      toast.success(`Presupuesto ${action.toLowerCase()} correctamente.`);
+      toast.success(`Presupuesto ${action === 'ACEPTADO' ? 'aprobado' : 'rechazado'} correctamente.`);
       await fetchOrders(); // Refetch orders to get updated budget status
     } catch (err: any) {
       toast.error(err.message || 'Error desconocido al actualizar el presupuesto');
@@ -121,6 +127,46 @@ export default function ClientOrderComponent() {
                     </div>
                   </div>
                 </div>
+
+                {order.presupuesto && (
+                  <div className="bg-amber-50/70 dark:bg-amber-950/20 rounded-xl p-3.5 border border-amber-200 dark:border-amber-900/40 space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-amber-900 dark:text-amber-200">
+                        Presupuesto: ${(Number((order.presupuesto as any).total) || 0).toFixed(2)} USD
+                      </span>
+                      <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-md ${
+                        String(typeof order.presupuesto.estado === 'object' ? order.presupuesto.estado?.nombre : order.presupuesto.estado || '').toLowerCase().includes('aprob')
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                          : String(typeof order.presupuesto.estado === 'object' ? order.presupuesto.estado?.nombre : order.presupuesto.estado || '').toLowerCase().includes('rechaz')
+                          ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300'
+                      }`}>
+                        {typeof order.presupuesto.estado === 'object' ? (order.presupuesto.estado?.nombre || 'Pendiente') : (String(order.presupuesto.estado || 'Pendiente'))}
+                      </span>
+                    </div>
+
+                    {String(typeof order.presupuesto.estado === 'object' ? order.presupuesto.estado?.nombre : order.presupuesto.estado || '').toLowerCase().includes('pend') && (
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          disabled={actionLoading}
+                          onClick={() => handlePresupuestoAction(order.id, 'ACEPTADO')}
+                          className="flex-1 rounded-lg bg-emerald-600 px-2 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition disabled:opacity-50 cursor-pointer shadow-xs"
+                        >
+                          Aprobar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={actionLoading}
+                          onClick={() => handlePresupuestoAction(order.id, 'RECHAZADO')}
+                          className="flex-1 rounded-lg bg-rose-600 px-2 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition disabled:opacity-50 cursor-pointer shadow-xs"
+                        >
+                          Rechazar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 px-2">
                   <ClockIcon className="w-4 h-4 text-gray-400" />

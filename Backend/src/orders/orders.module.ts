@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { OrderService } from './orders.service';
 import { OrderController } from './orders.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -18,6 +18,7 @@ import { NotificacionModule } from '../notificacion/notificacion.module';
 import { PresupuestoModule } from 'src/presupuesto/presupuesto.module';
 import { DocumentosOrdenModule } from '../documentos-orden/documentos-orden.module';
 import { ConfiguracionSistemaModule } from '../configuracion-sistema/configuracion-sistema.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { ConfiguracionSistemaModule } from '../configuracion-sistema/configuraci
     PresupuestoModule,
     ConfiguracionSistemaModule,
     DocumentosOrdenModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [OrderController],
   providers: [OrderService],

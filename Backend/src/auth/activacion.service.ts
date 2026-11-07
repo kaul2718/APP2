@@ -92,8 +92,10 @@ export class ActivacionService {
     const rawSecret = crypto.randomBytes(16).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(rawSecret).digest('hex');
 
-    // Vigencia corta de 15 minutos
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    // Vigencia configurable (por defecto 48 horas para mostrador)
+    const expirationHours =
+      Number(this.configService.get<number>('ACTIVACION_EXPIRATION_HOURS')) || 48;
+    const expiresAt = new Date(Date.now() + expirationHours * 60 * 60 * 1000);
 
     // 6. Guardar el registro auditable (almacenando únicamente el hash SHA-256)
     const nuevaActivacion = this.activacionRepository.create({
@@ -111,11 +113,14 @@ export class ActivacionService {
     await this.activacionRepository.save(nuevaActivacion);
 
     this.logger.log(
-      `✓ Credencial de [${tipo}] generada para cliente ID ${user.id} (${user.cedula}) por operador ID ${operadorId}. Expira en 15 minutos.`,
+      `✓ Credencial de [${tipo}] generada para cliente ID ${user.id} (${user.cedula}) por operador ID ${operadorId}. Expira en ${expirationHours} horas.`,
     );
 
     const frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:4000';
+      this.configService.get<string>('FRONTEND_URL') ||
+      (process.env.NODE_ENV === 'production'
+        ? 'https://elhospitaldelcomputador.com'
+        : 'http://localhost:4000');
     const qrUrl = `${frontendUrl}/activar-cuenta?token=${rawSecret}`;
 
     const qrDataUrl = await QRCode.toDataURL(qrUrl, {
@@ -193,7 +198,7 @@ export class ActivacionService {
       return {
         valido: false,
         mensaje:
-          'La credencial de activación ha expirado (su vigencia es de 15 minutos). Acérquese a recepción para generar un nuevo código.',
+          'La credencial de activación ha expirado. Acérquese a recepción para generar un nuevo código.',
       };
     }
 
@@ -282,7 +287,7 @@ export class ActivacionService {
         const ahora = new Date();
         if (ahora > new Date(registro.expiresAt)) {
           throw new BadRequestException(
-            'La credencial de activación ha expirado (vigencia de 15 minutos). Solicite una nueva en recepción.',
+            'La credencial de activación ha expirado. Solicite una nueva en recepción.',
           );
         }
 

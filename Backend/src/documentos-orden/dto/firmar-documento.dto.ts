@@ -37,5 +37,9 @@ export class FirmarDocumentoDto {
   @IsString()
   @IsOptional()
   tokenAccesoRaw?: string;
+
+  @IsString()
+  @IsOptional()
+  tokenActivacion?: string;
 }
 
