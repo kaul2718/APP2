@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import {
   DocumentoOrden,
   TipoDocumentoOrden,
@@ -16,7 +16,7 @@ import {
 import { FirmarDocumentoDto } from './dto/firmar-documento.dto';
 import { Order } from '../orders/entities/order.entity';
 import { User } from '../users/entities/user.entity';
-import { ActivacionCuenta } from '../auth/entities/activacion-cuenta.entity';
+import { ActivacionCuenta, TipoActivacion } from '../auth/entities/activacion-cuenta.entity';
 import { StorageService } from '../storage/storage.service';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import * as crypto from 'crypto';
@@ -419,10 +419,12 @@ export class DocumentosOrdenService {
       tieneQr = true;
     } else {
       let tokenValido = false;
-      if (rawToken && typeof rawToken === 'string' && rawToken.trim() !== '' && clientId) {
+      let effectiveToken = rawToken;
+
+      if (effectiveToken && typeof effectiveToken === 'string' && effectiveToken.trim() !== '' && clientId) {
         const tokenHash = crypto
           .createHash('sha256')
-          .update(rawToken.trim())
+          .update(effectiveToken.trim())
           .digest('hex');
 
         const actRegistro = await this.activacionRepository.findOne({
@@ -438,13 +440,57 @@ export class DocumentosOrdenService {
           tokenValido = true;
         } else {
           this.logger.warn(
-            `Token de activación provisto para ODS #${orden.workOrderNumber || orden.id} no es válido, expiró o está revocado. Se omitirá del ticket térmico.`,
+            `Token de activación provisto para ODS #${orden.workOrderNumber || orden.id} no es válido, expiró o está revocado. Se emitirá credencial vigente para el ticket térmico.`,
           );
         }
       }
 
-      if (tokenValido) {
-        qrUrl = `${frontendUrl}/activar-cuenta?token=${encodeURIComponent(rawToken.trim())}`;
+      // Si el cliente no tiene contraseña y no cuenta con un token de activación válido en memoria,
+      // emitimos automáticamente una credencial criptográfica de activación de 48h para la ODS.
+      // Así el código QR impreso en recepción siempre abrirá el formulario con los datos del cliente.
+      if (!tokenValido && clientId) {
+        try {
+          const rawSecret = crypto.randomBytes(16).toString('hex');
+          const tokenHash = crypto.createHash('sha256').update(rawSecret).digest('hex');
+          const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
+          await this.activacionRepository.update(
+            {
+              usuarioId: clientId,
+              usedAt: IsNull(),
+              revokedAt: IsNull(),
+            },
+            {
+              revokedAt: new Date(),
+            },
+          );
+
+          const nuevaActivacion = this.activacionRepository.create({
+            usuarioId: clientId,
+            tokenHash,
+            tipo: TipoActivacion.ACTIVACION,
+            expiresAt,
+            usedAt: null,
+            revokedAt: null,
+            intentosFallidos: 0,
+            generadoPorId: operador?.id || 1,
+          });
+
+          await this.activacionRepository.save(nuevaActivacion);
+          effectiveToken = rawSecret;
+          tokenValido = true;
+          this.logger.log(
+            `✓ Token de activación 48h generado automáticamente para ticket térmico ODS #${orden.workOrderNumber || orden.id} (Cliente #${clientId})`,
+          );
+        } catch (genErr: any) {
+          this.logger.error(
+            `No se pudo auto-generar token de activación para ODS #${orden.id}: ${genErr?.message}`,
+          );
+        }
+      }
+
+      if (tokenValido && effectiveToken) {
+        qrUrl = `${frontendUrl}/activar-cuenta?token=${encodeURIComponent(effectiveToken.trim())}`;
         qrTitle = 'ACTIVACIÓN DE CUENTA';
         qrSub1 = 'Escanee para crear su contraseña';
         qrSub2 = `Usuario: ${clienteCedula || 'su cédula'}`;
@@ -1141,11 +1187,12 @@ export class DocumentosOrdenService {
       } else {
         // ✅ Caso 2: Cliente con cuenta pendiente de activación (password IS NULL)
         let tokenValido = false;
+        let effectiveToken = rawToken;
 
-        if (rawToken && typeof rawToken === 'string' && rawToken.trim() !== '' && clientId) {
+        if (effectiveToken && typeof effectiveToken === 'string' && effectiveToken.trim() !== '' && clientId) {
           const tokenHash = crypto
             .createHash('sha256')
-            .update(rawToken.trim())
+            .update(effectiveToken.trim())
             .digest('hex');
 
           const actRegistro = await this.activacionRepository.findOne({
@@ -1164,14 +1211,54 @@ export class DocumentosOrdenService {
             tokenValido = true;
           } else {
             this.logger.warn(
-              `Token de activación provisto para ODS #${orden.workOrderNumber} no es válido, expiró o está revocado. Se omitirá del PDF.`,
+              `Token de activación provisto para ODS #${orden.workOrderNumber} no es válido, expiró o está revocado. Se emitirá credencial vigente para el PDF canónico.`,
             );
           }
         }
 
-        if (tokenValido) {
+        // Si el cliente no tiene contraseña y no cuenta con un token de activación válido en memoria,
+        // emitimos automáticamente una credencial criptográfica de activación de 48h para la ODS.
+        if (!tokenValido && clientId) {
+          try {
+            const rawSecret = crypto.randomBytes(16).toString('hex');
+            const tokenHash = crypto.createHash('sha256').update(rawSecret).digest('hex');
+            const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+
+            await this.activacionRepository.update(
+              {
+                usuarioId: clientId,
+                usedAt: IsNull(),
+                revokedAt: IsNull(),
+              },
+              {
+                revokedAt: new Date(),
+              },
+            );
+
+            const nuevaActivacion = this.activacionRepository.create({
+              usuarioId: clientId,
+              tokenHash,
+              tipo: TipoActivacion.ACTIVACION,
+              expiresAt,
+              usedAt: null,
+              revokedAt: null,
+              intentosFallidos: 0,
+              generadoPorId: operador?.id || 1,
+            });
+
+            await this.activacionRepository.save(nuevaActivacion);
+            effectiveToken = rawSecret;
+            tokenValido = true;
+          } catch (genErr: any) {
+            this.logger.error(
+              `No se pudo auto-generar token para comprobante PDF #${orden.id}: ${genErr?.message}`,
+            );
+          }
+        }
+
+        if (tokenValido && effectiveToken) {
           // Emisión inicial o autorizada con token efímero vigente
-          qrUrl = `${frontendUrl}/activar-cuenta?token=${encodeURIComponent(rawToken.trim())}`;
+          qrUrl = `${frontendUrl}/activar-cuenta?token=${encodeURIComponent(effectiveToken.trim())}`;
           qrDesc = 'Escanee para activar su cuenta y consultar su orden.';
         } else {
           // Reimpresión posterior sin token efímero o token no utilizable.

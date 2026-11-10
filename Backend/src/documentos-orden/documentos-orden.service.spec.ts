@@ -30,6 +30,9 @@ describe('DocumentosOrdenService - Generación de PDF y Word-Wrap', () => {
 
   const mockActivacionRepo = {
     findOne: jest.fn(),
+    create: jest.fn().mockImplementation((dto) => dto),
+    save: jest.fn().mockImplementation(async (dto) => ({ id: 1, ...dto })),
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
   };
 
   const mockStorageService = {
