@@ -1516,7 +1516,6 @@ export default function PerfilOrdenPage() {
             presupuesto={order.presupuesto}
             onSuccess={async () => {
               setIsPresupuestoPresencialOpen(false);
-              toast.success("Presupuesto procesado y firmado en R2 exitosamente", { position: "top-center" });
               await fetchOrder();
             }}
           />

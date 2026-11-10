@@ -43,14 +43,15 @@ export default function GenerarPdfEntregaModal({ isOpen, onClose, order }: Props
           },
         );
         if (response.ok) {
-          const doc = await response.json();
+          const text = await response.text();
+          const doc = text ? JSON.parse(text) : null;
           setSignedDoc(doc || null);
         }
       } catch (error) {
         console.warn('No se pudo obtener documento firmado de entrega:', error);
       }
     },
-    [session],
+    [session?.accessToken],
   );
 
   // Carga el PDF oficial de entrega desde el backend (R2 o borrador)

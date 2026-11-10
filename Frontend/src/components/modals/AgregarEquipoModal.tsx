@@ -173,14 +173,12 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
         setTiposEquipo(prev => [...prev, newTipoEquipo]);
         setFormData(prev => ({ ...prev, tipoEquipoId: newTipoEquipo.id.toString() }));
         setIsTipoEquipoModalOpen(false);
-        toast.success(`Tipo de equipo "${newTipoEquipo.nombre}" agregado y seleccionado`);
     };
 
     const handleMarcaSuccess = (newMarca: Marca) => {
         setMarcas(prev => [...prev, newMarca]);
         setFormData(prev => ({ ...prev, marcaId: newMarca.id.toString(), modeloId: "" }));
         setIsMarcaModalOpen(false);
-        toast.success(`Marca "${newMarca.nombre}" agregada y seleccionada`);
     };
 
     const handleModeloSuccess = (newModelo: Modelo) => {
@@ -191,7 +189,6 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
             modeloId: newModelo.id.toString()
         }));
         setIsModeloModalOpen(false);
-        toast.success(`Modelo "${newModelo.nombre}" agregado y seleccionado`);
     };
 
     const validateFields = () => {

@@ -165,10 +165,7 @@ export default function AgregarActividadTecnicaModal({
             }
 
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Error desconocido al crear la actividad tecnica', {
-                position: "top-center",
-                autoClose: 5000,
-            });
+            console.error('Error al crear la actividad técnica:', error);
         }
     };
 

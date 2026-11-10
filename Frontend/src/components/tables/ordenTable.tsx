@@ -436,7 +436,7 @@ export default function OrdenTable() {
           }}
           orderId={selectedOrderId}
           onSuccess={() => {
-            toast.success("Presupuesto creado exitosamente");
+            fetchOrders(currentPage, 10, searchTerm, showInactive, estadoOrdenId);
           }}
         />
       )}
@@ -464,7 +464,7 @@ export default function OrdenTable() {
             setSelectedOrder(null);
           }}
           onSuccess={() => {
-            toast.success("Actividad tecnica agregada correctamente");
+            fetchOrders(currentPage, 10, searchTerm, showInactive, estadoOrdenId);
           }}
           orderId={selectedOrder?.id || null}
         />

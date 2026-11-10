@@ -54,14 +54,15 @@ export default function GenerarPdfIngresoModal({
           },
         );
         if (response.ok) {
-          const doc = await response.json();
+          const text = await response.text();
+          const doc = text ? JSON.parse(text) : null;
           setSignedDoc(doc || null);
         }
       } catch (error) {
         console.warn('No se pudo obtener documento firmado de ingreso:', error);
       }
     },
-    [session],
+    [session?.accessToken],
   );
 
   // Carga el PDF oficial desde el backend (R2 o en memoria si aún es borrador)
@@ -69,18 +70,11 @@ export default function GenerarPdfIngresoModal({
     async (targetOrderId: number, customToken?: string) => {
       try {
         setPdfLoading(true);
-        const tokenAct =
-          customToken ||
-          (order as any)?.tokenActivacion ||
-          (order as any)?.activacion?.token ||
-          (initialOrder as any)?.tokenActivacion ||
-          (initialOrder as any)?.activacion?.token;
-
         const headers: Record<string, string> = {
           Authorization: `Bearer ${session?.accessToken}`,
         };
-        if (tokenAct) {
-          headers['x-token-activacion'] = tokenAct;
+        if (customToken) {
+          headers['x-token-activacion'] = customToken;
         }
 
         const res = await fetch(
@@ -101,12 +95,14 @@ export default function GenerarPdfIngresoModal({
         setPdfLoading(false);
       }
     },
-    [session?.accessToken, order, initialOrder],
+    [session?.accessToken],
   );
+
+  const targetId = initialOrder?.id || orderId;
 
   // Carga inicial al abrir el modal
   React.useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !targetId) return;
 
     if (initialOrder) {
       setOrder(initialOrder);
@@ -117,6 +113,7 @@ export default function GenerarPdfIngresoModal({
         (initialOrder as any)?.activacion?.token;
       loadPdf(initialOrder.id, token);
     } else if (orderId) {
+      let isMounted = true;
       const fetchOrder = async () => {
         try {
           setLoadingOrder(true);
@@ -129,21 +126,29 @@ export default function GenerarPdfIngresoModal({
               },
             },
           );
-          if (response.ok) {
+          if (response.ok && isMounted) {
             const data = await response.json();
             setOrder(data);
+            const token =
+              (data as any)?.tokenActivacion ||
+              (data as any)?.activacion?.token;
             fetchSignedDoc(orderId);
-            loadPdf(orderId);
+            loadPdf(orderId, token);
           }
         } catch (error) {
           console.error('Error fetching order for PDF:', error);
         } finally {
-          setLoadingOrder(false);
+          if (isMounted) {
+            setLoadingOrder(false);
+          }
         }
       };
       fetchOrder();
+      return () => {
+        isMounted = false;
+      };
     }
-  }, [isOpen, initialOrder, orderId, session, fetchSignedDoc, loadPdf]);
+  }, [isOpen, targetId, session?.accessToken, fetchSignedDoc, loadPdf]);
 
   // Limpiar URL del blob al desmontar o cerrar
   React.useEffect(() => {

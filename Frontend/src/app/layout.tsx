@@ -50,7 +50,8 @@ export default function RootLayout({
                 draggable
                 theme="colored"
                 role="status"
-                style={{ position: "fixed", top: 20, right: 20, zIndex: 99999 }}
+                limit={3}
+                style={{ position: "fixed", top: 20, right: 20, zIndex: 9999999 }}
               />
             </ThemeProvider>
           </FontSizeProvider>

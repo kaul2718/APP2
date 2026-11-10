@@ -139,6 +139,7 @@ export default function OrdenComponent() {
                     <GenerarPdfIngresoModal
                         isOpen={true}
                         onClose={() => setOrderToPrint(null)}
+                        order={orderToPrint}
                         orderId={orderToPrint.id}
                     />
                 )}

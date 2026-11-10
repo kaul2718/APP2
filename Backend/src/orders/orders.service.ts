@@ -99,12 +99,16 @@ export class OrderService {
       throw new BadRequestException('problemaReportado no puede estar vacío');
     }
 
-    // Validar fechaPrometidaEntrega no esté en el pasado (comparamos solo el día)
+    // Validar fechaPrometidaEntrega no esté en el pasado (con tolerancia de huso horario)
     if (createDto.fechaPrometidaEntrega) {
       const fechaPromesa = new Date(createDto.fechaPrometidaEntrega);
-      const hoy = new Date();
-      hoy.setHours(0, 0, 0, 0);
-      if (fechaPromesa < hoy) {
+      if (isNaN(fechaPromesa.getTime())) {
+        throw new BadRequestException('fechaPrometidaEntrega debe ser una fecha válida');
+      }
+      const limitePasado = new Date();
+      limitePasado.setDate(limitePasado.getDate() - 1);
+      limitePasado.setHours(0, 0, 0, 0);
+      if (fechaPromesa < limitePasado) {
         throw new BadRequestException('fechaPrometidaEntrega no puede ser anterior a hoy');
       }
     }
@@ -593,9 +597,13 @@ export class OrderService {
         // Solo validamos si la fecha cambió
         const fechaActual = orden.fechaPrometidaEntrega ? new Date(orden.fechaPrometidaEntrega).getTime() : null;
         if (fechaActual !== fechaPromesa.getTime()) {
-          const hoy = new Date();
-          hoy.setHours(0, 0, 0, 0);
-          if (fechaPromesa < hoy) {
+          if (isNaN(fechaPromesa.getTime())) {
+            throw new BadRequestException('fechaPrometidaEntrega debe ser una fecha válida');
+          }
+          const limitePasado = new Date();
+          limitePasado.setDate(limitePasado.getDate() - 1);
+          limitePasado.setHours(0, 0, 0, 0);
+          if (fechaPromesa < limitePasado) {
             throw new BadRequestException('fechaPrometidaEntrega no puede ser anterior a hoy');
           }
         }

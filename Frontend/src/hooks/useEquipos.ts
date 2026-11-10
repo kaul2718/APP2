@@ -125,14 +125,13 @@ export function useEquipos(options: UseEquiposOptions = {}): UseEquiposReturn {
   const createEquipo = async (equipoData: CreateEquipoDto): Promise<Equipo> => {
     try {
       const newEquipo = await createItem(equipoData);
-      
+
       // Actualizamos la lista de equipos pero no redirigimos
       await refetch();
-      
+
       return newEquipo;
     } catch (error) {
       console.error("Error al crear equipo:", error);
-      toast.error(error instanceof Error ? error.message : "Error al crear equipo");
       throw error;
     }
   };
@@ -144,7 +143,6 @@ export function useEquipos(options: UseEquiposOptions = {}): UseEquiposReturn {
       return updatedEquipo;
     } catch (error) {
       console.error("Error al actualizar equipo:", error);
-      toast.error(error instanceof Error ? error.message : "Error al actualizar equipo");
       throw error;
     }
   };
