@@ -3,7 +3,7 @@ import {
   Get,
   Post,
   Param,
-  Query,
+  Headers,
   Body,
   ParseIntPipe,
   Req,
@@ -98,12 +98,12 @@ export class DocumentosOrdenController {
   async getPdfPreview(
     @Param('id', ParseIntPipe) orderId: number,
     @Param('tipo') tipo: string,
-    @Query('tokenActivacion') tokenActivacion: string | undefined,
+    @Headers('x-token-activacion') headerToken: string | undefined,
     @CurrentUser() user: any,
-    @Req() req: Request,
     @Res() res: Response,
   ) {
     const isClient = user?.role === 'client' || user?.role === 'cliente';
+    const isStaff = ['admin', 'tech', 'recep'].includes(user?.role);
     const userId = user?.sub || user?.id;
     if (isClient) {
       const pertenece = await this.documentosService.verificarPropiedadCliente(orderId, userId);
@@ -111,18 +111,19 @@ export class DocumentosOrdenController {
         throw new ForbiddenException('No tiene permisos para ver documentos de esta orden.');
       }
     }
+
+    if (!isStaff && headerToken) {
+      throw new ForbiddenException('Únicamente el personal autorizado puede proporcionar tokens de activación.');
+    }
+
     const tipoEnum = tipo.toUpperCase() as TipoDocumentoOrden;
     if (!Object.values(TipoDocumentoOrden).includes(tipoEnum)) {
       throw new BadRequestException(`Tipo de documento inválido: ${tipo}`);
     }
     const operadorId = user?.sub || user?.id || 1;
 
-    // Priorizar header HTTP seguro x-token-activacion (evita logs de URLs, referer y almacenamiento en historial)
-    const headerToken = (req.headers['x-token-activacion'] as string) || undefined;
-    const tokenProvisto = headerToken || tokenActivacion;
-
     // Solo personal autorizado (no cliente) puede suministrar token de activación efímero para previsualizar/imprimir
-    const effectiveToken = isClient ? undefined : tokenProvisto;
+    const effectiveToken = isStaff ? headerToken : undefined;
     const pdfBuffer = await this.documentosService.obtenerPdfBuffer(
       orderId,
       tipoEnum,
@@ -133,6 +134,49 @@ export class DocumentosOrdenController {
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="ODS_${orderId}_${tipoEnum}.pdf"`,
+      'Content-Length': pdfBuffer.length,
+      'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Referrer-Policy': 'no-referrer',
+    });
+    res.end(pdfBuffer);
+  }
+
+  @Auth('admin', 'tech', 'recep', 'client')
+  @Get('ticket-termico')
+  async getTicketTermico(
+    @Param('id', ParseIntPipe) orderId: number,
+    @Headers('x-token-activacion') headerToken: string | undefined,
+    @CurrentUser() user: any,
+    @Res() res: Response,
+  ) {
+    const isClient = user?.role === 'client' || user?.role === 'cliente';
+    const isStaff = ['admin', 'tech', 'recep'].includes(user?.role);
+    const userId = user?.sub || user?.id;
+    if (isClient) {
+      const pertenece = await this.documentosService.verificarPropiedadCliente(orderId, userId);
+      if (!pertenece) {
+        throw new ForbiddenException('No tiene permisos para ver documentos de esta orden.');
+      }
+    }
+
+    if (!isStaff && headerToken) {
+      throw new ForbiddenException('Únicamente el personal autorizado puede proporcionar tokens de activación.');
+    }
+
+    const operadorId = user?.sub || user?.id || 1;
+    const effectiveToken = isStaff ? headerToken : undefined;
+
+    const pdfBuffer = await this.documentosService.obtenerTicketTermicoBuffer(
+      orderId,
+      operadorId,
+      effectiveToken,
+    );
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="Ticket_ODS_${orderId}.pdf"`,
       'Content-Length': pdfBuffer.length,
       'Cache-Control': 'no-store, no-cache, must-revalidate, private',
       'Pragma': 'no-cache',

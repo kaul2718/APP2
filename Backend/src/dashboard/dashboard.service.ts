@@ -367,7 +367,7 @@ export class DashboardService {
       kpis: [
         { key: 'recep-created', label: 'Órdenes Registradas', value: ordersCreated, subtitle: 'En el período', actionUrl: '/ver-orden' },
         { key: 'recep-today', label: 'Ingresos Hoy', value: ordersCreatedToday, subtitle: 'Recepción del día', actionUrl: '/ver-orden' },
-        { key: 'recep-ready', label: 'Por Entregar', value: readyToPickup, subtitle: 'Equipos listos en control', actionUrl: '/ver-orden?estadoId=1' },
+        { key: 'recep-ready', label: 'Por Entregar', value: readyToPickup, subtitle: 'Equipos listos para entrega', actionUrl: '/ver-orden' },
         { key: 'recep-unassigned', label: 'Sin Asignar', value: pendingAssignment, subtitle: 'Pendientes de técnico', actionUrl: '/ver-orden?filtro=sin-asignar' },
       ],
       charts: [statusChart],
@@ -448,12 +448,12 @@ export class DashboardService {
     return Math.round(((current - previous) / previous) * 100);
   }
 
-  // 1. Equipos en taller activo (excluye Entrega, Archivados, Cancelada, Anulada)
+  // 1. Equipos en taller activo (excluye Entregado, Cancelada, Anulada)
   private async countInWorkshopOrders(filters: any = {}): Promise<number> {
     const qb = this.orderRepository.createQueryBuilder('o')
       .leftJoin('o.estadoOrden', 'eo')
       .where('o.deletedAt IS NULL')
-      .andWhere("eo.nombre NOT IN ('Entrega', 'Archivados', 'Cancelada', 'Anulada')");
+      .andWhere("eo.nombre NOT IN ('Entregado', 'Cancelada', 'Anulada')");
 
     if (filters.clientId) qb.andWhere('o.clientId = :clientId', { clientId: filters.clientId });
     if (filters.technicianId) qb.andWhere('o.technicianId = :techId', { techId: filters.technicianId });
@@ -478,7 +478,7 @@ export class DashboardService {
       .innerJoin('h.estadoOrden', 'eo')
       .innerJoin('h.orden', 'o')
       .where('o.deletedAt IS NULL')
-      .andWhere("eo.nombre = 'Entrega'");
+      .andWhere("LOWER(eo.nombre) LIKE '%entregad%'");
 
     if (startDate) qb.andWhere('h.fechaCambio >= :startDate', { startDate });
     if (endDate) qb.andWhere('h.fechaCambio < :endDate', { endDate });
@@ -512,19 +512,19 @@ export class DashboardService {
       .where('o.deletedAt IS NULL')
       .andWhere('o.fechaPrometidaEntrega IS NOT NULL')
       .andWhere('o.fechaPrometidaEntrega < :now', { now })
-      .andWhere("eo.nombre NOT IN ('Entrega', 'Archivados', 'Cancelada', 'Anulada')");
+      .andWhere("eo.nombre NOT IN ('Entregado', 'Cancelada', 'Anulada')");
 
     if (filters.technicianId) qb.andWhere('o.technicianId = :techId', { techId: filters.technicianId });
     if (filters.recepcionistaId) qb.andWhere('o.recepcionistaId = :recepId', { recepId: filters.recepcionistaId });
     return qb.getCount();
   }
 
-  // 6. Equipos listos para retirar (en Control)
+  // 6. Equipos listos para retirar (Listo para Entrega)
   private async countReadyForPickup(filters: any = {}): Promise<number> {
     const qb = this.orderRepository.createQueryBuilder('o')
       .leftJoin('o.estadoOrden', 'eo')
       .where('o.deletedAt IS NULL')
-      .andWhere("eo.nombre = 'Control'");
+      .andWhere("LOWER(eo.nombre) LIKE '%listo%'");
 
     if (filters.clientId) qb.andWhere('o.clientId = :clientId', { clientId: filters.clientId });
     if (filters.technicianId) qb.andWhere('o.technicianId = :techId', { techId: filters.technicianId });
@@ -538,7 +538,7 @@ export class DashboardService {
       .leftJoin('o.estadoOrden', 'eo')
       .where('o.deletedAt IS NULL')
       .andWhere('o.technicianId IS NULL')
-      .andWhere("eo.nombre NOT IN ('Entrega', 'Archivados', 'Cancelada', 'Anulada')")
+      .andWhere("eo.nombre NOT IN ('Entregado', 'Cancelada', 'Anulada')")
       .getCount();
   }
 
@@ -689,7 +689,7 @@ export class DashboardService {
       .innerJoin('o.historialEstados', 'h')
       .innerJoin('h.estadoOrden', 'eo')
       .where('o.deletedAt IS NULL')
-      .andWhere("eo.nombre IN ('Entrega', 'Control')")
+      .andWhere("eo.nombre IN ('Listo para Entrega', 'Entregado')")
       .select('o.tipoOrden', 'tipoOrden')
       .addSelect('COUNT(DISTINCT o.id)', 'muestra')
       .addSelect('AVG(EXTRACT(EPOCH FROM (h.fechaCambio - o.createdAt)) / 3600)', 'horas')
@@ -746,7 +746,7 @@ export class DashboardService {
       .leftJoin('o.estadoOrden', 'eo')
       .where('o.deletedAt IS NULL AND o.technicianId = :userId', { userId })
       .andWhere('o.fechaPrometidaEntrega >= :startOfDay AND o.fechaPrometidaEntrega < :endOfDay', { startOfDay, endOfDay })
-      .andWhere("eo.nombre NOT IN ('Entrega', 'Archivados', 'Cancelada', 'Anulada')")
+      .andWhere("eo.nombre NOT IN ('Listo para Entrega', 'Entregado', 'Cancelada', 'Anulada')")
       .getCount();
   }
 

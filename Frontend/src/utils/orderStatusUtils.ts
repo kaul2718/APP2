@@ -36,15 +36,12 @@ export function findRecepcionStatus<T extends { nombre: string; estado?: boolean
 }
 
 /**
- * Asigna una prioridad numérica a cada estado según el flujo de negocio (8 estados):
+ * Asigna una prioridad numérica a cada estado según el flujo definitivo de 5 estados:
  * 0: Recepción
  * 1: Diagnóstico
- * 2: Repuestos
- * 3: Aprobación
- * 4: Reparación
- * 5: Control
- * 6: Entrega
- * 7: Archivados
+ * 2: En Servicio (reemplaza a Reparación)
+ * 3: Listo para Entrega (reemplaza a Control y Entrega pendiente)
+ * 4: Entregado (estado final cerrado; reemplaza a Archivados)
  * 99: Otros no catalogados
  */
 export function getStatusWorkflowPriority(nombre: string): number {
@@ -52,12 +49,9 @@ export function getStatusWorkflowPriority(nombre: string): number {
 
   if (norm.includes('recepci')) return 0;
   if (norm.includes('diagno')) return 1;
-  if (norm.includes('repuesto')) return 2;
-  if (norm.includes('aprob') || norm.includes('presupuest')) return 3;
-  if (norm.includes('repara')) return 4;
-  if (norm.includes('control') || norm.includes('calidad')) return 5;
-  if (norm.includes('entrega')) return 6;
-  if (norm.includes('archiv')) return 7;
+  if (norm.includes('servicio') || norm.includes('repar') || norm.includes('taller')) return 2;
+  if (norm.includes('listo') || norm.includes('control') || norm.includes('calidad')) return 3;
+  if (norm.includes('entregad') || norm.includes('entreg') || norm.includes('archiv')) return 4;
 
   return 99;
 }

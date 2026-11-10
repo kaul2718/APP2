@@ -133,8 +133,8 @@ export class ReportsService {
     const items = rawPaginated.map((r) => {
       const fechaPrometida = r.o_fechaPrometidaEntrega ? new Date(r.o_fechaPrometidaEntrega) : null;
       const estadoNombre = r.eo_nombre || 'Sin Estado';
-      const esActiva = !['Entrega', 'Archivados', 'Cancelada', 'Anulada'].includes(estadoNombre);
-      const estaAtrasada = esActiva && fechaPrometida && fechaPrometida < now;
+      const esActiva = !['Entregado', 'Entrega', 'Archivados', 'Cancelada', 'Anulada'].includes(estadoNombre);
+      const estaAtrasada = !['Listo para Entrega', 'Entregado', 'Entrega', 'Archivados', 'Cancelada', 'Anulada'].includes(estadoNombre) && fechaPrometida && fechaPrometida < now;
 
       return {
         id: r.o_id,
@@ -171,12 +171,12 @@ export class ReportsService {
       else totalCompletas++;
 
       const est = r.eo_nombre || '';
-      if (!['Entrega', 'Archivados', 'Cancelada', 'Anulada'].includes(est)) {
+      if (!['Entregado', 'Entrega', 'Archivados', 'Cancelada', 'Anulada'].includes(est)) {
         totalEnTaller++;
       }
 
       const fp = r.o_fechaPrometidaEntrega ? new Date(r.o_fechaPrometidaEntrega) : null;
-      if (!['Entrega', 'Archivados', 'Cancelada', 'Anulada'].includes(est) && fp && fp < now) {
+      if (!['Listo para Entrega', 'Entregado', 'Entrega', 'Archivados', 'Cancelada', 'Anulada'].includes(est) && fp && fp < now) {
         totalAtrasadas++;
       }
 
@@ -380,7 +380,7 @@ export class ReportsService {
       .where('o.deletedAt IS NULL')
       .andWhere('o.fechaPrometidaEntrega IS NOT NULL')
       .andWhere('o.fechaPrometidaEntrega < :now', { now })
-      .andWhere("eo.nombre NOT IN ('Entrega', 'Archivados', 'Cancelada', 'Anulada')");
+      .andWhere("eo.nombre NOT IN ('Listo para Entrega', 'Entregado', 'Entrega', 'Archivados', 'Cancelada', 'Anulada')");
 
     if (query.tecnicoId) {
       delayedQb.andWhere('o.technicianId = :techId', { techId: query.tecnicoId });
@@ -419,7 +419,7 @@ export class ReportsService {
       .innerJoin('o.historialEstados', 'h')
       .innerJoin('h.estadoOrden', 'eo')
       .where('o.deletedAt IS NULL')
-      .andWhere("eo.nombre IN ('Entrega', 'Control')")
+      .andWhere("eo.nombre IN ('Listo para Entrega', 'Entregado')")
       .select('o.tipoOrden', 'tipoOrden')
       .addSelect('COUNT(DISTINCT o.id)', 'muestra')
       .addSelect('AVG(EXTRACT(EPOCH FROM (h.fechaCambio - o.createdAt)) / 3600)', 'horas')
@@ -889,7 +889,7 @@ export class ReportsService {
         .leftJoin('o.estadoOrden', 'eo')
         .where('o.deletedAt IS NULL')
         .andWhere('o.technicianId = :techId', { techId: t.id })
-        .andWhere("eo.nombre NOT IN ('Entrega', 'Archivados', 'Cancelada', 'Anulada')")
+        .andWhere("eo.nombre NOT IN ('Listo para Entrega', 'Entregado', 'Entrega', 'Archivados', 'Cancelada', 'Anulada')")
         .getCount();
 
       // 2. Órdenes finalizadas/entregadas en el período
@@ -899,7 +899,7 @@ export class ReportsService {
         .innerJoin('h.orden', 'o')
         .where('o.deletedAt IS NULL')
         .andWhere('o.technicianId = :techId', { techId: t.id })
-        .andWhere("eo.nombre = 'Entrega'")
+        .andWhere("eo.nombre IN ('Listo para Entrega', 'Entregado')")
         .andWhere('h.fechaCambio >= :from AND h.fechaCambio < :to', { from, to })
         .select('COUNT(DISTINCT o.id)', 'cnt')
         .getRawOne();
@@ -921,7 +921,7 @@ export class ReportsService {
         .andWhere('o.technicianId = :techId', { techId: t.id })
         .andWhere('o.fechaPrometidaEntrega IS NOT NULL')
         .andWhere('o.fechaPrometidaEntrega < :now', { now })
-        .andWhere("eo.nombre NOT IN ('Entrega', 'Archivados', 'Cancelada', 'Anulada')")
+        .andWhere("eo.nombre NOT IN ('Listo para Entrega', 'Entregado', 'Entrega', 'Archivados', 'Cancelada', 'Anulada')")
         .getCount();
 
       technicianStats.push({
@@ -1153,7 +1153,7 @@ export class ReportsService {
         .createQueryBuilder('o')
         .leftJoin('o.estadoOrden', 'eo')
         .where('o.deletedAt IS NULL')
-        .andWhere("eo.nombre NOT IN ('Entrega', 'Archivados', 'Cancelada', 'Anulada')")
+        .andWhere("eo.nombre NOT IN ('Entregado', 'Entrega', 'Archivados', 'Cancelada', 'Anulada')")
         .getCount(),
 
       // Entregadas físicamente en período
@@ -1162,7 +1162,7 @@ export class ReportsService {
         .innerJoin('h.estadoOrden', 'eo')
         .innerJoin('h.orden', 'o')
         .where('o.deletedAt IS NULL')
-        .andWhere("eo.nombre = 'Entrega'")
+        .andWhere("eo.nombre = 'Entregado'")
         .andWhere(query.preset !== 'all' ? 'h.fechaCambio >= :from AND h.fechaCambio < :to' : '1=1', { from, to })
         .select('COUNT(DISTINCT o.id)', 'cnt')
         .getRawOne(),
@@ -1192,7 +1192,7 @@ export class ReportsService {
         .where('o.deletedAt IS NULL')
         .andWhere('o.fechaPrometidaEntrega IS NOT NULL')
         .andWhere('o.fechaPrometidaEntrega < :now', { now })
-        .andWhere("eo.nombre NOT IN ('Entrega', 'Archivados', 'Cancelada', 'Anulada')")
+        .andWhere("eo.nombre NOT IN ('Listo para Entrega', 'Entregado', 'Entrega', 'Archivados', 'Cancelada', 'Anulada')")
         .getCount(),
     ]);
 

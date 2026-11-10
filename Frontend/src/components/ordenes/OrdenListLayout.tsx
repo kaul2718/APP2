@@ -339,12 +339,12 @@ export default function OrdenListLayout() {
     if (currentIndex >= 0 && currentIndex < activeEstados.length - 1) {
       const nextState = activeEstados[currentIndex + 1];
 
-      if (estadoNombre.includes('aprob')) {
+      if (estadoNombre.includes('diagn')) {
         const budgetStatus = order.presupuesto?.estado?.nombre?.toLowerCase() || '';
 
         if (budgetStatus.includes('rechaz')) {
-          const controlState = activeEstados.find(e => e.nombre.toLowerCase().includes('control')) || activeEstados[activeEstados.length - 1];
-          setConfirmAction({ action: "advance_warning", order, nextState: controlState, warningType: "presupuesto_rechazado" });
+          const listoState = activeEstados.find(e => e.nombre.toLowerCase().includes('listo')) || activeEstados[activeEstados.length - 1];
+          setConfirmAction({ action: "advance_warning", order, nextState: listoState, warningType: "presupuesto_rechazado" });
           return;
         }
 
@@ -354,14 +354,11 @@ export default function OrdenListLayout() {
         }
       }
 
-      if (estadoNombre.includes('control') || estadoNombre.includes('almac')) {
+      if (estadoNombre.includes('listo')) {
         if (!order.casillero) {
           setConfirmAction({ action: "advance_warning", order, nextState, warningType: "sin_casillero" });
           return;
         }
-      }
-
-      if (estadoNombre.includes('entreg')) {
         setConfirmAction({ action: "advance_warning", order, nextState, warningType: "imprimir_acta" });
         return;
       }
@@ -393,11 +390,11 @@ export default function OrdenListLayout() {
     const tienePresupuesto = Boolean(order.presupuesto);
     const estadoNombre = order.estadoOrden?.nombre.toLowerCase() || '';
 
-    // Lógica para definir acciones primarias
-    const isDiagnosticoOrReparacion = estadoNombre.includes('diagn') || estadoNombre.includes('repara');
-    const isRepuestosOrAprobacion = estadoNombre.includes('repuesto') || estadoNombre.includes('aprob');
+    // Lógica para definir acciones primarias (5 estados: Recepción, Diagnóstico, En Servicio, Listo para Entrega, Entregado)
+    const isDiagnosticoOrEnServicio = estadoNombre.includes('diagn') || estadoNombre.includes('servicio');
     const isRecepcion = estadoNombre.includes('recep');
-    const isControlOrAlmacen = estadoNombre.includes('control') || estadoNombre.includes('almac');
+    const isListoParaEntrega = estadoNombre.includes('listo');
+    const isEntregado = estadoNombre === 'entregado';
 
     const actions: any[] = [
       {
@@ -437,7 +434,7 @@ export default function OrdenListLayout() {
           icon: <ArchiveBoxIcon className="h-5 w-5" />,
           onClick: () => handleCasilleroClick(order),
           className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
-          isPrimary: isControlOrAlmacen,
+          isPrimary: isListoParaEntrega,
         },
         {
           key: "generate-pdf",
@@ -445,7 +442,7 @@ export default function OrdenListLayout() {
           icon: <PrinterIcon className="h-5 w-5" />,
           onClick: () => handlePdfClick(order),
           className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
-          isPrimary: estadoNombre.includes('entreg') || estadoNombre.includes('archiv') || isControlOrAlmacen,
+          isPrimary: isListoParaEntrega || isEntregado,
         },
         {
           key: "generate-ingreso-pdf",
@@ -461,7 +458,7 @@ export default function OrdenListLayout() {
           icon: <DocumentPlusIcon className="h-5 w-5" />,
           onClick: () => handleAddActivity(order),
           className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
-          isPrimary: isDiagnosticoOrReparacion || estadoNombre.includes('entreg'),
+          isPrimary: isDiagnosticoOrEnServicio || isListoParaEntrega,
         },
         {
           key: "add-evidence",
@@ -469,7 +466,7 @@ export default function OrdenListLayout() {
           icon: <PhotoIcon className="h-5 w-5" />,
           onClick: () => handleAddEvidencia(order),
           className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
-          isPrimary: isDiagnosticoOrReparacion || isRecepcion || estadoNombre.includes('repuesto') || isControlOrAlmacen || estadoNombre.includes('entreg'),
+          isPrimary: isDiagnosticoOrEnServicio || isRecepcion || isListoParaEntrega,
         },
         {
           key: "toggle",
@@ -488,7 +485,7 @@ export default function OrdenListLayout() {
           icon: <CurrencyDollarIcon className="h-5 w-5" />,
           onClick: () => handlePresupuestoClick(order),
           className: "flex items-center justify-center h-10 w-10 rounded-full border border-gray-200 text-gray-700 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors dark:border-gray-700 dark:text-gray-300 dark:hover:bg-brand-500/10 dark:hover:text-brand-400 dark:hover:border-brand-500/30",
-          isPrimary: isRepuestosOrAprobacion || estadoNombre.includes('repara') || estadoNombre.includes('diagn') || isRecepcion || estadoNombre.includes('entreg') || isControlOrAlmacen,
+          isPrimary: isDiagnosticoOrEnServicio || isRecepcion || isListoParaEntrega,
         });
       } else {
         actions.push({
@@ -497,7 +494,7 @@ export default function OrdenListLayout() {
           icon: <CurrencyDollarIcon className="h-5 w-5" />,
           onClick: () => handleViewPresupuesto(order),
           className: "flex items-center justify-center h-10 w-10 rounded-full border border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 transition-colors dark:border-green-900/30 dark:text-green-400 dark:hover:bg-green-900/20",
-          isPrimary: isRepuestosOrAprobacion || estadoNombre.includes('repara') || estadoNombre.includes('diagn') || isRecepcion || estadoNombre.includes('entreg') || isControlOrAlmacen,
+          isPrimary: isDiagnosticoOrEnServicio || isRecepcion || isListoParaEntrega || isEntregado,
         });
       }
     }
@@ -815,11 +812,11 @@ export default function OrdenListLayout() {
               ? (confirmAction.warningType === "presupuesto"
                   ? `La orden #${confirmAction.order.workOrderNumber} no tiene un presupuesto registrado. ¿Qué deseas hacer?`
                   : confirmAction.warningType === "presupuesto_rechazado"
-                  ? `El cliente ha rechazado el presupuesto para la orden #${confirmAction.order.workOrderNumber}. Al avanzar, la orden saltará la fase de Reparación y pasará directamente a "${confirmAction.nextState?.nombre}" para almacenamiento/devolución.`
+                  ? `El cliente ha rechazado el presupuesto para la orden #${confirmAction.order.workOrderNumber}. Al avanzar, la orden no pasará a En Servicio y se dirigirá directamente a "${confirmAction.nextState?.nombre}" para devolución sin reparación.`
                   : confirmAction.warningType === "presupuesto_pendiente"
-                  ? `El presupuesto de la orden #${confirmAction.order.workOrderNumber} aún está en estado Pendiente. ¿Deseas avanzar a Reparación de todas formas o esperar la respuesta del cliente?`
+                  ? `El presupuesto de la orden #${confirmAction.order.workOrderNumber} aún está en estado Pendiente. Por norma técnica, debe esperar la respuesta del cliente antes de iniciar En Servicio.`
                   : confirmAction.warningType === "sin_casillero"
-                  ? `La orden #${confirmAction.order.workOrderNumber} no tiene un casillero asignado en Control/Almacén. ¿Deseas asignarle un casillero ahora o pasar directamente a la fase de "${confirmAction.nextState?.nombre}" (Entrega)?`
+                  ? `La orden #${confirmAction.order.workOrderNumber} no tiene un casillero asignado. ¿Deseas asignarle un casillero ahora o continuar hacia "${confirmAction.nextState?.nombre}"?`
                   : confirmAction.warningType === "imprimir_acta"
                   ? `La orden #${confirmAction.order.workOrderNumber} pasará a su estado final de "${confirmAction.nextState?.nombre}". ¿Deseas capturar la firma de conformidad en tablet y generar el Acta de Entrega ahora o pasar directamente al siguiente estado?`
                   : (confirmAction.order.actividades && confirmAction.order.actividades.length > 0

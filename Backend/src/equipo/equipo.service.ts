@@ -41,7 +41,7 @@ export class EquipoService {
         .andWhere('order.estado = true')
         .andWhere('order.deletedAt IS NULL')
         .andWhere('LOWER(estadoOrden.nombre) NOT IN (:...estadosFinales)', {
-          estadosFinales: ['archivados', 'anulado', 'cancelado'],
+          estadosFinales: ['entregado', 'archivados', 'anulado', 'cancelado'],
         })
         .getOne();
 
@@ -229,7 +229,7 @@ export class EquipoService {
       .andWhere('order.estado = :estado', { estado: true })
       .andWhere('order.deletedAt IS NULL')
       .andWhere('LOWER(estadoOrden.nombre) NOT IN (:...estadosFinales)', {
-        estadosFinales: ['archivados', 'anulado', 'cancelado'],
+        estadosFinales: ['entregado', 'archivados', 'anulado', 'cancelado'],
       })
       .select(['order.id', 'order.workOrderNumber', 'order.equipoId', 'estadoOrden.id', 'estadoOrden.nombre'])
       .getMany();

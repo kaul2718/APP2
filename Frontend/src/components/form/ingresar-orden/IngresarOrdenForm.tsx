@@ -16,6 +16,7 @@ import AgregarClienteModal from "@/components/modals/AgregarClienteModal";
 import AgregarEquipoModal from "@/components/modals/AgregarEquipoModal";
 import OrdenCreadaModal from "@/components/modals/OrdenCreadaModal";
 import GenerarPdfIngresoModal from "@/components/modals/GenerarPdfIngresoModal";
+import TicketTermicoModal from "@/components/modals/TicketTermicoModal";
 import { Combobox } from '@headlessui/react'
 import { MagnifyingGlassIcon, ClipboardDocumentCheckIcon, BoltIcon } from '@heroicons/react/24/outline'
 import { OrderType } from "@/types/order.types";
@@ -62,6 +63,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     const [createdOrder, setCreatedOrder] = React.useState<any | null>(null);
     const [isOrderCreatedModalOpen, setIsOrderCreatedModalOpen] = React.useState(false);
     const [isPdfModalOpen, setIsPdfModalOpen] = React.useState(false);
+    const [isTicketModalOpen, setIsTicketModalOpen] = React.useState(false);
 
     // IDs de Accesibilidad
     const accessoryInputId = React.useId();
@@ -1153,6 +1155,10 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                 isOpen={isOrderCreatedModalOpen}
                 onClose={() => setIsOrderCreatedModalOpen(false)}
                 order={createdOrder}
+                onOpenTicketModal={() => {
+                    setIsOrderCreatedModalOpen(false);
+                    setIsTicketModalOpen(true);
+                }}
                 onOpenPdfModal={() => {
                     setIsOrderCreatedModalOpen(false);
                     setIsPdfModalOpen(true);
@@ -1168,6 +1174,18 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                     isOpen={isPdfModalOpen}
                     onClose={() => {
                         setIsPdfModalOpen(false);
+                        router.push('/ver-orden');
+                    }}
+                    order={createdOrder}
+                    orderId={createdOrder.id}
+                />
+            )}
+
+            {createdOrder && (
+                <TicketTermicoModal
+                    isOpen={isTicketModalOpen}
+                    onClose={() => {
+                        setIsTicketModalOpen(false);
                         router.push('/ver-orden');
                     }}
                     order={createdOrder}

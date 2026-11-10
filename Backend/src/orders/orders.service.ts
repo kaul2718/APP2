@@ -27,6 +27,9 @@ import { AutorizarPresupuestoPresencialDto } from './dto/autorizar-presupuesto-p
 import { ResponderPresupuestoClienteDto } from './dto/responder-presupuesto-cliente.dto';
 import { ActivacionService } from '../auth/activacion.service';
 import { TipoActivacion } from '../auth/entities/activacion-cuenta.entity';
+import { normalizeIp } from 'src/common/helpers/client-ip.helper';
+import { validateOrderTransition, normalizeToCanonicalKey } from './helpers/order-transition.helper';
+import { EstadoOrdenEnum } from 'src/common/enums/order-status.enum';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -355,7 +358,7 @@ export class OrderService {
       .andWhere('order.estado = :estado', { estado: true })
       .andWhere('order.deletedAt IS NULL')
       .andWhere('LOWER(estadoOrden.nombre) NOT IN (:...estadosFinales)', {
-        estadosFinales: ['archivados', 'anulado', 'cancelado'],
+        estadosFinales: ['entregado', 'archivados', 'anulado', 'cancelado'],
       });
 
     if (ordenIdExcluida) {
@@ -386,83 +389,29 @@ export class OrderService {
 
   /**
    * Valida las transiciones de estado para Órdenes de Servicio en Hospital del Computador.
-   * Flujo funcional de 8 estados:
-   * Recepción -> Diagnóstico -> Repuestos -> Aprobación -> Reparación -> Control -> Entrega -> Archivados
+   * Flujo simplificado y definitivo de 5 estados:
+   * 1. Recepción
+   * 2. Diagnóstico
+   * 3. En Servicio (reemplaza a Reparación; repuestos es gestión interna)
+   * 4. Listo para Entrega (reemplaza a Control y Entrega pendiente)
+   * 5. Entregado (cierre definitivo y entrega física; reemplaza a Archivados)
    *
-   * Impide saltos indebidos y regresiones arbitrarias, preservando flujos excepcionales legítimos.
+   * Centralizado a través de order-transition.helper.ts para evitar dispersión de lógica.
    */
   public validarTransicionEstado(
     estadoActual: EstadoOrden | null | undefined,
     nuevoEstado: EstadoOrden,
-    usuario?: User | null
+    usuario?: User | null,
+    orden?: Order | null,
+    motivo?: string,
   ): void {
-    if (!estadoActual || estadoActual.id === nuevoEstado.id) {
-      return;
-    }
-
-    const normalize = (name: string) =>
-      name ? name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() : '';
-
-    // Catálogo canónico de los 8 estados oficiales
-    const getCanonicalState = (name: string): string | null => {
-      const norm = normalize(name);
-      if (norm.includes('recep')) return 'recepcion';
-      if (norm.includes('diagn')) return 'diagnostico';
-      if (norm.includes('repuesto')) return 'repuestos';
-      if (norm.includes('aprob') || norm.includes('presupuest')) return 'aprobacion';
-      if (norm.includes('repar')) return 'reparacion';
-      if (norm.includes('control') || norm.includes('calidad')) return 'control';
-      if (norm.includes('entreg')) return 'entrega';
-      if (norm.includes('archiv')) return 'archivados';
-      return null;
-    };
-
-    const claveActual = getCanonicalState(estadoActual.nombre);
-    if (!claveActual) {
-      throw new BadRequestException(
-        `Estado actual no reconocido: "${estadoActual.nombre}" no pertenece al catálogo oficial de estados.`
-      );
-    }
-
-    const claveDestino = getCanonicalState(nuevoEstado.nombre);
-    if (!claveDestino) {
-      throw new BadRequestException(
-        `Estado destino no reconocido: "${nuevoEstado.nombre}" no pertenece al catálogo oficial de estados.`
-      );
-    }
-
-    if (claveActual === claveDestino) {
-      return; // Mismo estado canónico, no-op
-    }
-
-    const isAdmin = usuario?.userRoles?.some((ur: any) => ur.rol?.slug === 'admin') || false;
-    if (isAdmin) {
-      return; // El administrador tiene facultad de rectificación administrativa entre estados del catálogo oficial
-    }
-
-    if (claveActual === 'archivados') {
-      throw new BadRequestException('Una orden en estado Archivados está cerrada y no permite cambios de estado.');
-    }
-
-    // Mapa estricto de transiciones oficiales y flujos excepcionales verificados
-    const TRANSICIONES_PERMITIDAS: Record<string, string[]> = {
-      'recepcion': ['diagnostico'],
-      'diagnostico': ['repuestos', 'aprobacion', 'recepcion'],
-      'repuestos': ['aprobacion', 'diagnostico'],
-      'aprobacion': ['reparacion', 'control', 'entrega', 'repuestos', 'diagnostico'],
-      'reparacion': ['control', 'repuestos', 'diagnostico'],
-      'control': ['entrega', 'reparacion'],
-      'entrega': ['archivados', 'control'],
-    };
-
-    const destinosPermitidos = TRANSICIONES_PERMITIDAS[claveActual] || [];
-    const esValido = destinosPermitidos.includes(claveDestino);
-
-    if (!esValido) {
-      throw new BadRequestException(
-        `Transición de estado no permitida: no se puede cambiar de "${estadoActual.nombre}" a "${nuevoEstado.nombre}".`
-      );
-    }
+    validateOrderTransition({
+      estadoActual,
+      nuevoEstado,
+      usuario,
+      orden,
+      motivo,
+    });
   }
 
   private async getDefaultEstadoOrden(): Promise<EstadoOrden> {
@@ -760,14 +709,14 @@ export class OrderService {
         throw new BadRequestException('Se requiere un usuario válido para cambiar el estado');
       }
 
-      this.validarTransicionEstado(orden.estadoOrden, estadoOrden, usuarioCambio);
+      this.validarTransicionEstado(orden.estadoOrden, estadoOrden, usuarioCambio, orden, (updateDto as any).motivo);
 
       const historialEstado = new HistorialEstadoOrden();
       historialEstado.orden = { id: orden.id } as Order;  // **solo ID, evitar problemas**
       historialEstado.estadoOrden = estadoOrden;
       historialEstado.usuario = usuarioCambio;
       historialEstado.fechaCambio = new Date();
-      historialEstado.observaciones = 'Estado cambiado desde actualización';
+      historialEstado.observaciones = (updateDto as any).motivo || 'Estado cambiado desde actualización';
 
       await this.historialEstadoOrdenRepository.save(historialEstado);
 
@@ -782,8 +731,7 @@ export class OrderService {
         await this.notificacionService.notificarCambioEstadoOds(orden.id, orden.technicianId, orden.workOrderNumber, estadoOrden.nombre);
       }
 
-      const esEstadoLiberador = ['archiv', 'entrega', 'entregad', 'anulad', 'cancelad', 'finaliz']
-        .some(term => estadoOrden.nombre.toLowerCase().includes(term));
+      const esEstadoLiberador = normalizeToCanonicalKey(estadoOrden.nombre) === 'entregado';
 
       if (esEstadoLiberador && (orden.casillero || orden.casilleroId)) {
         const cId = orden.casillero?.id || orden.casilleroId;
@@ -1242,7 +1190,8 @@ export class OrderService {
   async changeEstadoOrden(
     orderId: number,
     estadoOrdenId: number,
-    userId: number
+    userId: number,
+    motivo?: string,
   ): Promise<Order> {
     // Validar IDs
     if (!orderId || orderId <= 0) {
@@ -1257,7 +1206,7 @@ export class OrderService {
 
     const orden = await this.orderRepository.findOne({
       where: { id: orderId },
-      relations: ['estadoOrden', 'casillero', 'client', 'technician']
+      relations: ['estadoOrden', 'casillero', 'client', 'technician', 'presupuesto', 'presupuesto.estado']
     });
 
     if (!orden) {
@@ -1285,7 +1234,7 @@ export class OrderService {
       throw new BadRequestException('El usuario ha sido eliminado');
     }
 
-    this.validarTransicionEstado(orden.estadoOrden, nuevoEstado, usuario);
+    this.validarTransicionEstado(orden.estadoOrden, nuevoEstado, usuario, orden, motivo);
 
     // Registrar en el historial
     const historial = new HistorialEstadoOrden();
@@ -1293,14 +1242,16 @@ export class OrderService {
     historial.estadoOrden = nuevoEstado;
     historial.usuario = usuario;
     historial.fechaCambio = new Date();
+    historial.observaciones = motivo
+      ? `Cambio de estado a ${nuevoEstado.nombre}: ${motivo}`
+      : `Cambio de estado a ${nuevoEstado.nombre}`;
 
     await this.historialEstadoOrdenRepository.save(historial);
 
     // Actualizar el estado actual
     orden.estadoOrden = nuevoEstado;
 
-    const esEstadoLiberador = ['archiv', 'entrega', 'entregad', 'anulad', 'cancelad', 'finaliz']
-      .some(term => nuevoEstado.nombre.toLowerCase().includes(term));
+    const esEstadoLiberador = normalizeToCanonicalKey(nuevoEstado.nombre) === 'entregado';
 
     if (esEstadoLiberador && (orden.casillero || orden.casilleroId)) {
       const cId = orden.casillero?.id || orden.casilleroId;
@@ -1414,178 +1365,240 @@ export class OrderService {
     return query.orderBy('order.createdAt', 'DESC').getMany();
   }
 
-  async findPublicOrder(cedula?: string, workOrderNumber?: string, token?: string): Promise<any> {
+  // Mapa en memoria para rate limiting de consultas públicas por IP (previene ataques de fuerza bruta / enumeración)
+  private readonly rateLimitConsultasPublicas = new Map<string, { count: number; windowStart: number }>();
+  private readonly RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minuto
+  private readonly RATE_LIMIT_MAX_REQUESTS = 25; // 25 consultas por minuto
+  private readonly RATE_LIMIT_MAX_ENTRIES = 5000; // Capacidad máxima estricta en memoria para prevenir saturación DoS
+
+  /**
+   * Limpia el registro en memoria de rate limiting (útil para pruebas unitarias de aislamiento).
+   */
+  public limpiarRateLimitConsultasPublicas(): void {
+    this.rateLimitConsultasPublicas.clear();
+  }
+
+  /**
+   * Verifica la frecuencia de consultas públicas por dirección IP.
+   * Límite estricto: 25 peticiones por minuto por IP.
+   * Prevención de crecimiento ilimitado de memoria (DoS):
+   * - Limpieza periódica de registros expirados.
+   * - Límite estricto de capacidad máxima (5,000 entradas) con expulsión FIFO de registros antiguos si se satura.
+   */
+  public verificarRateLimitConsultaPublica(ip?: string): void {
+    const cleanIp = normalizeIp(ip);
+    if (!cleanIp || cleanIp === 'unknown') return;
+
+    const now = Date.now();
+
+    // 1. Limpieza de entradas expiradas si el mapa supera un umbral razonable
+    if (this.rateLimitConsultasPublicas.size >= 100) {
+      for (const [key, record] of this.rateLimitConsultasPublicas.entries()) {
+        if (now - record.windowStart > this.RATE_LIMIT_WINDOW_MS) {
+          this.rateLimitConsultasPublicas.delete(key);
+        }
+      }
+    }
+
+    // 2. Control de capacidad máxima estricta para evitar agotamiento de memoria
+    if (this.rateLimitConsultasPublicas.size >= this.RATE_LIMIT_MAX_ENTRIES) {
+      const entriesToPrune = Math.floor(this.RATE_LIMIT_MAX_ENTRIES * 0.2);
+      let pruned = 0;
+      for (const key of this.rateLimitConsultasPublicas.keys()) {
+        this.rateLimitConsultasPublicas.delete(key);
+        pruned++;
+        if (pruned >= entriesToPrune) break;
+      }
+    }
+
+    const record = this.rateLimitConsultasPublicas.get(cleanIp);
+    if (!record || now - record.windowStart > this.RATE_LIMIT_WINDOW_MS) {
+      this.rateLimitConsultasPublicas.set(cleanIp, { count: 1, windowStart: now });
+      return;
+    }
+
+    record.count += 1;
+    if (record.count > this.RATE_LIMIT_MAX_REQUESTS) {
+      this.logger.warn(`Rate limit excedido para IP ${cleanIp} en consulta pública de órdenes.`);
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          message:
+            'Demasiadas solicitudes de consulta desde esta dirección IP. Por favor espere un momento antes de intentar nuevamente.',
+          error: 'Too Many Requests',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  /**
+   * Determina el paso correspondiente en el indicador público simplificado de 5 etapas:
+   * 1: Recepción
+   * 2: Diagnóstico
+   * 3: En Servicio
+   * 4: Listo para Entrega
+   * 5: Entregado
+   *
+   * En órdenes Express que omiten diagnóstico e ingresan directo a 'En Servicio',
+   * el paso actual se ubica coherentemente en 3 (En Servicio).
+   */
+  public calcularStepPublico(estadoNombre: string = '', tipoOrden?: string): number {
+    const key = normalizeToCanonicalKey(estadoNombre);
+
+    switch (key) {
+      case 'recepcion':
+        return 1;
+      case 'diagnostico':
+        return 2;
+      case 'en_servicio':
+        return 3;
+      case 'listo_para_entrega':
+        return 4;
+      case 'entregado':
+        return 5;
+      default:
+        return 1;
+    }
+  }
+
+  /**
+   * Genera el mensaje descriptivo general del estado técnico actual para la vista pública (5 Estados principales).
+   * Incorpora información contextual sobre presupuesto pendiente o espera de repuestos si aplica.
+   */
+  public obtenerMensajePublicoEstado(estadoNombre: string = '', orden?: any): string {
+    const key = normalizeToCanonicalKey(estadoNombre);
+
+    switch (key) {
+      case 'recepcion':
+        return 'Tu equipo ha sido recibido e ingresado al sistema para inspección inicial.';
+      case 'diagnostico': {
+        const hasPendingBudget =
+          orden?.presupuesto?.estado?.nombre?.toLowerCase()?.includes('pend') ||
+          (typeof orden?.presupuesto?.estado === 'string' &&
+            orden?.presupuesto?.estado?.toLowerCase()?.includes('pend'));
+        if (hasPendingBudget) {
+          return 'Diagnóstico completado. El presupuesto detallado está disponible y pendiente de aprobación en el portal de clientes.';
+        }
+        return 'El equipo se encuentra en el laboratorio técnico para evaluación y diagnóstico.';
+      }
+      case 'en_servicio': {
+        if (orden?.esperaRepuesto) {
+          return 'El equipo está en proceso de intervención técnica, actualmente a la espera del arribo de repuestos para continuar.';
+        }
+        return 'Tu equipo está siendo intervenido por nuestro personal técnico especializado en taller.';
+      }
+      case 'listo_para_entrega':
+        return 'El trabajo técnico ha finalizado y ha sido validado. Tu equipo está listo para ser retirado en nuestro centro de atención técnica.';
+      case 'entregado':
+        return 'Servicio técnico finalizado y equipo entregado a entera conformidad.';
+      default:
+        return 'El servicio técnico se encuentra en proceso según los protocolos establecidos.';
+    }
+  }
+
+  /**
+   * Consulta pública simplificada de orden de servicio (no requiere clave privada).
+   * Retorna exclusivamente un resumen público no sensible (DTO específico).
+   * Protegido contra enumeración de órdenes y consultas masivas.
+   */
+  async findPublicOrder(
+    cedula?: string,
+    workOrderNumber?: string,
+    token?: string,
+    ip?: string,
+  ): Promise<any> {
+    // 1. Rate limiting por IP
+    if (ip) {
+      this.verificarRateLimitConsultaPublica(ip);
+    }
+
+    // 2. Validación obligatoria y normalización del número de orden
     if (!workOrderNumber || workOrderNumber.trim() === '') {
-      throw new BadRequestException('El número de orden es requerido');
+      throw new BadRequestException('El número de orden es requerido.');
     }
 
-    const hasCedula = Boolean(cedula && cedula.trim() !== '');
-    const hasToken = Boolean(token && token.trim() !== '');
-
-    if (!hasCedula && !hasToken) {
-      throw new BadRequestException('Debe ingresar su cédula o el código de comprobante para consultar la orden.');
+    const rawWorkorder = workOrderNumber.trim();
+    const digitsMatch = rawWorkorder.match(/\d+/);
+    if (!digitsMatch) {
+      throw new BadRequestException('El formato del número de orden no es válido.');
     }
 
-    const orderQuery = this.orderRepository
+    const orderNumInt = parseInt(digitsMatch[0], 10);
+    const paddedOrderNum = String(orderNumInt).padStart(5, '0');
+    const unpaddedOrderNum = String(orderNumInt);
+    const orderVariants = Array.from(
+      new Set([
+        rawWorkorder,
+        paddedOrderNum,
+        unpaddedOrderNum,
+        `#${paddedOrderNum}`,
+        `#${unpaddedOrderNum}`,
+        `ODS-${paddedOrderNum}`,
+        `ODS-${unpaddedOrderNum}`,
+      ]),
+    );
+
+    // 3. Validación obligatoria y normalización de la identificación
+    if (!cedula || cedula.trim() === '') {
+      throw new BadRequestException('El número de cédula o identificación es requerido.');
+    }
+
+    const cleanCedula = cedula.trim().replace(/[-\s]/g, '');
+    if (cleanCedula.length < 8 || cleanCedula.length > 15 || !/^[a-zA-Z0-9]+$/.test(cleanCedula)) {
+      throw new BadRequestException('El formato de la identificación ingresada no es válido.');
+    }
+
+    // 4. Consulta a base de datos requiriendo coincidencia exacta de ambos campos
+    const order = await this.orderRepository
       .createQueryBuilder('order')
-      .addSelect([
-        'order.tokenAccesoHash',
-        'order.tokenAccesoExpiracion',
-        'order.tokenAccesoRevocado',
-        'order.tokenAccesoIntentosFallidos',
-        'order.tokenAccesoBloqueadoHasta',
-      ])
       .leftJoinAndSelect('order.client', 'client')
-      .leftJoinAndSelect('order.technician', 'technician')
       .leftJoinAndSelect('order.equipo', 'equipo')
       .leftJoinAndSelect('equipo.tipoEquipo', 'tipoEquipo')
       .leftJoinAndSelect('equipo.marca', 'marca')
       .leftJoinAndSelect('equipo.modelo', 'modelo')
       .leftJoinAndSelect('order.estadoOrden', 'estadoOrden')
-      .leftJoinAndSelect('order.presupuesto', 'presupuesto')
-      .leftJoinAndSelect('presupuesto.estado', 'presupuestoEstado')
-      .leftJoinAndSelect('presupuesto.detallesPresupuestoItems', 'detallesPresupuestoItems')
-      .leftJoinAndSelect('detallesPresupuestoItems.parte', 'parte')
-      .leftJoinAndSelect('order.evidencias', 'evidencias')
-      .leftJoinAndSelect('evidencias.estadoOrden', 'evidenciasEstadoOrden')
       .leftJoinAndSelect('order.historialEstados', 'historialEstados')
-      .leftJoinAndSelect('historialEstados.estadoOrden', 'historialEstadoOrden')
-      .leftJoinAndSelect('order.casillero', 'casillero')
-      .where('TRIM(order.workOrderNumber) = :workOrderNumber', { workOrderNumber: workOrderNumber.trim() })
-      .andWhere('order.estado = true')
-      .andWhere('order.deletedAt IS NULL');
+      .where('order.estado = true')
+      .andWhere('order.deletedAt IS NULL')
+      .andWhere('TRIM(order.workOrderNumber) IN (:...orderVariants)', { orderVariants })
+      .andWhere("REPLACE(REPLACE(TRIM(client.cedula), '-', ''), ' ', '') = :cleanCedula", { cleanCedula })
+      .orderBy('historialEstados.fechaCambio', 'DESC')
+      .getOne();
 
-    if (hasCedula) {
-      orderQuery.andWhere('TRIM(client.cedula) = :cedula', { cedula: cedula.trim() });
-    }
-
-    orderQuery.orderBy('historialEstados.fechaCambio', 'ASC')
-      .addOrderBy('evidencias.fechaSubida', 'DESC');
-
-    const order = await orderQuery.getOne();
-
+    // 5. Respuesta uniforme contra enumeración: nunca revelar si falló la cédula o el número de orden
     if (!order) {
       throw new NotFoundException('No se encontró ninguna orden de servicio activa con los datos ingresados.');
     }
 
-    // Resolver URLs firmadas de evidencias fotográficas para visualización pública segura
-    if (order.evidencias && order.evidencias.length > 0) {
-      await Promise.all(
-        order.evidencias.map(async (ev) => {
-          if (ev.storageKey) {
-            try {
-              ev.archivoUrl = await this.storageService.getPresignedUrl(ev.storageKey);
-            } catch (err) {
-              this.logger.warn(`Error resolviendo URL firmada para evidencia ${ev.id}: ${err.message}`);
-            }
-          }
-        }),
-      );
-    }
+    // 6. Registro de auditoría sanitizado (sin exponer cédulas completas ni datos personales en logs)
+    const maskedCedula = cleanCedula.length > 4
+      ? `${cleanCedula.substring(0, 3)}****${cleanCedula.substring(cleanCedula.length - 2)}`
+      : '***';
+    this.logger.log(`Consulta pública exitosa ODS #${paddedOrderNum} (C.I. ${maskedCedula}) desde IP ${ip || 'N/A'}`);
 
-    // Validación de credencial privada si fue proporcionada
-    let tokenValido = false;
-    let tokenMensaje = '';
-    let tokenBloqueado = false;
-
-    if (token && token.trim() !== '') {
-      const ahora = new Date();
-      if (order.tokenAccesoBloqueadoHasta && new Date(order.tokenAccesoBloqueadoHasta) > ahora) {
-        tokenBloqueado = true;
-        tokenMensaje = 'Credencial bloqueada temporalmente por demasiados intentos fallidos. Intente más tarde o acérquese a recepción.';
-      } else {
-        const inputHash = crypto.createHash('sha256').update(token.trim()).digest('hex');
-        if (order.tokenAccesoRevocado) {
-          tokenMensaje = 'Esta credencial privada ha sido revocada.';
-        } else if (order.tokenAccesoExpiracion && new Date(order.tokenAccesoExpiracion) < ahora) {
-          tokenMensaje = 'Esta credencial privada ha expirado.';
-        } else if (order.tokenAccesoHash && inputHash === order.tokenAccesoHash) {
-          tokenValido = true;
-          tokenMensaje = 'Credencial privada verificada correctamente.';
-          if (order.tokenAccesoIntentosFallidos > 0) {
-            await this.orderRepository.update(order.id, {
-              tokenAccesoIntentosFallidos: 0,
-              tokenAccesoBloqueadoHasta: null,
-              tokenAccesoUltimoUso: ahora,
-            });
-          }
-        } else {
-          const nuevosIntentos = (order.tokenAccesoIntentosFallidos || 0) + 1;
-          const bloqueo = nuevosIntentos >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
-          await this.orderRepository.update(order.id, {
-            tokenAccesoIntentosFallidos: nuevosIntentos,
-            tokenAccesoBloqueadoHasta: bloqueo,
-          });
-          tokenMensaje = nuevosIntentos >= 5
-            ? 'Demasiados intentos fallidos. Credencial bloqueada temporalmente por 15 minutos.'
-            : `Credencial privada no coincide (${5 - nuevosIntentos} intentos restantes).`;
-        }
-      }
-    }
+    // 7. Retorno exclusivo del DTO público seguro (sin nombres, teléfonos, números de serie, presupuestos ni evidencias)
+    const displayWorkOrderNumber = `#${paddedOrderNum}`;
+    const tipoEquipo = order.equipo?.tipoEquipo?.nombre || 'Equipo';
+    const marca = order.equipo?.marca?.nombre;
+    const modelo = order.equipo?.modelo?.nombre;
+    const marcaModelo = [marca, modelo].filter(Boolean).join(' ') || null;
+    const estadoActual = order.estadoOrden?.nombre || 'Recepción';
+    const estadoStep = this.calcularStepPublico(estadoActual, order.tipoOrden);
+    const mensajeEstado = this.obtenerMensajePublicoEstado(estadoActual, order);
+    const fechaUltimaActualizacion = order.historialEstados?.[0]?.fechaCambio || order.updatedAt || order.createdAt;
 
     return {
-      id: order.id,
-      workOrderNumber: order.workOrderNumber,
-      tipoOrden: order.tipoOrden,
-      problemaReportado: order.problemaReportado,
-      fechaPrometidaEntrega: order.fechaPrometidaEntrega,
-      accesorios: order.accesorios || [],
-      esperaRepuesto: order.esperaRepuesto || false,
-      tiempoEstimadoReparacion: order.tiempoEstimadoReparacion || 0,
-      casillero: order.casillero ? { codigo: order.casillero.codigo } : null,
-      tecnico: order.technician ? { nombre: `${order.technician.nombre} ${order.technician.apellido || ''}`.trim() } : null,
-      estado: order.estado,
-      createdAt: order.createdAt,
-      cliente: {
-        nombre: order.client.nombre,
-        apellido: order.client.apellido,
-        cedula: order.client.cedula,
-      },
-      equipo: {
-        tipo: order.equipo.tipoEquipo?.nombre || 'Equipo',
-        marca: order.equipo.marca?.nombre || 'Marca no especificada',
-        modelo: order.equipo.modelo?.nombre || 'Modelo no especificado',
-        numeroSerie: order.equipo.numeroSerie,
-      },
-      estadoOrden: {
-        id: order.estadoOrden?.id,
-        nombre: order.estadoOrden?.nombre || 'Recepción',
-      },
-      checklistData: order.checklistData || null,
-      historial: order.historialEstados?.map((h) => ({
-        id: h.id,
-        estadoId: h.estadoOrden?.id,
-        estadoNombre: h.estadoOrden?.nombre || 'Actualización',
-        fecha: h.fechaCambio,
-        observaciones: h.observaciones || '',
-      })) || [],
-      evidencias: order.evidencias?.map((ev) => ({
-        id: ev.id,
-        url: ev.archivoUrl || null,
-        tipoArchivo: ev.tipoArchivo || 'imagen',
-        mimeType: ev.mimeType,
-        descripcion: ev.descripcion || '',
-        fechaSubida: ev.fechaSubida,
-        estadoNombre: ev.estadoOrden?.nombre || 'En proceso',
-      })) || [],
-      presupuesto: order.presupuesto ? {
-        id: order.presupuesto.id,
-        version: order.presupuesto.version || 1,
-        estado: order.presupuesto.estado?.nombre,
-        descripcion: order.presupuesto.descripcion,
-        total: order.presupuesto.detallesPresupuestoItems?.reduce((sum, item) => sum + (Number(item.cantidad) * Number(item.precioUnitario)), 0) || 0,
-        items: order.presupuesto.detallesPresupuestoItems?.map((item) => ({
-          cantidad: item.cantidad,
-          precioUnitario: item.precioUnitario,
-          nombre: item.parte?.nombre || 'Item sin nombre',
-        })) || [],
-      } : null,
-      seguridad: {
-        requiereCredencial: true,
-        tokenValido,
-        tokenBloqueado,
-        tokenMensaje,
-      },
+      workOrderNumber: displayWorkOrderNumber,
+      tipoEquipo,
+      marcaModelo,
+      tipoOrden: order.tipoOrden || OrderType.COMPLETA,
+      estadoActual,
+      estadoStep,
+      esperaRepuesto: !!order.esperaRepuesto,
+      fechaRecepcion: order.createdAt,
+      fechaUltimaActualizacion,
+      mensajeEstado,
     };
   }
 
@@ -2094,7 +2107,7 @@ export class OrderService {
         .andWhere('order.estado = :estado', { estado: true })
         .andWhere('order.deletedAt IS NULL')
         .andWhere('LOWER(estadoOrden.nombre) NOT IN (:...excludedStates)', {
-          excludedStates: ['archivados', 'entrega', 'entregado']
+          excludedStates: ['listo para entrega', 'entregado', 'archivados', 'entrega']
         })
         .getMany();
 

@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
+  InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -287,6 +289,439 @@ export class DocumentosOrdenService {
   }
 
   /**
+   * Obtiene el buffer PDF para impresión de ticket térmico POS (80 mm).
+   * Comprobante simplificado para impresoras de rollo continuo.
+   * Coexiste con la ODS A4 completa y no altera firmas ni almacenamiento histórico.
+   */
+  async obtenerTicketTermicoBuffer(
+    orderId: number,
+    operadorId: number,
+    tokenActivacion?: string,
+  ): Promise<Buffer> {
+    const orden = await this.orderRepository.findOne({
+      where: { id: orderId },
+      relations: [
+        'client',
+        'equipo',
+        'equipo.tipoEquipo',
+        'equipo.marca',
+        'equipo.modelo',
+        'estadoOrden',
+      ],
+    });
+
+    if (!orden) {
+      throw new NotFoundException(`Orden #${orderId} no encontrada.`);
+    }
+
+    const operador =
+      (await this.userRepository.findOne({ where: { id: operadorId } })) ||
+      ({ nombre: 'Recepción', apellido: 'HDC' } as User);
+
+    const pdfBytes = await this.generarPdfTicketTermico(orden, operador, tokenActivacion);
+    return Buffer.from(pdfBytes);
+  }
+
+  /**
+   * Genera el documento PDF de ticket térmico POS con ancho estándar de 80 mm (226.77 pt)
+   * y altura calculada dinámicamente según el contenido exacto.
+   */
+  private async generarPdfTicketTermico(
+    orden: Order,
+    operador: User,
+    tokenActivacion?: string,
+  ): Promise<Uint8Array> {
+    const pdfDoc = await PDFDocument.create();
+
+    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+    const ticketWidth = 226.77; // 80 mm en puntos tipográficos (72 DPI)
+    const margin = 14;
+    const usableWidth = ticketWidth - margin * 2; // ~198.77 pt
+
+    const textDark = rgb(0.12, 0.12, 0.12);
+    const textMuted = rgb(0.42, 0.42, 0.42);
+    const lineGray = rgb(0.72, 0.72, 0.72);
+
+    // 1. Configuración del establecimiento
+    let config: any = null;
+    try {
+      config = await this.configuracionSistemaService.obtenerConfiguracion();
+    } catch (err) {
+      this.logger.warn(`No se pudo cargar configuración corporativa para ticket: ${err.message}`);
+    }
+
+    const nombreEmpresa = (config?.nombreComercial || config?.nombreEmpresa || 'HOSPITAL DEL COMPUTADOR').toUpperCase();
+    const ciudadPais = config?.ciudad ? `${config.ciudad}, Ecuador` : 'Riobamba, Ecuador';
+    const tels = [config?.telefono, config?.whatsapp].filter(Boolean).join(' · ');
+
+    // 2. Datos de la Orden
+    const orderNumStr = `#${String(orden.workOrderNumber || orden.id).padStart(5, '0')}`;
+    const fechaCreacion = orden.createdAt ? new Date(orden.createdAt) : new Date();
+    const fechaStr = fechaCreacion.toLocaleDateString('es-EC', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+    const horaStr = fechaCreacion.toLocaleTimeString('es-EC', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const fechaHoraStr = `${fechaStr} · ${horaStr}`;
+
+    const clienteNombre = (orden.client
+      ? `${orden.client.nombre || ''} ${orden.client.apellido || ''}`.trim()
+      : 'Cliente General') || 'Cliente';
+    const clienteCedula = (orden.client as any)?.cedula || '';
+
+    const eqTipo = orden.equipo?.tipoEquipo?.nombre || 'Equipo';
+    const eqMarca = orden.equipo?.marca?.nombre || '';
+    const eqMod = orden.equipo?.modelo?.nombre || '';
+    const equipoStr = [eqTipo, eqMarca, eqMod].filter(Boolean).join(' ');
+    const serieStr = orden.equipo?.numeroSerie || 'S/N';
+    const estadoStr = orden.estadoOrden?.nombre || 'Recepción';
+    const motivoStr = orden.problemaReportado || '';
+
+    // 3. Resolución de Activación / QR
+    const frontendUrl =
+      process.env.FRONTEND_URL ||
+      (process.env.NODE_ENV === 'production'
+        ? 'https://elhospitaldelcomputador.com'
+        : 'http://localhost:4000');
+    const clientId = orden.client?.id;
+
+    let tienePassword = false;
+    if (clientId) {
+      const clientWithPass = await this.userRepository.findOne({
+        where: { id: clientId },
+        select: ['id', 'password'],
+      });
+      tienePassword = Boolean(clientWithPass?.password);
+    }
+
+    let qrUrl: string | null = null;
+    let qrTitle = 'ESCANEE PARA ACCEDER';
+    let qrSub1 = 'Escanee para crear su contraseña';
+    let qrSub2 = `Usuario: ${clienteCedula || 'su cédula'}`;
+    let qrSubExtra: string | null = null;
+    let tieneQr = true;
+
+    const rawToken = tokenActivacion || (orden as any)?.tokenActivacion || (orden as any)?.activacion?.token;
+
+    if (tienePassword) {
+      qrUrl = `${frontendUrl}/signin`;
+      qrTitle = 'CONSULTA DIGITAL';
+      qrSub1 = 'Consulte el estado de su orden';
+      qrSub2 = `Usuario: ${clienteCedula || 'su cédula'}`;
+      qrSubExtra = null;
+      tieneQr = true;
+    } else {
+      let tokenValido = false;
+      if (rawToken && typeof rawToken === 'string' && rawToken.trim() !== '' && clientId) {
+        const tokenHash = crypto
+          .createHash('sha256')
+          .update(rawToken.trim())
+          .digest('hex');
+
+        const actRegistro = await this.activacionRepository.findOne({
+          where: { tokenHash, usuarioId: clientId },
+        });
+
+        if (
+          actRegistro &&
+          !actRegistro.usedAt &&
+          !actRegistro.revokedAt &&
+          new Date() < new Date(actRegistro.expiresAt)
+        ) {
+          tokenValido = true;
+        } else {
+          this.logger.warn(
+            `Token de activación provisto para ODS #${orden.workOrderNumber || orden.id} no es válido, expiró o está revocado. Se omitirá del ticket térmico.`,
+          );
+        }
+      }
+
+      if (tokenValido) {
+        qrUrl = `${frontendUrl}/activar-cuenta?token=${encodeURIComponent(rawToken.trim())}`;
+        qrTitle = 'ACTIVACIÓN DE CUENTA';
+        qrSub1 = 'Escanee para crear su contraseña';
+        qrSub2 = `Usuario: ${clienteCedula || 'su cédula'}`;
+        qrSubExtra = 'Enlace temporal (vigente 48h)';
+        tieneQr = true;
+      } else {
+        // Contingencia: no imprimir QR si no hay token ni contraseña para no llevar a pantalla informativa estéril
+        qrUrl = null;
+        tieneQr = false;
+        qrTitle = 'CUENTA PENDIENTE';
+        qrSub1 = 'Solicite su invitación en recepción';
+        qrSub2 = 'Para activar requiere enlace nuevo';
+        qrSubExtra = 'Acérquese a recepción para asistencia';
+      }
+    }
+
+    const qrSize = 115;
+    let embeddedQr: any = null;
+    if (tieneQr && qrUrl) {
+      const qrPngBuffer = await QRCode.toBuffer(qrUrl, {
+        type: 'png',
+        width: 250,
+        margin: 1,
+        errorCorrectionLevel: 'M',
+      });
+      embeddedQr = await pdfDoc.embedPng(qrPngBuffer);
+    }
+
+    // 4. Preparación de filas con wrapping de texto
+    interface TicketRow {
+      label: string;
+      lines: string[];
+    }
+    const rawRows: { label: string; text: string }[] = [
+      { label: 'Cliente:', text: clienteNombre },
+    ];
+    if (clienteCedula) {
+      rawRows.push({ label: 'C.I. / RUC:', text: clienteCedula });
+    }
+    rawRows.push({ label: 'Equipo:', text: equipoStr });
+    rawRows.push({ label: 'Serie:', text: serieStr });
+    if (motivoStr) {
+      rawRows.push({ label: 'Motivo:', text: motivoStr });
+    }
+    rawRows.push({ label: 'Estado:', text: estadoStr });
+
+    const preparedRows: TicketRow[] = rawRows.map((r) => {
+      const labelW = fontBold.widthOfTextAtSize(r.label, 8) + 4;
+      const valueW = usableWidth - labelW;
+      const lines = wrapText(r.text, fontRegular, 8, valueW);
+      return {
+        label: r.label,
+        lines: lines.length > 0 ? lines : ['N/D'],
+      };
+    });
+
+    let dataSectionHeight = 0;
+    for (const row of preparedRows) {
+      dataSectionHeight += row.lines.length * 10.5 + 3;
+    }
+
+    // 5. Cálculo dinámico exacto de altura total con optimización de espacios térmicos
+    const topMargin = 14;
+    const iconBlockH = 20; // icono (11) + gap (9)
+    const companyBlockH = 16;
+    const cityBlockH = 12;
+    const telsBlockH = tels ? 12 : 0;
+    const sep1H = 11;
+
+    const odsTitleBlockH = 15;
+    const odsNumBlockH = 23;
+    const odsDateBlockH = 14;
+    const sep2H = 11;
+
+    const sep3H = 11;
+
+    // Altura del bloque de acceso/activación ajustada automáticamente:
+    // Si tiene QR: altura de QR + gap + textos
+    // Si NO tiene QR (contingencia): solo bloque informativo sin QR (ahorro térmico de ~115 pt)
+    const qrBlockH = tieneQr
+      ? qrSize + 8 + 16 + 13 + 13 + (qrSubExtra ? 13 : 0)
+      : 16 + 14 + 14 + (qrSubExtra ? 14 : 0) + 4;
+    const sep4H = 11;
+
+    const footerBlockH = 11 + 11 + 14;
+    const bottomMargin = 13;
+
+    const totalHeight = Math.ceil(
+      topMargin +
+      iconBlockH +
+      companyBlockH +
+      cityBlockH +
+      telsBlockH +
+      sep1H +
+      odsTitleBlockH +
+      odsNumBlockH +
+      odsDateBlockH +
+      sep2H +
+      dataSectionHeight +
+      sep3H +
+      qrBlockH +
+      sep4H +
+      footerBlockH +
+      bottomMargin,
+    );
+
+    // Creamos la página con el tamaño exacto continuo (80 mm x totalHeight)
+    const page = pdfDoc.addPage([ticketWidth, totalHeight]);
+    let curY = totalHeight - topMargin;
+
+    // Helper: línea horizontal discontinua
+    const drawDivider = (yPos: number) => {
+      const dash = 2.5;
+      const space = 2;
+      let curr = margin;
+      while (curr < ticketWidth - margin) {
+        const next = Math.min(curr + dash, ticketWidth - margin);
+        page.drawLine({
+          start: { x: curr, y: yPos },
+          end: { x: next, y: yPos },
+          thickness: 0.6,
+          color: lineGray,
+        });
+        curr += dash + space;
+      }
+    };
+
+    // Helper: centrar texto
+    const drawCenteredText = (
+      text: string,
+      font: any,
+      size: number,
+      color: any,
+      yPos: number,
+    ) => {
+      const tw = font.widthOfTextAtSize(text, size);
+      const tx = (ticketWidth - tw) / 2;
+      page.drawText(text, { x: tx, y: yPos, size, font, color });
+    };
+
+    // A. Icono de monitor centrado
+    const compW = 16;
+    const compH = 11;
+    const compX = (ticketWidth - compW) / 2;
+    page.drawRectangle({
+      x: compX,
+      y: curY - compH,
+      width: compW,
+      height: compH,
+      borderWidth: 1,
+      borderColor: textDark,
+      color: rgb(1, 1, 1),
+    });
+    page.drawLine({
+      start: { x: compX + 4, y: curY - compH - 2 },
+      end: { x: compX + compW - 4, y: curY - compH - 2 },
+      thickness: 1,
+      color: textDark,
+    });
+    curY -= iconBlockH;
+
+    // B. Encabezado
+    drawCenteredText(nombreEmpresa, fontBold, 9.5, textDark, curY - 8);
+    curY -= companyBlockH;
+
+    drawCenteredText(ciudadPais, fontRegular, 7.5, textMuted, curY - 6);
+    curY -= cityBlockH;
+
+    if (tels) {
+      drawCenteredText(tels, fontRegular, 6.8, textMuted, curY - 6);
+      curY -= telsBlockH;
+    }
+
+    drawDivider(curY);
+    curY -= sep1H;
+
+    // C. Orden de Servicio
+    drawCenteredText('ORDEN DE SERVICIO', fontBold, 7.5, textMuted, curY - 6);
+    curY -= odsTitleBlockH;
+
+    drawCenteredText(orderNumStr, fontBold, 17, textDark, curY - 13);
+    curY -= odsNumBlockH;
+
+    drawCenteredText(fechaHoraStr, fontRegular, 7.5, textMuted, curY - 6);
+    curY -= odsDateBlockH;
+
+    drawDivider(curY);
+    curY -= sep2H;
+
+    // D. Filas de datos
+    for (const row of preparedRows) {
+      const labelW = fontBold.widthOfTextAtSize(row.label, 8) + 4;
+      const valX = margin + labelW;
+
+      page.drawText(row.label, {
+        x: margin,
+        y: curY - 7,
+        size: 8,
+        font: fontBold,
+        color: textDark,
+      });
+
+      let lineY = curY - 7;
+      for (let i = 0; i < row.lines.length; i++) {
+        page.drawText(row.lines[i], {
+          x: valX,
+          y: lineY,
+          size: 8,
+          font: fontRegular,
+          color: textDark,
+        });
+        lineY -= 10.5;
+      }
+      curY -= row.lines.length * 10.5 + 3;
+    }
+
+    drawDivider(curY);
+    curY -= sep3H;
+
+    // E. Código QR y/o Aviso de Contingencia
+    if (tieneQr && embeddedQr) {
+      const qrX = (ticketWidth - qrSize) / 2;
+      page.drawImage(embeddedQr, {
+        x: qrX,
+        y: curY - qrSize,
+        width: qrSize,
+        height: qrSize,
+      });
+      curY -= (qrSize + 8);
+
+      drawCenteredText(qrTitle, fontBold, 8.5, textDark, curY - 7);
+      curY -= 16;
+
+      drawCenteredText(qrSub1, fontRegular, 7.5, textDark, curY - 6);
+      curY -= 13;
+
+      drawCenteredText(qrSub2, fontRegular, 7.5, textDark, curY - 6);
+      curY -= 13;
+
+      if (qrSubExtra) {
+        drawCenteredText(qrSubExtra, fontRegular, 6.8, textMuted, curY - 5);
+        curY -= 13;
+      }
+    } else {
+      // Aviso sobrio de cuenta pendiente (sin QR estéril)
+      drawCenteredText(qrTitle, fontBold, 8.5, textDark, curY - 7);
+      curY -= 16;
+
+      drawCenteredText(qrSub1, fontBold, 7.5, textDark, curY - 6);
+      curY -= 14;
+
+      drawCenteredText(qrSub2, fontRegular, 7.2, textMuted, curY - 6);
+      curY -= 14;
+
+      if (qrSubExtra) {
+        drawCenteredText(qrSubExtra, fontRegular, 7, textMuted, curY - 5);
+        curY -= 14;
+      }
+      curY -= 4;
+    }
+
+    drawDivider(curY);
+    curY -= sep4H;
+
+    // F. Pie de comprobante
+    drawCenteredText('Conserve este comprobante.', fontRegular, 7, textMuted, curY - 6);
+    curY -= 11;
+
+    drawCenteredText('Gracias por confiar en nosotros.', fontRegular, 7, textMuted, curY - 6);
+    curY -= 11;
+
+    drawCenteredText('elhospitaldelcomputador.com', fontRegular, 7, textDark, curY - 6);
+
+    return await pdfDoc.save();
+  }
+
+  /**
    * Procesa la firma digitalizada desde tablet, genera el PDF canónico,
    * calcula el hash SHA-256, sube a Cloudflare R2 y guarda metadatos.
    */
@@ -297,150 +732,167 @@ export class DocumentosOrdenService {
     ipCliente?: string,
     userAgent?: string,
   ): Promise<DocumentoOrden> {
-    const orden = await this.orderRepository.findOne({
-      where: { id: orderId },
-      relations: [
-        'client',
-        'equipo',
-        'equipo.tipoEquipo',
-        'equipo.marca',
-        'equipo.modelo',
-        'presupuesto',
-        'presupuesto.detallesPresupuestoItems',
-        'presupuesto.detallesPresupuestoItems.parte',
-        'estadoOrden',
-      ],
-    });
+    try {
+      const orden = await this.orderRepository.findOne({
+        where: { id: orderId },
+        relations: [
+          'client',
+          'equipo',
+          'equipo.tipoEquipo',
+          'equipo.marca',
+          'equipo.modelo',
+          'presupuesto',
+          'presupuesto.detallesPresupuestoItems',
+          'presupuesto.detallesPresupuestoItems.parte',
+          'estadoOrden',
+        ],
+      });
 
-    if (!orden) {
-      throw new NotFoundException(`Orden #${orderId} no encontrada.`);
-    }
+      if (!orden) {
+        throw new NotFoundException(`Orden #${orderId} no encontrada.`);
+      }
 
-    const operador = await this.userRepository.findOne({
-      where: { id: operadorId },
-    });
-    if (!operador) {
-      throw new NotFoundException(`Usuario operador #${operadorId} no encontrado.`);
-    }
+      const operador = await this.userRepository.findOne({
+        where: { id: operadorId },
+      });
+      if (!operador) {
+        throw new NotFoundException(`Usuario operador #${operadorId} no encontrado.`);
+      }
 
-    // Prevenir sobrescritura accidental de un documento ya firmado y sellado en R2
-    const docExistente = await this.documentoRepository.findOne({
-      where: { ordenId: orderId, tipoDocumento: dto.tipoDocumento },
-      order: { fechaFirma: 'DESC' },
-    });
+      // Prevenir sobrescritura accidental de un documento ya firmado y sellado en R2
+      const docExistente = await this.documentoRepository.findOne({
+        where: { ordenId: orderId, tipoDocumento: dto.tipoDocumento },
+        order: { fechaFirma: 'DESC' },
+      });
 
-    if (
-      docExistente?.storageKeyPdf &&
-      docExistente.estadoFirma === EstadoFirmaDocumento.FIRMADO
-    ) {
-      throw new BadRequestException(
-        `El acta de ${dto.tipoDocumento} para la ODS #${orden.workOrderNumber} ya fue firmada y sellada previamente. No se puede reemplazar un documento oficial existente.`,
-      );
-    }
-
-    const isFirmado =
-      !dto.estadoFirma || dto.estadoFirma === EstadoFirmaDocumento.FIRMADO;
-
-    let firmaBuffer: Buffer | null = null;
-    let storageKeyFirma: string | null = null;
-
-    if (isFirmado) {
-      if (!dto.firmaBase64) {
+      if (
+        docExistente?.storageKeyPdf &&
+        docExistente.estadoFirma === EstadoFirmaDocumento.FIRMADO
+      ) {
         throw new BadRequestException(
-          'Se requiere la imagen de la firma manuscrita para confirmar el documento.',
+          `El acta de ${dto.tipoDocumento} para la ODS #${orden.workOrderNumber} ya fue firmada y sellada previamente. No se puede reemplazar un documento oficial existente.`,
         );
       }
 
-      // Convertir data URL base64 a buffer binario
-      const base64Data = dto.firmaBase64.replace(/^data:image\/\w+;base64,/, '');
-      firmaBuffer = Buffer.from(base64Data, 'base64');
+      const isFirmado =
+        !dto.estadoFirma || dto.estadoFirma === EstadoFirmaDocumento.FIRMADO;
 
-      // Subir la imagen de la firma PNG a Cloudflare R2
-      const firmaUuid = uuidv4();
+      let firmaBuffer: Buffer | null = null;
+      let storageKeyFirma: string | null = null;
+
+      if (isFirmado) {
+        if (!dto.firmaBase64) {
+          throw new BadRequestException(
+            'Se requiere la imagen de la firma manuscrita para confirmar el documento.',
+          );
+        }
+
+        // Convertir data URL base64 a buffer binario
+        const base64Data = dto.firmaBase64.replace(/^data:image\/\w+;base64,/, '');
+        firmaBuffer = Buffer.from(base64Data, 'base64');
+
+        // Subir la imagen de la firma PNG a Cloudflare R2 / Almacenamiento local
+        const firmaUuid = uuidv4();
+        const odsFolder = `ODS-${orden.workOrderNumber}`;
+        storageKeyFirma = `ordenes/${odsFolder}/firmas/firma_${dto.tipoDocumento.toLowerCase()}_${firmaUuid}.png`;
+
+        await this.storageService.uploadFile(
+          storageKeyFirma,
+          firmaBuffer,
+          'image/png',
+          {
+            ordenId: String(orderId),
+            workOrderNumber: String(orden.workOrderNumber),
+            tipo: dto.tipoDocumento,
+            firmanteIdentificacion: dto.firmanteIdentificacion || '',
+          },
+        );
+      }
+
+      // Generar el PDF canónico sellado con pdf-lib
+      const rawPdfBytes = await this.generarPdfCanonico(
+        orden,
+        dto,
+        operador,
+        firmaBuffer,
+      );
+
+      // Firmar criptográficamente con PAdES (.p12 FirmaEC) si la firma electrónica del Gerente está activa
+      const pdfBytes = await this.firmaElectronicaService.firmarPdfCriptografico(
+        Buffer.from(rawPdfBytes),
+        `Acta de ${dto.tipoDocumento === TipoDocumentoOrden.RECEPCION ? 'Recepción e Ingreso' : 'Entrega y Garantía'} ODS #${orden.workOrderNumber}`,
+        'Riobamba, Ecuador',
+      );
+
+      // Calcular hash criptográfico SHA-256 del PDF final
+      const pdfSha256 = crypto
+        .createHash('sha256')
+        .update(pdfBytes)
+        .digest('hex');
+
+      // Subir el PDF generado a Cloudflare R2 / Almacenamiento local
+      const pdfUuid = uuidv4().substring(0, 8);
       const odsFolder = `ODS-${orden.workOrderNumber}`;
-      storageKeyFirma = `ordenes/${odsFolder}/firmas/firma_${dto.tipoDocumento.toLowerCase()}_${firmaUuid}.png`;
+      const storageKeyPdf = `ordenes/${odsFolder}/documentos/acta_${dto.tipoDocumento.toLowerCase()}_ODS-${orden.workOrderNumber}_${pdfUuid}.pdf`;
 
       await this.storageService.uploadFile(
-        storageKeyFirma,
-        firmaBuffer,
-        'image/png',
+        storageKeyPdf,
+        pdfBytes,
+        'application/pdf',
         {
           ordenId: String(orderId),
-          workOrderNumber: String(orden.workOrderNumber),
-          tipo: dto.tipoDocumento,
-          firmanteIdentificacion: dto.firmanteIdentificacion,
+          tipoDocumento: dto.tipoDocumento,
+          sha256: pdfSha256,
+          firmanteNombre: dto.firmanteNombre || '',
+          firmanteIdentificacion: dto.firmanteIdentificacion || '',
         },
       );
-    }
 
-    // Generar el PDF canónico sellado con pdf-lib
-    const rawPdfBytes = await this.generarPdfCanonico(
-      orden,
-      dto,
-      operador,
-      firmaBuffer,
-    );
-
-    // Firmar criptográficamente con PAdES (.p12 FirmaEC) si la firma electrónica del Gerente está activa
-    const pdfBytes = await this.firmaElectronicaService.firmarPdfCriptografico(
-      Buffer.from(rawPdfBytes),
-      `Acta de ${dto.tipoDocumento === TipoDocumentoOrden.RECEPCION ? 'Recepción e Ingreso' : 'Entrega y Garantía'} ODS #${orden.workOrderNumber}`,
-      'Riobamba, Ecuador',
-    );
-
-    // Calcular hash criptográfico SHA-256 del PDF final
-    const pdfSha256 = crypto
-      .createHash('sha256')
-      .update(pdfBytes)
-      .digest('hex');
-
-    // Subir el PDF generado a Cloudflare R2
-    const pdfUuid = uuidv4().substring(0, 8);
-    const odsFolder = `ODS-${orden.workOrderNumber}`;
-    const storageKeyPdf = `ordenes/${odsFolder}/documentos/acta_${dto.tipoDocumento.toLowerCase()}_ODS-${orden.workOrderNumber}_${pdfUuid}.pdf`;
-
-    await this.storageService.uploadFile(
-      storageKeyPdf,
-      pdfBytes,
-      'application/pdf',
-      {
-        ordenId: String(orderId),
+      // Persistir el registro en PostgreSQL
+      const nuevoDocumento = this.documentoRepository.create({
+        orden,
+        ordenId: orderId,
         tipoDocumento: dto.tipoDocumento,
-        sha256: pdfSha256,
+        storageKeyPdf,
+        storageKeyFirma: storageKeyFirma || undefined,
+        pdfSha256,
+        versionTerminos: dto.versionTerminos || 'v1.0-2026',
+        terminosAceptados: dto.terminosAceptados !== false,
         firmanteNombre: dto.firmanteNombre,
         firmanteIdentificacion: dto.firmanteIdentificacion,
-      },
-    );
+        estadoFirma: dto.estadoFirma || EstadoFirmaDocumento.FIRMADO,
+        motivoSinFirma: dto.motivoSinFirma,
+        ipCliente,
+        userAgent,
+        registradoPor: operador,
+        registradoPorId: operador.id,
+      });
 
-    // Persistir el registro en PostgreSQL
-    const nuevoDocumento = this.documentoRepository.create({
-      orden,
-      ordenId: orderId,
-      tipoDocumento: dto.tipoDocumento,
-      storageKeyPdf,
-      storageKeyFirma: storageKeyFirma || undefined,
-      pdfSha256,
-      versionTerminos: dto.versionTerminos || 'v1.0-2026',
-      terminosAceptados: dto.terminosAceptados !== false,
-      firmanteNombre: dto.firmanteNombre,
-      firmanteIdentificacion: dto.firmanteIdentificacion,
-      estadoFirma: dto.estadoFirma || EstadoFirmaDocumento.FIRMADO,
-      motivoSinFirma: dto.motivoSinFirma,
-      ipCliente,
-      userAgent,
-      registradoPor: operador,
-      registradoPorId: operador.id,
-    });
+      const guardado = await this.documentoRepository.save(nuevoDocumento);
+      this.logger.log(
+        `✓ Documento [${dto.tipoDocumento}] registrado exitosamente para ODS #${orden.workOrderNumber}. SHA-256: ${pdfSha256}`,
+      );
 
-    const guardado = await this.documentoRepository.save(nuevoDocumento);
-    this.logger.log(
-      `✓ Documento [${dto.tipoDocumento}] registrado exitosamente para ODS #${orden.workOrderNumber}. SHA-256: ${pdfSha256}`,
-    );
+      // Desvincular orden para evitar cualquier riesgo de serialización circular en ClassSerializerInterceptor
+      delete (guardado as any).orden;
 
-    // Desvincular orden para evitar cualquier riesgo de serialización circular en ClassSerializerInterceptor
-    delete (guardado as any).orden;
-
-    return this.resolveUrls(guardado);
+      return this.resolveUrls(guardado);
+    } catch (error: any) {
+      this.logger.error(
+        `Error al registrar firma para ODS #${orderId}: ${error.message}`,
+        error.stack,
+      );
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Error al procesar y sellar el documento firmado: ${error.message}`,
+      );
+    }
   }
 
   /**
@@ -653,87 +1105,196 @@ export class DocumentosOrdenService {
       color: brandDark,
     });
 
-    // --- 2. TARJETAS: DATOS DEL CLIENTE Y DEL EQUIPO (Idéntico a imagen 2) ---
-    y -= 14;
-    const cardWidth = 248;
-    const cardHeight = 72;
+    // --- 2. BLOQUE SUPERIOR DE DATOS (3 COLUMNAS: CLIENTE, EQUIPO, ACCESO DIGITAL) ---
+    // A. Preparación del Código QR de Acceso / Activación del Cliente
+    let embeddedQr: any = null;
+    let qrDesc = 'Escanee para consultar el estado de su orden.';
+
+    try {
+      const frontendUrl =
+        process.env.FRONTEND_URL ||
+        (process.env.NODE_ENV === 'production'
+          ? 'https://elhospitaldelcomputador.com'
+          : 'http://localhost:4000');
+      const clientId = orden.client?.id;
+
+      // Verificar si el cliente ya tiene contraseña activa en la base de datos
+      let tienePassword = false;
+      if (clientId) {
+        const clientWithPass = await this.userRepository.findOne({
+          where: { id: clientId },
+          select: ['id', 'password'],
+        });
+        tienePassword = Boolean(clientWithPass?.password);
+      }
+
+      let qrUrl: string;
+
+      const rawToken =
+        (dto as any)?.tokenActivacion ||
+        (orden as any)?.tokenActivacion ||
+        (orden as any)?.activacion?.token;
+
+      if (tienePassword) {
+        // ✅ Caso 1: Cliente con cuenta ya activada
+        qrUrl = `${frontendUrl}/signin`;
+        qrDesc = 'Escanee para consultar el estado de su orden.';
+      } else {
+        // ✅ Caso 2: Cliente con cuenta pendiente de activación (password IS NULL)
+        let tokenValido = false;
+
+        if (rawToken && typeof rawToken === 'string' && rawToken.trim() !== '' && clientId) {
+          const tokenHash = crypto
+            .createHash('sha256')
+            .update(rawToken.trim())
+            .digest('hex');
+
+          const actRegistro = await this.activacionRepository.findOne({
+            where: {
+              tokenHash,
+              usuarioId: clientId,
+            },
+          });
+
+          if (
+            actRegistro &&
+            !actRegistro.usedAt &&
+            !actRegistro.revokedAt &&
+            new Date() < new Date(actRegistro.expiresAt)
+          ) {
+            tokenValido = true;
+          } else {
+            this.logger.warn(
+              `Token de activación provisto para ODS #${orden.workOrderNumber} no es válido, expiró o está revocado. Se omitirá del PDF.`,
+            );
+          }
+        }
+
+        if (tokenValido) {
+          // Emisión inicial o autorizada con token efímero vigente
+          qrUrl = `${frontendUrl}/activar-cuenta?token=${encodeURIComponent(rawToken.trim())}`;
+          qrDesc = 'Escanee para activar su cuenta y consultar su orden.';
+        } else {
+          // Reimpresión posterior sin token efímero o token no utilizable.
+          qrUrl = `${frontendUrl}/activar-cuenta`;
+          qrDesc = 'Consulte su orden en el portal o solicite activación.';
+        }
+      }
+
+      const qrPngBuffer = await QRCode.toBuffer(qrUrl, {
+        type: 'png',
+        width: 180,
+        margin: 1,
+        errorCorrectionLevel: 'M',
+      });
+
+      embeddedQr = await pdfDoc.embedPng(qrPngBuffer);
+    } catch (qrErr) {
+      this.logger.warn(`No se pudo generar/incrustar código QR en bloque superior: ${qrErr.message}`);
+    }
+
+    // B. Maquetación equilibrada en 3 columnas
+    y -= 12;
+    const cardHeight = 84;
+    const card1W = 175;
+    const card2W = 168;
+    const card3W = 160.28;
+    const cardGap = 6;
     const card1X = 40;
-    const card2X = width - 40 - cardWidth;
+    const card2X = card1X + card1W + cardGap; // 221
+    const card3X = card2X + card2W + cardGap; // 395
     const cardY = y - cardHeight;
 
-    // Tarjeta 1: Cliente
+    // Columna 1: Datos del Cliente
     page.drawRectangle({
       x: card1X,
       y: cardY,
-      width: cardWidth,
+      width: card1W,
       height: cardHeight,
       borderWidth: 1,
       borderColor: borderLight,
       color: bgLight,
     });
     page.drawText('DATOS DEL CLIENTE', {
-      x: card1X + 12,
-      y: cardY + cardHeight - 16,
+      x: card1X + 10,
+      y: cardY + cardHeight - 14,
       size: 7.5,
       font: fontBold,
-      color: textMuted,
+      color: textDark,
     });
     page.drawLine({
-      start: { x: card1X + 12, y: cardY + cardHeight - 20 },
-      end: { x: card1X + cardWidth - 12, y: cardY + cardHeight - 20 },
+      start: { x: card1X + 10, y: cardY + cardHeight - 18 },
+      end: { x: card1X + card1W - 10, y: cardY + cardHeight - 18 },
       thickness: 0.5,
       color: borderLight,
     });
 
-    const clienteNombre = orden.client
-      ? `${orden.client.nombre || ''} ${orden.client.apellido || ''}`.trim()
-      : dto.firmanteNombre;
-    const clienteCedula = (orden.client as any)?.cedula || dto.firmanteIdentificacion;
+    const clienteNombre =
+      (orden.client
+        ? `${orden.client.nombre || ''} ${orden.client.apellido || ''}`.trim()
+        : dto.firmanteNombre) || 'Cliente General';
+    const clienteCedula = (orden.client as any)?.cedula || dto.firmanteIdentificacion || 'N/D';
     const clienteTelf = orden.client?.telefono || 'No registrado';
-    const fechaCreacionStr = orden.createdAt ? new Date(orden.createdAt).toLocaleDateString() : 'N/D';
+    const fechaCreacionStr = orden.createdAt ? new Date(orden.createdAt).toLocaleDateString('es-ES') : 'N/D';
 
-    page.drawText(`Nombre: ${clienteNombre.substring(0, 32)}`, {
-      x: card1X + 12,
-      y: cardY + 34,
-      size: 7.5,
+    const nomText = `Nombre: ${clienteNombre.substring(0, 36)}`;
+    const nomSize = fontBold.widthOfTextAtSize(nomText, 7.2) > card1W - 20 ? 6.7 : 7.2;
+    page.drawText(nomText, {
+      x: card1X + 10,
+      y: cardY + 51,
+      size: nomSize,
       font: fontBold,
       color: textDark,
     });
-    page.drawText(`Rol / Tipo: Cliente | C.I.: ${clienteCedula}`, {
-      x: card1X + 12,
-      y: cardY + 22,
-      size: 7.2,
+    page.drawText(`Rol / Tipo: Cliente`, {
+      x: card1X + 10,
+      y: cardY + 39,
+      size: 7,
       font: fontRegular,
       color: textDark,
     });
-    page.drawText(`Teléfono: ${clienteTelf} | Orden Creada: ${fechaCreacionStr}`, {
-      x: card1X + 12,
-      y: cardY + 10,
-      size: 7.2,
+    page.drawText(`C.I. / RUC: ${clienteCedula}`, {
+      x: card1X + 10,
+      y: cardY + 27,
+      size: 7,
       font: fontRegular,
       color: textDark,
+    });
+    page.drawText(`Teléfono: ${clienteTelf}`, {
+      x: card1X + 10,
+      y: cardY + 15,
+      size: 7,
+      font: fontRegular,
+      color: textDark,
+    });
+    page.drawText(`Orden Creada: ${fechaCreacionStr}`, {
+      x: card1X + 10,
+      y: cardY + 5,
+      size: 6.5,
+      font: fontRegular,
+      color: textMuted,
     });
 
-    // Tarjeta 2: Equipo
+    // Columna 2: Especificaciones del Equipo
     page.drawRectangle({
       x: card2X,
       y: cardY,
-      width: cardWidth,
+      width: card2W,
       height: cardHeight,
       borderWidth: 1,
       borderColor: borderLight,
       color: bgLight,
     });
     page.drawText('ESPECIFICACIONES DEL EQUIPO', {
-      x: card2X + 12,
-      y: cardY + cardHeight - 16,
+      x: card2X + 10,
+      y: cardY + cardHeight - 14,
       size: 7.5,
       font: fontBold,
-      color: textMuted,
+      color: textDark,
     });
     page.drawLine({
-      start: { x: card2X + 12, y: cardY + cardHeight - 20 },
-      end: { x: card2X + cardWidth - 12, y: cardY + cardHeight - 20 },
+      start: { x: card2X + 10, y: cardY + cardHeight - 18 },
+      end: { x: card2X + card2W - 10, y: cardY + cardHeight - 18 },
       thickness: 0.5,
       color: borderLight,
     });
@@ -742,33 +1303,114 @@ export class DocumentosOrdenService {
     const marcaMod = `${orden.equipo?.marca?.nombre || 'N/D'} ${orden.equipo?.modelo?.nombre || ''}`.trim();
     const serieEq = orden.equipo?.numeroSerie || 'Sin número de serie';
 
-    page.drawText(`Tipo: ${tipoEq}`, {
-      x: card2X + 12,
-      y: cardY + 34,
-      size: 7.5,
+    page.drawText(`Tipo: ${tipoEq.substring(0, 26)}`, {
+      x: card2X + 10,
+      y: cardY + 51,
+      size: 7.2,
       font: fontBold,
       color: textDark,
     });
-    page.drawText(`Marca / Modelo: ${marcaMod.substring(0, 30)}`, {
-      x: card2X + 12,
-      y: cardY + 22,
-      size: 7.2,
+    page.drawText(`Marca / Modelo:`, {
+      x: card2X + 10,
+      y: cardY + 39,
+      size: 7,
       font: fontRegular,
+      color: textMuted,
+    });
+    page.drawText(`${marcaMod.substring(0, 26)}`, {
+      x: card2X + 10,
+      y: cardY + 29,
+      size: 7.2,
+      font: fontBold,
       color: textDark,
     });
-    page.drawText(`N° de Serie: ${serieEq.substring(0, 28)}`, {
-      x: card2X + 12,
-      y: cardY + 10,
-      size: 7.2,
+    page.drawText(`N° de Serie: ${serieEq.substring(0, 25)}`, {
+      x: card2X + 10,
+      y: cardY + 15,
+      size: 7,
       font: fontRegular,
       color: textDark,
     });
 
+    // Columna 3: Código QR de Acceso / Activación
+    page.drawRectangle({
+      x: card3X,
+      y: cardY,
+      width: card3W,
+      height: cardHeight,
+      borderWidth: 1,
+      borderColor: borderLight,
+      color: bgLight,
+    });
+    page.drawText('ACCESO DIGITAL', {
+      x: card3X + 10,
+      y: cardY + cardHeight - 14,
+      size: 7.5,
+      font: fontBold,
+      color: textDark,
+    });
+    page.drawLine({
+      start: { x: card3X + 10, y: cardY + cardHeight - 18 },
+      end: { x: card3X + card3W - 10, y: cardY + cardHeight - 18 },
+      thickness: 0.5,
+      color: borderLight,
+    });
+
+    if (embeddedQr) {
+      const qrSize = 52;
+      const qrDrawX = card3X + 8;
+      const qrDrawY = cardY + 8;
+
+      page.drawImage(embeddedQr, {
+        x: qrDrawX,
+        y: qrDrawY,
+        width: qrSize,
+        height: qrSize,
+      });
+
+      const qrDescX = card3X + 66;
+      const qrDescW = card3W - 66 - 6; // ~88 pt
+      const qrDescLines = wrapText(qrDesc, fontRegular, 5.8, qrDescW);
+      let curDescY = cardY + cardHeight - 26;
+      for (const dLine of qrDescLines.slice(0, 3)) {
+        page.drawText(dLine, {
+          x: qrDescX,
+          y: curDescY,
+          size: 5.8,
+          font: fontRegular,
+          color: textDark,
+        });
+        curDescY -= 7.5;
+      }
+
+      // Pastilla del Identificador Permanente
+      const pillY = cardY + 8;
+      const pillH = 15;
+      const pillW = qrDescW;
+      page.drawRectangle({
+        x: qrDescX,
+        y: pillY,
+        width: pillW,
+        height: pillH,
+        borderWidth: 0.6,
+        borderColor: borderLight,
+        color: rgb(1, 1, 1),
+      });
+      const userLabel = 'Usuario: su cédula';
+      page.drawText(userLabel, {
+        x: qrDescX + (pillW - fontBold.widthOfTextAtSize(userLabel, 6)) / 2,
+        y: pillY + 4.5,
+        size: 6,
+        font: fontBold,
+        color: brandDark,
+      });
+    }
+
     // --- 3. PROBLEMA REPORTADO EN RECEPCIÓN ---
-    y = cardY - 12;
-    const probContentWidth = width - 80 - 24; // Margen útil interior
+    y = cardY - 10;
+    const probContentWidth = width - 80 - 24;
     const probFont = fontOblique;
-    const probFontSize = 8;
+    const probFontSize = 7.8;
     const probLineHeight = 11;
 
     const rawProb = orden.problemaReportado?.trim() || 'Sin reporte detallado registrado.';
@@ -786,7 +1428,7 @@ export class DocumentosOrdenService {
     }
 
     // Altura calculada dinámicamente según la cantidad real de líneas
-    const probHeight = Math.max(44, 26 + probLines.length * probLineHeight + 8);
+    const probHeight = Math.max(42, 22 + probLines.length * probLineHeight + 6);
     const probY = y - probHeight;
 
     page.drawRectangle({
@@ -804,11 +1446,11 @@ export class DocumentosOrdenService {
       y: probY + probHeight - 14,
       size: 7.5,
       font: fontBold,
-      color: textMuted,
+      color: textDark,
     });
 
     // Renderizar líneas ordenadamente de arriba hacia abajo
-    let currentProbLineY = probY + probHeight - 26;
+    let currentProbLineY = probY + probHeight - 25;
     for (const pLine of probLines) {
       page.drawText(pLine, {
         x: 52,
@@ -823,11 +1465,11 @@ export class DocumentosOrdenService {
     // --- 4. SECCIONES INTERMEDIAS SEGÚN RECEPCIÓN O ENTREGA ---
     if (!isRecepcion) {
       // SECCIÓN: TRABAJOS Y ACTIVIDADES REALIZADAS
-      y = probY - 18;
+      y = probY - 16;
       page.drawText('TRABAJOS Y ACTIVIDADES REALIZADAS', {
         x: 40,
         y,
-        size: 9,
+        size: 8.5,
         font: fontBold,
         color: brandDark,
       });
@@ -835,7 +1477,7 @@ export class DocumentosOrdenService {
       page.drawLine({
         start: { x: 40, y },
         end: { x: width - 40, y },
-        thickness: 1,
+        thickness: 0.8,
         color: borderLight,
       });
 
@@ -857,7 +1499,7 @@ export class DocumentosOrdenService {
         let curActY = y + actBoxH - 14;
         for (let i = 0; i < maxAct; i++) {
           const a = act[i];
-          const fStr = a.fecha ? new Date(a.fecha).toLocaleDateString() : '';
+          const fStr = a.fecha ? new Date(a.fecha).toLocaleDateString('es-ES') : '';
           const actTexto = `${fStr} [${a.tipoActividad?.nombre || 'Técnico'}]: ${a.trabajoRealizado || ''}`;
           page.drawText(`• ${actTexto.substring(0, 95)}`, {
             x: 50,
@@ -869,7 +1511,7 @@ export class DocumentosOrdenService {
           curActY -= 16;
         }
       } else {
-        const actHeight = 28;
+        const actHeight = 26;
         y -= actHeight;
         page.drawRectangle({
           x: 40,
@@ -882,7 +1524,7 @@ export class DocumentosOrdenService {
         });
         page.drawText('No se registraron bitácoras técnicas para esta orden.', {
           x: 52,
-          y: y + 10,
+          y: y + 9,
           size: 7.5,
           font: fontOblique,
           color: textMuted,
@@ -890,11 +1532,11 @@ export class DocumentosOrdenService {
       }
 
       // SECCIÓN: DETALLE DE COSTOS Y PRESUPUESTO
-      y -= 18;
+      y -= 16;
       page.drawText('DETALLE DE COSTOS Y PRESUPUESTO', {
         x: 40,
         y,
-        size: 9,
+        size: 8.5,
         font: fontBold,
         color: brandDark,
       });
@@ -902,7 +1544,7 @@ export class DocumentosOrdenService {
       page.drawLine({
         start: { x: 40, y },
         end: { x: width - 40, y },
-        thickness: 1,
+        thickness: 0.8,
         color: borderLight,
       });
 
@@ -952,7 +1594,7 @@ export class DocumentosOrdenService {
           color: primaryBlue,
         });
       } else {
-        const presHeight = 28;
+        const presHeight = 26;
         y -= presHeight;
         page.drawRectangle({
           x: 40,
@@ -965,50 +1607,56 @@ export class DocumentosOrdenService {
         });
         page.drawText('Esta orden no tiene ítems de presupuesto registrados o se realizó sin costo.', {
           x: 52,
-          y: y + 10,
+          y: y + 9,
           size: 7.5,
           font: fontOblique,
           color: textMuted,
         });
       }
     } else {
-      // Recepción: Accesorios y Peritaje
-      y = probY - 12;
+      // Recepción: Accesorios e Inspección Inicial
+      y = probY - 10;
+
+      // Accesorios entregados por el cliente
       const accStr =
         orden.accesorios && orden.accesorios.length > 0
           ? orden.accesorios.join(', ')
           : 'Ninguno registrado';
-      const accLines = wrapText(`Accesorios entregados por el cliente: ${accStr}`, fontBold, 7.8, width - 80);
-      for (const line of accLines.slice(0, 2)) {
-        page.drawText(line, {
-          x: 40,
-          y,
-          size: 7.8,
-          font: fontBold,
-          color: textDark,
-        });
-        y -= 10;
-      }
+
+      const accBoxH = 22;
+      y -= accBoxH;
+      page.drawRectangle({
+        x: 40,
+        y,
+        width: width - 80,
+        height: accBoxH,
+        borderWidth: 0.8,
+        borderColor: borderLight,
+        color: bgLight,
+      });
+
+      const accLabel = 'ACCESORIOS ENTREGADOS POR EL CLIENTE: ';
+      page.drawText(accLabel, {
+        x: 52,
+        y: y + 7,
+        size: 7.2,
+        font: fontBold,
+        color: textDark,
+      });
+      const accLabelW = fontBold.widthOfTextAtSize(accLabel, 7.2);
+      page.drawText(accStr.substring(0, 85), {
+        x: 52 + accLabelW,
+        y: y + 7,
+        size: 7.2,
+        font: fontRegular,
+        color: textDark,
+      });
 
       const checklist = orden.checklistData;
 
       if (checklist) {
-        y -= 15;
-        page.drawText('INSPECCIÓN INICIAL DE RECEPCIÓN (ESTADO INICIAL):', {
-          x: 40,
-          y,
-          size: 8.5,
-          font: fontBold,
-          color: brandDark,
-        });
-        y -= 5;
-        page.drawLine({
-          start: { x: 40, y },
-          end: { x: width - 40, y },
-          thickness: 1,
-          color: borderLight,
-        });
-        y -= 9;
+        y -= 10;
+        const inspectionLines: { text: string; bold: boolean; oblique?: boolean; color?: any }[] = [];
 
         if (checklist.version === 2) {
           const rec = checklist.inspeccionRecepcion;
@@ -1020,74 +1668,25 @@ export class DocumentosOrdenService {
 
           if (totalItems > 3 || comp) {
             needsPage2 = true;
-            page.drawText(`• Encendido al recibir: ${encendidoStr}`, {
-              x: 45,
-              y,
-              size: 7.2,
-              font: fontBold,
-              color: textDark,
-            });
-            y -= 11;
-            page.drawText(`• Inspección física (${fisCount} puntos) y funcional (${funcCount} pruebas) registradas.`, {
-              x: 45,
-              y,
-              size: 7.2,
-              font: fontRegular,
-              color: textDark,
-            });
-            y -= 11;
+            inspectionLines.push({ text: `• Encendido al recibir: ${encendidoStr}`, bold: true, color: textDark });
+            inspectionLines.push({ text: `• Inspección física (${fisCount} puntos) y funcional (${funcCount} pruebas) registradas.`, bold: false, color: textDark });
             if (comp) {
               const authTxt = comp.autorizacionCliente?.autorizado ? 'Autorizado por cliente' : 'Pendiente autorización';
-              page.drawText(`• Escalamiento a Orden Completa: ${comp.motivoEscalamiento.substring(0, 55)} (${authTxt})`, {
-                x: 45,
-                y,
-                size: 7.2,
-                font: fontBold,
-                color: brandDark,
-              });
-              y -= 11;
+              inspectionLines.push({ text: `• Escalamiento a Orden Completa: ${comp.motivoEscalamiento.substring(0, 55)} (${authTxt})`, bold: true, color: brandDark });
             }
-            page.drawText('• >> Ver detalle exhaustivo de inspección en el Anexo Técnico adjunto (Página 2) <<', {
-              x: 45,
-              y,
-              size: 7.2,
-              font: fontOblique,
-              color: textMuted,
-            });
-            y -= 11;
+            inspectionLines.push({ text: `• >> Ver detalle exhaustivo de inspección en Anexo Técnico adjunto (Página 2) <<`, bold: false, oblique: true, color: textMuted });
           } else {
-            page.drawText(`• Encendido: ${encendidoStr}`, {
-              x: 45,
-              y,
-              size: 7.2,
-              font: fontBold,
-              color: textDark,
-            });
-            y -= 11;
+            inspectionLines.push({ text: `• Encendido: ${encendidoStr}`, bold: true, color: textDark });
             if (rec?.fisica) {
               for (const f of rec.fisica) {
                 const obs = f.observaciones ? ` (${f.observaciones})` : '';
-                page.drawText(`• [Físico] ${f.item}: ${formatFisicoPdf(f.estado)}${obs}`.substring(0, 95), {
-                  x: 45,
-                  y,
-                  size: 7.2,
-                  font: fontRegular,
-                  color: textDark,
-                });
-                y -= 11;
+                inspectionLines.push({ text: `• [Físico] ${f.item}: ${formatFisicoPdf(f.estado)}${obs}`.substring(0, 95), bold: false, color: textDark });
               }
             }
             if (rec?.funcional) {
               for (const fn of rec.funcional) {
                 const obs = fn.observaciones ? ` (${fn.observaciones})` : '';
-                page.drawText(`• [Funcional] ${fn.item}: ${formatFuncionalPdf(fn.estado)}${obs}`.substring(0, 95), {
-                  x: 45,
-                  y,
-                  size: 7.2,
-                  font: fontRegular,
-                  color: textDark,
-                });
-                y -= 11;
+                inspectionLines.push({ text: `• [Funcional] ${fn.item}: ${formatFuncionalPdf(fn.estado)}${obs}`.substring(0, 95), bold: false, color: textDark });
               }
             }
           }
@@ -1096,68 +1695,71 @@ export class DocumentosOrdenService {
             needsPage2 = true;
             for (let i = 0; i < Math.min(checklist.results.length, 2); i++) {
               const item = checklist.results[i];
-              page.drawText(`• ${item.item}: Funcionalidad: ${item.funcional || 'OK'} | Estética: ${item.estetica || 'OK'}`.substring(0, 95), {
-                x: 45,
-                y,
-                size: 7.2,
-                font: fontRegular,
-                color: textDark,
-              });
-              y -= 11;
+              inspectionLines.push({ text: `• ${item.item}: Funcionalidad: ${item.funcional || 'OK'} | Estética: ${item.estetica || 'OK'}`.substring(0, 95), bold: false, color: textDark });
             }
-            page.drawText(`• Ver los ${checklist.results.length} puntos en el Anexo Técnico adjunto (Página 2)`, {
-              x: 45,
-              y,
-              size: 7.2,
-              font: fontOblique,
-              color: textMuted,
-            });
-            y -= 11;
+            inspectionLines.push({ text: `• Ver los ${checklist.results.length} puntos en el Anexo Técnico adjunto (Página 2)`, bold: false, oblique: true, color: textMuted });
           } else {
             for (const item of checklist.results) {
-              page.drawText(`• ${item.item}: Funcionalidad: ${item.funcional || 'OK'} | Estética: ${item.estetica || 'OK'}`.substring(0, 95), {
-                x: 45,
-                y,
-                size: 7.2,
-                font: fontRegular,
-                color: textDark,
-              });
-              y -= 11;
+              inspectionLines.push({ text: `• ${item.item}: Funcionalidad: ${item.funcional || 'OK'} | Estética: ${item.estetica || 'OK'}`.substring(0, 95), bold: false, color: textDark });
             }
           }
+        }
+
+        const inspBoxH = Math.max(38, 22 + inspectionLines.length * 11 + 6);
+        y -= inspBoxH;
+
+        page.drawRectangle({
+          x: 40,
+          y,
+          width: width - 80,
+          height: inspBoxH,
+          borderWidth: 1,
+          borderColor: borderLight,
+          color: bgLight,
+        });
+
+        page.drawText('INSPECCIÓN INICIAL DE RECEPCIÓN (ESTADO INICIAL)', {
+          x: 52,
+          y: y + inspBoxH - 14,
+          size: 7.5,
+          font: fontBold,
+          color: textDark,
+        });
+        page.drawLine({
+          start: { x: 52, y: y + inspBoxH - 18 },
+          end: { x: width - 52, y: y + inspBoxH - 18 },
+          thickness: 0.5,
+          color: borderLight,
+        });
+
+        let curInspY = y + inspBoxH - 28;
+        for (const line of inspectionLines) {
+          page.drawText(line.text, {
+            x: 52,
+            y: curInspY,
+            size: 7.2,
+            font: line.bold ? fontBold : (line.oblique ? fontOblique : fontRegular),
+            color: line.color || textDark,
+          });
+          curInspY -= 11;
         }
       }
     }
 
-    // --- 5. TÉRMINOS Y CONDICIONES / CONFORMIDAD (Línea gruesa) ---
-    y -= 18;
-    page.drawLine({
-      start: { x: 40, y },
-      end: { x: width - 40, y },
-      thickness: 1.5,
-      color: brandDark,
-    });
-
-    y -= 12;
+    // --- 5. TÉRMINOS Y CONDICIONES / CONFORMIDAD ---
+    y -= 10;
     const terminosTitulo = isRecepcion
-      ? 'TÉRMINOS Y CONDICIONES DE RECEPCIÓN:'
-      : 'CONFORMIDAD DEL SERVICIO Y GARANTÍA:';
-    page.drawText(terminosTitulo, {
-      x: 40,
-      y,
-      size: 7.8,
-      font: fontBold,
-      color: brandDark,
-    });
+      ? 'TÉRMINOS Y CONDICIONES DE RECEPCIÓN'
+      : 'CONFORMIDAD DEL SERVICIO Y GARANTÍA';
 
     let terminosLineas: string[] = [];
     if (isRecepcion) {
       const rawTerminos =
         config?.terminosRecepcion ||
         [
-          '1. RESPALDO DE INFORMACIÓN: Hospital del Computador no se responsabiliza por la pérdida de datos o software en discos de almacenamiento.',
-          '2. CLÁUSULA DE ABANDONO: Equipos no retirados tras el plazo reglamentario causarán costos de bodegaje y podrán ser considerados en abandono legal.',
-          '3. DIAGNÓSTICO PRELIMINAR: La recepción inicial es presuntiva sujeta a confirmación en laboratorio.',
+          '1. RESPALDO DE INFORMACIÓN: Hospital del Computador no se responsabiliza por la pérdida de datos o software en discos de almacenamiento, debiendo el cliente respaldar previamente su información.',
+          '2. CLÁUSULA DE ABANDONO: Equipos no retirados tras 60 días contados a partir de la notificación de finalización causarán costos de bodegaje y podrán ser considerados en abandono legal conforme a la ley.',
+          '3. DIAGNÓSTICO PRELIMINAR: La recepción inicial es presuntiva y está sujeta a confirmación y diagnóstico definitivo por parte del departamento técnico en laboratorio.',
         ].join('\n');
 
       terminosLineas = rawTerminos
@@ -1189,32 +1791,74 @@ export class DocumentosOrdenService {
         .filter(Boolean);
     }
 
-    for (const t of terminosLineas.slice(0, 5)) {
-      const wrapped = wrapText(t, fontRegular, 6.3, width - 80);
-      for (const subLine of wrapped.slice(0, 2)) {
-        y -= 8.5;
-        page.drawText(subLine, {
-          x: 40,
-          y,
-          size: 6.3,
-          font: fontRegular,
-          color: textMuted,
-        });
+    // Conservamos los términos y condiciones completos sin truncamiento arbitrario
+    const terminosRenderLines: string[] = [];
+    for (const t of terminosLineas) {
+      const wrapped = wrapText(t, fontRegular, 6.3, width - 80 - 24);
+      for (const subLine of wrapped) {
+        terminosRenderLines.push(subLine);
       }
     }
 
-    // --- 6. BLOQUE DE FIRMAS (Idéntico a imagen 2) ---
-    const signBoxWidth = 200;
-    const signY = Math.min(100, Math.max(y - 50, 65));
+    const termBoxH = Math.max(38, 22 + terminosRenderLines.length * 9.2 + 6);
+    y -= termBoxH;
 
-    // Firma del Cliente
+    page.drawRectangle({
+      x: 40,
+      y,
+      width: width - 80,
+      height: termBoxH,
+      borderWidth: 1,
+      borderColor: borderLight,
+      color: bgLight,
+    });
+
+    page.drawText(terminosTitulo, {
+      x: 52,
+      y: y + termBoxH - 14,
+      size: 7.5,
+      font: fontBold,
+      color: textDark,
+    });
+    page.drawLine({
+      start: { x: 52, y: y + termBoxH - 18 },
+      end: { x: width - 52, y: y + termBoxH - 18 },
+      thickness: 0.5,
+      color: borderLight,
+    });
+
+    let curTermY = y + termBoxH - 27;
+    for (const tLine of terminosRenderLines) {
+      page.drawText(tLine, {
+        x: 52,
+        y: curTermY,
+        size: 6.3,
+        font: fontRegular,
+        color: textMuted,
+      });
+      curTermY -= 9.2;
+    }
+
+    // --- 6. BLOQUE DE FIRMAS (2 COLUMNAS EQUILIBRADAS: CLIENTE Y ESTABLECIMIENTO) ---
+    // Calculamos signY armónicamente respetando el espacio disponible y eliminando huecos excesivos
+    const signBoxWidth = 240;
+    const availableSpace = y - 35; // espacio desde fin de términos hasta pie de página
+    const signBlockHeight = 82;    // altura total del bloque de firmas
+    const slack = availableSpace - signBlockHeight;
+
+    // Distribuimos el espacio vertical: margen superior controlado respecto a términos
+    // con un mínimo de 16 pt y un tope de 36 pt para garantizar continuidad visual limpia
+    const gapAboveSign = Math.min(36, Math.max(16, slack * 0.22));
+    const signY = Math.max(64, y - 60 - gapAboveSign);
+
+    // A. Firma del Cliente (Columna Izquierda)
     if (firmaBuffer && dto.estadoFirma !== EstadoFirmaDocumento.RECHAZADO_CLIENTE) {
       try {
         const embeddedPng = await pdfDoc.embedPng(firmaBuffer);
-        const imgDims = embeddedPng.scaleToFit(140, 48);
+        const imgDims = embeddedPng.scaleToFit(160, 44);
         page.drawImage(embeddedPng, {
           x: 40 + (signBoxWidth - imgDims.width) / 2,
-          y: signY + 14,
+          y: signY + 12,
           width: imgDims.width,
           height: imgDims.height,
         });
@@ -1223,103 +1867,151 @@ export class DocumentosOrdenService {
       }
     } else if (dto.estadoFirma === EstadoFirmaDocumento.RECHAZADO_CLIENTE) {
       page.drawText('CONSTANCIA: CLIENTE SE NEGÓ A FIRMAR', {
-        x: 45,
-        y: signY + 22,
+        x: 40 + (signBoxWidth - fontBold.widthOfTextAtSize('CONSTANCIA: CLIENTE SE NEGÓ A FIRMAR', 7.5)) / 2,
+        y: signY + 20,
         size: 7.5,
         font: fontBold,
         color: rgb(0.8, 0.2, 0.2),
       });
     } else {
-      page.drawText('(Pendiente de firma manuscrita)', {
-        x: 40 + (signBoxWidth - fontOblique.widthOfTextAtSize('(Pendiente de firma manuscrita)', 8)) / 2,
+      const pendTxt = '(Pendiente de firma manuscrita)';
+      page.drawText(pendTxt, {
+        x: 40 + (signBoxWidth - fontOblique.widthOfTextAtSize(pendTxt, 7.5)) / 2,
         y: signY + 20,
-        size: 8,
+        size: 7.5,
         font: fontOblique,
-        color: rgb(0.6, 0.6, 0.6),
+        color: rgb(0.55, 0.58, 0.63),
       });
     }
 
     page.drawLine({
-      start: { x: 40, y: signY + 10 },
-      end: { x: 40 + signBoxWidth, y: signY + 10 },
-      thickness: 1.2,
+      start: { x: 40, y: signY + 8 },
+      end: { x: 40 + signBoxWidth, y: signY + 8 },
+      thickness: 1,
       color: borderLight,
     });
 
     const firmaClienteTitulo = isRecepcion ? 'FIRMA DEL CLIENTE / RECEPTOR' : 'FIRMA DEL CLIENTE';
     page.drawText(firmaClienteTitulo, {
       x: 40 + (signBoxWidth - fontBold.widthOfTextAtSize(firmaClienteTitulo, 7.5)) / 2,
-      y: signY - 2,
+      y: signY - 3,
       size: 7.5,
       font: fontBold,
       color: brandDark,
     });
 
-    page.drawText(`${dto.firmanteNombre.substring(0, 32)}`, {
-      x: 40 + (signBoxWidth - fontRegular.widthOfTextAtSize(dto.firmanteNombre.substring(0, 32), 7)) / 2,
-      y: signY - 12,
+    const safeFirmanteNombre = (dto.firmanteNombre || clienteNombre).substring(0, 36);
+    page.drawText(`${safeFirmanteNombre}`, {
+      x: 40 + (signBoxWidth - fontRegular.widthOfTextAtSize(safeFirmanteNombre, 7)) / 2,
+      y: signY - 13,
       size: 7,
       font: fontRegular,
-      color: textMuted,
+      color: textDark,
     });
 
-    page.drawText(`C.I. / RUC: ${dto.firmanteIdentificacion}`, {
-      x: 40 + (signBoxWidth - fontRegular.widthOfTextAtSize(`C.I. / RUC: ${dto.firmanteIdentificacion}`, 6.8)) / 2,
-      y: signY - 21,
+    const safeFirmanteId = dto.firmanteIdentificacion || clienteCedula;
+    page.drawText(`C.I. / RUC: ${safeFirmanteId}`, {
+      x: 40 + (signBoxWidth - fontRegular.widthOfTextAtSize(`C.I. / RUC: ${safeFirmanteId}`, 6.8)) / 2,
+      y: signY - 22,
       size: 6.8,
       font: fontRegular,
       color: textMuted,
     });
 
-    // Firma y Sello Electrónico Autorizado del Responsable del Taller (HC)
-    const hcX = width - 40 - signBoxWidth;
+    // B. Firma y Sello del Establecimiento (Columna Derecha)
+    const hcX = width - 40 - signBoxWidth; // 595.28 - 40 - 240 = 315.28
     const firmaConfig = await this.firmaElectronicaService.getConfig();
 
     if (firmaConfig && firmaConfig.activo) {
-      // Estampa Visual Oficial FirmaEC
+      // Estampa Visual Oficial FirmaEC - Estilo Formal Monocromático con QR a la izquierda
+      const titularNombre = (firmaConfig.titularNombre || 'ANGEL PAUL OBREGON MAYORGA').trim();
+      const titularCedula = (firmaConfig.titularCedulaRuc || '').trim();
+
+      let embeddedFirmaEcQr: any = null;
+      try {
+        const qrFirmaPayload = `FirmaEC | Titular: ${titularNombre} | C.I.: ${titularCedula || '0601927122'} | Valide en https://www.firmadigital.gob.ec`;
+        const qrFirmaBuffer = await QRCode.toBuffer(qrFirmaPayload, {
+          type: 'png',
+          width: 140,
+          margin: 0,
+          errorCorrectionLevel: 'M',
+        });
+        embeddedFirmaEcQr = await pdfDoc.embedPng(qrFirmaBuffer);
+      } catch (qrFirmaErr) {
+        this.logger.warn(`No se pudo generar QR para bloque de firma electrónica: ${qrFirmaErr.message}`);
+      }
+
+      const stampH = 48;
+      const stampY = signY + 12;
+
+      // Recuadro formal monocromático con borde fino gris claro y fondo blanco
       page.drawRectangle({
         x: hcX,
-        y: signY + 12,
+        y: stampY,
         width: signBoxWidth,
-        height: 48,
-        borderColor: primaryBlue,
-        borderWidth: 1.2,
-        color: rgb(0.96, 0.98, 1),
+        height: stampH,
+        borderColor: borderLight,
+        borderWidth: 0.8,
+        color: rgb(1, 1, 1),
       });
 
-      page.drawText('FIRMADO ELECTRÓNICAMENTE (FirmaEC)', {
-        x: hcX + 8,
-        y: signY + 48,
-        size: 7.2,
-        font: fontBold,
-        color: primaryBlue,
-      });
+      // 1. QR cuadrado de validación a la izquierda
+      if (embeddedFirmaEcQr) {
+        const qrSize = 40;
+        const qrX = hcX + 6;
+        const qrY = stampY + (stampH - qrSize) / 2;
+        page.drawImage(embeddedFirmaEcQr, {
+          x: qrX,
+          y: qrY,
+          width: qrSize,
+          height: qrSize,
+        });
+      }
 
-      page.drawText(`Titular: ${(firmaConfig.titularNombre || 'Gerencia General').substring(0, 36)}`, {
-        x: hcX + 8,
-        y: signY + 38,
-        size: 6.8,
-        font: fontBold,
-        color: textDark,
-      });
+      // 2. Textos de validación formal a la derecha del QR
+      const textX = hcX + 52;
+      const textW = signBoxWidth - 52 - 6;
 
-      page.drawText(`Emisor: ${(firmaConfig.entidadEmisora || 'BCE / Security Data').substring(0, 38)}`, {
-        x: hcX + 8,
-        y: signY + 28,
-        size: 6,
+      page.drawText('Validar únicamente en FirmaEC.', {
+        x: textX,
+        y: stampY + stampH - 11,
+        size: 5.5,
         font: fontRegular,
         color: textMuted,
       });
 
-      page.drawText(`Fecha: ${fechaObj.toLocaleDateString()} | PAdES Criptográfico`, {
-        x: hcX + 8,
-        y: signY + 18,
-        size: 5.8,
-        font: fontOblique,
-        color: primaryBlue,
+      page.drawText('Firmado electrónicamente por:', {
+        x: textX,
+        y: stampY + stampH - 18.5,
+        size: 5.5,
+        font: fontRegular,
+        color: textMuted,
       });
+
+      const nomLines = wrapText(titularNombre.toUpperCase(), fontBold, 7.2, textW);
+      let curNomY = stampY + stampH - 28.5;
+      for (const nLine of nomLines.slice(0, 2)) {
+        page.drawText(nLine, {
+          x: textX,
+          y: curNomY,
+          size: 7.2,
+          font: fontBold,
+          color: brandDark,
+        });
+        curNomY -= 8.5;
+      }
+
+      if (titularCedula) {
+        page.drawText(`C.I.: ${titularCedula}`, {
+          x: textX,
+          y: curNomY,
+          size: 6.5,
+          font: fontRegular,
+          color: textDark,
+        });
+      }
     } else {
-      // Sello institucional autorizado
+      // Sello institucional autorizado de Hospital del Computador
       const possibleHdcPaths = [
         path.join(process.cwd(), 'assets', 'firma-autorizada-hdc.png'),
         path.join(process.cwd(), '..', 'Backend', 'assets', 'firma-autorizada-hdc.png'),
@@ -1338,10 +2030,10 @@ export class DocumentosOrdenService {
       if (hdcSignBuffer) {
         try {
           const embeddedHdcPng = await pdfDoc.embedPng(hdcSignBuffer);
-          const hdcDims = embeddedHdcPng.scaleToFit(140, 48);
+          const hdcDims = embeddedHdcPng.scaleToFit(160, 44);
           page.drawImage(embeddedHdcPng, {
             x: hcX + (signBoxWidth - hdcDims.width) / 2,
-            y: signY + 14,
+            y: signY + 12,
             width: hdcDims.width,
             height: hdcDims.height,
           });
@@ -1352,152 +2044,33 @@ export class DocumentosOrdenService {
     }
 
     page.drawLine({
-      start: { x: hcX, y: signY + 10 },
-      end: { x: hcX + signBoxWidth, y: signY + 10 },
-      thickness: 1.2,
+      start: { x: hcX, y: signY + 8 },
+      end: { x: hcX + signBoxWidth, y: signY + 8 },
+      thickness: 1,
       color: borderLight,
     });
 
     const firmaHcTitulo = isRecepcion ? 'RECIBIDO POR (HC)' : 'ENTREGADO POR (CENTRO DE SERVICIO)';
     page.drawText(firmaHcTitulo, {
       x: hcX + (signBoxWidth - fontBold.widthOfTextAtSize(firmaHcTitulo, 7.5)) / 2,
-      y: signY - 2,
+      y: signY - 3,
       size: 7.5,
       font: fontBold,
       color: brandDark,
     });
 
-    const subtextoHc = isRecepcion
-      ? 'Hospital del Computador - Gerencia General'
-      : 'Hospital del Computador - Gerencia / Taller';
+    const subtextoHc = 'Hospital del Computador - Centro de Servicio Técnico';
     page.drawText(subtextoHc, {
       x: hcX + (signBoxWidth - fontRegular.widthOfTextAtSize(subtextoHc, 7)) / 2,
-      y: signY - 12,
+      y: signY - 13,
       size: 7,
       font: fontRegular,
       color: textMuted,
     });
 
-    // --- CÓDIGO QR PARA CONSULTA / ACTIVACIÓN DEL CLIENTE ---
-    try {
-      const frontendUrl =
-        process.env.FRONTEND_URL ||
-        (process.env.NODE_ENV === 'production'
-          ? 'https://elhospitaldelcomputador.com'
-          : 'http://localhost:4000');
-      const clientId = orden.client?.id;
-
-      // Verificar si el cliente ya tiene contraseña activa en la base de datos
-      let tienePassword = false;
-      if (clientId) {
-        const clientWithPass = await this.userRepository.findOne({
-          where: { id: clientId },
-          select: ['id', 'password'],
-        });
-        tienePassword = Boolean(clientWithPass?.password);
-      }
-
-      let qrUrl: string;
-      let qrTitle: string;
-      let qrDesc: string;
-
-      const rawToken =
-        (dto as any)?.tokenActivacion ||
-        (orden as any)?.tokenActivacion ||
-        (orden as any)?.activacion?.token;
-
-      if (tienePassword) {
-        // ✅ Caso 1: Cliente con cuenta ya activada
-        // Siempre dirigir a /signin para autenticarse con su cédula y contraseña personal
-        qrUrl = `${frontendUrl}/signin`;
-        qrTitle = 'CONSULTA DIGITAL';
-        qrDesc = 'Ingrese con su cédula y contraseña';
-      } else {
-        // ✅ Caso 2: Cliente con cuenta pendiente de activación (password IS NULL)
-        let tokenValido = false;
-
-        if (rawToken && typeof rawToken === 'string' && rawToken.trim() !== '' && clientId) {
-          const tokenHash = crypto
-            .createHash('sha256')
-            .update(rawToken.trim())
-            .digest('hex');
-
-          const actRegistro = await this.activacionRepository.findOne({
-            where: {
-              tokenHash,
-              usuarioId: clientId,
-            },
-          });
-
-          if (
-            actRegistro &&
-            !actRegistro.usedAt &&
-            !actRegistro.revokedAt &&
-            new Date() < new Date(actRegistro.expiresAt)
-          ) {
-            tokenValido = true;
-          } else {
-            this.logger.warn(
-              `Token de activación provisto para ODS #${orden.workOrderNumber} no es válido, expiró o está revocado. Se omitirá del PDF.`,
-            );
-          }
-        }
-
-        if (tokenValido) {
-          // Emisión inicial o autorizada con token efímero vigente
-          qrUrl = `${frontendUrl}/activar-cuenta?token=${encodeURIComponent(rawToken.trim())}`;
-          qrTitle = 'ACTIVAR CUENTA';
-          qrDesc = 'Cree su clave personal (48h)';
-        } else {
-          // Reimpresión posterior sin token efímero o token no utilizable.
-          // NUNCA mostrar QR de login (/signin) para una cuenta que no tiene contraseña.
-          qrUrl = `${frontendUrl}/activar-cuenta`;
-          qrTitle = 'CUENTA PENDIENTE';
-          qrDesc = 'Solicite activación en recepción';
-        }
-      }
-
-      const qrPngBuffer = await QRCode.toBuffer(qrUrl, {
-        type: 'png',
-        width: 150,
-        margin: 1,
-        errorCorrectionLevel: 'M',
-      });
-
-      const embeddedQr = await pdfDoc.embedPng(qrPngBuffer);
-      const qrSize = 56;
-      const qrX = 40 + signBoxWidth + (hcX - (40 + signBoxWidth) - qrSize) / 2;
-      const qrY = signY - 8;
-
-      page.drawImage(embeddedQr, {
-        x: qrX,
-        y: qrY,
-        width: qrSize,
-        height: qrSize,
-      });
-
-      page.drawText(qrTitle, {
-        x: qrX + (qrSize - fontBold.widthOfTextAtSize(qrTitle, 5.5)) / 2,
-        y: qrY + qrSize + 4,
-        size: 5.5,
-        font: fontBold,
-        color: brandDark,
-      });
-
-      page.drawText(qrDesc, {
-        x: qrX + (qrSize - fontRegular.widthOfTextAtSize(qrDesc, 4.5)) / 2,
-        y: qrY - 7,
-        size: 4.5,
-        font: fontRegular,
-        color: textMuted,
-      });
-    } catch (qrErr) {
-      this.logger.warn(`No se pudo incrustar código QR en PDF: ${qrErr.message}`);
-    }
-
     // --- 7. PIE DE PÁGINA ---
     const footerY = 20;
-    const footerText = 'Centro de Servicio Técnico - Sistema de Gestión de Órdenes ODS - Hospital del Computador';
+    const footerText = 'Documento generado electrónicamente por el Sistema de Gestión de Órdenes (ODS) – Hospital del Computador';
     page.drawText(footerText, {
       x: 40 + (width - 80 - fontRegular.widthOfTextAtSize(footerText, 6.5)) / 2,
       y: footerY,
@@ -1505,7 +2078,7 @@ export class DocumentosOrdenService {
       font: fontRegular,
       color: textMuted,
     });
-    const auditText = `Documento emitido electrónicamente por Sistema ODS - Hospital del Computador | Validez conforme a Arts. 14 y 15 Ley de Comercio Electrónico`;
+    const auditText = `Centro de Servicio Técnico – Hospital del Computador | Riobamba, Chimborazo, Ecuador`;
     page.drawText(auditText, {
       x: 40 + (width - 80 - fontRegular.widthOfTextAtSize(auditText, 5.8)) / 2,
       y: 11,

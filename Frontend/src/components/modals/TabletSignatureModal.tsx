@@ -243,8 +243,16 @@ export default function TabletSignatureModal({
       );
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || 'Error al sellar el documento firmado.');
+        let msg = 'Error al sellar el documento firmado.';
+        try {
+          const errorData = await res.json();
+          if (Array.isArray(errorData?.message)) {
+            msg = errorData.message.join(', ');
+          } else if (errorData?.message) {
+            msg = errorData.message;
+          }
+        } catch {}
+        throw new Error(msg);
       }
 
       const docCreado = await res.json();

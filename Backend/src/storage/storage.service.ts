@@ -67,7 +67,7 @@ export class StorageService implements IStorageService, OnModuleInit {
       }
     } else {
       this.logger.warn(
-        'Cloudflare R2 no tiene credenciales completas configuradas en .env. Activando fallback de almacenamiento local para desarrollo.',
+        'Cloudflare R2 no tiene credenciales completas configuradas en .env o se configuró driver local. Activando almacenamiento local.',
       );
       this.fallbackToLocal();
     }
@@ -85,12 +85,53 @@ export class StorageService implements IStorageService, OnModuleInit {
     return this.driver;
   }
 
+  /**
+   * Sanitiza metadatos para garantizar compatibilidad estricta con cabeceras HTTP S3/R2 (x-amz-meta-*).
+   * - Normaliza las claves a ASCII alfanumérico en minúsculas con guiones/guiones bajos.
+   * - Descarta claves que queden vacías tras la sanitización o valores nulos/indefinidos.
+   * - Remueve tildes, eñes y caracteres fuera del rango ASCII imprimible (0x20-0x7E).
+   * - En caso de colisión de claves normalizadas duplicadas, preserva un valor no vacío frente a uno vacío.
+   */
+  public sanitizeMetadata(
+    metadata?: Record<string, string>,
+  ): Record<string, string> | undefined {
+    if (!metadata) return undefined;
+    const sanitized: Record<string, string> = {};
+
+    for (const [k, v] of Object.entries(metadata)) {
+      if (v === undefined || v === null) continue;
+
+      const safeKey = k.trim().replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+      if (!safeKey) continue;
+
+      const safeValue = String(v)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\x20-\x7E]/g, '')
+        .trim();
+
+      if (
+        Object.prototype.hasOwnProperty.call(sanitized, safeKey) &&
+        sanitized[safeKey] !== '' &&
+        safeValue === ''
+      ) {
+        continue;
+      }
+
+      sanitized[safeKey] = safeValue;
+    }
+
+    return Object.keys(sanitized).length > 0 ? sanitized : undefined;
+  }
+
   async uploadFile(
     key: string,
     buffer: Buffer,
     mimeType: string,
     metadata?: Record<string, string>,
   ): Promise<UploadResult> {
+    const sanitizedMetadata = this.sanitizeMetadata(metadata);
+
     if (this.driver === 'r2' && this.s3Client) {
       try {
         const command = new PutObjectCommand({
@@ -98,7 +139,7 @@ export class StorageService implements IStorageService, OnModuleInit {
           Key: key,
           Body: buffer,
           ContentType: mimeType,
-          Metadata: metadata,
+          Metadata: sanitizedMetadata,
         });
 
         await this.s3Client.send(command);
@@ -108,12 +149,12 @@ export class StorageService implements IStorageService, OnModuleInit {
           size: buffer.length,
           mimeType,
         };
-      } catch (error) {
+      } catch (error: any) {
         this.logger.error(`Error subiendo archivo a R2 [${key}]: ${error.message}`);
         throw error;
       }
     } else {
-      // Driver local
+      // Driver local explícito
       const targetPath = path.join(this.localStoragePath, key);
       const targetDir = path.dirname(targetPath);
       if (!fs.existsSync(targetDir)) {
@@ -142,17 +183,26 @@ export class StorageService implements IStorageService, OnModuleInit {
         return await getSignedUrl(this.s3Client, command, {
           expiresIn: expiration,
         });
-      } catch (error) {
+      } catch (error: any) {
         this.logger.error(`Error generando URL firmada para [${key}]: ${error.message}`);
         throw error;
       }
     } else {
-      // Driver local: retorna una URL relativa o data URL de lectura local
+      // Driver local: retorna una data URL de lectura local
       const filePath = path.join(this.localStoragePath, key);
       if (fs.existsSync(filePath)) {
         const buffer = fs.readFileSync(filePath);
         const ext = path.extname(key).replace('.', '').toLowerCase();
-        const mime = ext === 'png' ? 'image/png' : ext === 'mp4' ? 'video/mp4' : 'image/jpeg';
+        const mime =
+          ext === 'png'
+            ? 'image/png'
+            : ext === 'mp4'
+              ? 'video/mp4'
+              : ext === 'pdf'
+                ? 'application/pdf'
+                : ext === 'webp'
+                  ? 'image/webp'
+                  : 'image/jpeg';
         return `data:${mime};base64,${buffer.toString('base64')}`;
       }
       return '';
@@ -181,7 +231,7 @@ export class StorageService implements IStorageService, OnModuleInit {
           storageKey: key,
           expiresIn: expiresInSeconds,
         };
-      } catch (error) {
+      } catch (error: any) {
         this.logger.error(`Error generando URL firmada de subida [${key}]: ${error.message}`);
         throw error;
       }
@@ -204,7 +254,7 @@ export class StorageService implements IStorageService, OnModuleInit {
         });
         await this.s3Client.send(command);
         this.logger.log(`Objeto eliminado en R2: ${key}`);
-      } catch (error) {
+      } catch (error: any) {
         this.logger.warn(`No se pudo eliminar el objeto en R2 [${key}]: ${error.message}`);
       }
     } else {
@@ -281,7 +331,7 @@ export class StorageService implements IStorageService, OnModuleInit {
           chunks.push(chunk);
         }
         return Buffer.concat(chunks);
-      } catch (error) {
+      } catch (error: any) {
         this.logger.error(`Error obteniendo buffer de R2 [${key}]: ${error.message}`);
         throw error;
       }
@@ -294,4 +344,3 @@ export class StorageService implements IStorageService, OnModuleInit {
     }
   }
 }
-

@@ -11,9 +11,11 @@ import {
   ShieldCheckIcon,
   DocumentCheckIcon,
   ArrowPathIcon,
+  TicketIcon,
 } from '@heroicons/react/24/outline';
 import { useSession } from 'next-auth/react';
 import TabletSignatureModal from './TabletSignatureModal';
+import TicketTermicoModal from './TicketTermicoModal';
 
 interface Props {
   isOpen: boolean;
@@ -36,6 +38,7 @@ export default function GenerarPdfIngresoModal({
   const [pdfBlobUrl, setPdfBlobUrl] = React.useState<string | null>(null);
   const [signedDoc, setSignedDoc] = React.useState<any | null>(null);
   const [isSignModalOpen, setIsSignModalOpen] = React.useState(false);
+  const [isTicketModalOpen, setIsTicketModalOpen] = React.useState(false);
 
   // Carga documento firmado existente en R2
   const fetchSignedDoc = React.useCallback(
@@ -223,6 +226,17 @@ export default function GenerarPdfIngresoModal({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Botón Ver Ticket Térmico 80 mm */}
+          <button
+            type="button"
+            onClick={() => setIsTicketModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-xs transition-colors"
+            title="Abrir comprobante en formato ticket térmico de 80 mm"
+          >
+            <TicketIcon className="h-4 w-4 text-emerald-600" />
+            Ticket 80 mm
+          </button>
+
           {/* Botón Firmar en Tablet */}
           {!signedDoc && (
             <button
@@ -322,6 +336,16 @@ export default function GenerarPdfIngresoModal({
               loadPdf(order.id);
             }
           }}
+        />
+      )}
+
+      {/* Modal de Ticket Térmico 80 mm */}
+      {order && (
+        <TicketTermicoModal
+          isOpen={isTicketModalOpen}
+          onClose={() => setIsTicketModalOpen(false)}
+          order={order}
+          orderId={order.id}
         />
       )}
     </Modal>

@@ -33,6 +33,7 @@ import { CreatePresupuestoDto } from 'src/presupuesto/dto/create-presupuesto.dto
 import { CreateCasilleroDto } from 'src/casillero/dto/create-casillero.dto';
 import { CreateEvidenciaTecnicaDto } from 'src/evidencia-tecnica/dto/create-evidencia-tecnica.dto';
 import { User } from 'src/users/entities/user.entity';
+import { extractClientIp } from 'src/common/helpers/client-ip.helper';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('orders')
@@ -285,9 +286,10 @@ export class OrderController {
   async changeEstadoOrden(
     @Param('id', ParseIntPipe) orderId: number,
     @Param('estadoId', ParseIntPipe) estadoOrdenId: number,
-    @UserDecorator() user: User, // Usando tu decorador personalizado
+    @UserDecorator() user: User,
+    @Body('motivo') motivo?: string,
   ): Promise<Order> {
-    return this.orderService.changeEstadoOrden(orderId, estadoOrdenId, user.id);
+    return this.orderService.changeEstadoOrden(orderId, estadoOrdenId, user.id, motivo);
   }
 
   @Auth('tech')
@@ -312,9 +314,11 @@ export class OrderController {
   async getPublicOrder(
     @Query('cedula') cedula: string,
     @Query('workorder') workorder: string,
-    @Query('token') token?: string,
+    @Query('token') token: string | undefined,
+    @Req() req: Request,
   ) {
-    return this.orderService.findPublicOrder(cedula, workorder, token);
+    const ip = extractClientIp(req);
+    return this.orderService.findPublicOrder(cedula, workorder, token, ip);
   }
 
   /**
@@ -336,7 +340,7 @@ export class OrderController {
     @Body() dto: AutorizarPresupuestoPrivadoDto,
     @Req() req: Request,
   ) {
-    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || req.ip;
+    const ip = extractClientIp(req);
     const userAgent = req.headers['user-agent'];
     return this.orderService.handlePrivatePresupuestoAction(dto, ip, userAgent);
   }
@@ -353,7 +357,7 @@ export class OrderController {
     @Req() req: Request,
   ) {
     const userId = user?.sub || user?.id;
-    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || req.ip;
+    const ip = extractClientIp(req);
     const userAgent = req.headers['user-agent'];
     return this.orderService.handleClientPresupuestoAction(orderId, userId, dto, ip, userAgent);
   }
@@ -370,7 +374,7 @@ export class OrderController {
     @Req() req: Request,
   ) {
     const operadorId = user.sub || user.id;
-    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || req.ip;
+    const ip = extractClientIp(req);
     const userAgent = req.headers['user-agent'];
     return this.orderService.handlePresupuestoActionPresencial(orderId, dto, operadorId, ip, userAgent);
   }

@@ -1,10 +1,12 @@
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { OrderService } from './orders.service';
 import { EstadoOrden } from '../estado-orden/entities/estado-orden.entity';
 import { User } from '../users/entities/user.entity';
 import { Order } from './entities/order.entity';
+import { EstadoOrdenEnum } from '../common/enums/order-status.enum';
+import { OrderType } from '../common/enums/order-type.enum';
 
-describe('OrderService - Validaciones de Transición de Estados ODS (8 Estados Definitivos)', () => {
+describe('OrderService - Validaciones de Transición y Flujo Definitivo de 5 Estados ODS', () => {
   let orderService: OrderService;
   let mockOrderRepository: any;
   let mockUserRepository: any;
@@ -14,27 +16,30 @@ describe('OrderService - Validaciones de Transición de Estados ODS (8 Estados D
   let mockDocumentoRepository: any;
   let mockNotificacionService: any;
 
-  // Mock de los 8 estados definitivos con IDs no consecutivos
+  // Catálogo definitivo de los 5 estados con IDs no correlativos
   const estados: Record<string, EstadoOrden> = {
-    recepcion: { id: 1, nombre: 'Recepción', estado: true } as EstadoOrden,
-    diagnostico: { id: 2, nombre: 'Diagnóstico', estado: true } as EstadoOrden,
-    repuestos: { id: 3, nombre: 'Repuestos', estado: true } as EstadoOrden,
-    aprobacion: { id: 4, nombre: 'Aprobación', estado: true } as EstadoOrden,
-    reparacion: { id: 5, nombre: 'Reparación', estado: true } as EstadoOrden,
-    control: { id: 7, nombre: 'Control', estado: true } as EstadoOrden, // ID 7 (6 eliminado)
-    entrega: { id: 9, nombre: 'Entrega', estado: true } as EstadoOrden, // ID 9 (8 eliminado)
-    archivados: { id: 10, nombre: 'Archivados', estado: true } as EstadoOrden, // ID 10 (11 eliminado)
+    recepcion: { id: 10, nombre: EstadoOrdenEnum.RECEPCION, estado: true } as EstadoOrden,
+    diagnostico: { id: 25, nombre: EstadoOrdenEnum.DIAGNOSTICO, estado: true } as EstadoOrden,
+    en_servicio: { id: 38, nombre: EstadoOrdenEnum.EN_SERVICIO, estado: true } as EstadoOrden,
+    listo_para_entrega: { id: 42, nombre: EstadoOrdenEnum.LISTO_PARA_ENTREGA, estado: true } as EstadoOrden,
+    entregado: { id: 55, nombre: EstadoOrdenEnum.ENTREGADO, estado: true } as EstadoOrden,
   };
 
   const regularTechUser: User = {
     id: 2,
-    nombre: 'Técnico',
+    nombre: 'Técnico HDC',
     userRoles: [{ rol: { slug: 'tech' } }],
+  } as unknown as User;
+
+  const recepUser: User = {
+    id: 3,
+    nombre: 'Recepcionista HDC',
+    userRoles: [{ rol: { slug: 'recep' } }],
   } as unknown as User;
 
   const adminUser: User = {
     id: 1,
-    nombre: 'Admin',
+    nombre: 'Administrador HDC',
     userRoles: [{ rol: { slug: 'admin' } }],
   } as unknown as User;
 
@@ -46,23 +51,28 @@ describe('OrderService - Validaciones de Transición de Estados ODS (8 Estados D
       andWhere: jest.fn().mockReturnThis(),
       execute: jest.fn().mockResolvedValue({ affected: 1 }),
     };
+
     mockOrderRepository = {
       findOne: jest.fn(),
       save: jest.fn().mockImplementation((order) => Promise.resolve(order)),
       createQueryBuilder: jest.fn().mockReturnValue(qbMock),
     };
+
     mockUserRepository = {
       findOne: jest.fn().mockImplementation(({ where }) => {
         if (where.id === 1) return Promise.resolve(adminUser);
         if (where.id === 2) return Promise.resolve(regularTechUser);
+        if (where.id === 3) return Promise.resolve(recepUser);
         return Promise.resolve(null);
       }),
       findOneBy: jest.fn().mockImplementation(({ id }) => {
         if (id === 1) return Promise.resolve(adminUser);
         if (id === 2) return Promise.resolve(regularTechUser);
+        if (id === 3) return Promise.resolve(recepUser);
         return Promise.resolve(null);
       }),
     };
+
     mockEstadoOrdenRepository = {
       findOne: jest.fn().mockImplementation(({ where }) => {
         const id = where?.id;
@@ -74,278 +84,299 @@ describe('OrderService - Validaciones de Transición de Estados ODS (8 Estados D
         return Promise.resolve(found || null);
       }),
     };
+
     mockCasilleroRepository = {
-      findOneBy: jest.fn().mockResolvedValue(null),
+      findOneBy: jest.fn().mockResolvedValue({ id: 101, situacion: 'OCUPADO' }),
+      save: jest.fn().mockResolvedValue({}),
     };
+
     mockHistorialRepository = {
       save: jest.fn().mockResolvedValue({}),
     };
+
     mockDocumentoRepository = {
       findOne: jest.fn().mockResolvedValue(null),
     };
+
     mockNotificacionService = {
       notificarCambioEstadoOds: jest.fn().mockResolvedValue(undefined),
     };
 
-    // Instanciar OrderService con mocks
     orderService = new (OrderService as any)(
       mockOrderRepository,
       mockUserRepository,
-      {} as any, // equipoRepo
+      {} as any,
       mockEstadoOrdenRepository,
-      {} as any, // actividadTecnicaRepo
-      {} as any, // presupuestoRepo
-      {} as any, // autorizacionRepo
+      {} as any,
+      {} as any,
+      {} as any,
       mockCasilleroRepository,
-      {} as any, // evidenciaRepo
+      {} as any,
       mockHistorialRepository,
       mockDocumentoRepository,
       mockNotificacionService,
-      {} as any, // storageService
-      {} as any, // presupuestoService
-      {} as any, // configuracionSistemaService
-      {} as any, // documentosOrdenService
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
     );
   });
 
-  describe('1. Avance secuencial normal (8 estados)', () => {
-    it('permite avanzar Recepción (ID 1) -> Diagnóstico (ID 2)', () => {
+  describe('1. Flujo habitual de Orden Completa y Express', () => {
+    it('1 & 2. Permite transición Recepción -> Diagnóstico en orden completa', () => {
       expect(() => {
         orderService.validarTransicionEstado(estados.recepcion, estados.diagnostico, regularTechUser);
       }).not.toThrow();
     });
 
-    it('permite avanzar Diagnóstico (ID 2) -> Repuestos (ID 3)', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.diagnostico, estados.repuestos, regularTechUser);
-      }).not.toThrow();
-    });
-
-    it('permite avanzar Repuestos (ID 3) -> Aprobación (ID 4)', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.repuestos, estados.aprobacion, regularTechUser);
-      }).not.toThrow();
-    });
-
-    it('permite avanzar Aprobación (ID 4) -> Reparación (ID 5)', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.aprobacion, estados.reparacion, regularTechUser);
-      }).not.toThrow();
-    });
-
-    it('permite avanzar Reparación (ID 5) -> Control (ID 7) [Salto no consecutivo]', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.reparacion, estados.control, regularTechUser);
-      }).not.toThrow();
-    });
-
-    it('permite avanzar Control (ID 7) -> Entrega (ID 9) [Salto no consecutivo]', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.control, estados.entrega, regularTechUser);
-      }).not.toThrow();
-    });
-
-    it('permite avanzar Entrega (ID 9) -> Archivados (ID 10)', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.entrega, estados.archivados, regularTechUser);
-      }).not.toThrow();
-    });
-  });
-
-  describe('2. Flujos excepcionales permitidos', () => {
-    it('permite Diagnóstico -> Aprobación directo cuando no se requieren repuestos', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.diagnostico, estados.aprobacion, regularTechUser);
-      }).not.toThrow();
-    });
-
-    it('permite Aprobación -> Control directo cuando el presupuesto es rechazado por el cliente', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.aprobacion, estados.control, regularTechUser);
-      }).not.toThrow();
-    });
-
-    it('permite Aprobación -> Entrega directo en desistimiento/rechazo con retiro inmediato', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.aprobacion, estados.entrega, regularTechUser);
-      }).not.toThrow();
-    });
-
-    it('permite Reparación -> Repuestos si se detecta una pieza adicional necesaria', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.reparacion, estados.repuestos, regularTechUser);
-      }).not.toThrow();
-    });
-  });
-
-  describe('3. Retrocesos legítimos de control y diagnóstico', () => {
-    it('permite Control -> Reparación si las pruebas de calidad no son superadas', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.control, estados.reparacion, regularTechUser);
-      }).not.toThrow();
-    });
-
-    it('permite Diagnóstico -> Recepción para rectificación de ingreso', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.diagnostico, estados.recepcion, regularTechUser);
-      }).not.toThrow();
-    });
-  });
-
-  describe('4. Saltos indebidos bloqueados (BadRequestException)', () => {
-    it('impide saltar de Recepción a Reparación directamente', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.recepcion, estados.reparacion, regularTechUser);
-      }).toThrow(BadRequestException);
-    });
-
-    it('impide saltar de Recepción a Entrega directamente', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.recepcion, estados.entrega, regularTechUser);
-      }).toThrow(BadRequestException);
-    });
-
-    it('impide saltar de Diagnóstico a Archivados directamente', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.diagnostico, estados.archivados, regularTechUser);
-      }).toThrow(BadRequestException);
-    });
-
-    it('impide modificar o retroceder una orden cerrada en Archivados', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.archivados, estados.diagnostico, regularTechUser);
-      }).toThrow(BadRequestException);
-    });
-
-    it('impide regresión múltiple arbitraria (ej. Entrega -> Recepción)', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.entrega, estados.recepcion, regularTechUser);
-      }).toThrow(BadRequestException);
-    });
-  });
-
-  describe('5. Rechazo estricto de estados fuera del catálogo oficial', () => {
-    const estadoInvalidoActual = { id: 99, nombre: 'Estado Arbitrario Inexistente', estado: true } as EstadoOrden;
-    const estadoInvalidoDestino = { id: 11, nombre: 'Anulado', estado: true } as EstadoOrden;
-
-    it('rechaza con BadRequestException si el estado actual no pertenece a los 8 oficiales', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estadoInvalidoActual, estados.diagnostico, regularTechUser);
-      }).toThrow(BadRequestException);
-      expect(() => {
-        orderService.validarTransicionEstado(estadoInvalidoActual, estados.diagnostico, regularTechUser);
-      }).toThrow(/no pertenece al catálogo oficial/i);
-    });
-
-    it('rechaza con BadRequestException si el estado destino no pertenece a los 8 oficiales', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.recepcion, estadoInvalidoDestino, regularTechUser);
-      }).toThrow(BadRequestException);
-      expect(() => {
-        orderService.validarTransicionEstado(estados.recepcion, estadoInvalidoDestino, regularTechUser);
-      }).toThrow(/no pertenece al catálogo oficial/i);
-    });
-
-    it('incluso un Administrador es rechazado si el estado no pertenece a los 8 oficiales', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.recepcion, estadoInvalidoDestino, adminUser);
-      }).toThrow(BadRequestException);
-      expect(() => {
-        orderService.validarTransicionEstado(estadoInvalidoActual, estados.control, adminUser);
-      }).toThrow(BadRequestException);
-    });
-  });
-
-  describe('6. Facultad de rectificación administrativa (Admin Override)', () => {
-    it('permite a un usuario administrador realizar rectificaciones cuando sea indispensable entre estados válidos', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.recepcion, estados.control, adminUser);
-      }).not.toThrow();
-    });
-
-    it('permite al administrador mover una orden de Recepción a Entrega si fue cancelada por acuerdo', () => {
-      expect(() => {
-        orderService.validarTransicionEstado(estados.recepcion, estados.entrega, adminUser);
-      }).not.toThrow();
-    });
-  });
-
-  describe('7. Seguridad y blindaje contra suplantación de identidad (Anti-Spoofing en update())', () => {
-    it('rechaza la operación con UnauthorizedException si falta el ID autenticado, aunque el payload contenga userId', async () => {
-      const updateDto = {
-        estadoOrdenId: 2,
-        userId: 1, // El cliente intenta establecer el actor mediante el payload
-      };
-
-      // Invocación sin userId autenticado (undefined)
-      await expect(orderService.update(1, updateDto as any, undefined)).rejects.toThrow(
-        UnauthorizedException
-      );
-      await expect(orderService.update(1, updateDto as any, undefined)).rejects.toThrow(
-        /Se requiere un usuario autenticado/i
-      );
-
-      // Invocación con userId inválido (0)
-      await expect(orderService.update(1, updateDto as any, 0)).rejects.toThrow(
-        UnauthorizedException
-      );
-
-      // Comprobar que mockUserRepository.findOne jamás consultó la base con el userId del payload (1)
-      expect(mockUserRepository.findOne).not.toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 1 },
-        })
-      );
-    });
-
-    it('ignora updateDto.userId manipulado y utiliza exclusivamente el usuario autenticado para validar transiciones', async () => {
-      const mockOrder = {
+    it('3. Permite transición directa Recepción -> En Servicio en órdenes Express (omitiendo Diagnóstico)', () => {
+      const ordenExpress: any = {
         id: 1,
-        workOrderNumber: '00001',
-        estadoOrden: estados.recepcion,
-        problemaReportado: 'Equipo no enciende',
-      } as Order;
-
-      jest.spyOn(orderService, 'findOne').mockResolvedValue(mockOrder);
-
-      // El usuario autenticado es el Técnico (ID 2).
-      // El cliente intenta enviar userId: 1 (Admin) en el cuerpo para forzar un salto inválido a Control (ID 7).
-      const updateDto = {
-        estadoOrdenId: 7, // Control (salto prohibido desde Recepción para técnicos)
-        userId: 1, // Intento de spoofing de ID del Administrador
+        tipoOrden: OrderType.EXPRESS,
+        esperaRepuesto: false,
       };
-
-      await expect(orderService.update(1, updateDto as any, 2)).rejects.toThrow(BadRequestException);
-      await expect(orderService.update(1, updateDto as any, 2)).rejects.toThrow(
-        /Transición de estado no permitida/i
-      );
-
-      // Comprobar que mockUserRepository.findOne consultó la identidad autenticada (ID 2) y no el ID 1 spoofed
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 2 },
-        })
-      );
+      expect(() => {
+        orderService.validarTransicionEstado(estados.recepcion, estados.en_servicio, regularTechUser, ordenExpress);
+      }).not.toThrow();
     });
 
-    it('permite la rectificación cuando el usuario autenticado es realmente el Administrador', async () => {
-      const mockOrder = {
-        id: 1,
-        workOrderNumber: '00001',
-        estadoOrden: estados.recepcion,
-        problemaReportado: 'Equipo no enciende',
-      } as Order;
-
-      jest.spyOn(orderService, 'findOne').mockResolvedValue(mockOrder);
-
-      // El usuario autenticado es el Admin (ID 1)
-      const updateDto = {
-        estadoOrdenId: 7, // Salto a Control
+    it('4. Permite transición Diagnóstico -> En Servicio cuando el presupuesto está resuelto', () => {
+      const ordenConPresupuestoAprobado: any = {
+        id: 2,
+        presupuesto: { id: 10, estado: { nombre: 'Aprobado' } },
+        esperaRepuesto: false,
       };
+      expect(() => {
+        orderService.validarTransicionEstado(
+          estados.diagnostico,
+          estados.en_servicio,
+          regularTechUser,
+          ordenConPresupuestoAprobado,
+        );
+      }).not.toThrow();
+    });
 
-      const result = await orderService.update(1, updateDto as any, 1);
-      expect(result).toBeDefined();
-      expect(mockOrder.estadoOrden.id).toBe(7);
+    it('5. Permite transición En Servicio -> Listo para Entrega si no hay repuestos pendientes y checklist OK', () => {
+      const ordenLista: any = {
+        id: 3,
+        esperaRepuesto: false,
+        checklistData: {
+          results: [
+            { item: 'Encendido', estado: 'ok', requerido: true },
+            { item: 'Pantalla', estado: 'ok', requerido: true },
+          ],
+        },
+      };
+      expect(() => {
+        orderService.validarTransicionEstado(
+          estados.en_servicio,
+          estados.listo_para_entrega,
+          regularTechUser,
+          ordenLista,
+        );
+      }).not.toThrow();
+    });
+
+    it('6. Permite transición Listo para Entrega -> Entregado al realizar la entrega física en mostrador', () => {
+      expect(() => {
+        orderService.validarTransicionEstado(estados.listo_para_entrega, estados.entregado, recepUser);
+      }).not.toThrow();
+    });
+  });
+
+  describe('2. Transiciones Inválidas y Restricciones por Rol', () => {
+    it('7. Rechaza saltos arbitrarios inválidos como Recepción -> Entregado por parte de un técnico sin motivo de mostrador', () => {
+      expect(() => {
+        orderService.validarTransicionEstado(estados.recepcion, estados.entregado, regularTechUser);
+      }).toThrow(ForbiddenException);
+    });
+
+    it('8. Restricción por rol: recepcionista no puede mover una orden a En Servicio', () => {
+      expect(() => {
+        orderService.validarTransicionEstado(estados.diagnostico, estados.en_servicio, recepUser);
+      }).toThrow(ForbiddenException);
+    });
+
+    it('8b. El administrador tiene facultad de rectificación y anulación administrativa', () => {
+      expect(() => {
+        orderService.validarTransicionEstado(estados.entregado, estados.listo_para_entrega, adminUser);
+      }).not.toThrow();
+    });
+
+    it('Una orden en Entregado no puede ser alterada por técnicos o recepcionistas', () => {
+      expect(() => {
+        orderService.validarTransicionEstado(estados.entregado, estados.en_servicio, regularTechUser);
+      }).toThrow(ForbiddenException);
+    });
+  });
+
+  describe('3. Reglas de Presupuesto, Repuestos y Checklist de Calidad', () => {
+    it('9. Bloquea avance a En Servicio si el presupuesto está en estado Pendiente de aprobación', () => {
+      const ordenConPresupuestoPendiente: any = {
+        id: 4,
+        presupuesto: { id: 11, estado: { nombre: 'Pendiente' } },
+      };
+      expect(() => {
+        orderService.validarTransicionEstado(
+          estados.diagnostico,
+          estados.en_servicio,
+          regularTechUser,
+          ordenConPresupuestoPendiente,
+        );
+      }).toThrow(BadRequestException);
+    });
+
+    it('10. Permite resolver presupuesto rechazado enviando Diagnóstico -> Listo para Entrega (devolución)', () => {
+      const ordenPresupuestoRechazado: any = {
+        id: 5,
+        presupuesto: { id: 12, estado: { nombre: 'Rechazado' } },
+        esperaRepuesto: false,
+      };
+      expect(() => {
+        orderService.validarTransicionEstado(
+          estados.diagnostico,
+          estados.listo_para_entrega,
+          regularTechUser,
+          ordenPresupuestoRechazado,
+          'Presupuesto rechazado por el cliente, devolución sin reparación',
+        );
+      }).not.toThrow();
+    });
+
+    it('11. Bloquea avance En Servicio -> Listo para Entrega si la orden tiene esperaRepuesto = true', () => {
+      const ordenEsperandoRepuesto: any = {
+        id: 6,
+        esperaRepuesto: true,
+      };
+      expect(() => {
+        orderService.validarTransicionEstado(
+          estados.en_servicio,
+          estados.listo_para_entrega,
+          regularTechUser,
+          ordenEsperandoRepuesto,
+        );
+      }).toThrow('espera de repuesto');
+    });
+
+    it('12. Bloquea avance En Servicio -> Listo para Entrega si hay verificaciones técnicas requeridas pendientes en el checklist', () => {
+      const ordenChecklistIncompleto: any = {
+        id: 7,
+        esperaRepuesto: false,
+        checklistData: {
+          results: [
+            { item: 'Prueba de Carga', estado: 'pendiente', requerido: true },
+          ],
+        },
+      };
+      expect(() => {
+        orderService.validarTransicionEstado(
+          estados.en_servicio,
+          estados.listo_para_entrega,
+          regularTechUser,
+          ordenChecklistIncompleto,
+        );
+      }).toThrow('Control de calidad no superado');
+    });
+  });
+
+  describe('4. Casos Especiales, Cancelaciones y Reprocesos Técnicos', () => {
+    it('13. Diagnóstico sin reparación posterior avanza directamente a Listo para Entrega', () => {
+      expect(() => {
+        orderService.validarTransicionEstado(
+          estados.diagnostico,
+          estados.listo_para_entrega,
+          regularTechUser,
+          null,
+          'Solo diagnóstico solicitado por el cliente',
+        );
+      }).not.toThrow();
+    });
+
+    it('14. Devolución o cancelación directa en mostrador de recepción requiere justificación obligatoria', () => {
+      // Sin motivo debe rechazar
+      expect(() => {
+        orderService.validarTransicionEstado(
+          estados.recepcion,
+          estados.entregado,
+          recepUser,
+          null,
+        );
+      }).toThrow('debe ingresar obligatoriamente un motivo');
+
+      // Motivo insuficiente (menos de 5 chars) debe rechazar
+      expect(() => {
+        orderService.validarTransicionEstado(
+          estados.recepcion,
+          estados.entregado,
+          recepUser,
+          null,
+          'no',
+        );
+      }).toThrow('debe ingresar obligatoriamente un motivo');
+
+      // Con justificación válida se autoriza la devolución directa
+      expect(() => {
+        orderService.validarTransicionEstado(
+          estados.recepcion,
+          estados.entregado,
+          recepUser,
+          null,
+          'Cliente retira el equipo por urgencia antes de la revisión técnica',
+        );
+      }).not.toThrow();
+    });
+
+    it('Reproceso técnico legítimo: permite regresar de Listo para Entrega a En Servicio con motivo', () => {
+      expect(() => {
+        orderService.validarTransicionEstado(
+          estados.listo_para_entrega,
+          estados.en_servicio,
+          regularTechUser,
+          null,
+          'Ajuste detectado en prueba con cliente',
+        );
+      }).not.toThrow();
+    });
+
+    it('Re-evaluación técnica: permite regresar de En Servicio a Diagnóstico', () => {
+      expect(() => {
+        orderService.validarTransicionEstado(
+          estados.en_servicio,
+          estados.diagnostico,
+          regularTechUser,
+          null,
+          'Falla oculta detectada durante la intervención',
+        );
+      }).not.toThrow();
+    });
+  });
+
+  describe('5. Portal Público y Mapeo Canónico de los 5 Estados', () => {
+    const cincoEstados = [
+      { nombre: 'Recepción', step: 1, frase: 'recibido e ingresado al sistema' },
+      { nombre: 'Diagnóstico', step: 2, frase: 'evaluación y diagnóstico' },
+      { nombre: 'En Servicio', step: 3, frase: 'personal técnico especializado' },
+      { nombre: 'Listo para Entrega', step: 4, frase: 'listo para ser retirado' },
+      { nombre: 'Entregado', step: 5, frase: 'Servicio técnico finalizado y equipo entregado' },
+    ];
+
+    cincoEstados.forEach(({ nombre, step, frase }) => {
+      it(`debe mapear el estado canónico "${nombre}" al paso ${step} con su mensaje respectivo`, () => {
+        expect(orderService.calcularStepPublico(nombre)).toBe(step);
+        expect(orderService.obtenerMensajePublicoEstado(nombre)).toContain(frase);
+      });
+    });
+
+    it('debe informar contexto de espera de repuesto en el mensaje público de En Servicio', () => {
+      const ordenEspera = { esperaRepuesto: true };
+      const mensaje = orderService.obtenerMensajePublicoEstado('En Servicio', ordenEspera);
+      expect(mensaje).toContain('espera del arribo de repuestos');
+    });
+
+    it('debe informar presupuesto pendiente de aprobación en el mensaje público de Diagnóstico', () => {
+      const ordenPresupuesto = { presupuesto: { estado: { nombre: 'Pendiente' } } };
+      const mensaje = orderService.obtenerMensajePublicoEstado('Diagnóstico', ordenPresupuesto);
+      expect(mensaje).toContain('pendiente de aprobación');
     });
   });
 });

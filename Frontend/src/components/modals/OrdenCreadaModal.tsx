@@ -12,6 +12,8 @@ import {
   SparklesIcon,
   ChatBubbleLeftRightIcon,
   ShieldCheckIcon,
+  TicketIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 
@@ -33,6 +35,7 @@ interface Props {
     [key: string]: any;
   } | null;
   onOpenPdfModal?: () => void;
+  onOpenTicketModal?: () => void;
   onFinalize: () => void;
 }
 
@@ -41,6 +44,7 @@ export default function OrdenCreadaModal({
   onClose,
   order,
   onOpenPdfModal,
+  onOpenTicketModal,
   onFinalize,
 }: Props) {
   const [copied, setCopied] = useState(false);
@@ -160,23 +164,41 @@ export default function OrdenCreadaModal({
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-2">
-          {onOpenPdfModal && (
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1 justify-center gap-2 border-brand-300 text-brand-700 hover:bg-brand-50 dark:border-brand-800 dark:text-brand-300 dark:hover:bg-brand-950/40"
-              onClick={onOpenPdfModal}
-            >
-              <PrinterIcon className="h-4 w-4" />
-              Imprimir Comprobante (PDF)
-            </Button>
-          )}
+        {/* Selector de Comprobante de Recepción */}
+        <div className="pt-2 text-left space-y-2">
+          <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">
+            Comprobante de Recepción
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {onOpenTicketModal && (
+              <button
+                type="button"
+                onClick={onOpenTicketModal}
+                className="flex items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50/80 p-3 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-colors dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 shadow-xs"
+              >
+                <TicketIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>Imprimir Ticket (80 mm)</span>
+              </button>
+            )}
 
+            {onOpenPdfModal && (
+              <button
+                type="button"
+                onClick={onOpenPdfModal}
+                className="flex items-center justify-center gap-2 rounded-xl border border-brand-300 bg-brand-50/80 p-3 text-xs font-bold text-brand-800 hover:bg-brand-100 transition-colors dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-300 shadow-xs"
+              >
+                <DocumentTextIcon className="h-4 w-4 text-brand-600 dark:text-brand-400 shrink-0" />
+                <span>Generar ODS Completa (A4)</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Botón de Finalizar */}
+        <div className="pt-2">
           <Button
             type="button"
-            className="flex-1 justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold"
+            className="w-full justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-bold dark:bg-gray-800 dark:hover:bg-gray-700 shadow-xs"
             onClick={onFinalize}
           >
             <span>Ir a Lista de Órdenes</span>

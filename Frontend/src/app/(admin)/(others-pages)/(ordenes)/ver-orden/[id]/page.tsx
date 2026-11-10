@@ -34,6 +34,7 @@ import {
   KeyIcon,
   LockClosedIcon,
   ClipboardDocumentIcon,
+  TicketIcon,
 } from '@heroicons/react/24/outline';
 import { formatDate, formatUserName } from '@/lib/formatters';
 import type { Order } from '@/types/order.types';
@@ -49,6 +50,7 @@ import AgregarActividadTecnicaModal from "@/components/modals/AgregarActividadTe
 import AgregarEvidenciaTecnicaModal from "@/components/modals/AgregarEvidenciaTecnicaModal";
 import GenerarPdfIngresoModal from "@/components/modals/GenerarPdfIngresoModal";
 import GenerarPdfEntregaModal from "@/components/modals/GenerarPdfEntregaModal";
+import TicketTermicoModal from "@/components/modals/TicketTermicoModal";
 import AgregarPresupuestoModal from "@/components/modals/AgregarPresupuestoModal";
 import PresupuestoEditModal from "@/components/modals/PresupuestoEditModal";
 import ConfirmDialog from "@/components/modals/ConfirmDialog";
@@ -75,6 +77,7 @@ export default function PerfilOrdenPage() {
   const [isEvidenciaModalOpen, setIsEvidenciaModalOpen] = useState(false);
   const [isPdfIngresoOpen, setIsPdfIngresoOpen] = useState(false);
   const [isPdfEntregaOpen, setIsPdfEntregaOpen] = useState(false);
+  const [isTicketTermicoOpen, setIsTicketTermicoOpen] = useState(false);
   const [isPresupuestoModalOpen, setIsPresupuestoModalOpen] = useState(false);
   const [isEditPresupuestoModalOpen, setIsEditPresupuestoModalOpen] = useState(false);
   const [isPresupuestoPresencialOpen, setIsPresupuestoPresencialOpen] = useState(false);
@@ -387,30 +390,26 @@ export default function PerfilOrdenPage() {
   const STATUS_STEPS = [
     { id: 'recepcion', name: 'Recepción', icon: ArchiveBoxIcon },
     { id: 'diagnostico', name: 'Diagnóstico', icon: MagnifyingGlassIcon },
-    { id: 'presupuesto', name: 'Presupuesto', icon: CurrencyDollarIcon },
-    { id: 'reparacion', name: 'Reparación', icon: WrenchScrewdriverIcon },
-    { id: 'control', name: 'Control', icon: CheckCircleIcon },
-    { id: 'entrega', name: 'Entrega', icon: ChevronRightIcon },
-    { id: 'archivado', name: 'Completado', icon: StarIcon },
+    { id: 'en_servicio', name: 'En Servicio', icon: WrenchScrewdriverIcon },
+    { id: 'listo_para_entrega', name: 'Listo para Entrega', icon: CheckCircleIcon },
+    { id: 'entregado', name: 'Entregado', icon: StarIcon },
   ];
 
-  // Encontrar el índice del estado actual para la barra de progreso (más robusto)
+  // Encontrar el índice del estado actual para la barra de progreso (5 Estados principales)
   const currentStatusName = order.estadoOrden?.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") || '';
 
   const currentStepIndex = STATUS_STEPS.findIndex(step => {
     const stepId = step.id;
-    if (currentStatusName.includes(stepId)) return true;
-
-    // Casos especiales de mapeo
-    if (stepId === 'presupuesto' && (currentStatusName.includes('repuesto') || currentStatusName.includes('aprobacion'))) return true;
-    if (stepId === 'recepcion' && (currentStatusName.includes('ingresad') || currentStatusName.includes('recibido'))) return true;
-    if (stepId === 'entrega' && (currentStatusName.includes('listo') || currentStatusName.includes('finalizad'))) return true;
-    if (stepId === 'archivado' && (currentStatusName.includes('archivad') || currentStatusName.includes('entregad'))) return true;
+    if (stepId === 'recepcion' && (currentStatusName.includes('recep') || currentStatusName.includes('ingres'))) return true;
+    if (stepId === 'diagnostico' && (currentStatusName.includes('diagn') || currentStatusName.includes('evalua'))) return true;
+    if (stepId === 'en_servicio' && (currentStatusName.includes('servicio') || currentStatusName.includes('repar') || currentStatusName.includes('taller'))) return true;
+    if (stepId === 'listo_para_entrega' && (currentStatusName.includes('listo') || currentStatusName.includes('control'))) return true;
+    if (stepId === 'entregado' && (currentStatusName.includes('entregad') || currentStatusName.includes('archiv'))) return true;
 
     return false;
   });
 
-  const isArchived = currentStatusName.includes('archivad') || currentStatusName.includes('entregad');
+  const isArchived = currentStatusName.includes('entregad') || currentStatusName.includes('archivad');
 
   // Si no se encuentra, pero la orden existe, al menos mostrar el primer paso
   const activeIndex = isArchived ? STATUS_STEPS.length - 1 : (currentStepIndex === -1 ? 0 : currentStepIndex);
@@ -553,11 +552,20 @@ export default function PerfilOrdenPage() {
             {!isClient && (
               <>
                 <button
+                  onClick={() => setIsTicketTermicoOpen(true)}
+                  className="flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50/70 px-4 py-2 text-sm font-semibold text-emerald-800 shadow-xs hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60 transition-colors"
+                  title="Imprimir ticket térmico POS (80 mm)"
+                >
+                  <TicketIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="hidden lg:inline">Ticket 80mm</span>
+                </button>
+
+                <button
                   onClick={() => setIsPdfIngresoOpen(true)}
                   className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   <PrinterIcon className="h-4 w-4" />
-                  <span className="hidden lg:inline">PDF Ingreso</span>
+                  <span className="hidden lg:inline">PDF Ingreso (A4)</span>
                 </button>
 
                 <button
@@ -565,7 +573,7 @@ export default function PerfilOrdenPage() {
                   className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   <DocumentTextIcon className="h-4 w-4" />
-                  <span className="hidden lg:inline">PDF Entrega</span>
+                  <span className="hidden lg:inline">PDF Entrega (A4)</span>
                 </button>
               </>
             )}
@@ -1166,27 +1174,47 @@ export default function PerfilOrdenPage() {
                               SHA-256: {docRecepcion.pdfSha256.substring(0, 18)}...
                             </p>
                           )}
-                          {docRecepcion.archivoPdfUrl && (
-                            <a
-                              href={docRecepcion.archivoPdfUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 mt-1 text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                          <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                            {docRecepcion.archivoPdfUrl && (
+                              <a
+                                href={docRecepcion.archivoPdfUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                              >
+                                <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+                                ODS A4 Sellada
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setIsTicketTermicoOpen(true)}
+                              className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
                             >
-                              <ArrowDownTrayIcon className="w-3.5 h-3.5" />
-                              Descargar PDF Sellado
-                            </a>
-                          )}
+                              <TicketIcon className="w-3.5 h-3.5" />
+                              Ticket 80 mm
+                            </button>
+                          </div>
                         </div>
                       ) : !isClient ? (
-                        <button
-                          type="button"
-                          onClick={() => setIsPdfIngresoOpen(true)}
-                          className="w-full mt-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/40 rounded-lg transition-colors"
-                        >
-                          <PencilSquareIcon className="w-3.5 h-3.5" />
-                          Firmar Acta en Tablet
-                        </button>
+                        <div className="flex flex-col gap-1.5 mt-1">
+                          <button
+                            type="button"
+                            onClick={() => setIsPdfIngresoOpen(true)}
+                            className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/40 rounded-lg transition-colors"
+                          >
+                            <PencilSquareIcon className="w-3.5 h-3.5" />
+                            Firmar ODS A4 en Tablet
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsTicketTermicoOpen(true)}
+                            className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 rounded-lg transition-colors border border-emerald-200/80 dark:border-emerald-800/50"
+                          >
+                            <TicketIcon className="w-3.5 h-3.5" />
+                            Imprimir Ticket (80 mm)
+                          </button>
+                        </div>
                       ) : (
                         <p className="text-[11px] text-gray-500 italic pt-1">
                           Pendiente de registro y firma en recepción.
@@ -1430,6 +1458,13 @@ export default function PerfilOrdenPage() {
             order={order}
           />
 
+          <TicketTermicoModal
+            isOpen={isTicketTermicoOpen}
+            onClose={() => setIsTicketTermicoOpen(false)}
+            order={order}
+            orderId={order.id}
+          />
+
           <GenerarPdfEntregaModal
             isOpen={isPdfEntregaOpen}
             onClose={() => setIsPdfEntregaOpen(false)}
@@ -1549,6 +1584,20 @@ export default function PerfilOrdenPage() {
               qrDataUrl: invitacionGenerada.qrDataUrl,
               expiresAt: invitacionGenerada.expiresAt,
             },
+          }}
+          onOpenTicketModal={() => {
+            const token = invitacionGenerada.token;
+            setOrder((prev: any) =>
+              prev
+                ? {
+                    ...prev,
+                    tokenActivacion: token,
+                    activacion: invitacionGenerada,
+                  }
+                : prev,
+            );
+            setInvitacionGenerada(null);
+            setIsTicketTermicoOpen(true);
           }}
           onOpenPdfModal={() => {
             const token = invitacionGenerada.token;

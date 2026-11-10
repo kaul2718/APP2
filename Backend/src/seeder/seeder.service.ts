@@ -231,16 +231,13 @@ export class SeederService {
   }
 
   private async seedCatalogs() {
-    // 1. Estado de Órdenes (Catálogo definitivo oficial de 8 estados)
+    // 1. Estado de Órdenes (Catálogo definitivo oficial de 5 estados principales)
     const estadosOrden = [
-      { nombre: 'Recepción', descripcion: 'Equipo recibido en recepción y registrado' },
-      { nombre: 'Diagnóstico', descripcion: 'Equipo en evaluación y diagnóstico técnico' },
-      { nombre: 'Repuestos', descripcion: 'En espera o cotización de repuestos y suministros' },
-      { nombre: 'Aprobación', descripcion: 'Presupuesto y orden en proceso de aprobación por el cliente' },
-      { nombre: 'Reparación', descripcion: 'Equipo en proceso de reparación técnica' },
-      { nombre: 'Control', descripcion: 'Pruebas finales y control de calidad' },
-      { nombre: 'Entrega', descripcion: 'Equipo listo para entrega o entregado al cliente' },
-      { nombre: 'Archivados', descripcion: 'Orden archivada y finalizada' },
+      { nombre: 'Recepción', descripcion: 'Equipo recibido en recepción y registrado en el sistema' },
+      { nombre: 'Diagnóstico', descripcion: 'Equipo en evaluación técnica, evidencias y determinación de trabajo' },
+      { nombre: 'En Servicio', descripcion: 'Equipo en proceso de reparación, mantenimiento o instalación técnica' },
+      { nombre: 'Listo para Entrega', descripcion: 'Trabajo técnico finalizado y validado, equipo disponible para retiro' },
+      { nombre: 'Entregado', descripcion: 'Equipo entregado físicamente al cliente y orden finalizada' },
     ];
 
     for (const item of estadosOrden) {
