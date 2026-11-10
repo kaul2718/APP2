@@ -451,13 +451,12 @@ export class DocumentosOrdenService {
         qrSubExtra = 'Enlace temporal (vigente 48h)';
         tieneQr = true;
       } else {
-        // Contingencia: no imprimir QR si no hay token ni contraseña para no llevar a pantalla informativa estéril
-        qrUrl = null;
-        tieneQr = false;
-        qrTitle = 'CUENTA PENDIENTE';
-        qrSub1 = 'Solicite su invitación en recepción';
-        qrSub2 = 'Para activar requiere enlace nuevo';
-        qrSubExtra = 'Acérquese a recepción para asistencia';
+        qrUrl = `${frontendUrl}/activar-cuenta`;
+        qrTitle = 'ACTIVACIÓN DE CUENTA';
+        qrSub1 = 'Escanee para activar su cuenta';
+        qrSub2 = `Usuario: ${clienteCedula || 'su cédula'}`;
+        qrSubExtra = 'Solicite enlace en recepción';
+        tieneQr = true;
       }
     }
 

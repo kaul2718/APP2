@@ -627,7 +627,7 @@ describe('DocumentosOrdenService - Generación de PDF y Word-Wrap', () => {
       expect(lastCallUrl).not.toContain('/activar-cuenta');
     });
 
-    it('debe generar ticket térmico seguro omitiendo el QR (modo contingencia) si la invitación caducó o fue revocada', async () => {
+    it('debe generar ticket térmico con enlace seguro /activar-cuenta si la invitación caducó o fue revocada', async () => {
       const qrSpy = jest.spyOn(QRCode, 'toBuffer');
       mockOrderRepo.findOne.mockResolvedValue(ordenBase);
       mockUserRepo.findOne.mockImplementation(async (query: any) => {
@@ -650,16 +650,17 @@ describe('DocumentosOrdenService - Generación de PDF y Word-Wrap', () => {
       expect(buffer).toBeDefined();
       expect(Buffer.isBuffer(buffer)).toBe(true);
 
-      // En contingencia NO se imprime QR para evitar enviar al cliente a pantalla estéril
-      expect(qrSpy).not.toHaveBeenCalled();
+      const lastCallUrl = qrSpy.mock.calls[qrSpy.mock.calls.length - 1][0];
+      expect(lastCallUrl).toContain('/activar-cuenta');
+      expect(lastCallUrl).not.toContain('token-expirado');
 
-      // Guardar PDF de muestra de contingencia para inspección visual
+      // Guardar PDF de muestra para inspección visual
       const outPath = 'C:\\Users\\PC\\.gemini\\antigravity\\brain\\9839a193-e112-4e97-a24c-7bfb67646f41\\sample-ticket-contingencia.pdf';
       fs.writeFileSync(outPath, buffer);
       expect(fs.existsSync(outPath)).toBe(true);
     });
 
-    it('debe rechazar token de otro cliente y generar ticket en contingencia sin QR sin exponer el token ajeno', async () => {
+    it('debe rechazar token de otro cliente y generar ticket con QR a /activar-cuenta sin exponer el token ajeno', async () => {
       const qrSpy = jest.spyOn(QRCode, 'toBuffer');
       mockOrderRepo.findOne.mockResolvedValue(ordenBase);
       mockUserRepo.findOne.mockImplementation(async (query: any) => {
@@ -676,8 +677,9 @@ describe('DocumentosOrdenService - Generación de PDF y Word-Wrap', () => {
       expect(buffer).toBeDefined();
       expect(Buffer.isBuffer(buffer)).toBe(true);
 
-      // En contingencia NO se imprime QR
-      expect(qrSpy).not.toHaveBeenCalled();
+      const lastCallUrl = qrSpy.mock.calls[qrSpy.mock.calls.length - 1][0];
+      expect(lastCallUrl).toContain('/activar-cuenta');
+      expect(lastCallUrl).not.toContain('token-de-otro-usuario');
     });
   });
   });

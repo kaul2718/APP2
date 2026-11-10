@@ -40,10 +40,10 @@ export default function TicketTermicoModal({
         setPdfLoading(true);
         const tokenAct =
           customToken ||
-          (order as any)?.tokenActivacion ||
-          (order as any)?.activacion?.token ||
           (initialOrder as any)?.tokenActivacion ||
-          (initialOrder as any)?.activacion?.token;
+          (initialOrder as any)?.activacion?.token ||
+          (order as any)?.tokenActivacion ||
+          (order as any)?.activacion?.token;
 
         const headers: Record<string, string> = {
           Authorization: `Bearer ${session?.accessToken}`,
@@ -71,14 +71,14 @@ export default function TicketTermicoModal({
         setPdfLoading(false);
       }
     },
-    [session?.accessToken, order, initialOrder],
+    [session?.accessToken, initialOrder],
   );
 
   // Carga inicial
   React.useEffect(() => {
     if (!isOpen) return;
 
-    if (initialOrder) {
+    if (initialOrder?.id) {
       setOrder(initialOrder);
       setLoadingOrder(false);
       const token =
@@ -101,7 +101,8 @@ export default function TicketTermicoModal({
           if (response.ok) {
             const data = await response.json();
             setOrder(data);
-            loadTicketPdf(orderId);
+            const token = data?.tokenActivacion || data?.activacion?.token;
+            loadTicketPdf(orderId, token);
           }
         } catch (error) {
           console.error('Error fetching order for ticket:', error);
@@ -111,7 +112,7 @@ export default function TicketTermicoModal({
       };
       fetchOrder();
     }
-  }, [isOpen, initialOrder, orderId, session, loadTicketPdf]);
+  }, [isOpen, initialOrder, orderId, loadTicketPdf]);
 
   // Limpiar URL del blob al desmontar
   React.useEffect(() => {

@@ -672,13 +672,21 @@ export default function EvidenciaTecnicaModal({
                             ) : evidencias.length === 0 ? (
                                 <div className="text-center py-8">
                                     <p className="text-gray-500 dark:text-gray-400">No hay evidencias técnicas registradas</p>
-                                    <Button
-                                        variant="primary"
-                                        className="mt-4"
-                                        onClick={() => setActiveTab('agregar')}
-                                    >
-                                        Agregar Primera Evidencia
-                                    </Button>
+                                    <div className="flex justify-center items-center gap-3 mt-4">
+                                        <Button
+                                            variant="primary"
+                                            onClick={() => setActiveTab('agregar')}
+                                        >
+                                            Agregar Primera Evidencia
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={handleClose}
+                                        >
+                                            Omitir y continuar
+                                        </Button>
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -772,6 +780,14 @@ export default function EvidenciaTecnicaModal({
                                     className="ml-4"
                                 >
                                     Agregar Nueva
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleClose}
+                                    className="ml-2"
+                                >
+                                    Continuar
                                 </Button>
                             </div>
                         )}

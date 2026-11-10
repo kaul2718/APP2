@@ -22,13 +22,15 @@ export default function OrdenComponent() {
     const [createdOrderForEvidence, setCreatedOrderForEvidence] = React.useState<{ id: number; workOrderNumber: string } | null>(null);
     const [orderToPrint, setOrderToPrint] = React.useState<any | null>(null);
     const [showPrintConfirm, setShowPrintConfirm] = React.useState(false);
+    const [isPdfIngresoOpen, setIsPdfIngresoOpen] = React.useState(false);
     const [refreshKey, setRefreshKey] = React.useState(0);
 
     const handleOrderCreated = (order: { id: number; workOrderNumber: string }) => {
         setIsCreateOrderModalOpen(false);
-        setCreatedOrderForEvidence(order);
         setRefreshKey(prev => prev + 1); // Forzar el remount de la lista de órdenes
-        router.refresh();
+        setTimeout(() => {
+            setCreatedOrderForEvidence(order);
+        }, 300);
     };
 
     if (loading) {
@@ -126,7 +128,9 @@ export default function OrdenComponent() {
                     cancelText="No, después"
                     onConfirm={() => {
                         setShowPrintConfirm(false);
-                        // Abrir modal de impresión (el PDF se genera con el ID de la orden)
+                        setTimeout(() => {
+                            setIsPdfIngresoOpen(true);
+                        }, 300);
                     }}
                     onClose={() => {
                         setShowPrintConfirm(false);
@@ -135,10 +139,13 @@ export default function OrdenComponent() {
                 />
 
                 {/* Modal de Generación de PDF (Ingreso) */}
-                {orderToPrint && !showPrintConfirm && (
+                {orderToPrint && (
                     <GenerarPdfIngresoModal
-                        isOpen={true}
-                        onClose={() => setOrderToPrint(null)}
+                        isOpen={isPdfIngresoOpen}
+                        onClose={() => {
+                            setIsPdfIngresoOpen(false);
+                            setOrderToPrint(null);
+                        }}
                         order={orderToPrint}
                         orderId={orderToPrint.id}
                     />
