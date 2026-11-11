@@ -123,7 +123,11 @@ export function useCrud<T, TCreate, TUpdate>(
         setTotalPages(data.totalPages);
         setTotalItems(data.totalItems);
         setCurrentPage(data.currentPage);
-      } catch (error) {
+      } catch (error: any) {
+        if (error?.isAuthError || error?.status === 401) {
+          setItems([]);
+          return;
+        }
         toast.error(
           error instanceof Error
             ? error.message
@@ -151,12 +155,14 @@ export function useCrud<T, TCreate, TUpdate>(
 
         toast.success(options.messages?.created ?? 'Registro creado exitosamente');
         return created;
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : (options.messages?.createError ?? 'Error al crear registro'),
-        );
+      } catch (error: any) {
+        if (!error?.isAuthError && error?.status !== 401) {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : (options.messages?.createError ?? 'Error al crear registro'),
+          );
+        }
         throw error;
       }
     },
@@ -177,12 +183,14 @@ export function useCrud<T, TCreate, TUpdate>(
 
         toast.success(options.messages?.updated ?? 'Registro actualizado exitosamente');
         return updated;
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : (options.messages?.updateError ?? 'Error al actualizar registro'),
-        );
+      } catch (error: any) {
+        if (!error?.isAuthError && error?.status !== 401) {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : (options.messages?.updateError ?? 'Error al actualizar registro'),
+          );
+        }
         throw error;
       }
     },
@@ -207,12 +215,14 @@ export function useCrud<T, TCreate, TUpdate>(
         }
 
         return updated as T;
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : (options.messages?.toggleError ?? 'Error al cambiar estado'),
-        );
+      } catch (error: any) {
+        if (!error?.isAuthError && error?.status !== 401) {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : (options.messages?.toggleError ?? 'Error al cambiar estado'),
+          );
+        }
         throw error;
       }
     },
@@ -232,12 +242,14 @@ export function useCrud<T, TCreate, TUpdate>(
 
         toast.success(options.messages?.deleted ?? 'Registro eliminado exitosamente');
         return true;
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : (options.messages?.deleteError ?? 'Error al eliminar registro'),
-        );
+      } catch (error: any) {
+        if (!error?.isAuthError && error?.status !== 401) {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : (options.messages?.deleteError ?? 'Error al eliminar registro'),
+          );
+        }
         throw error;
       }
     },
@@ -257,12 +269,14 @@ export function useCrud<T, TCreate, TUpdate>(
 
         toast.success(options.messages?.restored ?? 'Registro restaurado exitosamente');
         return true;
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : (options.messages?.restoreError ?? 'Error al restaurar registro'),
-        );
+      } catch (error: any) {
+        if (!error?.isAuthError && error?.status !== 401) {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : (options.messages?.restoreError ?? 'Error al restaurar registro'),
+          );
+        }
         throw error;
       }
     },

@@ -30,12 +30,15 @@ export function useNotificacion() {
 
   // Cargar notificaciones mediante REST API
   const fetchNotificaciones = useCallback(async () => {
-    if (!usuarioId || !session?.accessToken) return;
+    if (!usuarioId || !session?.accessToken || (session as any)?.error === 'AccessTokenExpired') return;
     try {
       setLoading(true);
       const data = await apiRequest<Notificacion[]>(`/notificaciones/usuario/${usuarioId}`, {}, session);
       setNotificaciones(data || []);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.isAuthError || error?.status === 401) {
+        return;
+      }
       console.error('Error al cargar notificaciones:', error);
     } finally {
       setLoading(false);
@@ -88,7 +91,7 @@ export function useNotificacion() {
 
   // Conectar WebSocket y escuchar eventos en tiempo real
   useEffect(() => {
-    if (status !== 'authenticated' || !usuarioId) return;
+    if (status !== 'authenticated' || !usuarioId || (session as any)?.error === 'AccessTokenExpired') return;
 
     // Cargar inicialmente
     fetchNotificaciones();

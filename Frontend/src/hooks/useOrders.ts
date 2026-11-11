@@ -127,7 +127,11 @@ export function useOrders() {
       setTotalItems(responseData.totalItems);
       setCurrentPage(responseData.currentPage);
 
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.isAuthError || error?.status === 401) {
+        setOrders([]);
+        return;
+      }
       toast.error(error instanceof Error ? error.message : "Error al cargar órdenes");
       setOrders([]);
       setTotalPages(1);

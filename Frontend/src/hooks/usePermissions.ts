@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { apiRequest } from "@/lib/api";
 
 interface ProfileData {
   role: string;
@@ -16,9 +17,10 @@ export function usePermissions() {
   const staticRole = session?.user?.role || null;
   const staticPermissions = session?.user?.permissions || [];
   const accessToken = session?.accessToken || null;
+  const isExpired = (session as any)?.error === 'AccessTokenExpired';
 
   useEffect(() => {
-    if (!accessToken) {
+    if (!accessToken || isExpired) {
       setRealtimeData(null);
       return;
     }
@@ -27,24 +29,18 @@ export function usePermissions() {
     const fetchLatestPermissions = async () => {
       try {
         setRealtimeLoading(true);
-        const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/profile`;
-        const res = await fetch(url, {
-          headers: {
-            "Authorization": `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (isMounted && data) {
-            setRealtimeData({
-              role: data.role,
-              permissions: data.permissions || [],
-            });
-          }
+        const data = await apiRequest<ProfileData>('/auth/profile', {}, session);
+        if (isMounted && data) {
+          setRealtimeData({
+            role: data.role,
+            permissions: data.permissions || [],
+          });
         }
-      } catch (error) {
+      } catch (error: any) {
+        if (error?.isAuthError || error?.status === 401) {
+          // Gestionado centralmente por authErrorHandler
+          return;
+        }
         console.error("Error fetching latest permissions:", error);
       } finally {
         if (isMounted) {
@@ -58,7 +54,7 @@ export function usePermissions() {
     return () => {
       isMounted = false;
     };
-  }, [accessToken]);
+  }, [accessToken, isExpired, session]);
 
   const activeRole = realtimeData ? realtimeData.role : staticRole;
   const activePermissions = realtimeData ? realtimeData.permissions : staticPermissions;

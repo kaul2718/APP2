@@ -1,7 +1,23 @@
 import type { Session } from 'next-auth';
+import { authErrorHandler } from './authErrorHandler';
 
-interface ApiRequestOptions extends Omit<RequestInit, 'headers'> {
+export interface ApiRequestOptions extends Omit<RequestInit, 'headers'> {
   headers?: HeadersInit;
+  skipAuthHandler?: boolean;
+}
+
+export class ApiError extends Error {
+  public status?: number;
+  public isAuthError?: boolean;
+  public isForbiddenError?: boolean;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.isAuthError = status === 401;
+    this.isForbiddenError = status === 403;
+  }
 }
 
 function buildUrl(path: string): string {
@@ -24,6 +40,16 @@ export async function apiRequest<T>(
   options: ApiRequestOptions = {},
   session?: Session | null,
 ): Promise<T> {
+  // 1. Detección preventiva de token expirado en cliente (NextAuth session.error)
+  if (session?.error === 'AccessTokenExpired') {
+    if (!options.skipAuthHandler) {
+      authErrorHandler.handleUnauthorized({
+        customMessage: 'Tu sesión ha expirado. Inicia sesión nuevamente para continuar.',
+      });
+    }
+    throw new ApiError('Tu sesión ha expirado. Inicia sesión nuevamente.', 401);
+  }
+
   const headers = new Headers(options.headers ?? {});
 
   if (!headers.has('Content-Type') && options.body && !(options.body instanceof FormData)) {
@@ -53,9 +79,27 @@ export async function apiRequest<T>(
       // Ignore JSON parse errors and keep the default message.
     }
 
-    const error = new Error(message);
-    (error as any).status = response.status;
-    throw error;
+    // 2. Manejo centralizado y deduplicado de 401 Unauthorized
+    if (response.status === 401) {
+      if (!options.skipAuthHandler) {
+        authErrorHandler.handleUnauthorized({
+          customMessage: message !== 'Error: 401' && message !== 'Unauthorized' ? message : undefined,
+        });
+      }
+      throw new ApiError(message, 401);
+    }
+
+    // 3. Manejo centralizado de 403 Forbidden (no desautentica)
+    if (response.status === 403) {
+      if (!options.skipAuthHandler) {
+        authErrorHandler.handleForbidden({
+          customMessage: message !== 'Error: 403' && message !== 'Forbidden' ? message : undefined,
+        });
+      }
+      throw new ApiError(message, 403);
+    }
+
+    throw new ApiError(message, response.status);
   }
 
   if (response.status === 204) {

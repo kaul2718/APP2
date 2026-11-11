@@ -571,6 +571,10 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
             }
 
         } catch (error: any) {
+            if (error?.isAuthError || error?.status === 401) {
+                // La expiración de sesión es gestionada centralmente por authErrorHandler
+                return;
+            }
             console.error('Error al crear orden:', error);
             if (typeof navigator !== 'undefined' && (!navigator.onLine || error?.message?.includes('Failed to fetch') || error?.message?.includes('NetworkError'))) {
                 toast.error(

@@ -14,6 +14,7 @@ import { useSession } from 'next-auth/react';
 import Label from '../form/Label';
 import { CalendarIcon } from '@heroicons/react/24/outline';
 import { apiRequest } from '@/lib/api';
+import { saveSafeDraft, getSafeDraft, clearSafeDraft } from '@/lib/formDraftHelper';
 
 interface Props {
   isOpen: boolean;
@@ -78,6 +79,16 @@ export default function OrdenEditModal({ isOpen, onClose, order, hasSignedRecept
 
       // Cargar casilleros disponibles al abrir el modal
       if (isOpen) {
+        // Verificar si existe un borrador previo no guardado por expiración
+        const draft = getSafeDraft<typeof formData>(`order_edit_${order.id}`);
+        if (draft) {
+          setFormData(prev => ({ ...prev, ...draft }));
+          clearSafeDraft(`order_edit_${order.id}`);
+          toast.info('Se restauraron los cambios de texto que tenías antes de que expirara la sesión.', {
+            toastId: 'draft-restored',
+          });
+        }
+
         fetchAvailableCasilleros();
         getTechniciansAvailability().then(data => {
           setTechAvailability(data || []);
@@ -85,6 +96,20 @@ export default function OrdenEditModal({ isOpen, onClose, order, hasSignedRecept
       }
     }
   }, [order, isOpen]);
+
+  // Resguardar borrador seguro ante evento de expiración de sesión
+  useEffect(() => {
+    if (!isOpen || !order?.id) return;
+
+    const handleSessionExpired = () => {
+      saveSafeDraft(`order_edit_${order.id}`, formData);
+    };
+
+    window.addEventListener('hc:session-expired', handleSessionExpired);
+    return () => {
+      window.removeEventListener('hc:session-expired', handleSessionExpired);
+    };
+  }, [isOpen, order?.id, formData]);
 
   const handleReloadServerVersion = async () => {
     if (!order?.id || !session) return;
@@ -129,6 +154,7 @@ export default function OrdenEditModal({ isOpen, onClose, order, hasSignedRecept
       const result = await onSave(updatedData);
       const isSuccess = result === true || (result && (result as any).success);
       if (isSuccess) {
+        clearSafeDraft(`order_edit_${order?.id}`);
         setConcurrencyConflict(null);
         toast.success("Orden actualizada correctamente con la versión sincronizada");
         onClose();
@@ -170,6 +196,7 @@ export default function OrdenEditModal({ isOpen, onClose, order, hasSignedRecept
       const result = await onSave(updatedData);
       const isSuccess = result === true || (result && (result as any).success);
       if (isSuccess) {
+        clearSafeDraft(`order_edit_${order?.id}`);
         toast.success("Orden actualizada correctamente");
         onClose();
       } else if (result && (result as any).conflict) {

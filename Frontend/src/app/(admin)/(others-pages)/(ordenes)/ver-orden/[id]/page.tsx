@@ -113,27 +113,18 @@ export default function PerfilOrdenPage() {
 
     try {
       setIsRegeneratingToken(true);
-      const token = (session as any)?.accessToken || (session as any)?.token;
-      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
-      const res = await fetch(`${baseUrl}/orders/${order.id}/credencial/regenerar`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
+      const data = await apiRequest<any>(
+        `/orders/${order.id}/credencial/regenerar`,
+        { method: "POST" },
+        session,
+      );
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.message || "Error al regenerar credencial");
-      }
-
-      const data = await res.json();
       const raw = data.rawSecret || data?.data?.tokenAccesoRaw;
       setRegeneratedToken(raw);
       toast.success("Nueva clave privada generada correctamente", { position: "top-center" });
       await fetchOrder();
     } catch (err: any) {
+      if (err?.isAuthError || err?.status === 401) return;
       toast.error(err.message || "No se pudo regenerar la credencial", { position: "top-center" });
     } finally {
       setIsRegeneratingToken(false);
@@ -149,25 +140,17 @@ export default function PerfilOrdenPage() {
 
     try {
       setIsRevokingToken(true);
-      const token = (session as any)?.accessToken || (session as any)?.token;
-      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
-      const res = await fetch(`${baseUrl}/orders/${order.id}/credencial/revocar`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.message || "Error al revocar credencial");
-      }
+      await apiRequest(
+        `/orders/${order.id}/credencial/revocar`,
+        { method: "POST" },
+        session,
+      );
 
       setRegeneratedToken(null);
       toast.warning("Credencial privada revocada exitosamente", { position: "top-center" });
       await fetchOrder();
     } catch (err: any) {
+      if (err?.isAuthError || err?.status === 401) return;
       toast.error(err.message || "No se pudo revocar la credencial", { position: "top-center" });
     } finally {
       setIsRevokingToken(false);
@@ -204,21 +187,14 @@ export default function PerfilOrdenPage() {
 
     try {
       setIsRespondingPresupuesto(true);
-      const token = (session as any)?.accessToken || (session as any)?.token;
-      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000/api/v1';
-      const res = await fetch(`${baseUrl}/orders/${order.id}/presupuesto/responder`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      await apiRequest(
+        `/orders/${order.id}/presupuesto/responder`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ action: decision }),
         },
-        body: JSON.stringify({ action: decision }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.message || 'Error al procesar la respuesta del presupuesto');
-      }
+        session,
+      );
 
       toast.success(
         `Presupuesto ${decision === 'ACEPTADO' ? 'aprobado' : 'rechazado'} exitosamente.`,
@@ -226,6 +202,7 @@ export default function PerfilOrdenPage() {
       );
       await fetchOrder();
     } catch (err: any) {
+      if (err?.isAuthError || err?.status === 401) return;
       toast.error(err.message || 'No se pudo registrar la respuesta', { position: 'top-center' });
     } finally {
       setIsRespondingPresupuesto(false);
@@ -237,37 +214,31 @@ export default function PerfilOrdenPage() {
 
     try {
       setIsGenerandoInvitacion(true);
-      const token = (session as any)?.accessToken || (session as any)?.token;
-      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000/api/v1';
-      const res = await fetch(`${baseUrl}/auth/activacion/generar`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      const data = await apiRequest<any>(
+        '/auth/activacion/generar',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            usuarioId: order.client.id,
+            tipo,
+          }),
         },
-        body: JSON.stringify({
-          usuarioId: order.client.id,
-          tipo,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.message?.includes('ya tiene una cuenta activa')) {
-          const resetConfirm = window.confirm(
-            'El cliente ya tiene contraseña configurada. ¿Desea generar una credencial de RESTABLECIMIENTO presencial de contraseña?'
-          );
-          if (resetConfirm) {
-            return handleGenerarInvitacionCliente('RECUPERACION_PRESENCIAL');
-          }
-          return;
-        }
-        throw new Error(data.message || 'Error al generar invitación');
-      }
+        session,
+      );
 
       setInvitacionGenerada(data);
       toast.success('¡Credencial de acceso generada exitosamente!', { position: 'top-center' });
     } catch (err: any) {
+      if (err?.isAuthError || err?.status === 401) return;
+      if (err?.message?.includes('ya tiene una cuenta activa')) {
+        const resetConfirm = window.confirm(
+          'El cliente ya tiene contraseña configurada. ¿Desea generar una credencial de RESTABLECIMIENTO presencial de contraseña?'
+        );
+        if (resetConfirm) {
+          return handleGenerarInvitacionCliente('RECUPERACION_PRESENCIAL');
+        }
+        return;
+      }
       toast.error(err.message || 'No se pudo generar la invitación', { position: 'top-center' });
     } finally {
       setIsGenerandoInvitacion(false);
@@ -275,7 +246,7 @@ export default function PerfilOrdenPage() {
   };
 
   const fetchOrder = async () => {
-    if (!id || !session) return;
+    if (!id || !session || (session as any)?.error === 'AccessTokenExpired') return;
     try {
       setLoading(true);
       const data = await apiRequest<Order>(`/orders/${id}`, {}, session);
@@ -283,6 +254,10 @@ export default function PerfilOrdenPage() {
       const docs = await apiRequest<any[]>(`/orders/${id}/documentos`, {}, session).catch(() => []);
       setDocumentos(docs || []);
     } catch (error: any) {
+      if (error?.isAuthError || error?.status === 401) {
+        // La expiración es manejada centralmente por authErrorHandler
+        return;
+      }
       toast.error("Error al cargar la orden");
       console.error(error);
     } finally {
@@ -322,7 +297,8 @@ export default function PerfilOrdenPage() {
       toast.success("Evidencia eliminada correctamente");
       setDeleteConfig({ isOpen: false, id: null });
       await fetchOrder();
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.isAuthError || error?.status === 401) return;
       console.error("Error al eliminar evidencia:", error);
       toast.error("Error al eliminar la evidencia");
     } finally {

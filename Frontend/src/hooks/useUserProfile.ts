@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "react-toastify";
+import { apiRequest, ApiError } from "@/lib/api";
 
 interface Usuario {
   id: number;
@@ -51,29 +52,12 @@ export function useUserProfile() {
       const userId = session.user.id;
       const userToken = session.accessToken;
 
-      if (!userId || !userToken) {
-        throw new Error("Datos de autenticación incompletos");
+      if (!userId || !userToken || (session as any)?.error === 'AccessTokenExpired') {
+        setCargando(false);
+        return;
       }
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${userId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${userToken}`,
-            "Content-Type": "application/json",
-          },
-          cache: "no-store",
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `Error ${response.status}: ${response.statusText}`
-        );
-      }
-
-      const userData: Usuario = await response.json();
+      const userData = await apiRequest<Usuario>(`/users/${userId}`, {}, session);
 
       if (!userData || typeof userData !== "object" || !userData.id) {
         throw new Error("Datos de usuario no válidos");
@@ -81,7 +65,11 @@ export function useUserProfile() {
 
       setUsuario(userData);
       setEditando(userData);
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.isAuthError || err?.status === 401) {
+        // Expiración gestionada centralmente por authErrorHandler
+        return;
+      }
       const errorMessage = err instanceof Error ? err.message : "Error desconocido";
       setError(errorMessage);
     } finally {
