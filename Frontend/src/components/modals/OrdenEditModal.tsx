@@ -12,9 +12,19 @@ import { format } from 'date-fns';
 import { Role } from '@/types/role';
 import { useSession } from 'next-auth/react';
 import Label from '../form/Label';
-import { CalendarIcon } from '@heroicons/react/24/outline';
+import { CalendarIcon, PlusIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { apiRequest } from '@/lib/api';
 import { saveSafeDraft, getSafeDraft, clearSafeDraft } from '@/lib/formDraftHelper';
+
+const ACCESORIOS_RAPIDOS = [
+  "Cargador",
+  "Cable de poder",
+  "Funda / Estuche",
+  "Mouse",
+  "Mochila / Maletín",
+  "Cable HDMI / Video",
+  "Ninguno",
+];
 
 interface Props {
   isOpen: boolean;
@@ -210,6 +220,29 @@ export default function OrdenEditModal({ isOpen, onClose, order, hasSignedRecept
     }
   };
 
+  const toggleEditAccessory = (item: string) => {
+    if (isReceptionLocked) return;
+    const currentList = (formData.accesorios || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    if (item === "Ninguno") {
+      const hasNinguno = currentList.some((a) => a.toLowerCase() === "ninguno");
+      const next = hasNinguno ? "" : "Ninguno";
+      setFormData((prev) => ({ ...prev, accesorios: next }));
+      return;
+    }
+
+    const cleaned = currentList.filter((a) => a.toLowerCase() !== "ninguno");
+    const exists = cleaned.some((a) => a.toLowerCase() === item.toLowerCase());
+    const nextList = exists
+      ? cleaned.filter((a) => a.toLowerCase() !== item.toLowerCase())
+      : [...cleaned, item];
+
+    setFormData((prev) => ({ ...prev, accesorios: nextList.join(", ") }));
+  };
+
   if (!order) return null;
 
   const tecnicos = React.useMemo(() =>
@@ -243,7 +276,12 @@ export default function OrdenEditModal({ isOpen, onClose, order, hasSignedRecept
       className="max-w-2xl"
     >
 
-      <form onSubmit={handleSubmit} className="p-6 space-y-6">
+      <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 sm:space-y-6">
+        <div className="pr-8 sm:pr-0 border-b border-gray-100 dark:border-gray-800 pb-2">
+          <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+            Editar Orden #{order.workOrderNumber}
+          </h3>
+        </div>
         {/* Banner de Resolución de Conflicto de Concurrencia (Escenario A) */}
         {concurrencyConflict && (
           <div className="p-4 rounded-xl border border-rose-300 bg-rose-50/90 dark:border-rose-900/60 dark:bg-rose-950/40 space-y-3">
@@ -466,6 +504,42 @@ export default function OrdenEditModal({ isOpen, onClose, order, hasSignedRecept
               </span>
             )}
           </div>
+
+          {!isReceptionLocked && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {ACCESORIOS_RAPIDOS.map((item) => {
+                const currentList = (formData.accesorios || "")
+                  .split(",")
+                  .map((s) => s.trim().toLowerCase())
+                  .filter(Boolean);
+                const isSelected = currentList.includes(item.toLowerCase());
+                const isNinguno = item === "Ninguno";
+
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => toggleEditAccessory(item)}
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
+                      isSelected
+                        ? isNinguno
+                          ? "bg-amber-500 text-white shadow-xs dark:bg-amber-600"
+                          : "bg-brand-500 text-white shadow-xs dark:bg-brand-600"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    {isSelected ? (
+                      <CheckIcon className="h-3 w-3 stroke-[2.5]" />
+                    ) : (
+                      <PlusIcon className="h-3 w-3" />
+                    )}
+                    <span>{item}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <input
             id="edit-accesorios"
             type="text"
@@ -483,18 +557,18 @@ export default function OrdenEditModal({ isOpen, onClose, order, hasSignedRecept
         </div>
 
         {/* Botones de acción */}
-        <div className="flex justify-end space-x-4 pt-4">
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-4 pt-4">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
+            className="w-full sm:w-auto justify-center px-4 py-2.5 sm:py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
             disabled={isSubmitting}
           >
             Cancelar
           </button>
           <button
             type="submit"
-            className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
+            className="w-full sm:w-auto justify-center px-4 py-2.5 sm:py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 dark:bg-blue-500 dark:hover:bg-blue-600"
             disabled={isSubmitting}
           >
             {isSubmitting ? 'Guardando...' : 'Guardar Cambios'}

@@ -24,11 +24,11 @@ export default function Pagination({
           Página {currentPage} de {totalPages}
         </span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1 || disabled}
-          className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+          className="px-2.5 sm:px-3 py-1 border border-gray-300 rounded-md text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
           aria-label="Página anterior"
         >
           Anterior
@@ -38,7 +38,7 @@ export default function Pagination({
             key={page}
             onClick={() => onPageChange(page)}
             disabled={disabled}
-            className={`px-3 py-1 border rounded-md text-sm font-medium ${
+            className={`px-2.5 sm:px-3 py-1 border rounded-md text-xs sm:text-sm font-medium ${
               currentPage === page
                 ? "bg-blue-500 text-white border-blue-500"
                 : "border-gray-300 text-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -51,7 +51,7 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages || disabled}
-          className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+          className="px-2.5 sm:px-3 py-1 border border-gray-300 rounded-md text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
           aria-label="Página siguiente"
         >
           Siguiente

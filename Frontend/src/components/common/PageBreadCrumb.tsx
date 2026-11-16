@@ -28,12 +28,12 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-2.5 border-b border-gray-100 dark:border-gray-800/60">
-      <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+      <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white break-words">
         {pageTitle}
       </h1>
       {!hideBreadcrumbNav && !isDashboard && (
-        <nav aria-label="Ruta de navegación">
-          <ol className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+        <nav aria-label="Ruta de navegación" className="min-w-0">
+          <ol className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
             <li>
               <Link
                 className="inline-flex items-center gap-1 text-gray-500 hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400 transition-colors font-medium"

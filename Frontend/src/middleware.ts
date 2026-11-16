@@ -1,12 +1,25 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
+export function isTokenExpiredOrInvalid(token: any): boolean {
+  if (!token || token.error === "AccessTokenExpired" || !token.accessToken) {
+    return true;
+  }
+  if (
+    typeof token.accessTokenExpires === "number" &&
+    Date.now() >= token.accessTokenExpires
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
 
-    // Si el token está marcado como expirado, forzar redirección a /signin con callbackUrl
-    if (token?.error === "AccessTokenExpired" || !token?.accessToken) {
+    // Si el token está marcado como expirado o su exp ya venció, forzar redirección a /signin con callbackUrl
+    if (isTokenExpiredOrInvalid(token)) {
       const signInUrl = new URL("/signin", req.url);
       const callbackUrl = req.nextUrl.pathname + req.nextUrl.search;
       signInUrl.searchParams.set("callbackUrl", callbackUrl);
@@ -29,7 +42,7 @@ export default withAuth(
         }
 
         // Para rutas protegidas, verificar existencia y no-expiración del token
-        if (token?.error === "AccessTokenExpired" || !token?.accessToken) {
+        if (isTokenExpiredOrInvalid(token)) {
           return false;
         }
 

@@ -127,6 +127,8 @@ export default function OrdenCard({
 
   return (
     <div className={`relative flex flex-col gap-4 rounded-xl border p-4 shadow-sm md:flex-row md:items-center md:justify-between transition-all duration-700 ${
+      isMenuOpen ? 'z-30 ' : ''
+    }${
       isHighlighted 
         ? 'border-brand-500 bg-brand-50/50 dark:border-brand-500/50 dark:bg-brand-900/10 ring-2 ring-brand-500/20 shadow-md scale-[1.01] z-10' 
         : 'border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]'
@@ -137,9 +139,9 @@ export default function OrdenCard({
         style={{ backgroundColor: getEstadoColor(order.estadoOrden?.nombre || '') === 'success' ? '#10b981' : getEstadoColor(order.estadoOrden?.nombre || '') === 'warning' ? '#f59e0b' : '#3b82f6' }}
       ></div>
 
-      <div className="flex flex-1 flex-col gap-3 pl-2">
-        <div className="flex items-start justify-between md:items-center">
-          <div className="flex flex-col gap-1 md:flex-row md:items-center md:gap-3">
+      <div className="flex flex-1 flex-col gap-3 pl-2 min-w-0">
+        <div className="flex flex-wrap items-start justify-between gap-2 md:items-center">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2.5 min-w-0">
             <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">
               #{order.workOrderNumber}
             </span>
@@ -176,26 +178,33 @@ export default function OrdenCard({
             )}
           </div>
           {/* Mobile date */}
-          <span className="text-xs text-gray-500 dark:text-gray-400 md:hidden">
+          <span className="text-xs text-gray-500 dark:text-gray-400 md:hidden shrink-0">
             {formatDate(order.createdAt)}
           </span>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-            {order.equipo?.numeroSerie || 'Equipo N/A'}
-          </h2>
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+        <div className="flex flex-col gap-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white break-words">
+              {order.equipo?.numeroSerie || 'Equipo N/A'}
+            </h2>
+            {order.equipo?.tipoEquipo?.nombre && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                {order.equipo.tipoEquipo.nombre}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 min-w-0">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
             </svg>
-            {formatUserName(order.client)}
+            <span className="break-words">{formatUserName(order.client)}</span>
           </div>
         </div>
 
         {/* Detailed info visible mainly on desktop or expanded mobile */}
-        <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-600 dark:text-gray-400">
-          <div>
+        <div className="mt-1 flex flex-wrap gap-x-6 gap-y-1.5 text-sm text-gray-600 dark:text-gray-400">
+          <div className="break-words">
             <span className="font-semibold">Técnico:</span> {formatUserName(order.technician)}
           </div>
           {order.fechaPrometidaEntrega && (
@@ -207,8 +216,8 @@ export default function OrdenCard({
 
         {/* Historial log */}
         {lastHistory && (
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 min-w-0">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
             </svg>
             <span className="truncate">
@@ -218,8 +227,8 @@ export default function OrdenCard({
         )}
       </div>
 
-      <div className="flex items-center justify-end gap-2 md:pl-4">
-        <div className="flex flex-wrap items-center gap-2 justify-end">
+      <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-3 dark:border-gray-800/80 md:border-t-0 md:pt-0 md:pl-4">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 justify-end w-full md:w-auto">
           {primaryActions.map((action) => (
             <button
               key={action.key}
@@ -249,7 +258,7 @@ export default function OrdenCard({
               </button>
 
               {isMenuOpen && (
-                <div className="absolute right-0 z-10 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                <div className="absolute right-0 z-30 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                   {overflowActions.map((action) => (
                     <button
                       key={action.key}

@@ -7,16 +7,84 @@ import { useDetallePresupuestoItem, DetallePresupuestoItem } from "./useDetalleP
 import { useEstadoPresupuesto } from "./useEstadoPresupuesto";
 import { apiRequest } from "@/lib/api";
 
+export type ModalidadAutorizacionType =
+    | 'PRESENCIAL_FIRMA'
+    | 'CONFIRMACION_TELEFONICA'
+    | 'CONFIRMACION_MENSAJE_CORREO'
+    | 'AUTORIZACION_INTERNA'
+    | 'TOKEN_ODS_PRIVADO'
+    | 'PORTAL_CLIENTE_AUTENTICADO';
+
+export interface AutorizacionPresupuesto {
+    id: number;
+    presupuestoId: number;
+    ordenId: number;
+    versionPresupuesto: number;
+    decision: 'APROBADO' | 'RECHAZADO';
+    modalidad: ModalidadAutorizacionType | string;
+    montoAprobado: number;
+    autorizanteNombre: string;
+    autorizanteIdentificacion: string;
+    autorizanteParentesco: string;
+    observaciones?: string | null;
+    documentoOrdenId?: number | null;
+    registradoPorId?: number | null;
+    registradoPor?: {
+        id: number;
+        nombre?: string;
+        apellido?: string;
+        cedula?: string;
+        userRoles?: Array<{ rol?: { nombre?: string; slug?: string } }>;
+    } | null;
+    fechaAutorizacion: string;
+}
+
+export function formatModalidadAutorizacion(modalidad?: string | null): string {
+    switch (modalidad) {
+        case 'PRESENCIAL_FIRMA':
+            return 'Presencial con firma del cliente';
+        case 'CONFIRMACION_TELEFONICA':
+            return 'Confirmación telefónica';
+        case 'CONFIRMACION_MENSAJE_CORREO':
+            return 'Confirmación mediante mensaje o correo';
+        case 'AUTORIZACION_INTERNA':
+            return 'Autorización interna del establecimiento';
+        case 'TOKEN_ODS_PRIVADO':
+            return 'Enlace / QR privado del cliente';
+        case 'PORTAL_CLIENTE_AUTENTICADO':
+            return 'Portal del cliente autenticado';
+        default:
+            return modalidad || 'No especificada';
+    }
+}
+
+export function formatResponsableAutorizacion(aut?: AutorizacionPresupuesto | null): string {
+    if (!aut) return 'No disponible';
+    if (aut.registradoPor) {
+        const nombre = `${aut.registradoPor.nombre || ''} ${aut.registradoPor.apellido || ''}`.trim();
+        const rolNombre = aut.registradoPor.userRoles?.[0]?.rol?.nombre;
+        return rolNombre ? `${nombre} (${rolNombre})` : nombre || 'Usuario del sistema';
+    }
+    if (aut.modalidad === 'PORTAL_CLIENTE_AUTENTICADO' || aut.modalidad === 'TOKEN_ODS_PRIVADO') {
+        return `${aut.autorizanteNombre || 'Cliente'} (Cliente)`;
+    }
+    return aut.autorizanteNombre || 'No disponible';
+}
+
 export interface Presupuesto {
     id: number;
     ordenId: number;
     estadoId: number;
+    version?: number;
     descripcion: string | null;
     fechaEmision: string;
     deletedAt?: string | null;
     estado?: EstadoPresupuesto | null; // Permitir null
     orden?: Order | null; // Añadir | null aquí
     detallesPresupuestoItems?: DetallePresupuestoItem[];
+    autorizaciones?: AutorizacionPresupuesto[];
+    modalidad?: ModalidadAutorizacionType;
+    observaciones?: string;
 }
 
 export interface EstadoPresupuesto {
@@ -38,8 +106,10 @@ interface PaginatedPresupuestoResponse {
 
 export interface ResumenPresupuesto {
     presupuestoId: number;
+    version?: number;
     descripcion: string | null;
     fechaEmision: string;
+    ultimaAutorizacion?: AutorizacionPresupuesto | null;
     orden: {
         numeroOrden: string;
         clienteId: number;
@@ -375,7 +445,7 @@ export function usePresupuesto() {
         if (status === "authenticated" && session?.user?.role !== 'client' && session?.user?.role !== 'cliente') {
             fetchPresupuestos(1, 10, searchTerm, showInactive);
         }
-    }, [status, session, searchTerm, showInactive]);
+    }, [status, session?.accessToken, session?.user?.role, searchTerm, showInactive]);
 
     return {
         presupuestos,

@@ -48,18 +48,18 @@ export default function CrudModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} className={`mx-4 w-full ${maxWidth} p-6 max-h-[90vh] overflow-y-auto`}>
-      <div className="space-y-5">
-        <h2 className="pr-10 text-xl font-semibold text-gray-900 dark:text-white">{title}</h2>
+    <Modal isOpen={isOpen} onClose={onClose} title={title} className={`w-full ${maxWidth} p-4 sm:p-6`}>
+      <div className="space-y-4 sm:space-y-5 min-w-0">
+        <h2 className="pr-10 text-lg sm:text-xl font-semibold text-gray-900 dark:text-white break-words">{title}</h2>
 
-        <div>{children}</div>
+        <div className="min-w-0">{children}</div>
 
         {!hideActions && (
-          <div className="flex justify-end gap-3 border-t border-gray-200 pt-4 dark:border-gray-700">
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-3 border-t border-gray-200 pt-4 dark:border-gray-700">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+              className="w-full sm:w-auto rounded-md border border-gray-300 px-4 py-2.5 sm:py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
             >
               Cancelar
             </button>
@@ -67,7 +67,7 @@ export default function CrudModal({
               type="button"
               disabled={loading}
               onClick={handlePrimaryAction}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full sm:w-auto rounded-md bg-blue-600 px-4 py-2.5 sm:py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? 'Procesando...' : primaryLabel}
             </button>

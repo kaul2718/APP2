@@ -28,6 +28,8 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
     const { orders, loading: ordersLoading } = useOrders(); // Cambiado de isLoading a loading
 
     const [editando, setEditando] = React.useState<Presupuesto | null>(null);
+    const [modalidad, setModalidad] = React.useState<'CONFIRMACION_TELEFONICA' | 'CONFIRMACION_MENSAJE_CORREO' | 'AUTORIZACION_INTERNA'>('CONFIRMACION_TELEFONICA');
+    const [observaciones, setObservaciones] = React.useState<string>('');
     const [cargando, setCargando] = React.useState(false);
     const [errores, setErrores] = React.useState<Record<string, string>>({});
 
@@ -208,6 +210,10 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
 
             if (editando.estadoId !== presupuesto.estadoId) {
                 cambios.estadoId = editando.estadoId;
+                cambios.modalidad = modalidad;
+                if (observaciones.trim()) {
+                    cambios.observaciones = observaciones.trim();
+                }
             }
 
             if (Object.keys(cambios).length === 0) {
@@ -274,7 +280,7 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                         <div className="grid grid-cols-1 gap-6 pb-6">
 
                             {/* Estado y Descripción */}
-                            <div className="grid grid-cols-1 gap-4 bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-700">
+                            <div className="grid grid-cols-1 gap-4 bg-gray-50 dark:bg-gray-800/50 p-4 sm:p-6 rounded-2xl border border-gray-100 dark:border-gray-700">
                                 <div className="space-y-2">
                                     <Label htmlFor="estado-select">Estado</Label>
                                     <div className="relative">
@@ -299,6 +305,38 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                         </div>
                                     </div>
                                 </div>
+
+                                {editando.estadoId !== presupuesto?.estadoId &&
+                                    ['aprobado', 'rechazado'].includes(
+                                        estados?.find((e) => e.id === editando.estadoId)?.nombre?.toLowerCase() || ''
+                                    ) && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="modalidad-select">Modalidad de Autorización</Label>
+                                                <select
+                                                    id="modalidad-select"
+                                                    value={modalidad}
+                                                    onChange={(e) => setModalidad(e.target.value as any)}
+                                                    className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-900 dark:text-white"
+                                                >
+                                                    <option value="CONFIRMACION_TELEFONICA">Confirmación telefónica</option>
+                                                    <option value="CONFIRMACION_MENSAJE_CORREO">Confirmación mediante mensaje o correo</option>
+                                                    <option value="AUTORIZACION_INTERNA">Autorización interna del establecimiento</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="observacion-autorizacion">Observación / Constancia</Label>
+                                                <input
+                                                    id="observacion-autorizacion"
+                                                    type="text"
+                                                    value={observaciones}
+                                                    onChange={(e) => setObservaciones(e.target.value)}
+                                                    placeholder="Ej: Confirmado por llamada..."
+                                                    className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-900 dark:text-white"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
 
                                 <div className="space-y-2">
                                     <Label htmlFor="descripcion-edit">Descripción General</Label>
@@ -410,14 +448,14 @@ export default function PresupuestoEditModal({ isOpen, onClose, presupuesto, onS
                                     const totalGeneral = totalServicios + totalProductos;
 
                                     return (
-                                        <div className="bg-gray-100 dark:bg-gray-850 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 flex items-center justify-between mt-4">
+                                        <div className="bg-gray-100 dark:bg-gray-850 p-4 rounded-2xl border border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-2 mt-4">
                                             <div>
                                                 <span className="text-xs text-gray-500 uppercase font-black tracking-wider block">Total General Acumulado</span>
-                                                <span className="text-2xl font-black text-gray-900 dark:text-white">
+                                                <span className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white">
                                                     {formatCurrency(totalGeneral)}
                                                 </span>
                                             </div>
-                                            <div className="text-right text-xs text-gray-500 space-y-0.5 font-semibold">
+                                            <div className="text-left sm:text-right text-xs text-gray-500 space-y-0.5 font-semibold">
                                                 <div>Servicios: {formatCurrency(totalServicios)}</div>
                                                 <div>Repuestos: {formatCurrency(totalProductos)}</div>
                                             </div>

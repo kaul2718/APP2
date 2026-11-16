@@ -178,6 +178,7 @@ export default function TicketTermicoModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
+      showCloseButton={false}
       className="max-w-lg p-0 overflow-hidden rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-2xl"
     >
       {/* Encabezado del Modal */}

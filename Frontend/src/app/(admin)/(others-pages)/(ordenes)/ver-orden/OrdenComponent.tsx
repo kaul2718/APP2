@@ -64,15 +64,15 @@ export default function OrdenComponent() {
             <div className="space-y-6">
                 <ComponentCard
                     title={
-                        <div className="flex justify-between items-center w-full">
-                            <span>Lista de ordenes registradas</span>
+                        <div className="flex flex-wrap justify-between items-center gap-2.5 w-full">
+                            <span className="text-sm sm:text-base font-medium">Lista de ordenes registradas</span>
                             {hasPermission("orders.create") && (
                                 <Button
                                     onClick={() => setIsCreateOrderModalOpen(true)}
-                                    className="flex items-center gap-1"
+                                    className="flex items-center justify-center gap-1.5 w-full sm:w-auto"
                                     size="sm"
                                 >
-                                    <PlusCircleIcon className="w-4 h-4" />
+                                    <PlusCircleIcon className="w-4 h-4 shrink-0" />
                                     Agregar Orden
                                 </Button>
                             )}

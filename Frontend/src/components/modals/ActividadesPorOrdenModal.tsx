@@ -116,7 +116,7 @@ export default function ActividadesPorOrdenModal({
                         type="button"
                         variant="outline"
                         onClick={onClose}
-                        className="w-1/2 sm:w-auto min-w-[140px]"
+                        className="w-full sm:w-auto min-w-[140px] justify-center"
                     >
                         Cerrar
                     </Button>

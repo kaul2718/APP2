@@ -306,20 +306,18 @@ export default function ConsultaPage() {
                       {order.workOrderNumber}
                     </h2>
                     <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                        (order.estadoActual || '').toLowerCase().includes('entreg') ||
-                        (order.estadoActual || '').toLowerCase().includes('archiv')
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${(order.estadoActual || '').toLowerCase().includes('entreg') ||
+                          (order.estadoActual || '').toLowerCase().includes('archiv')
                           ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                           : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                      }`}
+                        }`}
                     >
                       <span
-                        className={`w-2 h-2 rounded-full ${
-                          (order.estadoActual || '').toLowerCase().includes('entreg') ||
-                          (order.estadoActual || '').toLowerCase().includes('archiv')
+                        className={`w-2 h-2 rounded-full ${(order.estadoActual || '').toLowerCase().includes('entreg') ||
+                            (order.estadoActual || '').toLowerCase().includes('archiv')
                             ? 'bg-emerald-400'
                             : 'bg-amber-400 animate-pulse'
-                        }`}
+                          }`}
                       />
                       {order.estadoActual}
                     </span>
@@ -358,7 +356,7 @@ export default function ConsultaPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div className="grid grid-cols-1 min-[380px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                   {WORKFLOW_STEPS.map((s) => {
                     const isDelivered = (order.estadoActual || '').toLowerCase().includes('entreg');
                     const isExpressOmittedDiag = order.tipoOrden === 'EXPRESS' && s.key === 'diagnostico' && order.estadoStep >= 3;
@@ -371,23 +369,21 @@ export default function ConsultaPage() {
                     return (
                       <div
                         key={s.key}
-                        className={`rounded-2xl p-3 border text-left transition-all relative overflow-hidden ${
-                          isCurrent
+                        className={`rounded-2xl p-3 border text-left transition-all relative overflow-hidden ${isCurrent
                             ? 'bg-amber-500/15 border-amber-500/50 shadow-lg shadow-amber-500/10'
                             : isCompleted
-                            ? 'bg-slate-950/60 border-emerald-500/30'
-                            : 'bg-slate-950/30 border-slate-800/60 opacity-60'
-                        }`}
+                              ? 'bg-slate-950/60 border-emerald-500/30'
+                              : 'bg-slate-950/30 border-slate-800/60 opacity-60'
+                          }`}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span
-                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                              isCurrent
+                            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isCurrent
                                 ? 'bg-amber-500 text-slate-950'
                                 : isCompleted
-                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                                : 'bg-slate-800 text-slate-400'
-                            }`}
+                                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                                  : 'bg-slate-800 text-slate-400'
+                              }`}
                           >
                             {isCompleted ? '✓' : s.step}
                           </span>
@@ -408,13 +404,12 @@ export default function ConsultaPage() {
                           )}
                         </div>
                         <p
-                          className={`text-xs font-bold ${
-                            isCurrent
+                          className={`text-xs font-bold ${isCurrent
                               ? 'text-amber-300'
                               : isCompleted
-                              ? 'text-slate-200'
-                              : 'text-slate-400'
-                          }`}
+                                ? 'text-slate-200'
+                                : 'text-slate-400'
+                            }`}
                         >
                           {labelText}
                         </p>

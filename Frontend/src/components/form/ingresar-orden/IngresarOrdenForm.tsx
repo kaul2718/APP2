@@ -6,7 +6,7 @@ import Button from "@/components/ui/button/Button";
 import { toast } from "react-toastify";
 import { useRouter } from 'next/navigation';
 import { useSession } from "next-auth/react";
-import { PlusIcon, CheckIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, CheckIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useOrders } from "@/hooks/useOrders";
 import { useEquipos } from "@/hooks/useEquipos";
 import { useUsuario } from "@/hooks/useUsuario";
@@ -23,6 +23,16 @@ import { OrderType } from "@/types/order.types";
 import { ChecklistItemResult, EstadoEncendido, EstadoFisico, InspeccionRecepcionData } from "@/types/checklist.types";
 import { useChecklistTemplate } from "@/hooks/useChecklistTemplate";
 import InspeccionRecepcionForm from "./InspeccionRecepcionForm";
+
+const ACCESORIOS_RAPIDOS = [
+    "Cargador",
+    "Cable de poder",
+    "Funda / Estuche",
+    "Mouse",
+    "Mochila / Maletín",
+    "Cable HDMI / Video",
+    "Ninguno",
+];
 
 interface FormData {
     workOrderNumber?: string;
@@ -387,11 +397,37 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
         await refetchEquipos(); // Actualiza la lista de equipos en segundo plano
     };
 
-    const addAccessory = () => {
-        if (formData.currentAccessory.trim()) {
-            handleChange("accesorios", [...formData.accesorios, formData.currentAccessory]);
-            setFormData(prev => ({ ...prev, currentAccessory: "" }));
+    const addAccessory = (accessoryName?: string) => {
+        const text = (accessoryName ?? formData.currentAccessory).trim();
+        if (text) {
+            const exists = formData.accesorios.some((a) => a.toLowerCase() === text.toLowerCase());
+            if (!exists) {
+                const cleaned = formData.accesorios.filter((a) => a.toLowerCase() !== "ninguno");
+                handleChange("accesorios", [...cleaned, text]);
+            }
+            if (!accessoryName) {
+                setFormData(prev => ({ ...prev, currentAccessory: "" }));
+            }
         }
+    };
+
+    const toggleQuickAccessory = (name: string) => {
+        if (name === "Ninguno") {
+            const hasNinguno = formData.accesorios.some((a) => a.toLowerCase() === "ninguno");
+            if (hasNinguno) {
+                handleChange("accesorios", formData.accesorios.filter((a) => a.toLowerCase() !== "ninguno"));
+            } else {
+                handleChange("accesorios", ["Ninguno"]);
+            }
+            return;
+        }
+
+        const exists = formData.accesorios.some((a) => a.toLowerCase() === name.toLowerCase());
+        const cleaned = formData.accesorios.filter((a) => a.toLowerCase() !== "ninguno");
+        const updated = exists
+            ? cleaned.filter((a) => a.toLowerCase() !== name.toLowerCase())
+            : [...cleaned, name];
+        handleChange("accesorios", updated);
     };
 
     const removeAccessory = (index: number) => {
@@ -875,10 +911,10 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                 </div>
 
                 {formData.tipoOrden === OrderType.EXPRESS && (
-                    <div className="mt-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900/40 p-4 space-y-3.5">
-                        <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-2">
+                    <div className="mt-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900/40 p-3.5 sm:p-4 space-y-3.5">
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-gray-200 dark:border-gray-800 pb-2">
                             <span className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                                <BoltIcon className="w-4 h-4 text-brand-500" />
+                                <BoltIcon className="w-4 h-4 text-brand-500 shrink-0" />
                                 Inspección Rápida de Recepción (Express)
                             </span>
                             <span className="text-[11px] text-gray-500 italic">Recepción en &lt; 60 seg</span>
@@ -996,44 +1032,86 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                     <Label htmlFor={accessoryInputId}>Accesorios</Label>
                     <button
                         type="button"
-                        onClick={addAccessory}
+                        onClick={() => addAccessory()}
                         className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 transition hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                     >
                         <PlusIcon className="h-3 w-3" />
                         Agregar accesorio
                     </button>
                 </div>
+
+                {/* Chips de selección rápida (1 solo clic) */}
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                    {ACCESORIOS_RAPIDOS.map((item) => {
+                        const isSelected = formData.accesorios.some(
+                            (a) => a.toLowerCase() === item.toLowerCase()
+                        );
+                        const isNinguno = item === "Ninguno";
+
+                        return (
+                            <button
+                                key={item}
+                                type="button"
+                                onClick={() => toggleQuickAccessory(item)}
+                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
+                                    isSelected
+                                        ? isNinguno
+                                            ? "bg-amber-500 text-white shadow-xs dark:bg-amber-600"
+                                            : "bg-brand-500 text-white shadow-xs dark:bg-brand-600"
+                                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700"
+                                }`}
+                            >
+                                {isSelected ? (
+                                    <CheckIcon className="h-3 w-3 stroke-[2.5]" />
+                                ) : (
+                                    <PlusIcon className="h-3 w-3" />
+                                )}
+                                <span>{item}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+
                 <div className="flex items-start gap-2 sm:items-center">
                     <input
                         id={accessoryInputId}
                         value={formData.currentAccessory}
                         onChange={(e) => setFormData((prev) => ({ ...prev, currentAccessory: e.target.value }))}
-                        placeholder="Ej: Cargador, Funda, Cable USB"
-                        className="w-full rounded-lg border border-gray-300 bg-white p-2 text-black dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                addAccessory();
+                            }
+                        }}
+                        placeholder="Otro accesorio personalizado... (Enter para agregar)"
+                        className="w-full rounded-lg border border-gray-300 bg-white p-2 text-sm text-black dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                     />
                 </div>
 
                 {formData.accesorios.length > 0 && (
-                    <div className="mt-2">
-                        <ul className="space-y-1">
-                            {formData.accesorios.map((accesorio, index) => (
-                                <li
-                                    key={index}
-                                    className="flex items-center justify-between rounded bg-gray-200 px-3 py-2 text-black dark:bg-gray-700 dark:text-white"
+                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 mr-1">Registrados:</span>
+                        {formData.accesorios.map((accesorio, index) => (
+                            <span
+                                key={index}
+                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium border shadow-xs ${
+                                    accesorio.toLowerCase() === "ninguno"
+                                        ? "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+                                        : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+                                }`}
+                            >
+                                <span>{accesorio}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => removeAccessory(index)}
+                                    className="ml-0.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                                    title={`Eliminar ${accesorio}`}
+                                    aria-label={`Eliminar accesorio ${accesorio}`}
                                 >
-                                    <span className="truncate">{accesorio}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => removeAccessory(index)}
-                                        className="text-lg font-bold text-red-500 hover:text-red-700"
-                                        title="Eliminar accesorio"
-                                        aria-label={`Eliminar accesorio ${accesorio}`}
-                                    >
-                                        ×
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
+                                    <XMarkIcon className="h-3.5 w-3.5" />
+                                </button>
+                            </span>
+                        ))}
                     </div>
                 )}
             </div>
@@ -1130,10 +1208,10 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     return (
         <>
             {embeddedMode ? (
-                <div className="max-h-[75vh] overflow-y-auto px-3 pb-2 pr-5 sm:px-4 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[scrollbar-color:#475569_transparent] dark:[&::-webkit-scrollbar-thumb]:bg-slate-600">
-                    <div className="mb-3 border-b border-gray-200 pb-3 pr-12 dark:border-gray-700">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Crear Nueva Orden de Trabajo</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                <div className="max-h-[75vh] overflow-y-auto px-1 pb-2 sm:px-4 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[scrollbar-color:#475569_transparent] dark:[&::-webkit-scrollbar-thumb]:bg-slate-600">
+                    <div className="mb-3 border-b border-gray-200 pb-3 pr-10 dark:border-gray-700">
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Crear Nueva Orden de Trabajo</h3>
+                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                             Complete los datos para registrar la orden sin salir de esta vista.
                         </p>
                     </div>

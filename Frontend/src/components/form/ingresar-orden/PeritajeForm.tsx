@@ -65,25 +65,25 @@ export default function PeritajeForm({ template, onChange, initialResults }: Pro
                 </div>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm bg-white dark:bg-gray-900">
-                <table className="w-full text-left text-sm border-collapse">
+            <div className="overflow-x-auto rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm bg-white dark:bg-gray-900">
+                <table className="w-full min-w-[540px] text-left text-sm border-collapse">
                     <thead className="bg-gray-50/50 dark:bg-gray-800/50 text-gray-400 text-xs uppercase font-bold tracking-widest">
                         <tr>
-                            <th className="px-6 py-4">Componente</th>
-                            <th className="px-6 py-4 text-center">Estado Funcional</th>
-                            <th className="px-6 py-4 text-center">Estética</th>
-                            <th className="px-6 py-4">Observaciones Técnicas</th>
+                            <th className="px-4 py-3 sm:px-6 sm:py-4">Componente</th>
+                            <th className="px-4 py-3 sm:px-6 sm:py-4 text-center">Estado Funcional</th>
+                            <th className="px-4 py-3 sm:px-6 sm:py-4 text-center">Estética</th>
+                            <th className="px-4 py-3 sm:px-6 sm:py-4">Observaciones Técnicas</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
                         {results.map((res, idx) => (
                             <tr key={idx} className="group hover:bg-gray-50/30 dark:hover:bg-gray-800/20 transition-all">
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3 sm:px-6 sm:py-4">
                                     <span className="font-semibold text-gray-700 dark:text-gray-200 group-hover:text-brand-500 transition-colors">
                                         {res.item}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3 sm:px-6 sm:py-4">
                                     <div className="flex justify-center items-center gap-1">
                                         {functionalOptions.map((opt) => (
                                             <button
@@ -99,7 +99,7 @@ export default function PeritajeForm({ template, onChange, initialResults }: Pro
                                         ))}
                                     </div>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3 sm:px-6 sm:py-4">
                                     <div className="flex justify-center">
                                         <select
                                             value={res.estetica}
@@ -115,7 +115,7 @@ export default function PeritajeForm({ template, onChange, initialResults }: Pro
                                         </select>
                                     </div>
                                 </td>
-                                <td className="px-6 py-4">
+                                <td className="px-4 py-3 sm:px-6 sm:py-4">
                                     <div className="relative flex items-center group/input">
                                         <ChatBubbleBottomCenterTextIcon className="absolute left-0 w-4 h-4 text-gray-300 dark:text-gray-700 group-hover/input:text-brand-500 transition-colors" />
                                         <input
@@ -123,7 +123,7 @@ export default function PeritajeForm({ template, onChange, initialResults }: Pro
                                             value={res.observaciones}
                                             onChange={(e) => updateResult(idx, 'observaciones', e.target.value)}
                                             placeholder="Añadir nota técnica..."
-                                            className="w-full bg-transparent border-none focus:ring-0 text-xs py-2 pl-6 placeholder:text-gray-300 dark:placeholder:text-gray-700 text-gray-600 dark:text-gray-400"
+                                            className="w-full min-w-[140px] bg-transparent border-none focus:ring-0 text-xs py-2 pl-6 placeholder:text-gray-300 dark:placeholder:text-gray-700 text-gray-600 dark:text-gray-400"
                                             aria-label={`Observaciones para ${res.item}`}
                                         />
                                     </div>

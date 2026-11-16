@@ -198,7 +198,7 @@ export default function AlmacenComponent() {
                     </div>
 
                     {/* Filter Tabs */}
-                    <div className="flex p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit">
+                    <div className="flex flex-wrap p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-full sm:w-fit">
                         {[
                             { id: "all", label: "Todos", icon: null },
                             { id: "productos", label: "Productos", icon: <ArchiveBoxIcon className="w-4 h-4" /> },
@@ -207,7 +207,7 @@ export default function AlmacenComponent() {
                             <button
                                 key={filter.id}
                                 onClick={() => setActiveFilter(filter.id as any)}
-                                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                className={`flex flex-1 sm:flex-initial items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
                                     activeFilter === filter.id
                                     ? "bg-white dark:bg-gray-700 text-brand-800 dark:text-white shadow-sm"
                                     : "text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"

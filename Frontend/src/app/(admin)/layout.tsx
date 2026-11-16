@@ -26,12 +26,12 @@ function AdminLayoutContent({
       <Backdrop />
       {/* Main Content Area */}
       <div
-        className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}
+        className={`flex-1 min-w-0 max-w-full transition-all duration-300 ease-in-out ${mainContentMargin}`}
       >
         {/* Header */}
         <AppHeader />
         {/* Page Content */}
-        <div className="p-4 w-full md:p-6">{children}</div>
+        <div className="p-3 sm:p-4 w-full min-w-0 md:p-6">{children}</div>
       </div>
     </div>
   );

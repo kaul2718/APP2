@@ -2,7 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import CrudModal from "@/components/modals/CrudModal";
-import { Presupuesto, usePresupuesto } from "@/hooks/usePresupuesto";
+import {
+    Presupuesto,
+    usePresupuesto,
+    formatModalidadAutorizacion,
+    formatResponsableAutorizacion,
+    ModalidadAutorizacionType,
+} from "@/hooks/usePresupuesto";
 import {
     CalendarIcon,
     CheckIcon,
@@ -16,6 +22,7 @@ import {
     WrenchScrewdriverIcon,
     CubeIcon,
     PencilSquareIcon,
+    ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import { apiRequest } from "@/lib/api";
 import { useSession } from "next-auth/react";
@@ -112,7 +119,7 @@ const SectionHeader = ({ title }: { title: string }) => (
 );
 
 const CardContainer = ({ children }: { children: React.ReactNode }) => (
-    <div className="bg-white dark:bg-white/[0.02] border border-gray-100 dark:border-white/[0.05] rounded-3xl p-6 shadow-sm mb-6">
+    <div className="bg-white dark:bg-white/[0.02] border border-gray-100 dark:border-white/[0.05] rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm mb-4 sm:mb-6">
         {children}
     </div>
 );
@@ -131,6 +138,8 @@ export default function PresupuestoDetailsModal({
     const [resumen, setResumen] = useState<any>(initialResumen);
     const [loadingDelete, setLoadingDelete] = useState<number | null>(null);
     const [isPresencialModalOpen, setIsPresencialModalOpen] = useState(false);
+    const [modalInitialDecision, setModalInitialDecision] = useState<'APROBADO' | 'RECHAZADO'>('APROBADO');
+    const [modalInitialModalidad, setModalInitialModalidad] = useState<ModalidadAutorizacionType>('CONFIRMACION_TELEFONICA');
     const [confirmConfig, setConfirmConfig] = useState<{
         isOpen: boolean;
         title: string;
@@ -299,7 +308,7 @@ export default function PresupuestoDetailsModal({
             hideActions
             maxWidth="max-w-4xl"
         >
-            <div className="px-6 py-4 space-y-6 text-sm text-gray-700 dark:text-gray-300">
+            <div className="px-0 sm:px-2 py-2 sm:py-4 space-y-5 sm:space-y-6 text-sm text-gray-700 dark:text-gray-300">
                 <CardContainer>
                     <SectionHeader title="Información General" />
                     <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -351,7 +360,7 @@ export default function PresupuestoDetailsModal({
 
                 {resumen && (
                     <CardContainer>
-                        <div className="flex justify-between items-center mb-4 border-b border-gray-100 dark:border-white/[0.05] pb-2">
+                        <div className="flex flex-wrap justify-between items-center gap-2.5 mb-4 border-b border-gray-100 dark:border-white/[0.05] pb-2.5">
                             <h3 className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">
                                 Resumen de Costos
                             </h3>
@@ -361,7 +370,7 @@ export default function PresupuestoDetailsModal({
                                     onClick={() => setView('addItem')}
                                     className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-md shadow-blue-500/20 text-xs uppercase tracking-wider transition-colors"
                                 >
-                                    <PlusIcon className="w-3.5 h-3.5" aria-hidden="true" /> Agregar Ítems / Servicios
+                                    <PlusIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /> Agregar Ítems / Servicios
                                 </button>
                             )}
                         </div>
@@ -460,36 +469,121 @@ export default function PresupuestoDetailsModal({
                         </div>
 
                         {/* Total General */}
-                        <div className="mt-6 bg-gray-50 dark:bg-white/[0.02] p-5 rounded-2xl border border-gray-200 dark:border-white/[0.05] flex items-center justify-between">
+                        <div className="mt-6 bg-gray-50 dark:bg-white/[0.02] p-4 sm:p-5 rounded-2xl border border-gray-200 dark:border-white/[0.05] flex flex-wrap items-center justify-between gap-2">
                             <div>
                                 <span className="text-xs text-gray-600 dark:text-gray-400 uppercase font-black tracking-wider block">Total General Acumulado</span>
-                                <span className="text-3xl font-black text-blue-600 dark:text-blue-400">
+                                <span className="text-2xl sm:text-3xl font-black text-blue-600 dark:text-blue-400">
                                     {formatCurrency(resumen.costoTotal)}
                                 </span>
                             </div>
-                            <div className="text-right text-xs text-gray-500 dark:text-gray-400 space-y-0.5 font-bold">
+                            <div className="text-left sm:text-right text-xs text-gray-500 dark:text-gray-400 space-y-0.5 font-bold">
                                 <div>Servicios: {formatCurrency(resumen.costoManoObra)}</div>
                                 <div>Repuestos: {formatCurrency(resumen.costoItems)}</div>
                             </div>
                         </div>
 
-                        {/* Botones para formalizar autorización o cambiar estado */}
-                        {!presupuesto.deletedAt && (
-                            <div className="mt-6 flex flex-col sm:flex-row gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsPresencialModalOpen(true)}
-                                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-emerald-500/10 transition-all flex items-center justify-center gap-2"
-                                >
-                                    <PencilSquareIcon className="h-5 w-5" aria-hidden="true" />
-                                    <span>Autorizar Presupuesto (Firma Presencial)</span>
-                                </button>
+                        {/* Trazabilidad de la Decisión (si existe autorización previa) */}
+                        {(() => {
+                            const ultimaAut =
+                                resumen?.ultimaAutorizacion ||
+                                [...(presupuesto.autorizaciones || [])].sort((a, b) => Number(b.id) - Number(a.id))[0] ||
+                                null;
+                            if (!ultimaAut) return null;
+                            const isApproved = ultimaAut.decision === 'APROBADO';
+                            return (
+                                <div className={`mt-5 p-4 rounded-2xl border ${
+                                    isApproved
+                                        ? 'bg-emerald-50/50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800/40'
+                                        : 'bg-rose-50/50 border-rose-200 dark:bg-rose-950/20 dark:border-rose-800/40'
+                                }`}>
+                                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                                        <span className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 text-gray-800 dark:text-gray-200">
+                                            <ShieldCheckIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                            Trazabilidad de la Decisión
+                                        </span>
+                                        <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                                            isApproved
+                                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300'
+                                                : 'bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-300'
+                                        }`}>
+                                            Estado: {isApproved ? 'Aprobado' : 'Rechazado'}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-700 dark:text-gray-300">
+                                        <div>
+                                            <span className="font-semibold text-gray-500 dark:text-gray-400">Registrado por: </span>
+                                            <span className="font-bold">{formatResponsableAutorizacion(ultimaAut)}</span>
+                                        </div>
+                                        <div>
+                                            <span className="font-semibold text-gray-500 dark:text-gray-400">Modalidad: </span>
+                                            <span className="font-bold">{formatModalidadAutorizacion(ultimaAut.modalidad)}</span>
+                                        </div>
+                                        <div>
+                                            <span className="font-semibold text-gray-500 dark:text-gray-400">Fecha y hora: </span>
+                                            <span className="font-bold">{formatDate(ultimaAut.fechaAutorizacion)}</span>
+                                        </div>
+                                        {ultimaAut.observaciones && (
+                                            <div className="sm:col-span-2">
+                                                <span className="font-semibold text-gray-500 dark:text-gray-400">Observación: </span>
+                                                <span className="italic">{ultimaAut.observaciones}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })()}
 
-                                {presupuesto.estado?.id !== 1 && ( // Mostrar si no está pendiente
+                        {/* Botones para aprobar, rechazar o registrar firma presencial */}
+                        {!presupuesto.deletedAt && (
+                            <div className="mt-6 flex flex-wrap gap-2.5">
+                                {String(presupuesto.estado?.nombre || '').toLowerCase().includes('pend') && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setModalInitialDecision('APROBADO');
+                                                setModalInitialModalidad('CONFIRMACION_TELEFONICA');
+                                                setIsPresencialModalOpen(true);
+                                            }}
+                                            className="flex-1 min-w-[160px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-md shadow-emerald-500/10 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                        >
+                                            <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                                            <span>Aprobar Presupuesto</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setModalInitialDecision('RECHAZADO');
+                                                setModalInitialModalidad('CONFIRMACION_TELEFONICA');
+                                                setIsPresencialModalOpen(true);
+                                            }}
+                                            className="flex-1 min-w-[160px] bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-md shadow-rose-500/10 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                        >
+                                            <XMarkIcon className="h-5 w-5" aria-hidden="true" />
+                                            <span>Rechazar Presupuesto</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setModalInitialDecision('APROBADO');
+                                                setModalInitialModalidad('PRESENCIAL_FIRMA');
+                                                setIsPresencialModalOpen(true);
+                                            }}
+                                            className="w-full sm:w-auto bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 font-bold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                        >
+                                            <PencilSquareIcon className="h-5 w-5" aria-hidden="true" />
+                                            <span>Registrar Firma Presencial</span>
+                                        </button>
+                                    </>
+                                )}
+
+                                {presupuesto.estado?.id !== 1 && !String(presupuesto.estado?.nombre || '').toLowerCase().includes('pend') && (
                                     <button
                                         type="button"
                                         onClick={() => handleChangeStatus(1, "Pendiente")}
-                                        className="sm:w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-2"
+                                        className="sm:w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-2 cursor-pointer"
                                     >
                                         <ClockIcon className="h-5 w-5" aria-hidden="true" />
                                         <span>Poner Pendiente</span>
@@ -528,6 +622,8 @@ export default function PresupuestoDetailsModal({
                     onClose={() => setIsPresencialModalOpen(false)}
                     order={presupuesto?.orden || { id: presupuesto?.ordenId, workOrderNumber: `ORD-${presupuesto?.ordenId}` }}
                     presupuesto={{ ...presupuesto, costoTotal: resumen?.costoTotal || (presupuesto as any)?.total || 0 }}
+                    initialDecision={modalInitialDecision}
+                    initialModalidad={modalInitialModalidad}
                     onSuccess={() => {
                         if (onSuccess) onSuccess();
                         onClose();

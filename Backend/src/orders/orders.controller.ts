@@ -363,11 +363,28 @@ export class OrderController {
   }
 
   /**
-   * Autorización presencial asistida en mostrador con firma táctil manuscrita
+   * Autorización / Rechazo administrativo o presencial de presupuesto
    */
   @Auth('admin', 'tech', 'recep')
   @Post(':id/presupuesto/autorizar-presencial')
   async handlePresupuestoActionPresencial(
+    @Param('id', ParseIntPipe) orderId: number,
+    @Body() dto: AutorizarPresupuestoPresencialDto,
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    const operadorId = user.sub || user.id;
+    const ip = extractClientIp(req);
+    const userAgent = req.headers['user-agent'];
+    return this.orderService.handlePresupuestoActionPresencial(orderId, dto, operadorId, ip, userAgent);
+  }
+
+  /**
+   * Alias semántico para aprobar o rechazar presupuesto con o sin firma presencial
+   */
+  @Auth('admin', 'tech', 'recep')
+  @Post(':id/presupuesto/decidir')
+  async handleDecidirPresupuesto(
     @Param('id', ParseIntPipe) orderId: number,
     @Body() dto: AutorizarPresupuestoPresencialDto,
     @CurrentUser() user: any,

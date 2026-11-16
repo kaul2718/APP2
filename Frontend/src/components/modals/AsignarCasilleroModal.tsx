@@ -97,18 +97,18 @@ export default function AsignarCasilleroModal({ isOpen, onClose, order, onSave }
           </p>
         </div>
 
-        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+            className="w-full sm:w-auto justify-center px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
             disabled={isSubmitting}
           >
             Cancelar
           </button>
           <button
             type="submit"
-            className="px-5 py-2.5 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 disabled:opacity-50 dark:bg-brand-600 dark:hover:bg-brand-500 transition-colors shadow-sm"
+            className="w-full sm:w-auto justify-center px-5 py-2.5 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 disabled:opacity-50 dark:bg-brand-600 dark:hover:bg-brand-500 transition-colors shadow-sm"
             disabled={isSubmitting}
           >
             {isSubmitting ? 'Guardando...' : 'Asignar Casillero'}

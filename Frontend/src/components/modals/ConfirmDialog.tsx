@@ -51,7 +51,7 @@ export default function ConfirmDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center overflow-y-auto p-3 sm:p-4">
       <button
         type="button"
         aria-label="Cerrar dialogo"
@@ -66,23 +66,23 @@ export default function ConfirmDialog({
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-description"
-        className="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900"
+        className="relative z-10 my-auto w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-2xl bg-white p-4 sm:p-6 shadow-xl dark:bg-gray-900"
       >
-        <h2 id="confirm-dialog-title" className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h2 id="confirm-dialog-title" className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white break-words">
           {title}
         </h2>
-        <p id="confirm-dialog-description" className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+        <p id="confirm-dialog-description" className="mt-2 text-sm text-gray-600 dark:text-gray-300 break-words">
           {description}
         </p>
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-5 sm:mt-6 flex flex-col-reverse sm:flex-row sm:flex-wrap sm:justify-end gap-2.5 sm:gap-3 [&>button]:w-full sm:[&>button]:w-auto [&>button]:justify-center">
           {customActions ? customActions : (
             <>
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isLoading}
-                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800 disabled:opacity-50"
+                className="w-full sm:w-auto justify-center rounded-md border border-gray-300 px-4 py-2.5 sm:py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800 disabled:opacity-50"
               >
                 {cancelText}
               </button>
@@ -91,7 +91,7 @@ export default function ConfirmDialog({
                 type="button"
                 onClick={onConfirm}
                 disabled={isLoading}
-                className={`rounded-md px-4 py-2 text-sm font-medium text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 flex items-center gap-2 ${
+                className={`w-full sm:w-auto justify-center rounded-md px-4 py-2.5 sm:py-2 text-sm font-medium text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 flex items-center gap-2 ${
                   destructive
                     ? 'bg-red-600 hover:bg-red-700 focus-visible:ring-red-500'
                     : 'bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-500'

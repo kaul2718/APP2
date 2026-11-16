@@ -2,6 +2,7 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
@@ -24,21 +25,32 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
+    let payload: any;
     try {
-      const payload = await this.jwtService.verifyAsync(token, {
+      payload = await this.jwtService.verifyAsync(token, {
         secret: jwtConstants.secret,
       });
+    } catch {
+      throw new UnauthorizedException();
+    }
 
-      // Cargar el usuario completo desde BD para obtener sus roles
+    try {
+      // Cargar el usuario completo desde BD para obtener sus roles y verificar que sigue activo
       const user = await this.usersService.findOne(payload.sub, false);
-      if (!user) {
+      if (!user || !user.estado) {
         throw new UnauthorizedException();
       }
 
       // Adjuntar el usuario (con userRoles) al request
       request.user = user;
-    } catch {
-      throw new UnauthorizedException();
+    } catch (error) {
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof NotFoundException
+      ) {
+        throw new UnauthorizedException();
+      }
+      throw error;
     }
 
     return true;

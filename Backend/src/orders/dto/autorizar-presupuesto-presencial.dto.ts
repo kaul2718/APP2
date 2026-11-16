@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsString, IsIn, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsIn, IsOptional, IsBoolean, IsEnum } from 'class-validator';
+import { ModalidadAutorizacion } from '../../presupuesto/entities/autorizacion-presupuesto.entity';
 
 export class AutorizarPresupuestoPresencialDto {
   @IsOptional()
@@ -9,9 +10,16 @@ export class AutorizarPresupuestoPresencialDto {
   @IsIn(['ACEPTADO', 'RECHAZADO', 'APROBADO'], { message: 'La decisión debe ser ACEPTADO, APROBADO o RECHAZADO' })
   decision?: 'ACEPTADO' | 'RECHAZADO' | 'APROBADO';
 
-  @IsNotEmpty({ message: 'El nombre del autorizante es requerido' })
+  @IsOptional()
+  @IsEnum(ModalidadAutorizacion, {
+    message:
+      'Modalidad de autorización inválida. Valores permitidos: PRESENCIAL_FIRMA, CONFIRMACION_TELEFONICA, CONFIRMACION_MENSAJE_CORREO, AUTORIZACION_INTERNA',
+  })
+  modalidad?: ModalidadAutorizacion;
+
+  @IsOptional()
   @IsString()
-  autorizanteNombre: string;
+  autorizanteNombre?: string;
 
   @IsOptional()
   @IsString()
@@ -29,9 +37,13 @@ export class AutorizarPresupuestoPresencialDto {
   @IsString()
   autorizanteTelefono?: string;
 
-  @IsNotEmpty({ message: 'La firma manuscrita capturada en pantalla es obligatoria para la autorización presencial' })
+  @IsOptional()
   @IsString()
-  firmaBase64: string;
+  firmaBase64?: string;
+
+  @IsOptional()
+  @IsString()
+  observaciones?: string;
 
   @IsOptional()
   @IsString()

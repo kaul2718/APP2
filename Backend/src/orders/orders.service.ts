@@ -468,6 +468,10 @@ export class OrderService {
         'presupuesto.estado',
         'presupuesto.detallesPresupuestoItems',
         'presupuesto.detallesPresupuestoItems.parte',
+        'presupuesto.autorizaciones',
+        'presupuesto.autorizaciones.registradoPor',
+        'presupuesto.autorizaciones.registradoPor.userRoles',
+        'presupuesto.autorizaciones.registradoPor.userRoles.rol',
         'casillero',
         'evidencias',
         'evidencias.subidoPor',
@@ -1029,12 +1033,19 @@ export class OrderService {
       .leftJoinAndSelect('order.technician', 'technician')
       .leftJoinAndSelect('order.estadoOrden', 'estadoOrden')
       .leftJoinAndSelect('order.equipo', 'equipo')
+      .leftJoinAndSelect('equipo.tipoEquipo', 'tipoEquipo')
+      .leftJoinAndSelect('equipo.marca', 'marca')
+      .leftJoinAndSelect('equipo.modelo', 'modelo')
       .leftJoinAndSelect('order.actividades', 'actividades')
       .leftJoinAndSelect('actividades.tipoActividad', 'tipoActividad')
       .leftJoinAndSelect('order.presupuesto', 'presupuesto')
       .leftJoinAndSelect('presupuesto.estado', 'estadoPresupuesto')
       .leftJoinAndSelect('presupuesto.detallesPresupuestoItems', 'detallesItems')
       .leftJoinAndSelect('detallesItems.parte', 'parteDetalle')
+      .leftJoinAndSelect('presupuesto.autorizaciones', 'autorizacionesPresupuesto')
+      .leftJoinAndSelect('autorizacionesPresupuesto.registradoPor', 'registradoPorAut')
+      .leftJoinAndSelect('registradoPorAut.userRoles', 'userRolesAut')
+      .leftJoinAndSelect('userRolesAut.rol', 'rolAut')
       .leftJoinAndSelect('order.casillero', 'casillero')
       .orderBy('order.createdAt', sortOrder);
 
@@ -1802,7 +1813,9 @@ export class OrderService {
   }
 
   /**
-   * Autorización de presupuesto presencial en mostrador con firma táctil manuscrita
+   * Autorización / Rechazo administrativo o presencial de presupuesto
+   * Soporta modalidades sin firma (CONFIRMACION_TELEFONICA, CONFIRMACION_MENSAJE_CORREO, AUTORIZACION_INTERNA)
+   * y conserva la modalidad opcional con firma táctil en pantalla (PRESENCIAL_FIRMA).
    */
   async handlePresupuestoActionPresencial(
     orderId: number,
@@ -1810,21 +1823,58 @@ export class OrderService {
     operadorId: number,
     ip?: string,
     userAgent?: string,
-  ): Promise<{ success: boolean; message: string; documentoOrdenId: number; hashIntegridad: string }> {
-    const rawAction = dto.action || dto.decision;
-    const autorizanteNombre = dto.autorizanteNombre;
-    const autorizanteIdentificacion = dto.autorizanteIdentificacion || dto.autorizanteCedula;
-    const autorizanteParentesco = dto.autorizanteParentesco || 'TITULAR';
-    const firmaBase64 = dto.firmaBase64;
+  ): Promise<{
+    success: boolean;
+    message: string;
+    documentoOrdenId: number | null;
+    hashIntegridad: string;
+    modalidad: ModalidadAutorizacion;
+    decision: DecisionPresupuesto;
+  }> {
+    if (!operadorId || operadorId <= 0) {
+      throw new UnauthorizedException('Se requiere un usuario autenticado para registrar la decisión del presupuesto.');
+    }
 
-    if (!rawAction || !autorizanteNombre || !autorizanteIdentificacion || !firmaBase64) {
-      throw new BadRequestException('Acción, nombre, identificación del autorizante y firma manuscrita son requeridos');
+    const operador = await this.userRepository.findOne({
+      where: { id: operadorId },
+      relations: ['userRoles', 'userRoles.rol', 'userRoles.rol.rolePermissions', 'userRoles.rol.rolePermissions.permission'],
+    });
+    if (!operador) {
+      throw new ForbiddenException('Usuario responsable no encontrado.');
+    }
+
+    const userRoleSlugs = (operador.userRoles || []).map((ur: any) => ur.rol?.slug).filter(Boolean);
+    const hasAuthorizedRole = userRoleSlugs.some((slug: string) => ['admin', 'recep', 'tech'].includes(slug));
+    if (!hasAuthorizedRole) {
+      throw new ForbiddenException('No cuenta con permisos para aprobar o rechazar presupuestos.');
+    }
+
+    const rawAction = dto.action || dto.decision;
+    if (!rawAction) {
+      throw new BadRequestException('Debe especificar la decisión sobre el presupuesto (APROBADO o RECHAZADO).');
     }
 
     let actionUpper = rawAction.toUpperCase();
     if (actionUpper === 'APROBADO') actionUpper = 'ACEPTADO';
     if (!['ACEPTADO', 'RECHAZADO'].includes(actionUpper)) {
-      throw new BadRequestException('Acción inválida. Debe ser ACEPTADO o RECHAZADO');
+      throw new BadRequestException('Acción inválida. Debe ser ACEPTADO, APROBADO o RECHAZADO.');
+    }
+
+    const firmaBase64 = dto.firmaBase64?.trim() || undefined;
+    const modalidad: ModalidadAutorizacion =
+      dto.modalidad || (firmaBase64 ? ModalidadAutorizacion.PRESENCIAL_FIRMA : undefined);
+
+    const modalidadesPermitidas = [
+      ModalidadAutorizacion.PRESENCIAL_FIRMA,
+      ModalidadAutorizacion.CONFIRMACION_TELEFONICA,
+      ModalidadAutorizacion.CONFIRMACION_MENSAJE_CORREO,
+      ModalidadAutorizacion.AUTORIZACION_INTERNA,
+    ];
+
+    if (!modalidad || !modalidadesPermitidas.includes(modalidad)) {
+      throw new BadRequestException(
+        'Debe seleccionar una modalidad de autorización válida (PRESENCIAL_FIRMA, CONFIRMACION_TELEFONICA, CONFIRMACION_MENSAJE_CORREO o AUTORIZACION_INTERNA).',
+      );
     }
 
     const order = await this.orderRepository.findOne({
@@ -1832,6 +1882,7 @@ export class OrderService {
       relations: [
         'client',
         'technician',
+        'estadoOrden',
         'presupuesto',
         'presupuesto.estado',
         'presupuesto.detallesPresupuestoItems',
@@ -1847,48 +1898,105 @@ export class OrderService {
       throw new BadRequestException('Esta orden no cuenta con un presupuesto emitido.');
     }
 
+    const versionActual = order.presupuesto.version || 1;
     const estadoPresupuesto = order.presupuesto.estado?.nombre?.toUpperCase();
     if (estadoPresupuesto === 'APROBADO' || estadoPresupuesto === 'RECHAZADO') {
       throw new BadRequestException(`El presupuesto ya ha sido ${estadoPresupuesto.toLowerCase()} previamente.`);
     }
 
-    // 1. Generar DocumentoOrden formal con firma táctil manuscrita capturada
-    const tipoDoc = actionUpper === 'ACEPTADO'
-      ? TipoDocumentoOrden.AUTORIZACION_PRESUPUESTO
-      : TipoDocumentoOrden.RECHAZO_PRESUPUESTO;
-
-    const docFirmado = await this.documentosOrdenService.registrarFirma(
-      orderId,
-      {
-        tipoDocumento: tipoDoc,
-        firmaBase64,
-        firmanteNombre: autorizanteNombre.trim(),
-        firmanteIdentificacion: autorizanteIdentificacion.trim(),
-        terminosAceptados: dto.terminosAceptados !== undefined ? dto.terminosAceptados : true,
-        estadoFirma: EstadoFirmaDocumento.FIRMADO,
+    const decisionExistente = await this.autorizacionRepository.findOne({
+      where: {
+        presupuestoId: order.presupuesto.id,
+        versionPresupuesto: versionActual,
       },
-      operadorId,
-      ip,
-      userAgent,
-    );
+    });
+    if (decisionExistente) {
+      throw new BadRequestException(
+        `Ya existe una decisión registrada (${decisionExistente.decision}) para la versión ${versionActual} de este presupuesto.`,
+      );
+    }
+
+    const operadorNombre = `${operador.nombre || ''} ${operador.apellido || ''}`.trim() || 'Personal Autorizado';
+    const clienteNombre = order.client
+      ? `${order.client.nombre || ''} ${order.client.apellido || ''}`.trim()
+      : 'Cliente Titular';
+    const observacionTexto = (dto.observaciones ?? dto.notas)?.trim() || null;
+
+    let autorizanteNombreFinal: string;
+    let autorizanteIdentificacionFinal: string;
+    let autorizanteParentescoFinal: string;
+    let documentoOrdenId: number | null = null;
+
+    if (modalidad === ModalidadAutorizacion.PRESENCIAL_FIRMA) {
+      const rawNombre = dto.autorizanteNombre?.trim();
+      const rawIdentificacion = (dto.autorizanteIdentificacion || dto.autorizanteCedula)?.trim();
+
+      if (!rawNombre || !rawIdentificacion || !firmaBase64) {
+        throw new BadRequestException(
+          'Para la modalidad presencial con firma, el nombre, identificación del autorizante y la firma manuscrita son obligatorios.',
+        );
+      }
+
+      autorizanteNombreFinal = rawNombre.slice(0, 150);
+      autorizanteIdentificacionFinal = rawIdentificacion.slice(0, 20);
+      autorizanteParentescoFinal = (dto.autorizanteParentesco?.trim() || 'TITULAR').slice(0, 50);
+
+      const tipoDoc =
+        actionUpper === 'ACEPTADO'
+          ? TipoDocumentoOrden.AUTORIZACION_PRESUPUESTO
+          : TipoDocumentoOrden.RECHAZO_PRESUPUESTO;
+
+      const docFirmado = await this.documentosOrdenService.registrarFirma(
+        orderId,
+        {
+          tipoDocumento: tipoDoc,
+          firmaBase64,
+          firmanteNombre: autorizanteNombreFinal,
+          firmanteIdentificacion: autorizanteIdentificacionFinal,
+          terminosAceptados: dto.terminosAceptados !== undefined ? dto.terminosAceptados : true,
+          estadoFirma: EstadoFirmaDocumento.FIRMADO,
+        },
+        operadorId,
+        ip,
+        userAgent,
+      );
+      documentoOrdenId = docFirmado.id;
+    } else if (modalidad === ModalidadAutorizacion.AUTORIZACION_INTERNA) {
+      // NUNCA atribuir aceptación al cliente en una autorización interna del establecimiento
+      autorizanteNombreFinal = `Autorización Interna (${operadorNombre})`.slice(0, 150);
+      autorizanteIdentificacionFinal = (operador.cedula || 'INTERNO').trim().slice(0, 20);
+      autorizanteParentescoFinal = 'INTERNO_ESTABLECIMIENTO';
+    } else {
+      // CONFIRMACION_TELEFONICA o CONFIRMACION_MENSAJE_CORREO (confirmado por el cliente sin firma presencial)
+      autorizanteNombreFinal = (dto.autorizanteNombre?.trim() || clienteNombre || 'Cliente Titular').slice(0, 150);
+      autorizanteIdentificacionFinal = (
+        dto.autorizanteIdentificacion?.trim() ||
+        dto.autorizanteCedula?.trim() ||
+        order.client?.cedula?.trim() ||
+        'S/N'
+      ).slice(0, 20);
+      autorizanteParentescoFinal = (dto.autorizanteParentesco?.trim() || 'TITULAR (CONFIRMACIÓN REMOTA)').slice(0, 50);
+    }
 
     // 2. Snapshot de ítems y cálculo de total
-    const itemsSnapshot = (order.presupuesto.detallesPresupuestoItems || []).map((it) => ({
-      parteId: it.parteId,
-      nombre: it.parte?.nombre || 'Item sin nombre',
-      cantidad: Number(it.cantidad),
-      precioUnitario: Number(it.precioUnitario),
-      subtotal: Number(it.cantidad) * Number(it.precioUnitario),
-    }));
+    const itemsSnapshot = (order.presupuesto.detallesPresupuestoItems || [])
+      .filter((it) => it.estado !== false && !it.deletedAt)
+      .map((it) => ({
+        parteId: it.parteId,
+        nombre: it.parte?.nombre || 'Item sin nombre',
+        cantidad: Number(it.cantidad),
+        precioUnitario: Number(it.precioUnitario),
+        subtotal: Number(it.cantidad) * Number(it.precioUnitario),
+      }));
     const montoTotal = itemsSnapshot.reduce((acc, curr) => acc + curr.subtotal, 0);
-    const versionActual = order.presupuesto.version || 1;
     const ahora = new Date();
+    const decisionEnum = actionUpper === 'ACEPTADO' ? DecisionPresupuesto.APROBADO : DecisionPresupuesto.RECHAZADO;
 
     // 3. Hash de integridad criptográfico
     const hashIntegridad = crypto
       .createHash('sha256')
       .update(
-        `${order.id}|${order.presupuesto.id}|${versionActual}|${montoTotal.toFixed(2)}|${actionUpper}|${autorizanteIdentificacion.trim()}|${docFirmado.id}|${ahora.toISOString()}`,
+        `${order.id}|${order.presupuesto.id}|${versionActual}|${montoTotal.toFixed(2)}|${decisionEnum}|${modalidad}|${autorizanteIdentificacionFinal}|${documentoOrdenId || 'SIN_FIRMA'}|${operadorId}|${ahora.toISOString()}`,
       )
       .digest('hex');
 
@@ -1897,14 +2005,15 @@ export class OrderService {
       presupuestoId: order.presupuesto.id,
       ordenId: order.id,
       versionPresupuesto: versionActual,
-      decision: actionUpper === 'ACEPTADO' ? DecisionPresupuesto.APROBADO : DecisionPresupuesto.RECHAZADO,
-      modalidad: ModalidadAutorizacion.PRESENCIAL_FIRMA,
+      decision: decisionEnum,
+      modalidad,
       montoAprobado: montoTotal,
       alcanceResumen: itemsSnapshot,
-      autorizanteNombre: autorizanteNombre.trim(),
-      autorizanteIdentificacion: autorizanteIdentificacion.trim(),
-      autorizanteParentesco: autorizanteParentesco?.trim() || 'TITULAR',
-      documentoOrdenId: docFirmado.id,
+      autorizanteNombre: autorizanteNombreFinal,
+      autorizanteIdentificacion: autorizanteIdentificacionFinal,
+      autorizanteParentesco: autorizanteParentescoFinal,
+      observaciones: observacionTexto,
+      documentoOrdenId,
       registradoPorId: operadorId,
       ipOrigen: ip || null,
       userAgent: userAgent || null,
@@ -1924,19 +2033,53 @@ export class OrderService {
       throw new InternalServerErrorException(`No se encontró el estado de presupuesto [${targetStateName}]`);
     }
 
-    await this.presupuestoService.update(order.presupuesto.id, {
-      estadoId: (nuevoEstado as any).id,
-    });
+    await this.presupuestoService.update(
+      order.presupuesto.id,
+      { estadoId: (nuevoEstado as any).id },
+      operadorId,
+      ip,
+      userAgent,
+    );
+
+    // 6. Trazabilidad en el historial de la orden sin cambiar el estado de la ODS
+    if (order.estadoOrden?.id || order.estadoOrdenId) {
+      const etiquetaModalidad =
+        modalidad === ModalidadAutorizacion.PRESENCIAL_FIRMA
+          ? 'Presencial con firma del cliente'
+          : modalidad === ModalidadAutorizacion.CONFIRMACION_TELEFONICA
+          ? 'Confirmación telefónica'
+          : modalidad === ModalidadAutorizacion.CONFIRMACION_MENSAJE_CORREO
+          ? 'Confirmación por mensaje o correo'
+          : 'Autorización interna del establecimiento';
+
+      const obsHistorial = `Presupuesto v${versionActual} ${targetStateName} — Modalidad: ${etiquetaModalidad} — Registrado por: ${operadorNombre}${
+        observacionTexto ? ` | Obs: ${observacionTexto}` : ''
+      }`;
+
+      const regHistorial = this.historialEstadoOrdenRepository.create({
+        orden: { id: order.id } as any,
+        estadoOrden: { id: order.estadoOrden?.id || order.estadoOrdenId } as any,
+        usuario: { id: operadorId } as any,
+        observaciones: obsHistorial,
+        fechaCambio: ahora,
+      });
+      await this.historialEstadoOrdenRepository.save(regHistorial);
+    }
 
     this.logger.log(
-      `✓ Presupuesto v${versionActual} de orden #${order.workOrderNumber} ${actionUpper} PRESENCIALMENTE con firma táctil por ${autorizanteNombre}. Doc: #${docFirmado.id}, Hash: ${hashIntegridad}`,
+      `✓ Presupuesto v${versionActual} de orden #${order.workOrderNumber} ${decisionEnum} vía ${modalidad} por operador #${operadorId} (${operadorNombre}). Doc: ${documentoOrdenId ?? 'N/A'}, Hash: ${hashIntegridad}`,
     );
 
     return {
       success: true,
-      message: `Presupuesto ${actionUpper === 'ACEPTADO' ? 'aprobado' : 'rechazado'} presencialmente con acta firmada.`,
-      documentoOrdenId: docFirmado.id,
+      message:
+        modalidad === ModalidadAutorizacion.PRESENCIAL_FIRMA
+          ? `Presupuesto ${actionUpper === 'ACEPTADO' ? 'aprobado' : 'rechazado'} presencialmente con acta firmada.`
+          : `Presupuesto ${actionUpper === 'ACEPTADO' ? 'aprobado' : 'rechazado'} exitosamente (${modalidad}).`,
+      documentoOrdenId,
       hashIntegridad,
+      modalidad,
+      decision: decisionEnum,
     };
   }
 

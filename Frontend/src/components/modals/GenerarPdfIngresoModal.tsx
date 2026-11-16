@@ -206,14 +206,15 @@ export default function GenerarPdfIngresoModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
+      showCloseButton={false}
       title={`Comprobante Oficial de Ingreso - ODS #${order.workOrderNumber}`}
       className="max-w-5xl"
     >
       {/* Barra de herramientas superior */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-6 py-3.5 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-t-2xl">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-3.5 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-t-2xl">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
-            <DocumentCheckIcon className="h-5 w-5 text-brand-500" />
+            <DocumentCheckIcon className="h-5 w-5 text-brand-500 shrink-0" />
             <span className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">
               ODS #{order.workOrderNumber}
             </span>
@@ -230,15 +231,15 @@ export default function GenerarPdfIngresoModal({
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
           {/* Botón Ver Ticket Térmico 80 mm */}
           <button
             type="button"
             onClick={() => setIsTicketModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-xs transition-colors"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-xs transition-colors"
             title="Abrir comprobante en formato ticket térmico de 80 mm"
           >
-            <TicketIcon className="h-4 w-4 text-emerald-600" />
+            <TicketIcon className="h-4 w-4 text-emerald-600 shrink-0" />
             Ticket 80 mm
           </button>
 
@@ -247,9 +248,9 @@ export default function GenerarPdfIngresoModal({
             <button
               type="button"
               onClick={() => setIsSignModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm transition-colors"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm transition-colors"
             >
-              <PencilSquareIcon className="h-4 w-4" />
+              <PencilSquareIcon className="h-4 w-4 shrink-0" />
               Firmar en Tablet
             </button>
           )}
@@ -259,9 +260,9 @@ export default function GenerarPdfIngresoModal({
             type="button"
             onClick={handleDownload}
             disabled={!pdfBlobUrl}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg shadow-sm transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg shadow-sm transition-colors disabled:opacity-50"
           >
-            <ArrowDownTrayIcon className="h-4 w-4" />
+            <ArrowDownTrayIcon className="h-4 w-4 shrink-0" />
             Descargar PDF
           </button>
 
@@ -270,9 +271,9 @@ export default function GenerarPdfIngresoModal({
             type="button"
             onClick={handlePrint}
             disabled={!pdfBlobUrl}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm transition-colors disabled:opacity-50"
           >
-            <PrinterIcon className="h-4 w-4" />
+            <PrinterIcon className="h-4 w-4 shrink-0" />
             Imprimir Comprobante
           </button>
 
@@ -291,7 +292,7 @@ export default function GenerarPdfIngresoModal({
             type="button"
             onClick={onClose}
             aria-label="Cerrar modal"
-            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            className="inline-flex p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors ml-auto sm:ml-0"
           >
             <XMarkIcon className="h-5 w-5" />
           </button>
@@ -299,9 +300,9 @@ export default function GenerarPdfIngresoModal({
       </div>
 
       {/* Visor Embebido del PDF Real de R2 */}
-      <div className="p-4 bg-gray-100 dark:bg-gray-900 rounded-b-2xl">
+      <div className="p-3 sm:p-4 bg-gray-100 dark:bg-gray-900 rounded-b-2xl">
         {pdfLoading ? (
-          <div className="flex flex-col items-center justify-center h-[76vh] space-y-3 bg-white dark:bg-gray-800 rounded-xl shadow-inner border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col items-center justify-center h-[60vh] sm:h-[74vh] space-y-3 bg-white dark:bg-gray-800 rounded-xl shadow-inner border border-gray-200 dark:border-gray-700 px-4 text-center">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-500"></div>
             <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
               Generando documento oficial de Cloudflare R2...
@@ -312,10 +313,10 @@ export default function GenerarPdfIngresoModal({
             ref={iframeRef}
             src={pdfBlobUrl}
             title={`Comprobante Oficial ODS #${order.workOrderNumber}`}
-            className="w-full h-[76vh] rounded-xl border border-gray-200 dark:border-gray-700 bg-white shadow-sm"
+            className="w-full h-[60vh] sm:h-[74vh] rounded-xl border border-gray-200 dark:border-gray-700 bg-white shadow-sm"
           />
         ) : (
-          <div className="flex flex-col items-center justify-center h-[76vh] space-y-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col items-center justify-center h-[60vh] sm:h-[74vh] space-y-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-4 text-center">
             <p className="text-gray-500 text-sm">No se pudo cargar la vista previa del documento.</p>
             <button
               onClick={() => loadPdf(order.id)}

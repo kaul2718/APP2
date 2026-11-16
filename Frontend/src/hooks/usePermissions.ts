@@ -54,7 +54,7 @@ export function usePermissions() {
     return () => {
       isMounted = false;
     };
-  }, [accessToken, isExpired, session]);
+  }, [accessToken, isExpired]);
 
   const activeRole = realtimeData ? realtimeData.role : staticRole;
   const activePermissions = realtimeData ? realtimeData.permissions : staticPermissions;

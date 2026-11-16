@@ -7,8 +7,8 @@ import { useOrders } from "@/hooks/useOrders";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useEstadoOrden } from "@/hooks/useEstadoOrden";
 import { usePresupuesto } from "@/hooks/usePresupuesto";
-import { useClientes } from "@/hooks/useClientes";
-import { useEquipos } from "@/hooks/useEquipos";
+import { useUsuario } from "@/hooks/useUsuario";
+import { Role } from "@/types/role";
 import type { Order } from "@/types/order.types";
 
 import OrdenDetailsModal from "@/components/modals/OrdenDetailsModal";
@@ -62,7 +62,8 @@ export default function OrdenListLayout() {
   const fechaFinId = React.useId();
   const searchId = React.useId();
   const limitId = React.useId();
-  const clientIdInputId = React.useId();
+  const technicianSelectId = React.useId();
+  const [tabInitialized, setTabInitialized] = React.useState(false);
   const {
     orders,
     loading,
@@ -80,6 +81,8 @@ export default function OrdenListLayout() {
     updateOrder,
     estadoOrdenId,
     setEstadoOrdenId,
+    technicianId,
+    setTechnicianId,
     clientId,
     setClientId,
     fechaInicio,
@@ -88,18 +91,31 @@ export default function OrdenListLayout() {
     setFechaFin,
   } = useOrders();
 
+  const { usuarios: techUsuarios = [] } = useUsuario({ defaultLimit: 1000, defaultRole: Role.TECH });
+  const tecnicos = React.useMemo(() => {
+    return techUsuarios.filter((u) => u.role === Role.TECH && u.estado);
+  }, [techUsuarios]);
+
   React.useEffect(() => {
     const estadoParam = searchParams.get("estadoId");
     if (estadoParam) {
-      const parsedId = Number(estadoParam);
-      if (!isNaN(parsedId)) {
-        setEstadoOrdenId(parsedId);
+      if (estadoParam === "all" || estadoParam === "todas") {
+        setEstadoOrdenId(undefined);
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("lastActiveTab", "all");
+        }
+      } else {
+        const parsedId = Number(estadoParam);
+        if (!isNaN(parsedId)) {
+          setEstadoOrdenId(parsedId);
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("lastActiveTab", parsedId.toString());
+          }
+        }
       }
+      setTabInitialized(true);
     }
   }, [searchParams, setEstadoOrdenId]);
-
-  const { clientes } = useClientes();
-  const { equipos } = useEquipos();
 
   const { data: session } = useSession();
   const { hasPermission } = usePermissions();
@@ -112,24 +128,35 @@ export default function OrdenListLayout() {
   }, [estadosOrden]);
 
   React.useEffect(() => {
-    if (sortedEstadosOrden.length === 0) return;
+    if (tabInitialized || sortedEstadosOrden.length === 0) return;
 
     const activeEstados = sortedEstadosOrden.filter((e) => e.estado);
     if (activeEstados.length === 0) return;
 
     const savedTab = typeof window !== 'undefined' ? sessionStorage.getItem('lastActiveTab') : null;
+    if (savedTab === 'all' || savedTab === 'todas') {
+      setEstadoOrdenId(undefined);
+      setTabInitialized(true);
+      return;
+    }
+
     const resolvedId = resolveActiveTabId(estadoOrdenId, activeEstados, savedTab);
 
     if (resolvedId !== undefined && resolvedId !== estadoOrdenId) {
       setEstadoOrdenId(resolvedId);
     }
-  }, [sortedEstadosOrden, estadoOrdenId, setEstadoOrdenId]);
+    setTabInitialized(true);
+  }, [sortedEstadosOrden, estadoOrdenId, setEstadoOrdenId, tabInitialized]);
 
   React.useEffect(() => {
-    if (estadoOrdenId !== undefined) {
-      sessionStorage.setItem('lastActiveTab', estadoOrdenId.toString());
+    if (typeof window !== 'undefined') {
+      if (estadoOrdenId !== undefined) {
+        sessionStorage.setItem('lastActiveTab', estadoOrdenId.toString());
+      } else if (tabInitialized) {
+        sessionStorage.setItem('lastActiveTab', 'all');
+      }
     }
-  }, [estadoOrdenId]);
+  }, [estadoOrdenId, tabInitialized]);
 
   const [lastModifiedOrderId, setLastModifiedOrderId] = useState<number | null>(null);
 
@@ -237,7 +264,7 @@ export default function OrdenListLayout() {
       });
 
       updateLastModifiedOrder(selectedOrder.id);
-      await fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
+      await fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, technicianId, clientId, fechaInicio, fechaFin);
       return { success: true };
     } catch (error: any) {
       if (error?.message?.includes('Conflicto de concurrencia') || error?.status === 409) {
@@ -287,21 +314,29 @@ export default function OrdenListLayout() {
         const estaActivo = order.estado;
         await toggleOrderStatus(order.id);
         toast.success(`Orden ${!estaActivo ? "habilitada" : "deshabilitada"} correctamente`);
-        fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
+        fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, technicianId, clientId, fechaInicio, fechaFin);
       } else if ((action === "advance" || action === "advance_warning") && nextState) {
         await changeOrderStatus(order.id, nextState.id);
         toast.success(`Orden avanzada a: ${nextState.nombre}`);
         updateLastModifiedOrder(order.id);
-        setEstadoOrdenId(nextState.id);
+        if (estadoOrdenId !== undefined) {
+          setEstadoOrdenId(nextState.id);
+        } else {
+          fetchOrders(currentPage, limit, searchTerm, showInactive, undefined, technicianId, clientId, fechaInicio, fechaFin);
+        }
       } else if (action === "retroceder" && prevState) {
         await changeOrderStatus(order.id, prevState.id);
         toast.success(`Orden retrocedida a: ${prevState.nombre}`);
         updateLastModifiedOrder(order.id);
-        setEstadoOrdenId(prevState.id);
+        if (estadoOrdenId !== undefined) {
+          setEstadoOrdenId(prevState.id);
+        } else {
+          fetchOrders(currentPage, limit, searchTerm, showInactive, undefined, technicianId, clientId, fechaInicio, fechaFin);
+        }
       } else {
         await deleteOrder(order.id);
         toast.success("Orden eliminada correctamente");
-        fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
+        fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, technicianId, clientId, fechaInicio, fechaFin);
       }
 
     } catch (error) {
@@ -519,36 +554,43 @@ export default function OrdenListLayout() {
       <StateTabsBar 
         estados={sortedEstadosOrden}
         activeStateId={estadoOrdenId}
-        onStateChange={(id) => setEstadoOrdenId(id)}
+        onStateChange={(id) => {
+          setEstadoOrdenId(id);
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('lastActiveTab', id === undefined ? 'all' : id.toString());
+          }
+        }}
         totalCount={totalItems}
       />
 
       {/* 2. Barra de Búsqueda y Filtros */}
-      <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
+      <div className="flex flex-col gap-3.5 sm:gap-4 rounded-xl border border-gray-200 bg-white p-3.5 sm:p-4 shadow-sm dark:border-gray-800 dark:bg-white/[0.03] min-w-0">
         {/* Fila 1: Filtros de Fecha */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="flex flex-1 items-center gap-2">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Fechas:</span>
-            <label htmlFor={fechaInicioId} className="sr-only">Fecha Inicio</label>
-            <input
-              id={fechaInicioId}
-              type="date"
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              value={fechaInicio || ""}
-              onChange={(e) => setFechaInicio(e.target.value || undefined)}
-            />
-            <span className="text-gray-500">-</span>
-            <label htmlFor={fechaFinId} className="sr-only">Fecha Fin</label>
-            <input
-              id={fechaFinId}
-              type="date"
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              value={fechaFin || ""}
-              onChange={(e) => setFechaFin(e.target.value || undefined)}
-            />
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between min-w-0">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center flex-1 min-w-0">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 shrink-0">Fechas:</span>
+            <div className="grid grid-cols-1 min-[420px]:grid-cols-[1fr_auto_1fr] sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto min-w-0">
+              <label htmlFor={fechaInicioId} className="sr-only">Fecha Inicio</label>
+              <input
+                id={fechaInicioId}
+                type="date"
+                className="w-full sm:w-auto min-w-0 rounded-lg border border-gray-300 px-2.5 sm:px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                value={fechaInicio || ""}
+                onChange={(e) => setFechaInicio(e.target.value || undefined)}
+              />
+              <span className="hidden min-[420px]:inline text-center text-gray-500">-</span>
+              <label htmlFor={fechaFinId} className="sr-only">Fecha Fin</label>
+              <input
+                id={fechaFinId}
+                type="date"
+                className="w-full sm:w-auto min-w-0 rounded-lg border border-gray-300 px-2.5 sm:px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                value={fechaFin || ""}
+                onChange={(e) => setFechaFin(e.target.value || undefined)}
+              />
+            </div>
           </div>
           
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+          <div className="flex items-center justify-between sm:justify-start gap-2 text-sm text-gray-600 dark:text-gray-400 shrink-0">
             <span>Mostrar</span>
             <label htmlFor={limitId} className="sr-only">Registros por página</label>
             <select 
@@ -557,7 +599,7 @@ export default function OrdenListLayout() {
               onChange={(e) => {
                 const newLimit = Number(e.target.value);
                 setLimit(newLimit);
-                fetchOrders(1, newLimit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
+                fetchOrders(1, newLimit, searchTerm, showInactive, estadoOrdenId, technicianId, clientId, fechaInicio, fechaFin);
               }}
               className="rounded-md border border-gray-300 px-2 py-1 dark:border-gray-700 dark:bg-gray-800"
             >
@@ -571,44 +613,36 @@ export default function OrdenListLayout() {
         </div>
 
         {/* Fila 2: Búsqueda y Selectores */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center min-w-0">
+          <div className="relative flex-1 w-full md:max-w-sm min-w-0">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <label htmlFor={searchId} className="sr-only">Buscar órdenes</label>
             <input
               id={searchId}
               type="text"
-              placeholder="Buscar por ID, Cliente o Vehículo..."
+              placeholder="Buscar por ID, Cliente o Equipo..."
               className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           
-          <label htmlFor={clientIdInputId} className="sr-only">Filtrar por cliente</label>
+          <label htmlFor={technicianSelectId} className="sr-only">Filtrar por técnico</label>
           <select
-            id={clientIdInputId}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white md:w-48"
-            value={clientId || ""}
-            onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : undefined)}
+            id={technicianSelectId}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white md:w-52 min-w-0"
+            value={technicianId || ""}
+            onChange={(e) => setTechnicianId(e.target.value ? Number(e.target.value) : undefined)}
           >
-            <option value="">Buscar por cliente...</option>
-            {clientes.map(c => (
-              <option key={c.id} value={c.id}>{c.nombre} {c.cedula ? `(${c.cedula})` : ''}</option>
+            <option value="">Todos los técnicos</option>
+            {tecnicos.map((tecnico) => (
+              <option key={tecnico.id} value={tecnico.id}>
+                {tecnico.nombre} {tecnico.apellido}
+              </option>
             ))}
           </select>
 
-          {/* Opcional: Filtro por vehículo/equipo si tu backend lo soporta, aunque useOrders no parece tener `equipoId`, lo dejamos comentado o listo. */}
-          {/* <select
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white md:w-48"
-          >
-            <option value="">Buscar por equipo...</option>
-            {equipos.map(eq => (
-              <option key={eq.id} value={eq.id}>{eq.numeroSerie}</option>
-            ))}
-          </select> */}
-
-          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 ml-auto">
+          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 md:ml-auto">
             <input
               type="checkbox"
               checked={showInactive}
@@ -660,12 +694,12 @@ export default function OrdenListLayout() {
 
       {/* 4. Paginación */}
       {totalItems > 0 && (
-        <div className="flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-800">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-gray-200 pt-4 dark:border-gray-800">
           <span className="text-sm text-gray-700 dark:text-gray-300">Total: {totalItems}</span>
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
-            onPageChange={(page) => fetchOrders(page, limit, searchTerm, showInactive, estadoOrdenId)}
+            onPageChange={(page) => fetchOrders(page, limit, searchTerm, showInactive, estadoOrdenId, technicianId, clientId, fechaInicio, fechaFin)}
           />
         </div>
       )}
@@ -718,7 +752,7 @@ export default function OrdenListLayout() {
           orderId={selectedOrderId}
           onSuccess={() => {
             if (selectedOrderId) updateLastModifiedOrder(selectedOrderId);
-            fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
+            fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, technicianId, clientId, fechaInicio, fechaFin);
           }}
         />
       )}
@@ -736,7 +770,7 @@ export default function OrdenListLayout() {
             } else if (selectedOrder) {
               updateLastModifiedOrder(selectedOrder.id);
             }
-            fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
+            fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, technicianId, clientId, fechaInicio, fechaFin);
           }}
           presupuesto={presupuestoDetails.presupuesto}
           resumen={presupuestoDetails.resumen}
@@ -753,7 +787,7 @@ export default function OrdenListLayout() {
           onSuccess={() => {
             // Toast is handled by useCrud
             if (selectedOrder) updateLastModifiedOrder(selectedOrder.id);
-            fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
+            fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, technicianId, clientId, fechaInicio, fechaFin);
           }}
           orderId={selectedOrder?.id || null}
           workOrderNumber={selectedOrder?.workOrderNumber}
@@ -778,7 +812,7 @@ export default function OrdenListLayout() {
           onSuccess={() => {
             if (selectedOrder) {
               updateLastModifiedOrder(selectedOrder.id);
-              fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, undefined, clientId, fechaInicio, fechaFin);
+              fetchOrders(currentPage, limit, searchTerm, showInactive, estadoOrdenId, technicianId, clientId, fechaInicio, fechaFin);
             }
           }}
           orderId={selectedOrder?.id || 0}

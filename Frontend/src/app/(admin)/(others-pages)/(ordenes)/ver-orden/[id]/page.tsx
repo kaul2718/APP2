@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-toastify';
 import {
   ArrowLeftIcon,
+  ArrowRightIcon,
   PencilIcon,
   PlusIcon,
   PhotoIcon,
@@ -41,7 +42,15 @@ import type { Order } from '@/types/order.types';
 import { OrderType } from '@/types/order.types';
 import { apiRequest } from '@/lib/api';
 import { useOrders } from '@/hooks/useOrders';
-import { usePresupuesto } from '@/hooks/usePresupuesto';
+import {
+  usePresupuesto,
+  formatModalidadAutorizacion,
+  formatResponsableAutorizacion,
+  ModalidadAutorizacionType,
+} from '@/hooks/usePresupuesto';
+import { useEstadoOrden } from '@/hooks/useEstadoOrden';
+import { usePermissions } from '@/hooks/usePermissions';
+import { sortEstadosOrden } from '@/utils/orderStatusUtils';
 import ChecklistResultView from '@/components/orden/ChecklistResultView';
 
 // Modales que necesitamos
@@ -57,6 +66,7 @@ import ConfirmDialog from "@/components/modals/ConfirmDialog";
 import ConvertirOrdenModal from "@/components/modals/ConvertirOrdenModal";
 import AutorizarPresupuestoPresencialModal from "@/components/modals/AutorizarPresupuestoPresencialModal";
 import OrdenCreadaModal from "@/components/modals/OrdenCreadaModal";
+import AsignarCasilleroModal from "@/components/modals/AsignarCasilleroModal";
 
 export default function PerfilOrdenPage() {
   const { id } = useParams();
@@ -65,8 +75,15 @@ export default function PerfilOrdenPage() {
   const { role } = session?.user || {};
   const isClient = role === 'client';
 
-  const { updateOrder } = useOrders();
+  const { updateOrder, changeOrderStatus } = useOrders();
   const { updatePresupuesto } = usePresupuesto();
+  const { estadosOrden } = useEstadoOrden();
+  const { hasPermission } = usePermissions();
+  const canOperateOrders = hasPermission("orders.update");
+
+  const sortedEstadosOrden = React.useMemo(() => sortEstadosOrden(estadosOrden), [estadosOrden]);
+  const activeEstados = React.useMemo(() => sortedEstadosOrden.filter((e) => e.estado), [sortedEstadosOrden]);
+
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -81,7 +98,17 @@ export default function PerfilOrdenPage() {
   const [isPresupuestoModalOpen, setIsPresupuestoModalOpen] = useState(false);
   const [isEditPresupuestoModalOpen, setIsEditPresupuestoModalOpen] = useState(false);
   const [isPresupuestoPresencialOpen, setIsPresupuestoPresencialOpen] = useState(false);
+  const [presupuestoModalDecision, setPresupuestoModalDecision] = useState<'APROBADO' | 'RECHAZADO'>('APROBADO');
+  const [presupuestoModalModalidad, setPresupuestoModalModalidad] = useState<ModalidadAutorizacionType>('CONFIRMACION_TELEFONICA');
   const [isConvertirModalOpen, setIsConvertirModalOpen] = useState(false);
+  const [isCasilleroModalOpen, setIsCasilleroModalOpen] = useState(false);
+  const [statusConfirmAction, setStatusConfirmAction] = useState<{
+    action: "advance" | "retroceder" | "advance_warning";
+    nextState?: any;
+    prevState?: any;
+    warningType?: "diagnostico" | "presupuesto" | "presupuesto_rechazado" | "presupuesto_pendiente" | "sin_casillero" | "imprimir_acta";
+  } | null>(null);
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
   const [documentos, setDocumentos] = useState<any[]>([]);
 
   // Estados para respuesta de presupuesto y gestión de invitaciones de clientes
@@ -313,8 +340,10 @@ export default function PerfilOrdenPage() {
       if (shouldClose) {
         await updatePresupuesto(order.presupuesto.id, {
           estadoId: updatedPresupuesto.estadoId,
-          descripcion: updatedPresupuesto.descripcion
-        });
+          descripcion: updatedPresupuesto.descripcion,
+          modalidad: updatedPresupuesto.modalidad,
+          observaciones: updatedPresupuesto.observaciones,
+        } as any);
       }
 
       sessionStorage.setItem('lastModifiedOrderId', order.id.toString());
@@ -325,6 +354,86 @@ export default function PerfilOrdenPage() {
       }
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const handleAdvanceClick = () => {
+    if (!order || !order.estadoOrden || activeEstados.length === 0) return;
+
+    const estadoNombre = order.estadoOrden.nombre.toLowerCase();
+    const currentIndex = activeEstados.findIndex((e) => e.id === order.estadoOrden?.id);
+
+    if (currentIndex < 0 || currentIndex >= activeEstados.length - 1) return;
+
+    const nextState = activeEstados[currentIndex + 1];
+
+    if (estadoNombre.includes('diagn')) {
+      const budgetStatus = order.presupuesto?.estado?.nombre?.toLowerCase() || '';
+
+      if (budgetStatus.includes('rechaz')) {
+        const listoState = activeEstados.find((e) => e.nombre.toLowerCase().includes('listo')) || activeEstados[activeEstados.length - 1];
+        setStatusConfirmAction({ action: "advance_warning", nextState: listoState, warningType: "presupuesto_rechazado" });
+        return;
+      }
+
+      if (budgetStatus.includes('pendien')) {
+        setStatusConfirmAction({ action: "advance_warning", nextState, warningType: "presupuesto_pendiente" });
+        return;
+      }
+
+      setStatusConfirmAction({ action: "advance_warning", nextState, warningType: "diagnostico" });
+      return;
+    }
+
+    if (estadoNombre.includes('listo')) {
+      if (!order.casillero) {
+        setStatusConfirmAction({ action: "advance_warning", nextState, warningType: "sin_casillero" });
+        return;
+      }
+      setStatusConfirmAction({ action: "advance_warning", nextState, warningType: "imprimir_acta" });
+      return;
+    }
+
+    const isPendingBudget = (estadoNombre.includes('repuesto') || estadoNombre.includes('aprob')) && !order.presupuesto;
+    if (isPendingBudget) {
+      setStatusConfirmAction({ action: "advance_warning", nextState, warningType: "presupuesto" });
+    } else {
+      setStatusConfirmAction({ action: "advance", nextState });
+    }
+  };
+
+  const handleRetrocederClick = () => {
+    if (!order || !order.estadoOrden || activeEstados.length === 0) return;
+    const currentIndex = activeEstados.findIndex((e) => e.id === order.estadoOrden?.id);
+    if (currentIndex > 0) {
+      const prevState = activeEstados[currentIndex - 1];
+      setStatusConfirmAction({ action: "retroceder", prevState });
+    }
+  };
+
+  const handleConfirmStatusAction = async () => {
+    if (!statusConfirmAction || !order) return;
+    const { action, nextState, prevState } = statusConfirmAction;
+
+    try {
+      setIsChangingStatus(true);
+      if ((action === "advance" || action === "advance_warning") && nextState) {
+        await changeOrderStatus(order.id, nextState.id);
+        toast.success(`Orden avanzada a: ${nextState.nombre}`);
+        sessionStorage.setItem('lastModifiedOrderId', order.id.toString());
+        await fetchOrder();
+      } else if (action === "retroceder" && prevState) {
+        await changeOrderStatus(order.id, prevState.id);
+        toast.success(`Orden retrocedida a: ${prevState.nombre}`);
+        sessionStorage.setItem('lastModifiedOrderId', order.id.toString());
+        await fetchOrder();
+      }
+    } catch (error: any) {
+      if (error?.isAuthError || error?.status === 401) return;
+      toast.error(error?.message || `Error al ${action === "retroceder" ? "retroceder" : "avanzar"} el estado de la orden`);
+    } finally {
+      setIsChangingStatus(false);
+      setStatusConfirmAction(null);
     }
   };
 
@@ -390,6 +499,11 @@ export default function PerfilOrdenPage() {
   // Si no se encuentra, pero la orden existe, al menos mostrar el primer paso
   const activeIndex = isArchived ? STATUS_STEPS.length - 1 : (currentStepIndex === -1 ? 0 : currentStepIndex);
 
+  const currentEstadoIndex = activeEstados.findIndex((e) => e.id === order.estadoOrden?.id);
+  const isLastState = isArchived || (currentEstadoIndex !== -1 && currentEstadoIndex === activeEstados.length - 1);
+  const isFirstState = currentEstadoIndex <= 0;
+  const nextEstadoObj = !isLastState && currentEstadoIndex !== -1 ? activeEstados[currentEstadoIndex + 1] : null;
+
   const getWaitingTimeDetails = () => {
     if (!order || isArchived) return null;
     if (order.esperaRepuesto) {
@@ -440,27 +554,27 @@ export default function PerfilOrdenPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-12">
       {/* Top sticky action bar */}
-      <div className="sticky top-0 z-30 border-b border-gray-200 bg-white/80 backdrop-blur-md dark:border-gray-800 dark:bg-gray-900/80 px-4 py-3 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-[1600px] flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+      <div className="sticky top-0 z-30 border-b border-gray-200 bg-white/80 backdrop-blur-md dark:border-gray-800 dark:bg-gray-900/80 px-3 py-2.5 sm:px-6 sm:py-3 lg:px-8">
+        <div className="mx-auto max-w-[1600px] flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-start sm:items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
             <button
               onClick={() => router.back()}
               aria-label="Volver atrás"
-              className="group flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition-all hover:border-brand-500 hover:text-brand-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+              className="group flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-500 shadow-sm transition-all hover:border-brand-500 hover:text-brand-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
             >
-              <ArrowLeftIcon className="h-5 w-5 transition-transform group-hover:-translate-x-1" aria-hidden="true" />
+              <ArrowLeftIcon className="h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover:-translate-x-1" aria-hidden="true" />
             </button>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                ODS-{order.workOrderNumber}
-                <span className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base sm:text-xl font-bold text-gray-900 dark:text-white flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span className="shrink-0">ODS-{order.workOrderNumber}</span>
+                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider ${
                   order.estadoOrden?.nombre.toLowerCase().includes('entrega')
                     ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                     : 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
                 }`}>
                   {order.estadoOrden?.nombre || 'Sin estado'}
                 </span>
-                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold uppercase tracking-wider ${
+                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider ${
                   order.tipoOrden === OrderType.EXPRESS
                     ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
                     : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700'
@@ -469,29 +583,30 @@ export default function PerfilOrdenPage() {
                 </span>
                 {getWaitingTimeDetails()}
               </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 Creada por Recepción • {formatDate(order.createdAt)}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
             {!isClient && (
               <>
                 {order.tipoOrden === OrderType.EXPRESS && (
                   <button
                     onClick={() => setIsConvertirModalOpen(true)}
-                    className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-sm font-bold text-indigo-700 shadow-sm hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-900/60 transition-all"
+                    className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-xs sm:text-sm font-bold text-indigo-700 shadow-sm hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-900/60 transition-all"
                     title="Escalar de Orden Express a Orden Completa con diagnóstico técnico e inspección complementaria"
                   >
-                    <ArrowUpCircleIcon className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                    <ArrowUpCircleIcon className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
                     <span>Escalar a Completa</span>
                   </button>
                 )}
 
                 <button
                   onClick={() => setIsEditModalOpen(true)}
-                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  title="Editar orden"
                 >
                   <PencilIcon className="h-4 w-4" />
                   <span className="hidden sm:inline">Editar</span>
@@ -499,7 +614,8 @@ export default function PerfilOrdenPage() {
 
                 <button
                   onClick={() => setIsActividadModalOpen(true)}
-                  className="flex items-center gap-2 rounded-lg border border-transparent bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600"
+                  className="flex items-center gap-1.5 rounded-lg border border-transparent bg-brand-600 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-white shadow-sm hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600"
+                  title="Registrar actividad"
                 >
                   <WrenchScrewdriverIcon className="h-4 w-4" />
                   <span className="hidden sm:inline">Actividad</span>
@@ -507,7 +623,8 @@ export default function PerfilOrdenPage() {
 
                 <button
                   onClick={() => order.presupuesto ? setIsEditPresupuestoModalOpen(true) : setIsPresupuestoModalOpen(true)}
-                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  title="Presupuesto"
                 >
                   <CurrencyDollarIcon className="h-4 w-4" />
                   <span className="hidden sm:inline">Presupuesto</span>
@@ -515,13 +632,14 @@ export default function PerfilOrdenPage() {
 
                 <button
                   onClick={() => setIsEvidenciaModalOpen(true)}
-                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  title="Subir evidencia"
                 >
                   <PhotoIcon className="h-4 w-4" />
                   <span className="hidden sm:inline">Subir Evidencia</span>
                 </button>
 
-                <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-1 hidden sm:block"></div>
+                <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-0.5 hidden sm:block"></div>
               </>
             )}
 
@@ -529,7 +647,7 @@ export default function PerfilOrdenPage() {
               <>
                 <button
                   onClick={() => setIsTicketTermicoOpen(true)}
-                  className="flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50/70 px-4 py-2 text-sm font-semibold text-emerald-800 shadow-xs hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60 transition-colors"
+                  className="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50/70 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-emerald-800 shadow-xs hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60 transition-colors"
                   title="Imprimir ticket térmico POS (80 mm)"
                 >
                   <TicketIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
@@ -538,7 +656,8 @@ export default function PerfilOrdenPage() {
 
                 <button
                   onClick={() => setIsPdfIngresoOpen(true)}
-                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  title="PDF Ingreso (A4)"
                 >
                   <PrinterIcon className="h-4 w-4" />
                   <span className="hidden lg:inline">PDF Ingreso (A4)</span>
@@ -546,18 +665,47 @@ export default function PerfilOrdenPage() {
 
                 <button
                   onClick={() => setIsPdfEntregaOpen(true)}
-                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  title="PDF Entrega (A4)"
                 >
                   <DocumentTextIcon className="h-4 w-4" />
                   <span className="hidden lg:inline">PDF Entrega (A4)</span>
                 </button>
+
+                {canOperateOrders && (!isFirstState || !isLastState) && (
+                  <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-0.5 hidden sm:block"></div>
+                )}
+
+                {canOperateOrders && !isFirstState && !isArchived && (
+                  <button
+                    type="button"
+                    onClick={handleRetrocederClick}
+                    className="flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-lg border border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors shadow-xs dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    title="Retroceder estado de la ODS"
+                    aria-label="Retroceder estado de la ODS"
+                  >
+                    <ArrowLeftIcon className="h-4 w-4" />
+                  </button>
+                )}
+
+                {canOperateOrders && !isLastState && (
+                  <button
+                    type="button"
+                    onClick={handleAdvanceClick}
+                    className="flex items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-bold text-white shadow-sm hover:bg-brand-600 transition-all dark:bg-brand-600 dark:hover:bg-brand-500"
+                    title={nextEstadoObj ? `Avanzar orden a: ${nextEstadoObj.nombre}` : "Avanzar estado de la ODS"}
+                  >
+                    <span>{nextEstadoObj ? `Avanzar a ${nextEstadoObj.nombre}` : "Avanzar Estado"}</span>
+                    <ArrowRightIcon className="h-4 w-4 shrink-0" />
+                  </button>
+                )}
               </>
             )}
           </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1600px] px-3 py-5 sm:px-6 sm:py-8 lg:px-8">
 
         {/* Success Banner for Archived Orders */}
         <AnimatePresence>
@@ -565,19 +713,19 @@ export default function PerfilOrdenPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="mb-8 overflow-hidden rounded-3xl bg-gradient-to-r from-brand-500 to-green-500 p-1 shadow-2xl shadow-brand-500/20"
+              className="mb-6 sm:mb-8 overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-brand-500 to-green-500 p-1 shadow-2xl shadow-brand-500/20"
             >
-              <div className="flex items-center justify-between rounded-[22px] bg-white px-8 py-6 dark:bg-gray-900">
-                <div className="flex items-center gap-6">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400">
-                    <SparklesIcon className="h-10 w-10 animate-pulse" />
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-[20px] sm:rounded-[22px] bg-white px-4 py-4 sm:px-8 sm:py-6 dark:bg-gray-900">
+                <div className="flex items-start sm:items-center gap-3.5 sm:gap-6">
+                  <div className="flex h-12 w-12 sm:h-16 sm:w-16 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400">
+                    <SparklesIcon className="h-7 w-7 sm:h-10 sm:w-10 animate-pulse" />
                   </div>
-                  <div>
-                    <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight">¡Servicio Completado con Éxito!</h2>
-                    <p className="text-gray-500 dark:text-gray-400">Esta orden ha sido finalizada y entregada al cliente. El ciclo está 100% completado.</p>
+                  <div className="min-w-0">
+                    <h2 className="text-base sm:text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight break-words">¡Servicio Completado con Éxito!</h2>
+                    <p className="text-xs sm:text-base text-gray-500 dark:text-gray-400 mt-0.5">Esta orden ha sido finalizada y entregada al cliente. El ciclo está 100% completado.</p>
                   </div>
                 </div>
-                <div className="hidden md:block">
+                <div className="hidden md:block shrink-0">
                   <div className="flex flex-col items-end">
                     <span className="text-4xl font-black text-brand-600 dark:text-brand-400">100%</span>
                     <span className="text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400">Nivel de Progreso</span>
@@ -592,11 +740,11 @@ export default function PerfilOrdenPage() {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-10 overflow-hidden rounded-3xl bg-white p-8 shadow-lg border border-gray-100 dark:bg-gray-800/50 dark:border-gray-700"
+          className="mb-6 sm:mb-10 overflow-hidden rounded-2xl sm:rounded-3xl bg-white p-3.5 sm:p-6 md:p-8 shadow-lg border border-gray-100 dark:bg-gray-800/50 dark:border-gray-700"
         >
           <div className="relative">
             {/* Background Line */}
-            <div className="absolute top-6 left-0 h-1.5 w-full bg-gray-100 dark:bg-gray-700/50 rounded-full" aria-hidden="true">
+            <div className="absolute top-4 sm:top-6 left-4 right-4 sm:left-0 sm:right-0 h-1 sm:h-1.5 bg-gray-100 dark:bg-gray-700/50 rounded-full" aria-hidden="true">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${(activeIndex / (STATUS_STEPS.length - 1)) * 100}%` }}
@@ -605,14 +753,14 @@ export default function PerfilOrdenPage() {
               ></motion.div>
             </div>
 
-            <ul className="relative flex justify-between w-full">
+            <ul className="relative grid grid-cols-5 gap-1 sm:flex sm:justify-between w-full">
               {STATUS_STEPS.map((step, idx) => {
                 const isCompleted = idx < activeIndex;
                 const isCurrent = idx === activeIndex;
                 const Icon = step.icon;
 
                 return (
-                  <li key={step.id} className="flex flex-col items-center">
+                  <li key={step.id} className="flex flex-col items-center min-w-0 px-0.5">
                     <div className="relative">
                       {/* Current Step Glowing Effect */}
                       {isCurrent && (
@@ -626,7 +774,7 @@ export default function PerfilOrdenPage() {
 
                       <motion.div
                         whileHover={{ scale: 1.1 }}
-                        className={`relative flex h-12 w-12 items-center justify-center rounded-full transition-all duration-500 z-10 border-4 ${
+                        className={`relative flex h-8 w-8 sm:h-12 sm:w-12 items-center justify-center rounded-full transition-all duration-500 z-10 border-2 sm:border-4 ${
                           isCompleted ? 'bg-brand-500 border-brand-500 text-white shadow-lg shadow-brand-500/20' :
                           isCurrent ? 'bg-white border-brand-500 text-brand-600 dark:bg-gray-800 shadow-[0_0_20px_rgba(197,242,66,0.4)]' :
                           'bg-gray-50 border-gray-100 text-gray-300 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-700'
@@ -634,16 +782,16 @@ export default function PerfilOrdenPage() {
                       >
                         {isCompleted ? (
                           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2 }}>
-                            <CheckIcon className="h-6 w-6 stroke-[3px]" />
+                            <CheckIcon className="h-4 w-4 sm:h-6 sm:w-6 stroke-[3px]" />
                           </motion.div>
                         ) : (
-                          <Icon className={`h-5 w-5 ${isCurrent ? 'animate-bounce' : ''}`} />
+                          <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${isCurrent ? 'animate-bounce' : ''}`} />
                         )}
                       </motion.div>
                     </div>
 
-                    <div className="mt-4 flex flex-col items-center">
-                      <span className={`text-xs font-black uppercase tracking-[0.2em] ${
+                    <div className="mt-2 sm:mt-4 flex flex-col items-center min-w-0 w-full">
+                      <span className={`text-[9px] min-[380px]:text-[10px] sm:text-xs font-extrabold sm:font-black uppercase tracking-tight sm:tracking-wider md:tracking-[0.18em] text-center leading-tight break-words max-w-full ${
                         isCurrent ? 'text-brand-600 dark:text-brand-400' :
                         isCompleted ? 'text-gray-600 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'
                       }`}>
@@ -654,14 +802,14 @@ export default function PerfilOrdenPage() {
                         <motion.span
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
-                          className="mt-1 flex items-center gap-1.5"
+                          className="mt-1 flex items-center justify-center gap-1"
                           aria-label="Paso actual"
                         >
-                          <span className="relative flex h-2 w-2" aria-hidden="true">
+                          <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2 shrink-0" aria-hidden="true">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-500"></span>
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-brand-500"></span>
                           </span>
-                          <span className="text-xs font-bold text-brand-500 uppercase tracking-tighter">Paso Actual</span>
+                          <span className="text-[8px] sm:text-xs font-bold text-brand-500 uppercase tracking-tighter text-center leading-none">Paso Actual</span>
                         </motion.span>
                       )}
                     </div>
@@ -672,19 +820,19 @@ export default function PerfilOrdenPage() {
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-4">
 
           {/* Main Content Column (3/4) */}
-          <div className="space-y-8 lg:col-span-3">
+          <div className="space-y-6 sm:space-y-8 lg:col-span-3 min-w-0">
 
             {/* Cliente & Equipo Info Bar */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex items-start gap-4 rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                  <UserCircleIcon className="h-7 w-7" />
+              <div className="flex items-start gap-3.5 sm:gap-4 rounded-2xl bg-white p-4 sm:p-6 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 min-w-0">
+                <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                  <UserCircleIcon className="h-6 w-6 sm:h-7 sm:w-7" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">Datos del Cliente</p>
                     {order.client?.cedula && (
                       <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
@@ -692,11 +840,11 @@ export default function PerfilOrdenPage() {
                       </span>
                     )}
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">{formatUserName(order.client)}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{order.client.telefono || order.client.correo || (order.client.role === 'client' ? 'Cliente' : 'Usuario Sistema')}</p>
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mt-1 break-words">{formatUserName(order.client)}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 break-words">{order.client.telefono || order.client.correo || (order.client.role === 'client' ? 'Cliente' : 'Usuario Sistema')}</p>
 
                   {!isClient && order.client?.id && (
-                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2">
+                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex flex-wrap items-center justify-between gap-2">
                       <span className="text-[11px] text-gray-500 font-medium">Acceso al portal:</span>
                       <button
                         type="button"
@@ -713,32 +861,32 @@ export default function PerfilOrdenPage() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 rounded-2xl bg-white p-6 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
-                  <ComputerDesktopIcon className="h-7 w-7" />
+              <div className="flex items-start gap-3.5 sm:gap-4 rounded-2xl bg-white p-4 sm:p-6 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 min-w-0">
+                <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                  <ComputerDesktopIcon className="h-6 w-6 sm:h-7 sm:w-7" />
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">Equipo en Servicio</p>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mt-1 break-words">
                     {order.equipo?.tipoEquipo?.nombre} {order.equipo?.marca?.nombre} {order.equipo?.modelo?.nombre}
                   </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">SN: {order.equipo?.numeroSerie}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-mono break-all">SN: {order.equipo?.numeroSerie}</p>
                 </div>
               </div>
             </div>
 
             {/* Problem & Accessories */}
-            <div className="rounded-2xl bg-white p-8 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
-              <div className="flex items-center gap-2 mb-6">
-                <div className="h-8 w-1 bg-brand-500 rounded-full"></div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Descripción del Servicio</h2>
+            <div className="rounded-2xl bg-white p-4 sm:p-6 md:p-8 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-2 mb-4 sm:mb-6">
+                <div className="h-7 sm:h-8 w-1 bg-brand-500 rounded-full shrink-0"></div>
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Descripción del Servicio</h2>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                 <div>
                   <p className="text-xs font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">Problema Reportado</p>
                   <div className="mt-2 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/50 min-h-[100px] border border-gray-100 dark:border-gray-800">
-                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed italic">
+                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed italic break-words">
                       "{order.problemaReportado || 'Sin descripción detallada'}"
                     </p>
                   </div>
@@ -749,8 +897,8 @@ export default function PerfilOrdenPage() {
                   <div className="flex flex-wrap gap-2">
                     {order.accesorios && order.accesorios.length > 0 ? (
                       order.accesorios.map((acc, idx) => (
-                        <span key={idx} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
-                          <PlusIcon className="h-3 w-3" />
+                        <span key={idx} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-100 dark:border-blue-800 break-words">
+                          <PlusIcon className="h-3 w-3 shrink-0" />
                           {acc}
                         </span>
                       ))
@@ -763,20 +911,20 @@ export default function PerfilOrdenPage() {
             </div>
 
             {/* Evidence Gallery */}
-            <div className="rounded-2xl bg-white p-8 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div className="rounded-2xl bg-white p-4 sm:p-6 md:p-8 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 mb-5 sm:mb-6">
                 <div className="flex items-center gap-2">
-                  <div className="h-8 w-1 bg-brand-500 rounded-full"></div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Evidencias Fotográficas</h2>
+                  <div className="h-7 sm:h-8 w-1 bg-brand-500 rounded-full shrink-0"></div>
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Evidencias Fotográficas</h2>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
                   <label htmlFor="filter-status-select" className="text-xs font-bold uppercase text-gray-600 dark:text-gray-400">Filtrar por estado:</label>
                   <select
                     id="filter-status-select"
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
-                    className="text-xs font-semibold bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-brand-500 transition-all text-gray-900 dark:text-white"
+                    className="w-full sm:w-auto text-xs font-semibold bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-brand-500 transition-all text-gray-900 dark:text-white"
                   >
                     <option value="todos">Todos los estados ({order.evidencias?.length || 0})</option>
                     {order.evidencias && Array.from(new Set(order.evidencias.map(ev => ev.estadoOrden?.nombre).filter(Boolean))).map((statusName) => (
@@ -861,11 +1009,11 @@ export default function PerfilOrdenPage() {
 
             {/* Inspección Inicial de Recepción (Checklist) */}
             {(order.checklistData || (order as any).checklist_template || order.tipoOrden === OrderType.COMPLETA) && (
-              <div className="rounded-2xl bg-white p-8 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
-                <div className="flex items-center justify-between gap-3 mb-6">
+              <div className="rounded-2xl bg-white p-4 sm:p-6 md:p-8 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4 sm:mb-6">
                   <div className="flex items-center gap-2">
-                    <div className="h-8 w-1 bg-brand-500 rounded-full"></div>
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Inspección Inicial de Recepción</h2>
+                    <div className="h-7 sm:h-8 w-1 bg-brand-500 rounded-full shrink-0"></div>
+                    <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Inspección Inicial de Recepción</h2>
                   </div>
                   {!isClient && order.tipoOrden === OrderType.EXPRESS && (
                     <button
@@ -882,11 +1030,11 @@ export default function PerfilOrdenPage() {
             )}
 
             {/* Actividades Técnicas Timeline */}
-            <div className="rounded-2xl bg-white p-8 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-8">
+            <div className="rounded-2xl bg-white p-4 sm:p-6 md:p-8 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-6 sm:mb-8">
                 <div className="flex items-center gap-2">
-                  <div className="h-8 w-1 bg-brand-500 rounded-full"></div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Historial de Actividades Técnicas</h2>
+                  <div className="h-7 sm:h-8 w-1 bg-brand-500 rounded-full shrink-0"></div>
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Historial de Actividades Técnicas</h2>
                 </div>
                 {!isClient && (
                   <button
@@ -902,9 +1050,9 @@ export default function PerfilOrdenPage() {
               {order.actividades && order.actividades.length > 0 ? (
                 <div className="space-y-6">
                   {order.actividades.map((act) => (
-                    <div key={act.id} className="relative pl-8 before:absolute before:left-0 before:top-2 before:h-full before:w-px before:bg-gray-100 dark:before:bg-gray-700 last:before:hidden">
+                    <div key={act.id} className="relative pl-5 sm:pl-8 before:absolute before:left-0 before:top-2 before:h-full before:w-px before:bg-gray-100 dark:before:bg-gray-700 last:before:hidden">
                       <div className="absolute left-[-4px] top-2 h-2 w-2 rounded-full bg-brand-500 ring-4 ring-white dark:ring-gray-900"></div>
-                      <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-900/30 transition-all hover:shadow-md">
+                      <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 sm:p-6 dark:border-gray-700 dark:bg-gray-900/30 transition-all hover:shadow-md">
                         <div className="flex flex-wrap justify-between gap-2 mb-4">
                           <div>
                             <span className="inline-flex items-center rounded-lg bg-brand-50 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-brand-700 dark:bg-brand-900/30 dark:text-brand-400">
@@ -1049,20 +1197,96 @@ export default function PerfilOrdenPage() {
                       </span>
                     </div>
 
+                    {/* Trazabilidad de la Decisión del Presupuesto */}
+                    {(() => {
+                      const autorizaciones = [...((order.presupuesto as any)?.autorizaciones || [])].sort(
+                        (a: any, b: any) => Number(b.id) - Number(a.id)
+                      );
+                      const ultimaAut = autorizaciones[0] || null;
+                      if (!ultimaAut) return null;
+                      const isApproved = ultimaAut.decision === 'APROBADO';
+                      return (
+                        <div className={`mt-3 p-3 rounded-xl border text-xs space-y-1.5 ${
+                          isApproved
+                            ? 'bg-emerald-50/60 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800/40'
+                            : 'bg-rose-50/60 border-rose-200 dark:bg-rose-950/20 dark:border-rose-800/40'
+                        }`}>
+                          <div className="flex items-center justify-between gap-2 pb-1 border-b border-gray-200/60 dark:border-gray-700/60">
+                            <span className="font-black uppercase tracking-wider text-[11px] text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                              <ShieldCheckIcon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                              Trazabilidad
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              isApproved
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300'
+                                : 'bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-300'
+                            }`}>
+                              Estado: {isApproved ? 'Aprobado' : 'Rechazado'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-600 dark:text-gray-300">
+                            <span className="font-semibold text-gray-500 dark:text-gray-400">Registrado por:</span>{' '}
+                            <span className="font-bold">{formatResponsableAutorizacion(ultimaAut)}</span>
+                          </p>
+                          <p className="text-[11px] text-gray-600 dark:text-gray-300">
+                            <span className="font-semibold text-gray-500 dark:text-gray-400">Modalidad:</span>{' '}
+                            <span className="font-bold">{formatModalidadAutorizacion(ultimaAut.modalidad)}</span>
+                          </p>
+                          <p className="text-[11px] text-gray-600 dark:text-gray-300">
+                            <span className="font-semibold text-gray-500 dark:text-gray-400">Fecha y hora:</span>{' '}
+                            <span className="font-medium">{formatDate(ultimaAut.fechaAutorizacion)}</span>
+                          </p>
+                          {ultimaAut.observaciones && (
+                            <p className="text-[11px] text-gray-600 dark:text-gray-300 pt-0.5">
+                              <span className="font-semibold text-gray-500 dark:text-gray-400">Observación:</span>{' '}
+                              <span className="italic">{ultimaAut.observaciones}</span>
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     {/* Acciones Presupuesto */}
                     {!isClient && String(order.presupuesto.estado?.nombre || order.presupuesto.estado).toLowerCase().includes('pend') && (
                       <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPresupuestoModalDecision('APROBADO');
+                              setPresupuestoModalModalidad('CONFIRMACION_TELEFONICA');
+                              setIsPresupuestoPresencialOpen(true);
+                            }}
+                            className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition-all cursor-pointer"
+                          >
+                            <CheckIcon className="h-4 w-4 shrink-0" />
+                            <span>Aprobar</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPresupuestoModalDecision('RECHAZADO');
+                              setPresupuestoModalModalidad('CONFIRMACION_TELEFONICA');
+                              setIsPresupuestoPresencialOpen(true);
+                            }}
+                            className="flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition-all cursor-pointer"
+                          >
+                            <XMarkIcon className="h-4 w-4 shrink-0" />
+                            <span>Rechazar</span>
+                          </button>
+                        </div>
                         <button
                           type="button"
-                          onClick={() => setIsPresupuestoPresencialOpen(true)}
-                          className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:from-emerald-700 hover:to-teal-700 transition-all cursor-pointer"
+                          onClick={() => {
+                            setPresupuestoModalDecision('APROBADO');
+                            setPresupuestoModalModalidad('PRESENCIAL_FIRMA');
+                            setIsPresupuestoPresencialOpen(true);
+                          }}
+                          className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/70 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/40 px-3 py-2 text-xs font-bold text-indigo-700 dark:text-indigo-300 transition-all cursor-pointer"
                         >
-                          <PencilSquareIcon className="h-4 w-4" />
-                          <span>Autorizar en Mostrador (Firma en Tablet)</span>
+                          <PencilSquareIcon className="h-4 w-4 shrink-0" />
+                          <span>Registrar firma presencial (Tablet)</span>
                         </button>
-                        <p className="text-[11px] text-gray-500 text-center">
-                          Captura firma táctil y sella el acta canónica en R2.
-                        </p>
                       </div>
                     )}
 
@@ -1203,12 +1427,15 @@ export default function PerfilOrdenPage() {
                 {/* Acta de Autorización de Presupuesto */}
                 {(() => {
                   const docPresupuesto = documentos.find(d => d.tipoDocumento === 'AUTORIZACION_PRESUPUESTO' || d.tipoDocumento === 'RECHAZO_PRESUPUESTO');
+                  const ultimaAut = [...((order.presupuesto as any)?.autorizaciones || [])].sort(
+                    (a: any, b: any) => Number(b.id) - Number(a.id)
+                  )[0] || null;
                   if (!docPresupuesto && (!order.presupuesto || String(order.presupuesto.estado?.nombre || '').toLowerCase().includes('pend'))) {
                     return null;
                   }
                   return (
                     <div className="p-3.5 rounded-xl border border-gray-150 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-900/40 space-y-2">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
                           Autorización Presupuesto
                         </span>
@@ -1219,6 +1446,10 @@ export default function PerfilOrdenPage() {
                               : 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400'
                           }`}>
                             <CheckIcon className="w-3 h-3 stroke-[3]" /> Firmada ({docPresupuesto.tipoDocumento === 'AUTORIZACION_PRESUPUESTO' ? 'Aprobado' : 'Rechazado'})
+                          </span>
+                        ) : ultimaAut ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400">
+                            Sin firma presencial
                           </span>
                         ) : (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
@@ -1249,10 +1480,23 @@ export default function PerfilOrdenPage() {
                             </a>
                           )}
                         </div>
+                      ) : ultimaAut ? (
+                        <div className="space-y-1 pt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                          <p>
+                            Modalidad: <span className="font-semibold text-gray-700 dark:text-gray-300">{formatModalidadAutorizacion(ultimaAut.modalidad)}</span>
+                          </p>
+                          <p>
+                            Registrado por: <span className="font-semibold text-gray-700 dark:text-gray-300">{formatResponsableAutorizacion(ultimaAut)}</span>
+                          </p>
+                        </div>
                       ) : !isClient && order.presupuesto ? (
                         <button
                           type="button"
-                          onClick={() => setIsPresupuestoPresencialOpen(true)}
+                          onClick={() => {
+                            setPresupuestoModalDecision('APROBADO');
+                            setPresupuestoModalModalidad('PRESENCIAL_FIRMA');
+                            setIsPresupuestoPresencialOpen(true);
+                          }}
                           className="w-full mt-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 rounded-lg transition-colors cursor-pointer"
                         >
                           <PencilSquareIcon className="w-3.5 h-3.5" />
@@ -1326,8 +1570,8 @@ export default function PerfilOrdenPage() {
             </div>
 
             {/* Vertical Timeline (Detailed) */}
-            <div className="rounded-2xl bg-white p-8 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
-              <h3 className="text-sm font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 mb-8 flex items-center gap-2">
+            <div className="rounded-2xl bg-white p-4 sm:p-6 md:p-8 shadow-sm dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+              <h3 className="text-sm font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 mb-6 sm:mb-8 flex items-center gap-2">
                 <ArchiveBoxIcon className="h-4 w-4" />
                 Historial de Estados
               </h3>
@@ -1339,7 +1583,7 @@ export default function PerfilOrdenPage() {
                         {eventIdx !== historialOrdenado.length - 1 ? (
                           <span className="absolute left-4 top-4 -ml-px h-full w-0.5 bg-gray-100 dark:bg-gray-700" aria-hidden="true" />
                         ) : null}
-                        <div className="relative flex space-x-4">
+                        <div className="relative flex space-x-3 sm:space-x-4">
                           <div>
                             <span className={`flex h-8 w-8 items-center justify-center rounded-full ring-8 ring-white dark:ring-gray-900 ${
                               eventIdx === 0 ? 'bg-brand-500 text-white shadow-md' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'
@@ -1348,12 +1592,12 @@ export default function PerfilOrdenPage() {
                             </span>
                           </div>
                           <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
-                            <div>
-                              <p className={`text-sm font-bold ${eventIdx === 0 ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
+                            <div className="min-w-0">
+                              <p className={`text-sm font-bold break-words ${eventIdx === 0 ? 'text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
                                 {h.estadoOrden?.nombre}
                               </p>
-                              <div className="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                <span className="font-bold text-gray-600 dark:text-gray-400 uppercase">{formatUserName(h.usuario)}</span>
+                              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                <span className="font-bold text-gray-600 dark:text-gray-400 uppercase break-words">{formatUserName(h.usuario)}</span>
                                 <span>•</span>
                                 <span>{formatDate(h.fechaCambio)}</span>
                               </div>
@@ -1490,10 +1734,203 @@ export default function PerfilOrdenPage() {
             onClose={() => setIsPresupuestoPresencialOpen(false)}
             order={order}
             presupuesto={order.presupuesto}
+            initialDecision={presupuestoModalDecision}
+            initialModalidad={presupuestoModalModalidad}
             onSuccess={async () => {
               setIsPresupuestoPresencialOpen(false);
               await fetchOrder();
             }}
+          />
+
+          <AsignarCasilleroModal
+            isOpen={isCasilleroModalOpen}
+            onClose={() => setIsCasilleroModalOpen(false)}
+            order={order as any}
+            onSave={handleSaveOrder}
+          />
+
+          <ConfirmDialog
+            isOpen={Boolean(statusConfirmAction)}
+            title={
+              statusConfirmAction?.action === "advance"
+                ? "Avanzar Orden"
+                : statusConfirmAction?.action === "advance_warning"
+                ? (statusConfirmAction.warningType === "presupuesto" ? "Orden sin Presupuesto" :
+                   statusConfirmAction.warningType === "presupuesto_rechazado" ? "Presupuesto Rechazado" :
+                   statusConfirmAction.warningType === "presupuesto_pendiente" ? "Presupuesto Pendiente" :
+                   statusConfirmAction.warningType === "sin_casillero" ? "Orden sin Casillero Asignado" :
+                   statusConfirmAction.warningType === "imprimir_acta" ? "Finalizar Orden - Imprimir Acta" : "Avanzar desde Diagnóstico")
+                : "Retroceder Orden"
+            }
+            description={
+              statusConfirmAction
+                ? statusConfirmAction.action === "advance"
+                  ? `¿Deseas avanzar la orden #${order.workOrderNumber} a la fase de "${statusConfirmAction.nextState?.nombre}"?`
+                  : statusConfirmAction.action === "advance_warning"
+                  ? (statusConfirmAction.warningType === "presupuesto"
+                      ? `La orden #${order.workOrderNumber} no tiene un presupuesto registrado. ¿Qué deseas hacer?`
+                      : statusConfirmAction.warningType === "presupuesto_rechazado"
+                      ? `El cliente ha rechazado el presupuesto para la orden #${order.workOrderNumber}. Al avanzar, la orden no pasará a En Servicio y se dirigirá directamente a "${statusConfirmAction.nextState?.nombre}" para devolución sin reparación.`
+                      : statusConfirmAction.warningType === "presupuesto_pendiente"
+                      ? `El presupuesto de la orden #${order.workOrderNumber} aún está en estado Pendiente. Por norma técnica, debe esperar la respuesta del cliente antes de iniciar En Servicio.`
+                      : statusConfirmAction.warningType === "sin_casillero"
+                      ? `La orden #${order.workOrderNumber} no tiene un casillero asignado. ¿Deseas asignarle un casillero ahora o continuar hacia "${statusConfirmAction.nextState?.nombre}"?`
+                      : statusConfirmAction.warningType === "imprimir_acta"
+                      ? `La orden #${order.workOrderNumber} pasará a su estado final de "${statusConfirmAction.nextState?.nombre}". ¿Deseas capturar la firma de conformidad en tablet y generar el Acta de Entrega ahora o pasar directamente al siguiente estado?`
+                      : (order.actividades && order.actividades.length > 0
+                          ? `¿Deseas avanzar la orden #${order.workOrderNumber} a la fase de "${statusConfirmAction.nextState?.nombre}" o registrar otro diagnóstico?`
+                          : `La orden #${order.workOrderNumber} no tiene un diagnóstico registrado. ¿Qué deseas hacer?`))
+                  : `¿Deseas retroceder la orden #${order.workOrderNumber} a la fase de "${statusConfirmAction.prevState?.nombre}"?`
+                : ""
+            }
+            confirmText={statusConfirmAction?.action === "advance" ? "Avanzar" : statusConfirmAction?.action === "retroceder" ? "Retroceder" : "Confirmar"}
+            isLoading={isChangingStatus}
+            onConfirm={handleConfirmStatusAction}
+            onClose={() => setStatusConfirmAction(null)}
+            customActions={
+              statusConfirmAction?.action === "advance_warning" ? (
+                statusConfirmAction.warningType === "presupuesto_rechazado" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleConfirmStatusAction}
+                      disabled={isChangingStatus}
+                      className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-50"
+                    >
+                      Avanzar a Listo para Entrega
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatusConfirmAction(null)}
+                      className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                ) : statusConfirmAction.warningType === "presupuesto_pendiente" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStatusConfirmAction(null);
+                        if (order.presupuesto) {
+                          setIsEditPresupuestoModalOpen(true);
+                        } else {
+                          setIsPresupuestoModalOpen(true);
+                        }
+                      }}
+                      className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                    >
+                      Ver presupuesto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmStatusAction}
+                      disabled={isChangingStatus}
+                      className="rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:opacity-50"
+                    >
+                      Avanzar de todas formas
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatusConfirmAction(null)}
+                      className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                ) : statusConfirmAction.warningType === "sin_casillero" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStatusConfirmAction(null);
+                        setIsCasilleroModalOpen(true);
+                      }}
+                      className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                    >
+                      Asignar Casillero
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmStatusAction}
+                      disabled={isChangingStatus}
+                      className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-50"
+                    >
+                      Avanzar a Entrega Directa
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatusConfirmAction(null)}
+                      className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                ) : statusConfirmAction.warningType === "imprimir_acta" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStatusConfirmAction(null);
+                        setIsPdfEntregaOpen(true);
+                      }}
+                      className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 flex items-center gap-2"
+                    >
+                      <PrinterIcon className="h-4 w-4" />
+                      Firmar / Generar Acta PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmStatusAction}
+                      disabled={isChangingStatus}
+                      className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800 disabled:opacity-50"
+                    >
+                      Avanzar a Entregado
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatusConfirmAction(null)}
+                      className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStatusConfirmAction(null);
+                        if (statusConfirmAction.warningType === "presupuesto") {
+                          setIsPresupuestoModalOpen(true);
+                        } else {
+                          setIsActividadModalOpen(true);
+                        }
+                      }}
+                      className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                    >
+                      {statusConfirmAction.warningType === "presupuesto" ? "Agregar presupuesto" : (order.actividades && order.actividades.length > 0 ? "Agregar otro diagnóstico" : "Agregar diagnóstico")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmStatusAction}
+                      disabled={isChangingStatus}
+                      className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-50"
+                    >
+                      {statusConfirmAction.warningType === "presupuesto" ? "Avanzar sin presupuesto" : (order.actividades && order.actividades.length > 0 ? "Avanzar" : "Avanzar sin diagnóstico")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatusConfirmAction(null)}
+                      className="rounded-md bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                )
+              ) : undefined
+            }
           />
         </>
       )}

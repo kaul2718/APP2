@@ -39,7 +39,7 @@ export function useDashboard(initialRange = "30d") {
         setLoading(false);
       }
     },
-    [range, session],
+    [range, session?.accessToken],
   );
 
   useEffect(() => {

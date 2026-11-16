@@ -278,16 +278,17 @@ export default function TabletSignatureModal({
       isOpen={isOpen}
       onClose={onClose}
       title=""
+      showCloseButton={false}
       className="max-w-4xl p-0 overflow-hidden"
     >
       {/* Encabezado especial con estética táctil */}
-      <div className="bg-gradient-to-r from-blue-700 to-indigo-800 px-6 py-4 text-white flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white/10 rounded-xl backdrop-blur-sm">
-            <PencilSquareIcon className="w-6 h-6 text-white" />
+      <div className="bg-gradient-to-r from-blue-700 to-indigo-800 px-4 sm:px-6 py-3.5 sm:py-4 text-white flex justify-between items-center gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <div className="p-2 bg-white/10 rounded-xl backdrop-blur-sm shrink-0">
+            <PencilSquareIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </div>
-          <div>
-            <h2 className="text-lg font-bold">
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-lg font-bold break-words">
               {isRecepcion ? 'Firma de Recepción e Ingreso' : 'Firma de Entrega y Garantía'}
             </h2>
             <p className="text-xs text-blue-200">
@@ -299,13 +300,13 @@ export default function TabletSignatureModal({
           onClick={onClose}
           type="button"
           aria-label="Cerrar modal"
-          className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+          className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors shrink-0"
         >
           <XMarkIcon className="w-6 h-6" />
         </button>
       </div>
 
-      <div className="p-6 max-h-[calc(90vh-9rem)] overflow-y-auto space-y-6 bg-gray-50/50 dark:bg-gray-900/50">
+      <div className="p-4 sm:p-6 max-h-[calc(88dvh-8.5rem)] overflow-y-auto space-y-5 sm:space-y-6 bg-gray-50/50 dark:bg-gray-900/50">
         
         {/* Resumen de la Orden */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -450,9 +451,9 @@ export default function TabletSignatureModal({
           </div>
         ) : (
           /* Canvas de Firma Táctil */
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
+          <div className="bg-white dark:bg-gray-800 p-3.5 sm:p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
                 <h3 className="text-xs font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wide">
                   Área de Captura de Firma Manuscrita
                 </h3>
@@ -477,12 +478,12 @@ export default function TabletSignatureModal({
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
                 onPointerLeave={handlePointerUp}
-                className="w-full h-60 block cursor-crosshair touch-none select-none relative z-10"
+                className="w-full h-52 sm:h-60 block cursor-crosshair touch-none select-none relative z-10"
               />
               {/* Línea guía de firma tipo pad digital */}
-              <div className="absolute inset-x-8 bottom-10 border-b border-gray-300 pointer-events-none flex justify-between text-[11px] text-gray-400 select-none z-0">
-                <span className="font-mono">✕ _____________________________________</span>
-                <span>Firme sobre la línea</span>
+              <div className="absolute inset-x-4 sm:inset-x-8 bottom-8 sm:bottom-10 border-b border-gray-300 pointer-events-none flex justify-between items-center gap-2 text-[11px] text-gray-400 select-none z-0 pb-1">
+                <span className="font-mono shrink-0">✕</span>
+                <span className="truncate">Firme sobre la línea</span>
               </div>
               {pointsCount === 0 && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-gray-400 text-xs italic z-0">
@@ -491,7 +492,7 @@ export default function TabletSignatureModal({
               )}
             </div>
 
-            <div className="flex items-center justify-between text-[11px] text-gray-500">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-500">
               <span>Sensibilidad táctil: Alta (DPI Retina)</span>
               <span>
                 {pointsCount >= 15 ? (
@@ -508,12 +509,12 @@ export default function TabletSignatureModal({
       </div>
 
       {/* Botones de Acción */}
-      <div className="flex justify-end items-center gap-3 px-6 py-4 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex flex-col-reverse sm:flex-row sm:justify-end items-stretch sm:items-center gap-2.5 sm:gap-3 px-4 sm:px-6 py-3.5 sm:py-4 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
         <button
           type="button"
           onClick={onClose}
           disabled={submitting}
-          className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors shadow-sm"
+          className="w-full sm:w-auto justify-center px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors shadow-sm"
         >
           Cancelar
         </button>
@@ -521,7 +522,7 @@ export default function TabletSignatureModal({
           type="button"
           onClick={handleSubmit}
           disabled={submitting || !terminosAceptados || (!clienteRechazaFirma && pointsCount < 15)}
-          className={`flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-md transition-all ${
+          className={`w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold text-white rounded-xl shadow-md transition-all ${
             submitting || !terminosAceptados || (!clienteRechazaFirma && pointsCount < 15)
               ? 'bg-gray-400 cursor-not-allowed opacity-70'
               : 'bg-blue-600 hover:bg-blue-700 active:scale-95'

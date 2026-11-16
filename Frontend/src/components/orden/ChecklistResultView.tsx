@@ -109,13 +109,13 @@ export default function ChecklistResultView({ data }: Props) {
       <div className="space-y-6">
         {/* BLOQUE 1: INSPECCIÓN INICIAL DE RECEPCIÓN */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden shadow-sm">
-          <div className="p-5 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-brand-500 rounded-xl text-white">
+          <div className="p-3.5 sm:p-5 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="p-2 bg-brand-500 rounded-xl text-white shrink-0">
                 <ClipboardDocumentCheckIcon className="w-5 h-5" />
               </div>
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-white">
+              <div className="min-w-0">
+                <h3 className="font-bold text-gray-900 dark:text-white break-words">
                   Inspección Inicial de Recepción
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -128,14 +128,14 @@ export default function ChecklistResultView({ data }: Props) {
               {renderBadgeEncendido(rec?.estadoEncendido)}
               {rec?.fecha && (
                 <div className="flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-full text-xs font-bold text-gray-500 dark:text-gray-400">
-                  <CalendarIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                  <CalendarIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                   {formatDate(rec.fecha)}
                 </div>
               )}
             </div>
           </div>
 
-          <div className="p-5 space-y-5">
+          <div className="p-3.5 sm:p-5 space-y-5">
             {/* Observación General si existe */}
             {rec?.observacionGeneral && (
               <div className="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-200/60 dark:border-gray-700/60 text-xs text-gray-700 dark:text-gray-300">
@@ -213,14 +213,14 @@ export default function ChecklistResultView({ data }: Props) {
         {/* BLOQUE 2: INSPECCIÓN COMPLEMENTARIA POR ESCALAMIENTO */}
         {comp && (
           <div className="bg-white dark:bg-gray-900 rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/60 overflow-hidden shadow-sm">
-            <div className="p-5 border-b border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/60 dark:bg-indigo-950/30 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-indigo-600 rounded-xl text-white">
+            <div className="p-3.5 sm:p-5 border-b border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/60 dark:bg-indigo-950/30 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="p-2 bg-indigo-600 rounded-xl text-white shrink-0">
                   <ArrowUpCircleIcon className="w-5 h-5" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    Inspección Complementaria por Escalamiento
+                <div className="min-w-0">
+                  <h3 className="font-bold text-gray-900 dark:text-white flex flex-wrap items-center gap-2">
+                    <span>Inspección Complementaria por Escalamiento</span>
                     <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-indigo-600 text-white">
                       Orden Completa
                     </span>
@@ -232,14 +232,14 @@ export default function ChecklistResultView({ data }: Props) {
               </div>
 
               {comp.fecha && (
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-full text-xs font-bold text-gray-500 dark:text-gray-400">
-                  <CalendarIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                <div className="flex items-center self-start sm:self-auto gap-1.5 px-3 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-full text-xs font-bold text-gray-500 dark:text-gray-400">
+                  <CalendarIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                   {formatDate(comp.fecha)}
                 </div>
               )}
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="p-3.5 sm:p-5 space-y-4">
               {/* Motivo de escalamiento y responsable */}
               <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700 space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-gray-500 dark:text-gray-400 gap-1">

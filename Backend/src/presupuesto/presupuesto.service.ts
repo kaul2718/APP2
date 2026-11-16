@@ -1,15 +1,47 @@
-import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException, } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  InternalServerErrorException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, IsNull } from 'typeorm';
+import * as crypto from 'crypto';
 import { Presupuesto } from './entities/presupuesto.entity';
-import { AutorizacionPresupuesto } from './entities/autorizacion-presupuesto.entity';
+import {
+  AutorizacionPresupuesto,
+  DecisionPresupuesto,
+  ModalidadAutorizacion,
+} from './entities/autorizacion-presupuesto.entity';
 import { CreatePresupuestoDto } from './dto/create-presupuesto.dto';
 import { UpdatePresupuestoDto } from './dto/update-presupuesto.dto';
 import { Order } from 'src/orders/entities/order.entity';
 import { EstadoPresupuesto } from '../estado-presupuesto/entities/estado-presupuesto.entity';
 import { DetallePresupuestoItem } from 'src/detalle-presupuesto-item/entities/detalle-presupuesto-item.entity';
 import { Parte } from 'src/parte/entities/parte.entity';
+import { User } from 'src/users/entities/user.entity';
+import { HistorialEstadoOrden } from 'src/historial-estado-orden/entities/historial-estado-orden.entity';
 import { NotificacionService } from '../notificacion/notificacion.service';
+
+export function formatModalidadLabel(modalidad?: ModalidadAutorizacion | string): string {
+  switch (modalidad) {
+    case ModalidadAutorizacion.PRESENCIAL_FIRMA:
+      return 'Presencial con firma del cliente';
+    case ModalidadAutorizacion.CONFIRMACION_TELEFONICA:
+      return 'Confirmación telefónica';
+    case ModalidadAutorizacion.CONFIRMACION_MENSAJE_CORREO:
+      return 'Confirmación por mensaje o correo';
+    case ModalidadAutorizacion.AUTORIZACION_INTERNA:
+      return 'Autorización interna del establecimiento';
+    case ModalidadAutorizacion.TOKEN_ODS_PRIVADO:
+      return 'Enlace / QR privado del cliente';
+    case ModalidadAutorizacion.PORTAL_CLIENTE_AUTENTICADO:
+      return 'Portal del cliente autenticado';
+    default:
+      return modalidad || 'No especificada';
+  }
+}
 
 @Injectable()
 export class PresupuestoService {
@@ -31,6 +63,12 @@ export class PresupuestoService {
 
     @InjectRepository(AutorizacionPresupuesto)
     private readonly autorizacionRepository: Repository<AutorizacionPresupuesto>,
+
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+
+    @InjectRepository(HistorialEstadoOrden)
+    private readonly historialRepository: Repository<HistorialEstadoOrden>,
 
     private readonly dataSource: DataSource,
     private readonly notificacionService: NotificacionService,
@@ -78,6 +116,10 @@ export class PresupuestoService {
       .leftJoinAndSelect('presupuesto.estado', 'estado')
       .leftJoinAndSelect('presupuesto.detallesPresupuestoItems', 'detallesPresupuestoItems')
       .leftJoinAndSelect('detallesPresupuestoItems.parte', 'parteDetalle')
+      .leftJoinAndSelect('presupuesto.autorizaciones', 'autorizaciones')
+      .leftJoinAndSelect('autorizaciones.registradoPor', 'registradoPor')
+      .leftJoinAndSelect('registradoPor.userRoles', 'userRolesAuth')
+      .leftJoinAndSelect('userRolesAuth.rol', 'rolAuth')
       .orderBy('presupuesto.fechaEmision', 'DESC');
 
     if (!includeDeleted) {
@@ -98,6 +140,10 @@ export class PresupuestoService {
       .leftJoinAndSelect('presupuesto.estado', 'estado')
       .leftJoinAndSelect('presupuesto.detallesPresupuestoItems', 'detallesPresupuestoItems')
       .leftJoinAndSelect('detallesPresupuestoItems.parte', 'parteDetalle')
+      .leftJoinAndSelect('presupuesto.autorizaciones', 'autorizaciones')
+      .leftJoinAndSelect('autorizaciones.registradoPor', 'registradoPor')
+      .leftJoinAndSelect('registradoPor.userRoles', 'userRolesAuth')
+      .leftJoinAndSelect('userRolesAuth.rol', 'rolAuth')
       .where('presupuesto.id = :id', { id });
 
     if (!includeDeleted) {
@@ -113,10 +159,16 @@ export class PresupuestoService {
     return presupuesto;
   }
 
-  async update(id: number, updateDto: UpdatePresupuestoDto): Promise<Presupuesto> {
+  async update(
+    id: number,
+    updateDto: UpdatePresupuestoDto,
+    operadorId?: number,
+    ip?: string,
+    userAgent?: string,
+  ): Promise<Presupuesto> {
     const presupuesto = await this.presupuestoRepository.findOne({
       where: { id },
-      relations: ['orden', 'orden.client', 'orden.technician', 'estado', 'detallesPresupuestoItems']
+      relations: ['orden', 'orden.client', 'orden.technician', 'orden.estadoOrden', 'estado', 'detallesPresupuestoItems'],
     });
 
     if (!presupuesto) {
@@ -126,7 +178,7 @@ export class PresupuestoService {
     if (updateDto.ordenId && updateDto.ordenId !== presupuesto.ordenId) {
       const orden = await this.ordenRepository.findOne({
         where: { id: updateDto.ordenId },
-        relations: ['client']
+        relations: ['client'],
       });
 
       if (!orden) throw new NotFoundException(`Orden con ID ${updateDto.ordenId} no encontrada.`);
@@ -152,7 +204,7 @@ export class PresupuestoService {
 
       if (presupuesto.estadoId !== updateDto.estadoId) {
         if (nuevoEstadoNombre === 'aprobado' || nuevoEstadoNombre === 'rechazado') {
-          const autorizacion = await this.autorizacionRepository.findOne({
+          let autorizacion = await this.autorizacionRepository.findOne({
             where: {
               presupuestoId: presupuesto.id,
               versionPresupuesto: presupuesto.version,
@@ -161,9 +213,109 @@ export class PresupuestoService {
           });
 
           if (!autorizacion) {
-            throw new BadRequestException(
-              `No se puede marcar el presupuesto como '${nuevoEstado.nombre}' sin una autorización verificable previa para la versión ${presupuesto.version}. Utilice el módulo de autorización presencial con firma táctil o el portal privado del comprobante.`
+            if (!operadorId) {
+              throw new BadRequestException(
+                `No se puede marcar el presupuesto como '${nuevoEstado.nombre}' sin una autorización verificable previa para la versión ${presupuesto.version}.`
+              );
+            }
+
+            const operador = await this.userRepository.findOne({
+              where: { id: operadorId },
+              relations: ['userRoles', 'userRoles.rol', 'userRoles.rol.rolePermissions', 'userRoles.rol.rolePermissions.permission'],
+            });
+            if (!operador) {
+              throw new ForbiddenException('Usuario responsable no encontrado.');
+            }
+
+            const userRoleSlugs = (operador.userRoles || []).map((ur: any) => ur.rol?.slug).filter(Boolean);
+            const isAuthorizedRole = userRoleSlugs.some((slug: string) => ['admin', 'recep', 'tech'].includes(slug));
+            if (!isAuthorizedRole) {
+              throw new ForbiddenException('No cuenta con permisos para aprobar o rechazar presupuestos.');
+            }
+
+            const modalidadElegida = updateDto.modalidad || ModalidadAutorizacion.AUTORIZACION_INTERNA;
+            if (modalidadElegida === ModalidadAutorizacion.PRESENCIAL_FIRMA) {
+              throw new BadRequestException(
+                'La modalidad presencial con firma requiere capturar la firma manuscrita del cliente.',
+              );
+            }
+
+            const decisionEnum =
+              nuevoEstadoNombre === 'aprobado' ? DecisionPresupuesto.APROBADO : DecisionPresupuesto.RECHAZADO;
+            const operadorNombre = `${operador.nombre || ''} ${operador.apellido || ''}`.trim() || 'Personal Autorizado';
+            const client = presupuesto.orden?.client;
+            const clienteNombre = client ? `${client.nombre || ''} ${client.apellido || ''}`.trim() : 'Cliente Titular';
+
+            const esInterna = modalidadElegida === ModalidadAutorizacion.AUTORIZACION_INTERNA;
+            const autorizanteNombre = esInterna ? `Autorización Interna (${operadorNombre})` : (clienteNombre || operadorNombre);
+            const autorizanteIdentificacion = esInterna
+              ? (operador.cedula || 'INTERNO').slice(0, 20)
+              : (client?.cedula || operador.cedula || 'S/N').slice(0, 20);
+            const autorizanteParentesco = esInterna ? 'INTERNO_ESTABLECIMIENTO' : 'TITULAR (CONFIRMACIÓN REMOTA)';
+            const observacionTexto = updateDto.observaciones?.trim() || null;
+
+            const itemsActivos = (presupuesto.detallesPresupuestoItems || []).filter(
+              (item) => item.estado !== false && !item.deletedAt,
             );
+            const montoTotal = itemsActivos.reduce(
+              (acc, item) => acc + Number(item.subtotal || Number(item.precioUnitario) * item.cantidad || 0),
+              0,
+            );
+
+            const hashPayload = JSON.stringify({
+              ordenId: presupuesto.ordenId,
+              presupuestoId: presupuesto.id,
+              version: presupuesto.version,
+              decision: decisionEnum,
+              modalidad: modalidadElegida,
+              montoTotal,
+              operadorId,
+              observaciones: observacionTexto,
+              timestamp: new Date().toISOString(),
+            });
+            const hashIntegridad = crypto.createHash('sha256').update(hashPayload).digest('hex');
+
+            autorizacion = this.autorizacionRepository.create({
+              presupuestoId: presupuesto.id,
+              ordenId: presupuesto.ordenId,
+              versionPresupuesto: presupuesto.version || 1,
+              decision: decisionEnum,
+              modalidad: modalidadElegida,
+              montoAprobado: montoTotal,
+              alcanceResumen: itemsActivos.map((i) => ({
+                id: i.id,
+                cantidad: i.cantidad,
+                precioUnitario: Number(i.precioUnitario),
+                subtotal: Number(i.subtotal),
+              })),
+              autorizanteNombre: autorizanteNombre.slice(0, 150),
+              autorizanteIdentificacion,
+              autorizanteParentesco,
+              observaciones: observacionTexto,
+              documentoOrdenId: null,
+              registradoPorId: operadorId,
+              ipOrigen: ip || null,
+              userAgent: userAgent || null,
+              hashIntegridad,
+            });
+            await this.autorizacionRepository.save(autorizacion);
+
+            if (presupuesto.orden?.estadoOrden?.id || (presupuesto.orden as any)?.estadoOrdenId) {
+              const estadoOrdenId = presupuesto.orden.estadoOrden?.id || (presupuesto.orden as any).estadoOrdenId;
+              const etiquetaDecision = decisionEnum === DecisionPresupuesto.APROBADO ? 'Aprobado' : 'Rechazado';
+              const etiquetaModalidad = formatModalidadLabel(modalidadElegida);
+              const obsHistorial = `Presupuesto v${presupuesto.version || 1} ${etiquetaDecision} — Modalidad: ${etiquetaModalidad}${
+                observacionTexto ? ` | Obs: ${observacionTexto}` : ''
+              }`;
+              const regHist = this.historialRepository.create({
+                orden: { id: presupuesto.ordenId } as any,
+                estadoOrden: { id: estadoOrdenId } as any,
+                usuario: { id: operadorId } as any,
+                observaciones: obsHistorial,
+                fechaCambio: new Date(),
+              });
+              await this.historialRepository.save(regHist);
+            }
           }
         }
 
@@ -179,7 +331,7 @@ export class PresupuestoService {
           const client = presupuesto.orden.client;
           const technician = presupuesto.orden.technician;
           const orderNum = presupuesto.orden.workOrderNumber;
-          
+
           if (client) {
             await this.notificacionService.notificarPresupuesto(presupuesto.orden.id, client.id, orderNum, nuevoEstado.nombre);
           }
@@ -203,11 +355,12 @@ export class PresupuestoService {
   }
 
   async remove(id: number) {
-    const presupuesto = await this.presupuestoRepository.findOne({ 
-      where: { id }, 
+    const presupuesto = await this.presupuestoRepository.findOne({
+      where: { id },
       relations: ['estado'],
-      withDeleted: true 
+      withDeleted: true,
     });
+
     if (!presupuesto) return null;
     if (presupuesto.deletedAt) return false;
 
@@ -244,7 +397,11 @@ export class PresupuestoService {
       .leftJoinAndSelect('equipo.tipoEquipo', 'tipoEquipo')
       .leftJoinAndSelect('equipo.marca', 'marca')
       .leftJoinAndSelect('equipo.modelo', 'modelo')
-      .leftJoinAndSelect('presupuesto.estado', 'estado');
+      .leftJoinAndSelect('presupuesto.estado', 'estado')
+      .leftJoinAndSelect('presupuesto.autorizaciones', 'autorizaciones')
+      .leftJoinAndSelect('autorizaciones.registradoPor', 'registradoPor')
+      .leftJoinAndSelect('registradoPor.userRoles', 'userRolesAuth')
+      .leftJoinAndSelect('userRolesAuth.rol', 'rolAuth');
 
     if (search) {
       query.where('LOWER(presupuesto.descripcion) LIKE LOWER(:search)', { search: `%${search}%` });
@@ -279,7 +436,7 @@ export class PresupuestoService {
 
       parte.stock = Number(parte.stock) - detalle.cantidad;
       await this.parteRepository.save(parte);
-      
+
       // Lanzar alerta de stock bajo si aplica
       await this.notificacionService.checkAndNotificarStockBajo(parte.id);
     }
@@ -309,7 +466,7 @@ export class PresupuestoService {
   async getResumenPresupuesto(id: number) {
     const presupuesto = await this.presupuestoRepository.findOne({
       where: { id, deletedAt: null },
-      relations: ['orden'],
+      relations: ['orden', 'estado', 'autorizaciones', 'autorizaciones.registradoPor', 'autorizaciones.registradoPor.userRoles', 'autorizaciones.registradoPor.userRoles.rol'],
     });
     if (!presupuesto) throw new NotFoundException('Presupuesto no encontrado');
 
@@ -325,10 +482,18 @@ export class PresupuestoService {
     const costoManoObra = detallesManoObra.reduce((sum, d) => sum + Number(d.precioUnitario) * d.cantidad, 0);
     const costoItems = detallesRepuestos.reduce((sum, d) => sum + Number(d.precioUnitario) * d.cantidad, 0);
 
+    const autorizacionesOrdenadas = [...(presupuesto.autorizaciones || [])].sort(
+      (a, b) => Number(b.id) - Number(a.id),
+    );
+    const ultimaAutorizacion = autorizacionesOrdenadas[0] || null;
+
     return {
       presupuestoId: presupuesto.id,
+      version: presupuesto.version || 1,
       descripcion: presupuesto.descripcion,
       fechaEmision: presupuesto.fechaEmision,
+      estado: presupuesto.estado,
+      ultimaAutorizacion,
       orden: {
         numeroOrden: presupuesto.orden.workOrderNumber,
         clienteId: presupuesto.orden.clientId,
@@ -361,11 +526,12 @@ export class PresupuestoService {
     return this.presupuestoRepository.find({
       where: { ordenId: orderId, deletedAt: IsNull() },
       relations: [
-        'orden', 'orden.client', 'orden.equipo', 'orden.equipo.tipoEquipo', 
-        'orden.equipo.marca', 'orden.equipo.modelo', 'estado', 
-        'detallesPresupuestoItems', 'detallesPresupuestoItems.parte'
+        'orden', 'orden.client', 'orden.equipo', 'orden.equipo.tipoEquipo',
+        'orden.equipo.marca', 'orden.equipo.modelo', 'estado',
+        'detallesPresupuestoItems', 'detallesPresupuestoItems.parte',
+        'autorizaciones', 'autorizaciones.registradoPor', 'autorizaciones.registradoPor.userRoles', 'autorizaciones.registradoPor.userRoles.rol',
       ],
-      order: { fechaEmision: 'DESC' }
+      order: { fechaEmision: 'DESC' },
     });
   }
 }

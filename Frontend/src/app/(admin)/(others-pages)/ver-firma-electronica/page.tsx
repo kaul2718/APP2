@@ -196,13 +196,13 @@ export default function FirmaElectronicaPage() {
   };
 
   return (
-    <div className="p-6 mx-auto space-y-8">
+    <div className="p-2 sm:p-6 mx-auto space-y-6 sm:space-y-8">
       {/* Encabezado */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-800 pb-5">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-2.5">
-            <ShieldCheckIcon className="w-8 h-8 text-blue-600" />
-            Configuración de Firma Electrónica (FirmaEC)
+          <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white flex items-center gap-2.5">
+            <ShieldCheckIcon className="w-7 h-7 sm:w-8 sm:h-8 text-blue-600 shrink-0" />
+            <span>Configuración de Firma Electrónica (FirmaEC)</span>
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             Certificación digital criptográfica PKCS#12 (.p12 / .pfx) para actas de recepción y entrega en Hospital del Computador.
@@ -211,7 +211,7 @@ export default function FirmaElectronicaPage() {
         <button
           onClick={fetchStatus}
           disabled={loading}
-          className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition shadow-sm"
+          className="flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition shadow-sm w-full sm:w-auto"
         >
           <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Actualizar Estado
@@ -219,14 +219,14 @@ export default function FirmaElectronicaPage() {
       </div>
 
       {/* Tarjeta de Estado Actual */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 flex items-center gap-2">
-            <KeyIcon className="w-4 h-4 text-blue-600" />
+            <KeyIcon className="w-4 h-4 text-blue-600 shrink-0" />
             Estado del Certificado Digital
           </h2>
           {status?.configurado ? (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700 dark:text-gray-300">
                 <span>Firma Automática:</span>
                 <input

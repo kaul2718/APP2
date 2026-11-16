@@ -48,17 +48,17 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-99999 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-preview-title"
     >
       <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Barra Superior Modal */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800 bg-gray-900/90">
-          <div className="flex items-center gap-2">
-            <EyeIcon className="w-5 h-5 text-blue-400" />
-            <h3 id="modal-preview-title" className="text-base font-bold text-white">
+        <div className="flex items-center justify-between px-4 py-3.5 sm:px-6 sm:py-4 border-b border-gray-800 bg-gray-900/90 gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <EyeIcon className="w-5 h-5 text-blue-400 shrink-0" />
+            <h3 id="modal-preview-title" className="text-sm sm:text-base font-bold text-white truncate">
               Vista Previa de Exportación Oficial
             </h3>
           </div>
@@ -72,19 +72,19 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
         </div>
 
         {/* Hoja de Documento Simulada */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-950/60">
-          <div className="bg-white text-gray-900 rounded-xl p-8 shadow-xl max-w-3xl mx-auto border border-gray-200">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-6 bg-gray-950/60">
+          <div className="bg-white text-gray-900 rounded-xl p-4 sm:p-8 shadow-xl max-w-3xl mx-auto border border-gray-200">
             {/* Membrete Oficial */}
-            <div className="flex items-start justify-between border-b pb-4 border-gray-300">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b pb-4 border-gray-300">
               <div>
-                <h1 className="text-lg font-black tracking-tight text-blue-900">
+                <h1 className="text-base sm:text-lg font-black tracking-tight text-blue-900">
                   HOSPITAL DEL COMPUTADOR
                 </h1>
                 <p className="text-xs text-gray-600 font-medium">Servicio Técnico Especializado e Informática</p>
                 <p className="text-[11px] text-gray-500">RUC: 1792999999001 | Telf: +593 96 962 0222</p>
                 <p className="text-[11px] text-gray-500">Riobamba, Chimborazo, Ecuador</p>
               </div>
-              <div className="text-right">
+              <div className="text-left sm:text-right">
                 <span className="inline-block px-2.5 py-1 bg-blue-100 text-blue-800 text-[10px] font-bold rounded uppercase">
                   Documento Administrativo
                 </span>
@@ -122,8 +122,8 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
             )}
 
             {/* Muestra de la tabla (Primeros 8 registros) */}
-            <div className="border border-gray-200 rounded overflow-hidden mt-4">
-              <table className="w-full text-left text-[10px]">
+            <div className="border border-gray-200 rounded overflow-x-auto mt-4">
+              <table className="w-full min-w-[420px] text-left text-[10px]">
                 <thead className="bg-blue-900 text-white font-semibold">
                   <tr>
                     <th className="py-2 px-2">Identificador</th>
@@ -168,11 +168,11 @@ export const ReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
         </div>
 
         {/* Pie de Acciones del Modal */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-t border-gray-800 bg-gray-900">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4 border-t border-gray-800 bg-gray-900">
           <p className="text-xs text-gray-400">
             ¿Confirmas la generación formal del documento?
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={onClose}
               className="px-3.5 py-1.5 text-xs font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"

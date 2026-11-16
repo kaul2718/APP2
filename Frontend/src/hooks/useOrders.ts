@@ -346,7 +346,7 @@ export function useOrders() {
       }
     }, [
       status,
-      session,
+      session?.accessToken,
       searchTerm,
       showInactive,
       estadoOrdenId,

@@ -255,24 +255,24 @@ export function DataTable<T>({
         </Table>
       </div>
 
-      <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-sm text-gray-700 dark:border-white/[0.05] dark:text-gray-300">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-3 sm:px-4 py-3 text-sm text-gray-700 dark:border-white/[0.05] dark:text-gray-300">
         <span className="text-gray-700 dark:text-gray-300">Total: {totalItems}</span>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="rounded border border-gray-300 px-2 py-1 text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            className="rounded border border-gray-300 px-2.5 py-1 text-xs sm:text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
             disabled={currentPage <= 1}
             onClick={() => onPageChange(currentPage - 1)}
             aria-label="Pagina anterior"
           >
             Anterior
           </button>
-          <span className="text-gray-700 dark:text-gray-300">
+          <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">
             {currentPage} / {Math.max(totalPages, 1)}
           </span>
           <button
             type="button"
-            className="rounded border border-gray-300 px-2 py-1 text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            className="rounded border border-gray-300 px-2.5 py-1 text-xs sm:text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
             disabled={currentPage >= totalPages}
             onClick={() => onPageChange(currentPage + 1)}
             aria-label="Pagina siguiente"

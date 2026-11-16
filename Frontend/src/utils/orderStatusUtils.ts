@@ -85,6 +85,11 @@ export function resolveActiveTabId<T extends { id: number; nombre: string; estad
 ): number | undefined {
   if (!activeEstados || activeEstados.length === 0) return undefined;
 
+  // 0. Si expresamente se indicó 'all' en sessionStorage o selección, preservar 'Todas' (undefined)
+  if (savedTabId === 'all' || savedTabId === 'todas') {
+    return undefined;
+  }
+
   // 1. Conservar selección actual si es válida
   if (currentId !== undefined && activeEstados.some((e) => e.id === currentId)) {
     return currentId;

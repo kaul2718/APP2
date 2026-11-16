@@ -470,11 +470,11 @@ export default function InspeccionRecepcionForm({
       </div>
 
       {/* 1. Selector de Estado de Encendido al Recibir (4 estados) */}
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900/40 p-4">
+      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900/40 p-3.5 sm:p-4">
         <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-2.5">
           1. Estado de Encendido al Recibir el Equipo *
         </label>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5" role="radiogroup" aria-label="Estado de encendido">
+        <div className="grid grid-cols-1 min-[380px]:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5" role="radiogroup" aria-label="Estado de encendido">
           {opcionesEncendido.map(opt => {
             const isSelected = estadoEncendido === opt.value;
             const Icon = opt.icon;
@@ -485,14 +485,14 @@ export default function InspeccionRecepcionForm({
                 role="radio"
                 aria-checked={isSelected}
                 onClick={() => setEstadoEncendido(opt.value)}
-                className={`flex items-center gap-2 p-3 min-h-[44px] rounded-xl border text-xs font-semibold transition-all text-left ${
+                className={`flex items-center gap-2 p-2.5 sm:p-3 min-h-[44px] rounded-xl border text-xs font-semibold transition-all text-left ${
                   isSelected
                     ? `${opt.activeClass} shadow-sm ring-2 ring-brand-500/30`
                     : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300'
                 }`}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate">{opt.label}</span>
+                <span className="leading-tight break-words">{opt.label}</span>
               </button>
             );
           })}
@@ -500,7 +500,7 @@ export default function InspeccionRecepcionForm({
 
         {/* Sugerencia contextual si no enciende */}
         {estadoEncendido === 'falla' && (
-          <div className="mt-3 flex items-center justify-between gap-3 p-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 text-xs text-red-700 dark:text-red-300">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2.5 p-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 text-xs text-red-700 dark:text-red-300">
             <div className="flex items-center gap-2">
               <ExclamationTriangleIcon className="w-4 h-4 flex-shrink-0 text-red-500" />
               <span>El equipo no enciende. ¿Deseas marcar las pruebas funcionales como «No probado»?</span>
@@ -508,7 +508,7 @@ export default function InspeccionRecepcionForm({
             <button
               type="button"
               onClick={handleMarcarFuncionalesSinEncendido}
-              className="px-2.5 py-1 font-bold bg-red-600 hover:bg-red-700 text-white rounded text-[11px] whitespace-nowrap transition-colors"
+              className="w-full sm:w-auto px-2.5 py-1.5 sm:py-1 font-bold bg-red-600 hover:bg-red-700 text-white rounded text-[11px] whitespace-nowrap transition-colors"
             >
               Aplicar a funcionales
             </button>
@@ -518,9 +518,9 @@ export default function InspeccionRecepcionForm({
 
       {/* 2. Sección: Inspección Física y Estética */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-1">
           <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span>
             2. Inspección Física y Estética ({itemsFisicos.length} puntos)
           </h4>
           <span className="text-[11px] text-gray-400 italic">
@@ -590,9 +590,9 @@ export default function InspeccionRecepcionForm({
 
       {/* 3. Sección: Verificación Funcional Rápida */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-1">
           <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
             3. Verificación Funcional Rápida ({itemsFuncionales.length} pruebas)
           </h4>
           <span className="text-[11px] text-gray-400 italic">

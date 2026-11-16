@@ -90,7 +90,7 @@ export function useEstadoOrden(options: UseEstadoOrdenOptions = {}) {
         return [];
       }
     },
-    [session, setEstadosOrden]
+    [session?.accessToken, setEstadosOrden]
   );
 
   const fetchEstadosOrden = useCallback(
@@ -140,7 +140,7 @@ export function useEstadoOrden(options: UseEstadoOrdenOptions = {}) {
         loadCompleteCatalog(showInactive);
       }
     }
-  }, [status, session, searchTerm, showInactive, isPaginatedMode, defaultLimit, fetchItems, loadCompleteCatalog]);
+  }, [status, session?.accessToken, searchTerm, showInactive, isPaginatedMode, defaultLimit, fetchItems, loadCompleteCatalog]);
 
   return {
     estadosOrden,

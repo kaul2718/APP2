@@ -295,9 +295,9 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
     return (
         <>
             {/* Modal principal */}
-            <Modal isOpen={isOpen} onClose={onClose} className="m-4 max-w-3xl" title="Registrar Nuevo Equipo">
-                <div className="no-scrollbar relative w-full overflow-y-auto rounded-2xl bg-white p-5 dark:bg-gray-900 sm:p-6">
-                    <h2 className="mb-1 text-xl font-semibold text-gray-800 dark:text-white/90">
+            <Modal isOpen={isOpen} onClose={onClose} className="max-w-3xl" title="Registrar Nuevo Equipo">
+                <div className="relative w-full rounded-2xl bg-white p-4 dark:bg-gray-900 sm:p-6">
+                    <h2 className="mb-1 pr-8 text-lg sm:text-xl font-semibold text-gray-800 dark:text-white/90">
                         Registrar nuevo equipo
                     </h2>
                     <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
@@ -510,7 +510,7 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
                                                 aria-label="Modelo"
                                             />
                                             <MagnifyingGlassIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
-                                            <Combobox.Options className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                                            <Combobox.Options className="absolute bottom-full mb-1 z-20 max-h-52 w-full overflow-auto rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-gray-700 dark:bg-gray-800">
                                                 {!formData.marcaId ? (
                                                     <div className="cursor-default px-4 py-2 text-gray-500 dark:text-gray-400">
                                                         Primero seleccione una marca
@@ -554,11 +554,11 @@ export default function AgregarEquipoModal({ isOpen, onClose, onSuccess }: Props
                             </div>
                         </div>
 
-                        <div className="mt-5 flex justify-end gap-3">
-                            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+                        <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-3">
+                            <Button type="button" variant="outline" onClick={onClose} disabled={loading} className="w-full sm:w-auto justify-center">
                                 Cancelar
                             </Button>
-                            <Button type="submit" disabled={loading || initialLoad} loading={loading}>
+                            <Button type="submit" disabled={loading || initialLoad} loading={loading} className="w-full sm:w-auto justify-center">
                                 Registrar Equipo
                             </Button>
                         </div>

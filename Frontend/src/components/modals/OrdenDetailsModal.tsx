@@ -36,11 +36,11 @@ const InfoItem = ({
   label: string;
   value?: string | number | null;
 }) => (
-  <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900/60">
+  <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-900/60 min-w-0">
     <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
       {label}
     </p>
-    <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{value || "No disponible"}</p>
+    <p className="mt-1 text-sm text-gray-900 dark:text-gray-100 break-words">{value || "No disponible"}</p>
   </div>
 );
 
@@ -220,7 +220,7 @@ export default function OrdenDetailsModal({ isOpen, onClose, order }: Props) {
                     {copied ? "✓ ¡Copiado!" : "Copiar clave"}
                   </button>
                 </div>
-                <code className="mt-1 block font-mono text-base font-bold tracking-widest text-amber-900 select-all dark:text-amber-200">
+                <code className="mt-1 block font-mono text-sm sm:text-base font-bold tracking-wider sm:tracking-widest text-amber-900 select-all break-all dark:text-amber-200">
                   {regeneratedToken}
                 </code>
                 <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">

@@ -357,12 +357,12 @@ export default function AgregarPresupuestoModal({
         <Modal
             isOpen={isOpen}
             onClose={handleClose}
-            className="max-w-5xl mx-4"
+            className="max-w-5xl"
             title="Crear Presupuesto"
         >
-            <form onSubmit={handleSubmitAll} className="text-gray-700 dark:text-gray-300 p-6 md:p-8 space-y-6">
-                <div className="flex flex-col gap-1.5 border-b pb-4 border-gray-250 dark:border-gray-700">
-                    <p className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
+            <form onSubmit={handleSubmitAll} className="text-gray-700 dark:text-gray-300 p-4 sm:p-6 md:p-8 space-y-5 sm:space-y-6">
+                <div className="flex flex-col gap-1.5 border-b pb-4 pr-8 sm:pr-0 border-gray-250 dark:border-gray-700">
+                    <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-white tracking-tight">
                         Crear Presupuesto
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -370,7 +370,7 @@ export default function AgregarPresupuestoModal({
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
                     {/* Panel Izquierdo: Información Básica */}
                     <div className="lg:col-span-5 space-y-6">
                         <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5 border-b pb-2">
@@ -611,8 +611,8 @@ export default function AgregarPresupuestoModal({
                             </div>
 
                             {/* Detalle visual de los elementos agregados */}
-                            <div className="mt-6 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-gray-50/50 dark:bg-gray-800/20 max-h-56 overflow-y-auto">
-                                <table className="w-full text-left text-xs border-collapse">
+                            <div className="mt-6 border border-gray-200 dark:border-gray-700 rounded-xl overflow-x-auto bg-gray-50/50 dark:bg-gray-800/20 max-h-56 overflow-y-auto">
+                                <table className="w-full min-w-[420px] text-left text-xs border-collapse">
                                     <thead className="bg-gray-100 dark:bg-gray-800 font-semibold text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                                         <tr>
                                             <th className="px-4 py-2.5">Detalle / Elemento</th>
@@ -664,12 +664,12 @@ export default function AgregarPresupuestoModal({
 
                         {/* Caja de Costos y Acciones */}
                         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <div className="grid grid-cols-3 gap-2 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-150 dark:border-gray-700/80 mb-6">
+                            <div className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-2.5 sm:gap-2 bg-gray-50 dark:bg-gray-800/40 p-3.5 sm:p-4 rounded-xl border border-gray-150 dark:border-gray-700/80 mb-5 sm:mb-6">
                                 <div className="text-center">
                                     <div className="text-xs uppercase font-bold text-gray-600 dark:text-gray-400">Repuestos</div>
                                     <div className="text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(totalProductos)}</div>
                                 </div>
-                                <div className="text-center border-x border-gray-250 dark:border-gray-700">
+                                <div className="text-center border-y min-[420px]:border-y-0 min-[420px]:border-x py-2 min-[420px]:py-0 border-gray-200 dark:border-gray-700">
                                     <div className="text-xs uppercase font-bold text-gray-600 dark:text-gray-400">Servicios</div>
                                     <div className="text-sm font-semibold text-gray-900 dark:text-white">{formatCurrency(totalServicios)}</div>
                                 </div>

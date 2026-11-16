@@ -176,17 +176,17 @@ export default function AgregarActividadTecnicaModal({
             isOpen={isOpen}
             onClose={handleClose}
             title={modalTitle}
-            className="max-w-3xl mx-4"
+            className="max-w-3xl"
         >
             <form onSubmit={(e) => e.preventDefault()} className="flex flex-col">
                 {/* Título agregado aquí */}
-                <div className="px-6 pt-4 pb-2">
-                    <h2 className="text-2xl font-bold text-center text-gray-800 dark:text-white">
+                <div className="px-4 sm:px-6 pt-4 pb-2">
+                    <h2 className="pr-8 sm:pr-0 text-xl sm:text-2xl font-bold text-center text-gray-800 dark:text-white">
                         {modalTitle}
                     </h2>
                 </div>
 
-                <div className="custom-scrollbar max-h-[60vh] overflow-y-auto px-6">
+                <div className="custom-scrollbar max-h-[60vh] overflow-y-auto px-4 sm:px-6">
                     <div className="grid grid-cols-1 gap-y-4">
                         {/* Selección de orden */}
                         <div className="mb-3">
@@ -288,22 +288,22 @@ export default function AgregarActividadTecnicaModal({
                     </div>
                 </div>
 
-                <p className="px-6 pb-2 text-xs text-gray-500 dark:text-gray-400">* Campo obligatorio</p>
+                <p className="px-4 sm:px-6 pb-2 text-xs text-gray-500 dark:text-gray-400">* Campo obligatorio</p>
 
-                <div className="flex flex-col-reverse sm:flex-row justify-center gap-4 mt-4 px-6 pb-6">
+                <div className="flex flex-col-reverse sm:flex-row sm:flex-wrap justify-center gap-2.5 sm:gap-4 mt-3 sm:mt-4 px-4 sm:px-6 pb-4 sm:pb-6">
                     {/* Cancelar */}
                     <Button
                         type="button"
                         variant="outline"
                         onClick={handleClose}
                         disabled={actividadLoading}
-                        className="w-1/2 sm:w-auto min-w-[140px]"
+                        className="w-full sm:w-auto min-w-[140px] justify-center"
                     >
                         Cancelar
                     </Button>
 
                     {/* Grupo de botones de acción */}
-                    <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-center">
+                    <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-4 w-full sm:w-auto items-stretch sm:items-center">
                         {/* Finalizar */}
                         <Button
                             type="button"
@@ -311,7 +311,7 @@ export default function AgregarActividadTecnicaModal({
                             onClick={() => void handleSubmit('finish')}
                             disabled={actividadLoading || loadingTipos}
                             loading={actividadLoading}
-                            className="w-1/2 sm:w-auto min-w-[140px]"
+                            className="w-full sm:w-auto min-w-[140px] justify-center"
                         >
                             Finalizar
                         </Button>
@@ -323,7 +323,7 @@ export default function AgregarActividadTecnicaModal({
                             onClick={() => void handleSubmit('add-another')}
                             disabled={actividadLoading || loadingTipos}
                             loading={actividadLoading}
-                            className="w-1/2 sm:w-auto min-w-[140px] bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2 px-4 py-2 rounded-md transition duration-150"
+                            className="w-full sm:w-auto min-w-[140px] bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-2 px-4 py-2 rounded-md transition duration-150"
                         >
                             <PlusIcon className="w-5 h-5" />
                             Agregar Otra

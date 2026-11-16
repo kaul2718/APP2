@@ -23,7 +23,7 @@ export const Modal: React.FC<ModalProps> = ({
 }) => {
   const contentClasses = isFullscreen
     ? "w-full h-full"
-    : "relative w-full rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900";
+    : "relative my-auto w-full max-w-full rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900 max-h-[calc(100dvh-1.5rem)] sm:max-h-[92dvh] overflow-y-auto overscroll-contain";
 
   return (
     <Dialog
@@ -31,7 +31,7 @@ export const Modal: React.FC<ModalProps> = ({
       onClose={onClose}
       className="fixed inset-0 z-99999"
     >
-      <div className="fixed inset-0 flex items-center justify-center overflow-y-auto p-4 modal">
+      <div className="fixed inset-0 flex items-center justify-center overflow-y-auto p-2.5 sm:p-4 modal">
         {!isFullscreen && (
           <div
             className="fixed inset-0 h-full w-full bg-black/40"
@@ -39,7 +39,7 @@ export const Modal: React.FC<ModalProps> = ({
           />
         )}
 
-        <DialogPanel className={`${contentClasses} ${className}`}>
+        <DialogPanel className={`${contentClasses} ${className ?? ""}`}>
           <DialogTitle className="sr-only">{title}</DialogTitle>
         {showCloseButton && (
           <button
@@ -47,7 +47,7 @@ export const Modal: React.FC<ModalProps> = ({
             onClick={onClose}
             aria-label="Cerrar modal"
             title="Cerrar modal"
-            className="absolute right-4 top-4 z-50 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+            className="absolute right-3 top-3 sm:right-4 sm:top-4 z-50 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-600 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
           >
             <svg
               width="24"

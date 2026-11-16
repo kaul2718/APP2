@@ -43,7 +43,7 @@ export function useNotificacion() {
     } finally {
       setLoading(false);
     }
-  }, [usuarioId, session]);
+  }, [usuarioId, session?.accessToken, (session as any)?.error]);
 
   // Marcar una notificación como leída
   const marcarLeida = useCallback(async (id: number) => {

@@ -1,8 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, NotFoundException, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, NotFoundException, HttpException, HttpStatus, Req } from '@nestjs/common';
 import { PresupuestoService } from './presupuesto.service';
 import { CreatePresupuestoDto } from './dto/create-presupuesto.dto';
 import { UpdatePresupuestoDto } from './dto/update-presupuesto.dto';
 import { Auth } from 'src/auth/decorators/auth.decorator';
+import { CurrentUser } from 'src/auth/decorators/user.decorator';
+import { Request } from 'express';
 
 
 @Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
@@ -69,8 +71,13 @@ export class PresupuestoController {
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdatePresupuestoDto,
+    @CurrentUser() user?: any,
+    @Req() req?: Request,
   ) {
-    return this.presupuestoService.update(id, dto);
+    const operadorId = user?.sub || user?.id;
+    const ip = (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req?.ip;
+    const userAgent = req?.headers?.['user-agent'];
+    return this.presupuestoService.update(id, dto, operadorId, ip, userAgent);
   }
 
   @Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites

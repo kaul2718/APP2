@@ -19,6 +19,9 @@ export enum DecisionPresupuesto {
 
 export enum ModalidadAutorizacion {
   PRESENCIAL_FIRMA = 'PRESENCIAL_FIRMA',
+  CONFIRMACION_TELEFONICA = 'CONFIRMACION_TELEFONICA',
+  CONFIRMACION_MENSAJE_CORREO = 'CONFIRMACION_MENSAJE_CORREO',
+  AUTORIZACION_INTERNA = 'AUTORIZACION_INTERNA',
   TOKEN_ODS_PRIVADO = 'TOKEN_ODS_PRIVADO',
   PORTAL_CLIENTE_AUTENTICADO = 'PORTAL_CLIENTE_AUTENTICADO',
 }
@@ -78,6 +81,9 @@ export class AutorizacionPresupuesto {
 
   @Column({ type: 'varchar', length: 50, default: 'TITULAR' })
   autorizanteParentesco: string;
+
+  @Column({ type: 'text', nullable: true })
+  observaciones: string | null;
 
   @ManyToOne(() => DocumentoOrden, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'documentoOrdenId' })

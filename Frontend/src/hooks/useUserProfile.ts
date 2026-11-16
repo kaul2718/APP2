@@ -75,7 +75,7 @@ export function useUserProfile() {
     } finally {
       setCargando(false);
     }
-  }, [session, sessionStatus]);
+  }, [session?.user?.id, session?.accessToken, (session as any)?.error, sessionStatus]);
 
   useEffect(() => {
     obtenerDatosUsuario();

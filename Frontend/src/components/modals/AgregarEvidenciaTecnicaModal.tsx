@@ -377,27 +377,27 @@ export default function EvidenciaTecnicaModal({
             isOpen={isOpen}
             onClose={handleClose}
             title="Evidencia tecnica"
-            className="max-w-4xl mx-4"
+            className="max-w-4xl"
         >
-            <div className="flex flex-col h-full">
-                <div className="px-6 pt-4 pb-2 border-b dark:border-gray-700">
-                    <h2 className="text-2xl font-bold text-center text-gray-800 dark:text-white">
+            <div className="flex flex-col h-full min-w-0">
+                <div className="px-4 sm:px-6 pt-4 pb-3 border-b dark:border-gray-700">
+                    <h2 className="pr-8 sm:pr-0 text-lg sm:text-2xl font-bold text-center text-gray-800 dark:text-white">
                         Evidencia Técnica
                     </h2>
 
-                    <div className="flex justify-center mt-4">
-                        <div className="inline-flex rounded-md shadow-sm">
+                    <div className="flex justify-center mt-3 sm:mt-4">
+                        <div className="inline-flex w-full sm:w-auto rounded-lg shadow-sm">
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('ver')}
-                                className={`px-4 py-2 text-sm font-medium rounded-l-lg border transition-colors ${activeTab === 'ver' ? 'bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700'}`}
+                                className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-l-lg border transition-colors ${activeTab === 'ver' ? 'bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700'}`}
                             >
                                 Ver Evidencias ({totalItems})
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('agregar')}
-                                className={`px-4 py-2 text-sm font-medium rounded-r-lg border-y border-r transition-colors ${activeTab === 'agregar' ? 'bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700'}`}
+                                className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-r-lg border-y border-r transition-colors ${activeTab === 'agregar' ? 'bg-blue-600 border-blue-600 text-white dark:bg-blue-500 dark:border-blue-500' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700'}`}
                             >
                                 Agregar Nueva
                             </button>
@@ -406,8 +406,8 @@ export default function EvidenciaTecnicaModal({
                 </div>
 
                 {activeTab === 'agregar' ? (
-                    <form onSubmit={handleSubmit} className="flex flex-col flex-1">
-                        <div className="custom-scrollbar max-h-[60vh] overflow-y-auto px-6 py-4">
+                    <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-w-0">
+                        <div className="custom-scrollbar max-h-[58vh] sm:max-h-[60vh] overflow-y-auto px-4 sm:px-6 py-4">
                             <div className="grid grid-cols-1 gap-y-4">
                                 {/* Previsualización del archivo */}
                                 <div className="mb-4">
@@ -609,10 +609,10 @@ export default function EvidenciaTecnicaModal({
                         </div>
 
                         {uploading && (
-                            <div className="mx-6 mb-4 p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60">
-                                <div className="flex justify-between items-center mb-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
+                            <div className="mx-4 sm:mx-6 mb-4 p-3.5 sm:p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60">
+                                <div className="flex flex-wrap justify-between items-center gap-2 mb-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">
                                     <span className="flex items-center gap-2">
-                                        <ArrowPathIcon className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
+                                        <ArrowPathIcon className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400 shrink-0" />
                                         {uploadProgress !== null && uploadProgress < 100
                                             ? `Subiendo directamente a Cloudflare R2 (${uploadProgress}%)...`
                                             : "Registrando y confirmando metadatos en el servidor..."}
@@ -631,14 +631,15 @@ export default function EvidenciaTecnicaModal({
                             </div>
                         )}
 
-                        <p className="px-6 pb-2 text-xs text-gray-500 dark:text-gray-400">* Campo obligatorio</p>
+                        <p className="px-4 sm:px-6 pb-2 text-xs text-gray-500 dark:text-gray-400">* Campo obligatorio</p>
 
-                        <div className="flex justify-end gap-4 mt-4 px-6 pb-6 border-t dark:border-gray-700 pt-4">
+                        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-4 mt-2 px-4 sm:px-6 pb-4 sm:pb-6 border-t dark:border-gray-700 pt-3.5 sm:pt-4">
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={() => setActiveTab('ver')}
                                 disabled={uploading}
+                                className="w-full sm:w-auto justify-center"
                             >
                                 Cancelar
                             </Button>
@@ -647,7 +648,7 @@ export default function EvidenciaTecnicaModal({
                                 variant="primary"
                                 disabled={!filePreview || uploading || optimizing}
                                 loading={uploading || optimizing}
-                                className="flex items-center gap-2"
+                                className="w-full sm:w-auto flex items-center justify-center gap-2"
                             >
                                 {fileType === "imagen" ? (
                                     <PhotoIcon className="w-5 h-5" />
@@ -663,8 +664,8 @@ export default function EvidenciaTecnicaModal({
                         </div>
                     </form>
                 ) : (
-                    <div className="flex flex-col flex-1">
-                        <div className="custom-scrollbar max-h-[60vh] overflow-y-auto px-6 py-4">
+                    <div className="flex flex-col flex-1 min-w-0">
+                        <div className="custom-scrollbar max-h-[55vh] sm:max-h-[60vh] overflow-y-auto px-4 sm:px-6 py-4">
                             {loading ? (
                                 <div className="flex justify-center items-center h-40">
                                     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -672,10 +673,11 @@ export default function EvidenciaTecnicaModal({
                             ) : evidencias.length === 0 ? (
                                 <div className="text-center py-8">
                                     <p className="text-gray-500 dark:text-gray-400">No hay evidencias técnicas registradas</p>
-                                    <div className="flex justify-center items-center gap-3 mt-4">
+                                    <div className="flex flex-col sm:flex-row justify-center items-center gap-2.5 sm:gap-3 mt-4">
                                         <Button
                                             variant="primary"
                                             onClick={() => setActiveTab('agregar')}
+                                            className="w-full sm:w-auto justify-center"
                                         >
                                             Agregar Primera Evidencia
                                         </Button>
@@ -683,6 +685,7 @@ export default function EvidenciaTecnicaModal({
                                             type="button"
                                             variant="outline"
                                             onClick={handleClose}
+                                            className="w-full sm:w-auto justify-center"
                                         >
                                             Omitir y continuar
                                         </Button>
@@ -703,16 +706,16 @@ export default function EvidenciaTecnicaModal({
                         </div>
 
                         {evidencias.length > 0 && (
-                            <div className="flex items-center justify-between px-6 pb-6 border-t dark:border-gray-700 pt-4">
-                                <div className="flex items-center gap-4">
-                                    <span className="text-sm text-gray-600 dark:text-gray-300">
-                                        Mostrando {(currentPage - 1) * itemsPerPage + 1} -
-                                        {Math.min(currentPage * itemsPerPage, totalItems)} de {totalItems}
+                            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between px-4 sm:px-6 pb-4 sm:pb-6 border-t dark:border-gray-700 pt-3.5 sm:pt-4">
+                                <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2 sm:gap-4">
+                                    <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
+                                        Mostrando {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, totalItems)} de {totalItems}
                                     </span>
                                     <select
                                         value={itemsPerPage}
                                         onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                                        className="text-sm border rounded-md px-2 py-1 bg-white text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                                        aria-label="Evidencias por página"
+                                        className="text-xs sm:text-sm border rounded-md px-2 py-1 bg-white text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
                                     >
                                         <option value={5}>5 por página</option>
                                         <option value={10}>10 por página</option>
@@ -720,75 +723,79 @@ export default function EvidenciaTecnicaModal({
                                     </select>
                                 </div>
 
-                                <div className="flex gap-1">
-                                    <button
-                                        type="button"
-                                        onClick={() => goToPage(currentPage - 1)}
-                                        disabled={currentPage === 1}
-                                        className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                                        title="Página anterior"
-                                        aria-label="Página anterior"
-                                    >
-                                        <ArrowLeftIcon className="w-4 h-4" />
-                                    </button>
+                                <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 sm:gap-3">
+                                    <div className="flex items-center gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => goToPage(currentPage - 1)}
+                                            disabled={currentPage === 1}
+                                            className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                            title="Página anterior"
+                                            aria-label="Página anterior"
+                                        >
+                                            <ArrowLeftIcon className="w-4 h-4" />
+                                        </button>
 
-                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                        let pageNum;
-                                        if (totalPages <= 5) {
-                                            pageNum = i + 1;
-                                        } else if (currentPage <= 3) {
-                                            pageNum = i + 1;
-                                        } else if (currentPage >= totalPages - 2) {
-                                            pageNum = totalPages - 4 + i;
-                                        } else {
-                                            pageNum = currentPage - 2 + i;
-                                        }
+                                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                            let pageNum;
+                                            if (totalPages <= 5) {
+                                                pageNum = i + 1;
+                                            } else if (currentPage <= 3) {
+                                                pageNum = i + 1;
+                                            } else if (currentPage >= totalPages - 2) {
+                                                pageNum = totalPages - 4 + i;
+                                            } else {
+                                                pageNum = currentPage - 2 + i;
+                                            }
 
-                                        return (
-                                            <button
-                                                key={pageNum}
-                                                type="button"
-                                                onClick={() => goToPage(pageNum)}
-                                                aria-label={`Página ${pageNum}`}
-                                                aria-current={currentPage === pageNum ? "page" : undefined}
-                                                className={`flex h-8 min-w-[32px] items-center justify-center rounded-md border text-sm font-medium transition-colors px-2 ${
-                                                    currentPage === pageNum
-                                                        ? 'border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500'
-                                                        : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
-                                                }`}
-                                            >
-                                                {pageNum}
-                                            </button>
-                                        );
-                                    })}
+                                            return (
+                                                <button
+                                                    key={pageNum}
+                                                    type="button"
+                                                    onClick={() => goToPage(pageNum)}
+                                                    aria-label={`Página ${pageNum}`}
+                                                    aria-current={currentPage === pageNum ? "page" : undefined}
+                                                    className={`flex h-8 min-w-[32px] items-center justify-center rounded-md border text-xs sm:text-sm font-medium transition-colors px-2 ${
+                                                        currentPage === pageNum
+                                                            ? 'border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500'
+                                                            : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                                                    }`}
+                                                >
+                                                    {pageNum}
+                                                </button>
+                                            );
+                                        })}
 
-                                    <button
-                                        type="button"
-                                        onClick={() => goToPage(currentPage + 1)}
-                                        disabled={currentPage === totalPages}
-                                        className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                                        title="Página siguiente"
-                                        aria-label="Página siguiente"
-                                    >
-                                        <ArrowRightIcon className="w-4 h-4" />
-                                    </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => goToPage(currentPage + 1)}
+                                            disabled={currentPage === totalPages}
+                                            className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                            title="Página siguiente"
+                                            aria-label="Página siguiente"
+                                        >
+                                            <ArrowRightIcon className="w-4 h-4" />
+                                        </button>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                                        <Button
+                                            variant="primary"
+                                            onClick={() => setActiveTab('agregar')}
+                                            className="flex-1 sm:flex-initial justify-center"
+                                        >
+                                            Agregar Nueva
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={handleClose}
+                                            className="flex-1 sm:flex-initial justify-center"
+                                        >
+                                            Continuar
+                                        </Button>
+                                    </div>
                                 </div>
-
-                                <Button
-                                    variant="primary"
-                                    onClick={() => setActiveTab('agregar')}
-                                    className="ml-4"
-                                >
-                                    Agregar Nueva
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={handleClose}
-                                    className="ml-2"
-                                >
-                                    Continuar
-                                </Button>
                             </div>
                         )}
                     </div>

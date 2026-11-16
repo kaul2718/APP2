@@ -347,10 +347,10 @@ export default function AgregarItemsPresupuestoModal({
                 </div>
 
                 {selectedParte && (
-                    <div className="bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <div className="bg-gray-50 dark:bg-gray-800/40 p-3.5 sm:p-4 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-2">
                         <div>
                             <p className="text-xs text-gray-600 uppercase font-bold tracking-tighter">Subtotal Calculado</p>
-                            <p className="text-xl font-black text-gray-900 dark:text-white">
+                            <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-white">
                                 {formatCurrency(Number(itemPrice) * Number(formData.cantidad))}
                             </p>
                         </div>
@@ -372,16 +372,16 @@ export default function AgregarItemsPresupuestoModal({
                     />
                 </div>
 
-                <div className="flex justify-between items-center pt-4">
+                <div className="flex flex-wrap justify-between items-center gap-2.5 pt-4">
                     {showNavigation && onBack && (
-                        <Button type="button" variant="outline" onClick={onBack}>Atrás</Button>
+                        <Button type="button" variant="outline" onClick={onBack} className="w-full sm:w-auto justify-center">Atrás</Button>
                     )}
-                    <div className="flex gap-3 ml-auto">
-                        <Button type="submit" disabled={loading || loadingPartes} className="px-10 shadow-lg shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 text-white font-bold">
+                    <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 w-full sm:w-auto sm:ml-auto">
+                        <Button type="submit" disabled={loading || loadingPartes} className="w-full sm:w-auto justify-center px-6 sm:px-10 shadow-lg shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 text-white font-bold">
                             {loading ? "Añadiendo..." : "Agregar Ítem"}
                         </Button>
                         {showNavigation && onNext && (
-                            <Button type="button" onClick={onNext} variant="outline">Finalizar</Button>
+                            <Button type="button" onClick={onNext} variant="outline" className="w-full sm:w-auto justify-center">Finalizar</Button>
                         )}
                     </div>
                 </div>
@@ -393,7 +393,7 @@ export default function AgregarItemsPresupuestoModal({
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Gestión de Ítems en Presupuesto" className="max-w-xl">
-            <div className="p-6">{content}</div>
+            <div className="p-4 sm:p-6">{content}</div>
         </Modal>
     );
 }

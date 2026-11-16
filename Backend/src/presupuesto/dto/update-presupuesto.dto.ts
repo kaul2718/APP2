@@ -1,4 +1,5 @@
-import { IsNumber, IsOptional, IsString, IsNotEmpty } from 'class-validator';
+import { IsNumber, IsOptional, IsString, IsNotEmpty, IsEnum } from 'class-validator';
+import { ModalidadAutorizacion } from '../entities/autorizacion-presupuesto.entity';
 
 export class UpdatePresupuestoDto {
   @IsOptional()
@@ -14,4 +15,12 @@ export class UpdatePresupuestoDto {
   @IsOptional()
   @IsString({ message: 'La descripción debe ser una cadena de texto' })
   descripcion?: string;
+
+  @IsOptional()
+  @IsEnum(ModalidadAutorizacion, { message: 'Modalidad de autorización inválida' })
+  modalidad?: ModalidadAutorizacion;
+
+  @IsOptional()
+  @IsString({ message: 'La observación debe ser una cadena de texto' })
+  observaciones?: string;
 }
