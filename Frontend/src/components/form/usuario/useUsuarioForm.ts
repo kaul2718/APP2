@@ -61,50 +61,57 @@ export function useUsuarioForm({ initialData, mode }: UseUsuarioFormProps) {
         const newErrors: UsuarioFormErrors = {};
 
         // Validación de cédula o RUC (10 o 13 dígitos)
-        if (!formData.cedula.trim()) {
+        const cedula = (formData.cedula ?? "").trim();
+        if (!cedula) {
             newErrors.cedula = "La identificación es requerida";
-        } else if (!/^\d{10}$|^\d{13}$/.test(formData.cedula)) {
+        } else if (!/^\d{10}$|^\d{13}$/.test(cedula)) {
             newErrors.cedula = "Debe ser Cédula (10 dígitos) o RUC (13 dígitos)";
         }
 
         // Validación de nombre
-        if (!formData.nombre.trim()) {
+        const nombre = (formData.nombre ?? "").trim();
+        if (!nombre) {
             newErrors.nombre = "El nombre es requerido";
-        } else if (formData.nombre.trim().length < 2) {
+        } else if (nombre.length < 2) {
             newErrors.nombre = "El nombre debe tener al menos 2 caracteres";
         }
 
         // Validación de apellido
-        if (!formData.apellido?.trim()) {
+        const apellido = (formData.apellido ?? "").trim();
+        if (!apellido) {
             newErrors.apellido = "El apellido es requerido";
-        } else if (formData.apellido.trim().length < 2) {
+        } else if (apellido.length < 2) {
             newErrors.apellido = "El apellido debe tener al menos 2 caracteres";
         }
 
-        // Validación de correo
-        if (!formData.correo.trim()) {
+        // Validación de correo (opcional para clientes existentes sin correo al editar otros campos como foto)
+        const correo = (formData.correo ?? "").trim();
+        if (correo) {
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+                newErrors.correo = "Correo electrónico inválido";
+            }
+        } else if (mode === "create" || Boolean(initialData?.correo)) {
             newErrors.correo = "El correo es requerido";
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.correo)) {
-            newErrors.correo = "Correo electrónico inválido";
         }
 
         // Validación de teléfono
-        if (!formData.telefono.trim()) {
+        const telefono = (formData.telefono ?? "").trim();
+        if (!telefono) {
             newErrors.telefono = "El teléfono es requerido";
         } else {
-            const parsedPhone = parsePhoneNumberFromString(formData.telefono, 'EC');
+            const parsedPhone = parsePhoneNumberFromString(telefono, 'EC');
             if (!parsedPhone || !parsedPhone.isValid()) {
                 newErrors.telefono = "Teléfono de Ecuador no válido (Celular o Fijo)";
             }
         }
 
         // Validación de dirección
-        if (!formData.direccion.trim()) {
+        if (!(formData.direccion ?? "").trim()) {
             newErrors.direccion = "La dirección es requerida";
         }
 
         // Validación de ciudad
-        if (!formData.ciudad.trim()) {
+        if (!(formData.ciudad ?? "").trim()) {
             newErrors.ciudad = "La ciudad es requerida";
         }
 
