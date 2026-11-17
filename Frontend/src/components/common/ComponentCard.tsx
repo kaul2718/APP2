@@ -1,4 +1,5 @@
 import React, { ReactNode } from "react";
+import { twMerge } from "tailwind-merge";
 
 interface ComponentCardProps {
   title: string | ReactNode; // ✅ <-- aquí permitimos ReactNode
@@ -15,7 +16,10 @@ const ComponentCard: React.FC<ComponentCardProps> = ({
 }) => {
   return (
     <div
-      className={`rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] min-w-0 max-w-full ${className}`}
+      className={twMerge(
+        "rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] min-w-0",
+        className
+      )}
     >
       {/* Card Header */}
       <div className="px-4 py-4 sm:px-6 sm:py-5">

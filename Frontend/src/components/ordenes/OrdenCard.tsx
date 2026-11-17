@@ -258,7 +258,7 @@ export default function OrdenCard({
               </button>
 
               {isMenuOpen && (
-                <div className="absolute right-0 z-30 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                <div className="absolute right-0 z-30 mt-2 w-48 max-w-[calc(100vw-2rem)] rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                   {overflowActions.map((action) => (
                     <button
                       key={action.key}

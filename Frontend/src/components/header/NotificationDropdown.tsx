@@ -171,7 +171,7 @@ export default function NotificationDropdown() {
       <Dropdown
         isOpen={isOpen}
         onClose={closeDropdown}
-        className="absolute -right-[240px] mt-[17px] flex h-[500px] w-[360px] flex-col rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-800 dark:bg-gray-dark sm:w-[380px] lg:right-0 overflow-hidden"
+        className="fixed left-3 right-3 top-[124px] z-50 mt-0 flex w-auto max-w-[calc(100vw-1.5rem)] max-h-[calc(100dvh-8.5rem)] flex-col rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-800 dark:bg-gray-dark sm:absolute sm:top-full sm:left-0 sm:right-auto sm:mt-[17px] sm:h-[480px] sm:max-h-[calc(100dvh-6rem)] sm:w-[360px] md:w-[380px] lg:left-auto lg:right-0 overflow-hidden"
       >
         {/* Cabecera del dropdown */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
@@ -265,14 +265,15 @@ export default function NotificationDropdown() {
                       )}
                     </div>
 
-                    {/* Botón eliminar al pasar el cursor */}
+                    {/* Botón eliminar visible en móvil y al pasar el cursor en escritorio */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         eliminarNotificacion(notif.id);
                       }}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-gray-400 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1.5 rounded-md text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
                       title="Eliminar notificación"
+                      aria-label="Eliminar notificación"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

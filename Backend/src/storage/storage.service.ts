@@ -51,9 +51,13 @@ export class StorageService implements IStorageService, OnModuleInit {
 
     if (configuredDriver === 'r2' && accessKeyId && secretAccessKey && endpoint) {
       try {
+        const cleanEndpoint = endpoint.trim().replace(/\/+$/, '');
         this.s3Client = new S3Client({
           region: 'auto',
-          endpoint: endpoint,
+          endpoint: cleanEndpoint,
+          forcePathStyle: true,
+          requestChecksumCalculation: 'WHEN_REQUIRED',
+          responseChecksumValidation: 'WHEN_REQUIRED',
           credentials: {
             accessKeyId: accessKeyId.trim(),
             secretAccessKey: secretAccessKey.trim(),
@@ -196,13 +200,17 @@ export class StorageService implements IStorageService, OnModuleInit {
         const mime =
           ext === 'png'
             ? 'image/png'
-            : ext === 'mp4'
+            : ext === 'mp4' || ext === 'm4v'
               ? 'video/mp4'
-              : ext === 'pdf'
-                ? 'application/pdf'
-                : ext === 'webp'
-                  ? 'image/webp'
-                  : 'image/jpeg';
+              : ext === 'mov'
+                ? 'video/quicktime'
+                : ext === 'webm'
+                  ? 'video/webm'
+                  : ext === 'pdf'
+                    ? 'application/pdf'
+                    : ext === 'webp'
+                      ? 'image/webp'
+                      : 'image/jpeg';
         return `data:${mime};base64,${buffer.toString('base64')}`;
       }
       return '';
@@ -212,14 +220,18 @@ export class StorageService implements IStorageService, OnModuleInit {
   async getPresignedUploadUrl(
     key: string,
     mimeType: string,
-    expiresInSeconds: number = 300,
+    expiresInSeconds: number = this.defaultExpiration,
   ): Promise<PresignedUploadResult> {
+    const normalizedMime =
+      (mimeType || 'application/octet-stream').split(';')[0].trim().toLowerCase() ||
+      'application/octet-stream';
+
     if (this.driver === 'r2' && this.s3Client) {
       try {
         const command = new PutObjectCommand({
           Bucket: this.bucketName,
           Key: key,
-          ContentType: mimeType,
+          ContentType: normalizedMime,
         });
 
         const uploadUrl = await getSignedUrl(this.s3Client, command, {

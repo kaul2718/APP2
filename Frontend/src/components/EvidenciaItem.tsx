@@ -1,7 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { EvidenciaTecnica } from "@/hooks/useEvidenciaTecnica";
-import { PhotoIcon, VideoCameraIcon, TrashIcon } from "@heroicons/react/24/outline";
-import Button from "@/components/ui/button/Button";
+import { PhotoIcon, VideoCameraIcon, TrashIcon, ArrowTopRightOnSquareIcon } from "@heroicons/react/24/outline";
 
 interface EvidenciaItemProps {
     evidencia: EvidenciaTecnica;
@@ -14,11 +13,12 @@ const EvidenciaItem: React.FC<EvidenciaItemProps> = ({
     onDelete,
     currentUserId
 }) => {
+    const [videoError, setVideoError] = useState(false);
     const isOwner = currentUserId === evidencia.subidoPor.id;
     const isImage = evidencia.tipoArchivo === 'imagen';
 
     return (
-        <div className="border rounded-lg overflow-hidden dark:border-gray-700">
+        <div className="border rounded-lg overflow-hidden dark:border-gray-700 bg-white dark:bg-gray-900/40">
             <div className="relative bg-gray-100 dark:bg-gray-800 h-48">
                 {isImage ? (
                     <img
@@ -26,12 +26,32 @@ const EvidenciaItem: React.FC<EvidenciaItemProps> = ({
                         alt={`Evidencia técnica ${evidencia.id}`}
                         className="w-full h-full object-contain"
                     />
+                ) : videoError ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-2 p-4 text-center bg-gray-900 text-gray-200">
+                        <VideoCameraIcon className="w-8 h-8 text-blue-400" />
+                        <p className="text-xs text-gray-300">
+                            Este navegador no puede reproducir directamente el códec de este video ({evidencia.nombreOriginal || "video"}).
+                        </p>
+                        {evidencia.archivoUrl && (
+                            <a
+                                href={evidencia.archivoUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors"
+                            >
+                                <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+                                Abrir / Descargar video
+                            </a>
+                        )}
+                    </div>
                 ) : (
                     <video
                         src={evidencia.archivoUrl}
                         controls
+                        playsInline
                         preload="metadata"
-                        className="w-full h-full object-contain"
+                        onError={() => setVideoError(true)}
+                        className="w-full h-full object-contain bg-black"
                     >
                         Tu navegador no soporta la reproducción directa de este formato de video.
                     </video>
@@ -39,9 +59,11 @@ const EvidenciaItem: React.FC<EvidenciaItemProps> = ({
                 
                 {isOwner && (
                     <button
+                        type="button"
                         className="absolute top-2 right-2 rounded-full bg-red-100 p-2 text-red-600 shadow-sm transition-colors hover:bg-red-200 dark:bg-red-900/50 dark:text-red-400 dark:hover:bg-red-900/80"
                         onClick={() => onDelete(evidencia.id)}
                         title="Eliminar evidencia"
+                        aria-label="Eliminar evidencia"
                     >
                         <TrashIcon className="w-4 h-4" />
                     </button>

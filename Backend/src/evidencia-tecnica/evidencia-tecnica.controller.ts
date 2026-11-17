@@ -30,11 +30,15 @@ export class EvidenciaTecnicaController {
   constructor(private readonly evidenciaService: EvidenciaTecnicaService) {}
 
   /**
-   * Subida estándar de evidencias (fotos) mediante NestJS hacia Cloudflare R2
+   * Subida estándar de evidencias (fotos y videos hasta 100MB) mediante NestJS hacia Cloudflare R2
    */
   @Auth('tech', 'admin', 'recep')
   @Post()
-  @UseInterceptors(FileInterceptor('archivo'))
+  @UseInterceptors(
+    FileInterceptor('archivo', {
+      limits: { fileSize: 100 * 1024 * 1024 },
+    }),
+  )
   async create(
     @Body() createDto: any,
     @UploadedFile() archivo?: Express.Multer.File,
@@ -159,7 +163,11 @@ export class EvidenciaTecnicaController {
    */
   @Auth('tech', 'admin', 'recep')
   @Patch(':id')
-  @UseInterceptors(FileInterceptor('archivo'))
+  @UseInterceptors(
+    FileInterceptor('archivo', {
+      limits: { fileSize: 100 * 1024 * 1024 },
+    }),
+  )
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateDto: UpdateEvidenciaTecnicaDto,

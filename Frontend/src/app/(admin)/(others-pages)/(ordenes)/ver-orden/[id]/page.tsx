@@ -950,6 +950,8 @@ export default function PerfilOrdenPage() {
                           <video
                             src={ev.archivoUrl || ev.urlImagen}
                             preload="metadata"
+                            playsInline
+                            muted
                             className="h-full w-full object-cover opacity-80"
                           />
                           <div className="absolute inset-0 flex items-center justify-center">
@@ -1960,12 +1962,23 @@ export default function PerfilOrdenPage() {
                 <XMarkIcon className="h-8 w-8" aria-hidden="true" />
               </button>
               {viewerMedia.type === 'video' ? (
-                <video
-                  src={viewerMedia.url}
-                  controls
-                  autoPlay
-                  className="max-h-[85vh] max-w-[90vw] rounded-lg shadow-2xl border border-white/10"
-                />
+                <div className="flex flex-col items-center gap-3">
+                  <video
+                    src={viewerMedia.url}
+                    controls
+                    autoPlay
+                    playsInline
+                    className="max-h-[80vh] max-w-[90vw] rounded-lg shadow-2xl border border-white/10 bg-black"
+                  />
+                  <a
+                    href={viewerMedia.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium text-white/80 hover:text-white underline"
+                  >
+                    Abrir o descargar archivo de video original
+                  </a>
+                </div>
               ) : (
                 <img
                   src={viewerMedia.url}

@@ -25,6 +25,7 @@ import * as path from 'path';
 @Injectable()
 export class EvidenciaTecnicaService {
   private readonly logger = new Logger(EvidenciaTecnicaService.name);
+  public static readonly MAX_EVIDENCE_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
 
   constructor(
     @InjectRepository(EvidenciaTecnica)
@@ -36,6 +37,124 @@ export class EvidenciaTecnicaService {
     private readonly storageService: StorageService,
     private readonly imageOptimizerService: ImageOptimizerService,
   ) {}
+
+  /**
+   * Normaliza y valida estrictamente el formato (imagen o video MP4/MOV/WebM) y el tamaño máximo (100 MB).
+   */
+  public normalizeAndValidateMedia(
+    fileName: string,
+    rawMime?: string,
+    fileSize?: number,
+  ): {
+    isVideo: boolean;
+    mimeType: string;
+    ext: string;
+    tipoArchivo: 'imagen' | 'video';
+  } {
+    if (fileSize !== undefined && fileSize !== null) {
+      if (Number(fileSize) <= 0) {
+        throw new BadRequestException(
+          'El archivo está vacío o es inválido (0 bytes).',
+        );
+      }
+      if (Number(fileSize) > EvidenciaTecnicaService.MAX_EVIDENCE_SIZE_BYTES) {
+        throw new BadRequestException(
+          'El archivo excede el límite máximo permitido de 100MB.',
+        );
+      }
+    }
+
+    const rawExt = path.extname(fileName || '').toLowerCase();
+    const baseMime = (rawMime || '').split(';')[0].trim().toLowerCase();
+
+    const videoExtMap: Record<string, string> = {
+      '.mp4': 'video/mp4',
+      '.m4v': 'video/mp4',
+      '.mov': 'video/quicktime',
+      '.webm': 'video/webm',
+    };
+    const allowedVideoMimes: Record<string, string> = {
+      'video/mp4': '.mp4',
+      'video/x-m4v': '.mp4',
+      'video/quicktime': '.mov',
+      'video/webm': '.webm',
+    };
+
+    const imageExtMap: Record<string, string> = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.webp': 'image/webp',
+      '.gif': 'image/gif',
+      '.heic': 'image/heic',
+      '.heif': 'image/heif',
+    };
+    const allowedImageMimes: Record<string, string> = {
+      'image/jpeg': '.jpg',
+      'image/jpg': '.jpg',
+      'image/png': '.png',
+      'image/webp': '.webp',
+      'image/gif': '.gif',
+      'image/heic': '.heic',
+      'image/heif': '.heif',
+    };
+
+    // Si tiene extensión de video soportada o MIME de video soportado
+    if (videoExtMap[rawExt] || allowedVideoMimes[baseMime]) {
+      // Si la extensión es explícitamente otro contenedor de video no soportado (ej. .avi, .mkv, .wmv)
+      if (
+        rawExt &&
+        !videoExtMap[rawExt] &&
+        ['.avi', '.mkv', '.wmv', '.flv', '.3gp', '.mpeg', '.mpg'].includes(rawExt)
+      ) {
+        throw new BadRequestException(
+          'Formato de video no soportado. Use videos en formato MP4, MOV o WebM (máximo 100MB).',
+        );
+      }
+
+      const resolvedMime = videoExtMap[rawExt] || ( allowedVideoMimes[baseMime] ? (baseMime === 'video/x-m4v' ? 'video/mp4' : baseMime) : 'video/mp4' );
+      const resolvedExt = videoExtMap[rawExt]
+        ? (rawExt === '.m4v' ? '.mp4' : rawExt)
+        : allowedVideoMimes[baseMime] || '.mp4';
+
+      return {
+        isVideo: true,
+        mimeType: resolvedMime,
+        ext: resolvedExt,
+        tipoArchivo: 'video',
+      };
+    }
+
+    // Si tiene extensión de imagen soportada o MIME de imagen soportado
+    if (imageExtMap[rawExt] || allowedImageMimes[baseMime]) {
+      if (
+        rawExt &&
+        !imageExtMap[rawExt] &&
+        !['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif'].includes(rawExt)
+      ) {
+        throw new BadRequestException(
+          'Formato de imagen no soportado. Use imágenes JPG, PNG, WebP o HEIC (máximo 100MB).',
+        );
+      }
+      const resolvedMime =
+        imageExtMap[rawExt] ||
+        (baseMime === 'image/jpg' ? 'image/jpeg' : baseMime) ||
+        'image/jpeg';
+      const resolvedExt =
+        (imageExtMap[rawExt] ? rawExt : allowedImageMimes[baseMime]) || '.jpg';
+
+      return {
+        isVideo: false,
+        mimeType: resolvedMime,
+        ext: resolvedExt,
+        tipoArchivo: 'imagen',
+      };
+    }
+
+    throw new BadRequestException(
+      'Formato de archivo no soportado. Use imágenes (JPG, PNG, WebP, HEIC) o videos compatibles (MP4, MOV, WebM) de hasta 100MB.',
+    );
+  }
 
   /**
    * Verifica si el usuario actual tiene el rol de cliente
@@ -93,12 +212,13 @@ export class EvidenciaTecnicaService {
 
     if (archivo) {
       nombreOriginal = archivo.originalname;
-      const isVideo =
-        archivo.mimetype.startsWith('video') ||
-        ['.mp4', '.mov', '.avi', '.webm', '.mkv'].includes(
-          path.extname(archivo.originalname).toLowerCase(),
-        );
-      tipoArchivo = isVideo ? 'video' : 'imagen';
+      const mediaInfo = this.normalizeAndValidateMedia(
+        archivo.originalname,
+        archivo.mimetype,
+        archivo.size,
+      );
+      const isVideo = mediaInfo.isVideo;
+      tipoArchivo = mediaInfo.tipoArchivo;
 
       let bufferToUpload = archivo.buffer;
 
@@ -107,7 +227,7 @@ export class EvidenciaTecnicaService {
         const optimized = await this.imageOptimizerService.optimize(
           archivo.buffer,
           archivo.originalname,
-          archivo.mimetype,
+          mediaInfo.mimeType,
           { highDetailMode: createDto.highDetailMode },
         );
         bufferToUpload = optimized.buffer;
@@ -118,9 +238,9 @@ export class EvidenciaTecnicaService {
         const odsFolder = orden.workOrderNumber ? `ODS-${orden.workOrderNumber}` : `${ordenId}`;
         storageKey = `ordenes/${odsFolder}/evidencias/${folder}/${uuidv4()}_${Date.now()}${ext}`;
       } else {
-        mimeType = archivo.mimetype;
+        mimeType = mediaInfo.mimeType;
         tamanoBytes = archivo.size;
-        const ext = path.extname(archivo.originalname) || '.mp4';
+        const ext = mediaInfo.ext;
         const folder = 'videos';
         const odsFolder = orden.workOrderNumber ? `ODS-${orden.workOrderNumber}` : `${ordenId}`;
         storageKey = `ordenes/${odsFolder}/evidencias/${folder}/${uuidv4()}_${Date.now()}${ext}`;
@@ -172,7 +292,7 @@ export class EvidenciaTecnicaService {
   async getPresignedUploadUrl(
     dto: RequestPresignedUploadDto,
     currentUser: any,
-  ): Promise<{ uploadUrl: string; storageKey: string; expiresIn: number }> {
+  ): Promise<{ uploadUrl: string; storageKey: string; expiresIn: number; mimeType: string }> {
     const orden = await this.orderRepository.findOne({ where: { id: dto.ordenId } });
     if (!orden) {
       throw new NotFoundException(`Orden con ID ${dto.ordenId} no encontrada`);
@@ -182,23 +302,26 @@ export class EvidenciaTecnicaService {
       throw new ForbiddenException('Los clientes no pueden subir evidencias técnicas.');
     }
 
-    const ext = path.extname(dto.fileName).toLowerCase() || (dto.mimeType?.startsWith('video') ? '.mp4' : '.jpg');
-    const isVideo = (dto.mimeType && dto.mimeType.startsWith('video')) ||
-      ['.mp4', '.mov', '.avi', '.webm', '.mkv'].includes(ext);
-    const resolvedMime = dto.mimeType && dto.mimeType.trim() !== ''
-      ? dto.mimeType
-      : (isVideo ? 'video/mp4' : 'application/octet-stream');
-    const folder = isVideo ? 'videos' : 'imagenes';
+    const mediaInfo = this.normalizeAndValidateMedia(
+      dto.fileName,
+      dto.mimeType,
+      dto.fileSize,
+    );
+
+    const folder = mediaInfo.isVideo ? 'videos' : 'imagenes';
     const odsFolder = orden.workOrderNumber ? `ODS-${orden.workOrderNumber}` : `${dto.ordenId}`;
-    const storageKey = `ordenes/${odsFolder}/evidencias/${folder}/${uuidv4()}_${Date.now()}${ext}`;
+    const storageKey = `ordenes/${odsFolder}/evidencias/${folder}/${uuidv4()}_${Date.now()}${mediaInfo.ext}`;
 
     const presigned = await this.storageService.getPresignedUploadUrl(
       storageKey,
-      resolvedMime,
-      300, // 5 minutos de validez para iniciar subida
+      mediaInfo.mimeType,
+      900, // 15 minutos de validez para permitir subidas móviles de videos de hasta 100MB
     );
 
-    return presigned;
+    return {
+      ...presigned,
+      mimeType: mediaInfo.mimeType,
+    };
   }
 
   /**
@@ -221,17 +344,41 @@ export class EvidenciaTecnicaService {
       throw new NotFoundException(`Usuario con ID ${currentUser.id} no encontrado`);
     }
 
+    // Idempotencia: evitar registros duplicados si se reintenta la confirmación para la misma clave
+    const existing = await this.evidenciaRepository.findOne({
+      where: { storageKey: dto.storageKey, deletedAt: null },
+      relations: ['orden', 'subidoPor', 'estadoOrden'],
+    });
+    if (existing) {
+      return await this.resolveSignedUrl(existing);
+    }
+
+    const mediaInfo = this.normalizeAndValidateMedia(
+      dto.nombreOriginal || dto.storageKey,
+      dto.mimeType,
+      dto.tamanoBytes,
+    );
+
     // Verificar que el objeto exista en Cloudflare R2 y obtener sus metadatos reales
     const realMeta = await this.storageService.getObjectMetadata(dto.storageKey);
     if (!realMeta) {
       throw new BadRequestException('El archivo no fue encontrado en el almacenamiento de Cloudflare R2.');
     }
 
-    const ext = path.extname(dto.storageKey).toLowerCase();
-    const isVideo = (dto.mimeType && dto.mimeType.startsWith('video')) ||
-      ['.mp4', '.mov', '.avi', '.webm', '.mkv'].includes(ext) ||
+    if (realMeta.size > EvidenciaTecnicaService.MAX_EVIDENCE_SIZE_BYTES) {
+      await this.storageService.deleteFile(dto.storageKey).catch(() => null);
+      throw new BadRequestException(
+        'El archivo subido excede el límite máximo permitido de 100MB.',
+      );
+    }
+
+    const isVideo =
+      mediaInfo.isVideo ||
       dto.storageKey.includes('/videos/');
     const tipoArchivo: 'imagen' | 'video' = isVideo ? 'video' : 'imagen';
+    const normalizedRealMime = realMeta.mimeType
+      ? realMeta.mimeType.split(';')[0].trim().toLowerCase()
+      : undefined;
 
     const evidencia = this.evidenciaRepository.create({
       orden,
@@ -239,7 +386,12 @@ export class EvidenciaTecnicaService {
       estadoOrden: orden.estadoOrden,
       storageKey: dto.storageKey,
       nombreOriginal: dto.nombreOriginal || path.basename(dto.storageKey),
-      mimeType: realMeta.mimeType || dto.mimeType || (isVideo ? 'video/mp4' : 'image/webp'),
+      mimeType:
+        (normalizedRealMime && normalizedRealMime !== 'application/octet-stream'
+          ? normalizedRealMime
+          : undefined) ||
+        mediaInfo.mimeType ||
+        (isVideo ? 'video/mp4' : 'image/webp'),
       tamanoBytes: realMeta.size || dto.tamanoBytes || 0,
       storageProvider: 'r2',
       tipoArchivo,
@@ -247,8 +399,15 @@ export class EvidenciaTecnicaService {
       archivoUrl: null,
     });
 
-    const saved = await this.evidenciaRepository.save(evidencia);
-    return await this.resolveSignedUrl(saved);
+    try {
+      const saved = await this.evidenciaRepository.save(evidencia);
+      return await this.resolveSignedUrl(saved);
+    } catch (error) {
+      await this.storageService.deleteFile(dto.storageKey).catch(() => null);
+      throw new InternalServerErrorException(
+        `Error confirmando evidencia técnica en base de datos: ${error.message}`,
+      );
+    }
   }
 
   /**
@@ -329,19 +488,24 @@ export class EvidenciaTecnicaService {
 
     if (archivo) {
       const oldStorageKey = evidencia.storageKey;
-      const tipoArchivo = archivo.mimetype.startsWith('video') ? 'video' : 'imagen';
-      const ext = path.extname(archivo.originalname) || (tipoArchivo === 'video' ? '.mp4' : '.jpg');
-      const folder = tipoArchivo === 'video' ? 'videos' : 'imagenes';
+      const mediaInfo = this.normalizeAndValidateMedia(
+        archivo.originalname,
+        archivo.mimetype,
+        archivo.size,
+      );
+      const tipoArchivo = mediaInfo.tipoArchivo;
+      const ext = mediaInfo.ext;
+      const folder = mediaInfo.isVideo ? 'videos' : 'imagenes';
       const odsFolder = evidencia.orden.workOrderNumber
         ? `ODS-${evidencia.orden.workOrderNumber}`
         : `${evidencia.orden.id}`;
       const newStorageKey = `ordenes/${odsFolder}/evidencias/${folder}/${uuidv4()}_${Date.now()}${ext}`;
 
-      await this.storageService.uploadFile(newStorageKey, archivo.buffer, archivo.mimetype);
+      await this.storageService.uploadFile(newStorageKey, archivo.buffer, mediaInfo.mimeType);
 
       evidencia.storageKey = newStorageKey;
       evidencia.nombreOriginal = archivo.originalname;
-      evidencia.mimeType = archivo.mimetype;
+      evidencia.mimeType = mediaInfo.mimeType;
       evidencia.tamanoBytes = archivo.size;
       evidencia.tipoArchivo = tipoArchivo;
       evidencia.storageProvider = 'r2';

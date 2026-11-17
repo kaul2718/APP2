@@ -5,8 +5,8 @@ import Label from "@/components/form/Label";
 import Button from "@/components/ui/button/Button";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
-import { CameraIcon, PhotoIcon, VideoCameraIcon, XMarkIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
-import { useEvidenciaTecnica } from "@/hooks/useEvidenciaTecnica";
+import { CameraIcon, PhotoIcon, VideoCameraIcon, XMarkIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon, ArrowPathIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { useEvidenciaTecnica, validateEvidenceFile, resolveMimeType } from "@/hooks/useEvidenciaTecnica";
 import { optimizeImageClient, ImageOptimizationResult, formatBytes } from "@/utils/imageOptimizer";
 import TextArea from "@/components/form/input/TextArea";
 import EvidenciaItem from "../EvidenciaItem";
@@ -29,7 +29,11 @@ export default function EvidenciaTecnicaModal({
     const [descripcion, setDescripcion] = useState("");
     const [filePreview, setFilePreview] = useState<string | null>(null);
     const [fileType, setFileType] = useState<"imagen" | "video">("imagen");
+    const [videoPreviewError, setVideoPreviewError] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const videoCaptureInputRef = useRef<HTMLInputElement>(null);
+    const photoCaptureInputRef = useRef<HTMLInputElement>(null);
+    const submittingRef = useRef(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -86,10 +90,25 @@ export default function EvidenciaTecnicaModal({
     }, [isOpen]);
 
     const processAndSetFile = async (file: File, highDetail: boolean) => {
-        const lowerName = file.name.toLowerCase();
-        const isImage = file.type.startsWith("image") || lowerName.endsWith(".heic") || lowerName.endsWith(".heif");
+        const validation = validateEvidenceFile(file);
+        if (!validation.valid) {
+            setErrors((prev) => ({
+                ...prev,
+                file: validation.error || "Archivo no válido. Verifique el formato y tamaño (máximo 100MB).",
+            }));
+            return;
+        }
 
-        if (!isImage) {
+        setVideoPreviewError(false);
+
+        if (validation.isVideo) {
+            if (filePreview) {
+                try {
+                    URL.revokeObjectURL(filePreview);
+                } catch {
+                    // ignore
+                }
+            }
             setSelectedFile(file);
             setFileType("video");
             setOptimizationStats(null);
@@ -106,6 +125,7 @@ export default function EvidenciaTecnicaModal({
         // Previsualización inicial
         let initialUrl = "";
         try {
+            if (filePreview) URL.revokeObjectURL(filePreview);
             initialUrl = URL.createObjectURL(file);
             setFilePreview(initialUrl);
         } catch {
@@ -205,6 +225,10 @@ export default function EvidenciaTecnicaModal({
 
     const openCamera = async () => {
         if (!navigator?.mediaDevices?.getUserMedia) {
+            if (photoCaptureInputRef.current) {
+                photoCaptureInputRef.current.click();
+                return;
+            }
             setCameraError("Tu navegador no soporta acceso directo a cámara.");
             return;
         }
@@ -220,7 +244,16 @@ export default function EvidenciaTecnicaModal({
             cameraStreamRef.current = stream;
             setIsCameraOpen(true);
         } catch (error) {
-            setCameraError("No se pudo abrir la cámara. Revisa permisos del navegador.");
+            setCameraError("No se pudo abrir la cámara. Revisa permisos del navegador o usa 'Subir archivo'.");
+        }
+    };
+
+    const openVideoRecorder = () => {
+        stopCamera();
+        setCameraError(null);
+        if (videoCaptureInputRef.current) {
+            videoCaptureInputRef.current.value = "";
+            videoCaptureInputRef.current.click();
         }
     };
 
@@ -277,9 +310,17 @@ export default function EvidenciaTecnicaModal({
 
     const resetForm = () => {
         stopCamera();
+        if (filePreview) {
+            try {
+                URL.revokeObjectURL(filePreview);
+            } catch {
+                // ignore
+            }
+        }
         setDescripcion("");
         setFilePreview(null);
         setSelectedFile(null);
+        setVideoPreviewError(false);
         rawFileRef.current = null;
         setOptimizationStats(null);
         setOptimizing(false);
@@ -289,6 +330,12 @@ export default function EvidenciaTecnicaModal({
         setErrors({ file: "", descripcion: "" });
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
+        }
+        if (videoCaptureInputRef.current) {
+            videoCaptureInputRef.current.value = "";
+        }
+        if (photoCaptureInputRef.current) {
+            photoCaptureInputRef.current.value = "";
         }
     };
 
@@ -302,9 +349,13 @@ export default function EvidenciaTecnicaModal({
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Validar tamaño (hasta 100MB para imágenes y videos)
-        if (file.size > 100 * 1024 * 1024) {
-            setErrors((prev) => ({ ...prev, file: "El archivo no debe exceder 100MB" }));
+        const validation = validateEvidenceFile(file);
+        if (!validation.valid) {
+            setErrors((prev) => ({
+                ...prev,
+                file: validation.error || "El archivo no es válido o excede 100MB",
+            }));
+            e.target.value = "";
             return;
         }
 
@@ -313,8 +364,16 @@ export default function EvidenciaTecnicaModal({
 
     const removeFile = () => {
         stopCamera();
+        if (filePreview) {
+            try {
+                URL.revokeObjectURL(filePreview);
+            } catch {
+                // ignore
+            }
+        }
         setFilePreview(null);
         setSelectedFile(null);
+        setVideoPreviewError(false);
         rawFileRef.current = null;
         setOptimizationStats(null);
         setOptimizing(false);
@@ -322,11 +381,17 @@ export default function EvidenciaTecnicaModal({
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
+        if (videoCaptureInputRef.current) {
+            videoCaptureInputRef.current.value = "";
+        }
+        if (photoCaptureInputRef.current) {
+            photoCaptureInputRef.current.value = "";
+        }
     };
 
     const validateFields = () => {
         const newErrors = {
-            file: !filePreview ? "Debe seleccionar un archivo" : "",
+            file: !filePreview || !selectedFile ? "Debe seleccionar o capturar un archivo" : "",
             descripcion: descripcion.length > 200 ? "La descripcion no debe exceder 200 caracteres" : ""
         };
 
@@ -336,6 +401,14 @@ export default function EvidenciaTecnicaModal({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (submittingRef.current || uploading || optimizing) {
+            return;
+        }
+
+        if (!validateFields()) {
+            return;
+        }
 
         // Validamos que haya un archivo y una sesión
         if (!selectedFile) {
@@ -347,6 +420,7 @@ export default function EvidenciaTecnicaModal({
             return;
         }
 
+        submittingRef.current = true;
         try {
             await createEvidencia(orderId, selectedFile, descripcion, { highDetailMode });
             resetForm();
@@ -354,6 +428,8 @@ export default function EvidenciaTecnicaModal({
             onSuccess?.();
         } catch (error) {
             // El handleApiError del hook ya mostrará el toast correspondiente
+        } finally {
+            submittingRef.current = false;
         }
     };
 
@@ -377,15 +453,15 @@ export default function EvidenciaTecnicaModal({
             isOpen={isOpen}
             onClose={handleClose}
             title="Evidencia tecnica"
-            className="max-w-4xl"
+            className="max-w-3xl"
         >
-            <div className="flex flex-col h-full min-w-0">
+            <div className="flex flex-col h-full w-full min-w-0 box-border">
                 <div className="px-4 sm:px-6 pt-4 pb-3 border-b dark:border-gray-700">
-                    <h2 className="pr-8 sm:pr-0 text-lg sm:text-2xl font-bold text-center text-gray-800 dark:text-white">
+                    <h2 className="pr-8 sm:pr-0 text-lg sm:text-xl font-bold text-center text-gray-800 dark:text-white">
                         Evidencia Técnica
                     </h2>
 
-                    <div className="flex justify-center mt-3 sm:mt-4">
+                    <div className="flex justify-center mt-3">
                         <div className="inline-flex w-full sm:w-auto rounded-lg shadow-sm">
                             <button
                                 type="button"
@@ -406,11 +482,11 @@ export default function EvidenciaTecnicaModal({
                 </div>
 
                 {activeTab === 'agregar' ? (
-                    <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-w-0">
-                        <div className="custom-scrollbar max-h-[58vh] sm:max-h-[60vh] overflow-y-auto px-4 sm:px-6 py-4">
-                            <div className="grid grid-cols-1 gap-y-4">
+                    <form onSubmit={handleSubmit} className="flex flex-col flex-1 w-full min-w-0 box-border">
+                        <div className="custom-scrollbar max-h-[58vh] sm:max-h-[62vh] overflow-y-auto px-4 sm:px-6 py-4">
+                            <div className="grid grid-cols-1 gap-y-4 px-0.5">
                                 {/* Previsualización del archivo */}
-                                <div className="mb-4">
+                                <div className="mb-2">
                                     <Label htmlFor="evidencia-file-input" className="mb-2 block">Archivo <span aria-hidden="true">*</span></Label>
 
                                     {filePreview ? (
@@ -420,24 +496,67 @@ export default function EvidenciaTecnicaModal({
                                                     <img
                                                         src={filePreview}
                                                         alt="Preview"
-                                                        className="w-full h-64 object-contain rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/40"
+                                                        className="w-full h-56 sm:h-64 object-contain rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/40"
                                                     />
                                                 ) : (
-                                                    <video
-                                                        src={filePreview}
-                                                        controls
-                                                        className="w-full h-64 object-contain rounded-lg border border-gray-300 dark:border-gray-600 bg-black"
-                                                    />
+                                                    <div className="flex flex-col gap-2">
+                                                        <video
+                                                            src={filePreview}
+                                                            controls
+                                                            playsInline
+                                                            preload="metadata"
+                                                            onError={() => setVideoPreviewError(true)}
+                                                            className="w-full h-56 sm:h-64 object-contain rounded-lg border border-gray-300 dark:border-gray-600 bg-black"
+                                                        />
+                                                        {videoPreviewError && (
+                                                            <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200">
+                                                                Vista previa directa no disponible en este navegador para este códec de video, pero el archivo es válido y está listo para subirse.
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 )}
                                                 <button
                                                     type="button"
                                                     onClick={removeFile}
-                                                    className="absolute top-2 right-2 p-2 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    className="absolute top-2 right-2 p-2 bg-red-600 hover:bg-red-700 rounded-full shadow-md transition-opacity"
                                                     aria-label="Eliminar archivo"
+                                                    title="Quitar archivo seleccionado"
                                                 >
-                                                    <XMarkIcon className="w-5 h-5 text-white" />
+                                                    <XMarkIcon className="w-4 h-4 text-white" />
                                                 </button>
                                             </div>
+
+                                            {/* Resumen de metadatos del archivo seleccionado */}
+                                            {selectedFile && (
+                                                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 text-xs">
+                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                        {fileType === "video" ? (
+                                                            <VideoCameraIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                                                        ) : (
+                                                            <PhotoIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                                                        )}
+                                                        <span className="font-medium text-gray-800 dark:text-gray-200 truncate" title={selectedFile.name}>
+                                                            {selectedFile.name}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        <span className="px-2 py-0.5 rounded bg-gray-200/80 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-mono text-[11px]">
+                                                            {formatBytes(selectedFile.size)}
+                                                        </span>
+                                                        <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-mono text-[11px] uppercase">
+                                                            {resolveMimeType(selectedFile).replace("video/", "").replace("image/", "")}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={removeFile}
+                                                            className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 dark:text-red-400 font-medium ml-1"
+                                                        >
+                                                            <TrashIcon className="w-3.5 h-3.5" />
+                                                            Cambiar
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             {/* Indicadores de Optimización Inteligente */}
                                             {optimizing && (
@@ -491,7 +610,7 @@ export default function EvidenciaTecnicaModal({
                                                             type="checkbox"
                                                             checked={highDetailMode}
                                                             onChange={(e) => handleToggleHighDetail(e.target.checked)}
-                                                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                                                            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer shrink-0"
                                                         />
                                                         <span>
                                                             Modo Detalle Técnico (Mayor resolución 4K para placas, componentes y números de serie)
@@ -508,10 +627,10 @@ export default function EvidenciaTecnicaModal({
                                                 playsInline
                                                 muted
                                                 onLoadedMetadata={() => setCameraReady(true)}
-                                                className="w-full h-64 object-cover rounded-lg bg-black"
+                                                className="w-full h-56 sm:h-64 object-cover rounded-lg bg-black"
                                             />
                                             <canvas ref={canvasRef} className="hidden" />
-                                            <div className="mt-3 flex justify-center gap-2">
+                                            <div className="mt-3 flex flex-wrap justify-center gap-2">
                                                 <Button
                                                     type="button"
                                                     variant="primary"
@@ -533,35 +652,44 @@ export default function EvidenciaTecnicaModal({
                                         </div>
                                     ) : (
                                         <div
-                                            className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center"
+                                            className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-5 sm:p-7 text-center"
                                             aria-label="Área para seleccionar o capturar evidencias"
                                         >
                                             <div className="flex flex-col items-center justify-center gap-2">
-                                                <CameraIcon className="w-10 h-10 text-gray-400" />
-                                                <p className="text-gray-500 dark:text-gray-400">
+                                                <CameraIcon className="w-9 h-9 text-gray-400" />
+                                                <p className="text-sm sm:text-base font-medium text-gray-600 dark:text-gray-300">
                                                     Selecciona cómo quieres agregar la evidencia
                                                 </p>
-                                                <p className="text-sm text-gray-400">
+                                                <p className="text-xs sm:text-sm text-gray-400 max-w-md">
                                                     Formatos soportados: JPG, PNG, WebP, HEIC (iPhone), MP4, MOV, WebM (hasta 100MB)
                                                 </p>
-                                                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                                                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full max-w-lg mx-auto">
                                                     <Button
                                                         type="button"
                                                         variant="outline"
                                                         onClick={openCamera}
-                                                        className="flex items-center gap-2"
+                                                        className="flex items-center justify-center gap-2 w-full"
                                                     >
-                                                        <CameraIcon className="w-4 h-4" />
-                                                        Tomar foto
+                                                        <CameraIcon className="w-4 h-4 shrink-0" />
+                                                        <span>Tomar foto</span>
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={openVideoRecorder}
+                                                        className="flex items-center justify-center gap-2 w-full"
+                                                    >
+                                                        <VideoCameraIcon className="w-4 h-4 shrink-0" />
+                                                        <span>Grabar video</span>
                                                     </Button>
                                                     <Button
                                                         type="button"
                                                         variant="outline"
                                                         onClick={() => fileInputRef.current?.click()}
-                                                        className="flex items-center gap-2"
+                                                        className="flex items-center justify-center gap-2 w-full"
                                                     >
-                                                        <PhotoIcon className="w-4 h-4" />
-                                                        Subir archivo
+                                                        <PhotoIcon className="w-4 h-4 shrink-0" />
+                                                        <span>Subir archivo</span>
                                                     </Button>
                                                 </div>
                                             </div>
@@ -569,24 +697,44 @@ export default function EvidenciaTecnicaModal({
                                                 id="evidencia-file-input"
                                                 ref={fileInputRef}
                                                 type="file"
-                                                accept="image/*, video/*, .heic, .heif"
+                                                accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,video/mp4,video/quicktime,video/webm,.heic,.heif,.mp4,.mov,.webm"
                                                 onChange={handleFileChange}
                                                 className="hidden"
                                                 aria-label="Selector de archivos"
                                             />
+                                            <input
+                                                id="evidencia-video-capture-input"
+                                                ref={videoCaptureInputRef}
+                                                type="file"
+                                                accept="video/mp4,video/quicktime,video/webm,video/*"
+                                                capture="environment"
+                                                onChange={handleFileChange}
+                                                className="hidden"
+                                                aria-label="Grabar video con cámara"
+                                            />
+                                            <input
+                                                id="evidencia-photo-capture-input"
+                                                ref={photoCaptureInputRef}
+                                                type="file"
+                                                accept="image/*"
+                                                capture="environment"
+                                                onChange={handleFileChange}
+                                                className="hidden"
+                                                aria-label="Tomar foto con cámara nativa"
+                                            />
                                         </div>
                                     )}
                                     {cameraError && (
-                                        <p role="alert" className="text-sm text-red-500 mt-1">{cameraError}</p>
+                                        <p role="alert" className="text-sm text-red-500 mt-1.5">{cameraError}</p>
                                     )}
                                     {errors.file && (
-                                        <p role="alert" className="text-sm text-red-500 mt-1">{errors.file}</p>
+                                        <p role="alert" className="text-sm text-red-500 mt-1.5">{errors.file}</p>
                                     )}
                                 </div>
 
                                 {/* Descripción */}
-                                <div className="mb-4">
-                                    <Label htmlFor="descripcion-evidencia">Descripcion (opcional)</Label>
+                                <div className="mb-2">
+                                    <Label htmlFor="descripcion-evidencia" className="mb-1.5 block">Descripcion (opcional)</Label>
                                     <TextArea
                                         id="descripcion-evidencia"
                                         value={descripcion}

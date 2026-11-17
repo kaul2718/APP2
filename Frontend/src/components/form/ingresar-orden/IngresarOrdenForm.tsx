@@ -636,7 +636,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
         }
     };
     const formContent = (
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-5">
+        <form onSubmit={handleSubmit} className={`grid grid-cols-1 ${embeddedMode ? "gap-3.5 sm:gap-4" : "gap-5"}`}>
             {/* Banner de Borrador Recuperable (Escenario B) */}
             {draftAvailable && (
                 <div className="rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-sm dark:border-amber-800/60 dark:from-amber-950/40 dark:to-orange-950/20">
@@ -1208,8 +1208,8 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     return (
         <>
             {embeddedMode ? (
-                <div className="max-h-[75vh] overflow-y-auto px-1 pb-2 sm:px-4 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[scrollbar-color:#475569_transparent] dark:[&::-webkit-scrollbar-thumb]:bg-slate-600">
-                    <div className="mb-3 border-b border-gray-200 pb-3 pr-10 dark:border-gray-700">
+                <div className="max-h-[70vh] sm:max-h-[72vh] overflow-y-auto px-1 pb-2 sm:px-3 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[scrollbar-color:#475569_transparent] dark:[&::-webkit-scrollbar-thumb]:bg-slate-600">
+                    <div className="mb-3 border-b border-gray-200 pb-2.5 pr-10 dark:border-gray-700">
                         <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">Crear Nueva Orden de Trabajo</h3>
                         <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                             Complete los datos para registrar la orden sin salir de esta vista.
