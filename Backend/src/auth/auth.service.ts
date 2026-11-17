@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
@@ -13,6 +14,7 @@ import { EnviarInvitacionDto } from './dto/enviar-invitacion.dto';
 import { GuardarNuevaClaveDto } from './dto/guardar-nueva-clave.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { BrevoService } from './brevo.service'; // ✅ Importación agregada
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class AuthService {
@@ -20,6 +22,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly brevoService: BrevoService, // ✅ Inyección del servicio de Brevo
+    @Optional() private readonly auditService?: AuditService,
   ) { }
 
   async register(registerDto: RegisterDto) {
@@ -100,6 +103,15 @@ export class AuthService {
       userWithPassword = await this.usersService.findByCedula(rawInput, true);
 
       if (!userWithPassword) {
+        await this.auditService?.logBestEffort({
+          action: 'AUTH_LOGIN_FAILED',
+          module: 'auth',
+          entityType: 'User',
+          description: 'Intento de inicio de sesión fallido (cédula no registrada)',
+          newValues: { identificador: rawInput, reason: 'USER_NOT_FOUND' },
+          status: 'FAILURE',
+          actorType: 'anonymous',
+        });
         throw new UnauthorizedException('Credenciales incorrectas o usuario no registrado.');
       }
 
@@ -110,6 +122,18 @@ export class AuthService {
           : 'client';
 
       if (userRole !== 'client' && userRole !== 'cliente') {
+        await this.auditService?.logBestEffort({
+          action: 'AUTH_LOGIN_FAILED',
+          module: 'auth',
+          entityType: 'User',
+          entityId: userWithPassword.id,
+          actorUserId: userWithPassword.id,
+          actorRole: userRole,
+          actorType: 'employee',
+          description: 'Intento de inicio de sesión de personal mediante cédula bloqueado',
+          newValues: { reason: 'STAFF_MUST_USE_EMAIL' },
+          status: 'FAILURE',
+        });
         throw new UnauthorizedException(
           'El personal administrativo y técnico debe iniciar sesión con su correo electrónico institucional.',
         );
@@ -120,12 +144,32 @@ export class AuthService {
       userWithPassword = await this.usersService.findByEmail(cleanEmail, true);
 
       if (!userWithPassword) {
+        await this.auditService?.logBestEffort({
+          action: 'AUTH_LOGIN_FAILED',
+          module: 'auth',
+          entityType: 'User',
+          description: 'Intento de inicio de sesión fallido (correo no registrado)',
+          newValues: { correo: cleanEmail, reason: 'USER_NOT_FOUND' },
+          status: 'FAILURE',
+          actorType: 'anonymous',
+        });
         throw new UnauthorizedException('Credenciales incorrectas o usuario no registrado.');
       }
     }
 
     // Validación fundamental: si el cliente no tiene contraseña configurada, no permitir acceso
     if (!userWithPassword.password) {
+      await this.auditService?.logBestEffort({
+        action: 'AUTH_LOGIN_FAILED',
+        module: 'auth',
+        entityType: 'User',
+        entityId: userWithPassword.id,
+        actorUserId: userWithPassword.id,
+        actorType: 'anonymous',
+        description: 'Intento de inicio de sesión en cuenta sin contraseña activada',
+        newValues: { reason: 'ACCOUNT_NOT_ACTIVATED' },
+        status: 'FAILURE',
+      });
       throw new UnauthorizedException(
         'Esta cuenta aún no ha sido activada. Por favor, acérquese a recepción para solicitar la activación presencial de su cuenta.',
       );
@@ -134,6 +178,22 @@ export class AuthService {
     // Validación segura de la contraseña con bcrypt
     const isPasswordValid = await bcryptjs.compare(password, userWithPassword.password);
     if (!isPasswordValid) {
+      const failedRole =
+        userWithPassword.userRoles && userWithPassword.userRoles.length > 0
+          ? userWithPassword.userRoles[0].rol?.slug
+          : 'client';
+      await this.auditService?.logBestEffort({
+        action: 'AUTH_LOGIN_FAILED',
+        module: 'auth',
+        entityType: 'User',
+        entityId: userWithPassword.id,
+        actorUserId: userWithPassword.id,
+        actorRole: failedRole,
+        actorType: failedRole === 'client' ? 'client' : 'employee',
+        description: 'Intento de inicio de sesión fallido por contraseña incorrecta',
+        newValues: { reason: 'INVALID_PASSWORD' },
+        status: 'FAILURE',
+      });
       throw new UnauthorizedException('Credenciales incorrectas.');
     }
 
@@ -160,6 +220,18 @@ export class AuthService {
             .map((rp) => rp.permission?.slug)
             .filter(Boolean)
         : [];
+
+    await this.auditService?.logBestEffort({
+      action: 'AUTH_LOGIN_SUCCESS',
+      module: 'auth',
+      entityType: 'User',
+      entityId: userWithPassword.id,
+      actorUserId: userWithPassword.id,
+      actorRole: userRole,
+      actorType: userRole === 'client' ? 'client' : 'employee',
+      description: `Inicio de sesión exitoso (${userRole})`,
+      status: 'SUCCESS',
+    });
 
     return {
       token,
@@ -247,6 +319,13 @@ export class AuthService {
   async guardarNuevaClave(dto: GuardarNuevaClaveDto) {
     try {
       await this.usersService.resetPassword(dto.token, dto.password);
+      await this.auditService?.logBestEffort({
+        action: 'AUTH_PASSWORD_RESET_COMPLETED',
+        module: 'auth',
+        entityType: 'User',
+        description: 'Contraseña establecida o restablecida mediante enlace seguro',
+        status: 'SUCCESS',
+      });
       return {
         success: true,
         message: 'Contraseña creada correctamente'
@@ -297,6 +376,16 @@ export class AuthService {
 
     // Enviar correo (usa tu servicio de Brevo, Nodemailer, etc.)
     await this.brevoService.enviarResetPassword(user.nombre, user.correo, enlace);
+
+    await this.auditService?.logBestEffort({
+      action: 'AUTH_PASSWORD_RESET_REQUESTED',
+      module: 'auth',
+      entityType: 'User',
+      entityId: user.id,
+      actorUserId: user.id,
+      description: `Solicitud de restablecimiento de contraseña para usuario #${user.id}`,
+      status: 'SUCCESS',
+    });
 
     return { message: 'Se ha enviado el enlace para restablecer la contraseña.' };
   }

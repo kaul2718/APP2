@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -19,6 +20,7 @@ import { Order } from '../orders/entities/order.entity';
 import { User } from '../users/entities/user.entity';
 import { StorageService } from '../storage/storage.service';
 import { ImageOptimizerService } from '../storage/image-optimizer.service';
+import { AuditService } from '../audit/audit.service';
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
 
@@ -36,6 +38,7 @@ export class EvidenciaTecnicaService {
     private readonly userRepository: Repository<User>,
     private readonly storageService: StorageService,
     private readonly imageOptimizerService: ImageOptimizerService,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
 
   /**
@@ -183,6 +186,58 @@ export class EvidenciaTecnicaService {
   }
 
   /**
+   * Elimina un objeto de R2 únicamente si ningún otro registro activo en BD lo referencia.
+   * Si el borrado en R2 falla, registra un evento R2_CLEANUP_PENDING para su resolución.
+   */
+  public async safeDeleteR2IfUnreferenced(
+    storageKey: string | undefined | null,
+    excludeEvidenciaId?: number,
+    phase: 'compensation' | 'post_commit' = 'post_commit',
+  ): Promise<boolean> {
+    if (!storageKey) return false;
+
+    try {
+      const existingRefs = await this.evidenciaRepository.find({
+        where: { storageKey, deletedAt: null },
+        select: ['id'],
+      } as any);
+      const otherActiveRefs = (existingRefs || []).filter(
+        (ev: any) => ev && ev.id !== excludeEvidenciaId,
+      );
+      if (otherActiveRefs.length > 0) {
+        this.logger.warn(
+          `Se omite eliminación en R2 para [${storageKey}] porque sigue referenciado por otro registro activo.`,
+        );
+        return false;
+      }
+    } catch {
+      // Si falla la consulta de verificación en un flujo de compensación tras caída de BD, no impedir la limpieza de clave recién generada
+      if (phase !== 'compensation') {
+        return false;
+      }
+    }
+
+    try {
+      await this.storageService.deleteFile(storageKey);
+      return true;
+    } catch (err: any) {
+      this.logger.error(
+        `[R2_CLEANUP_PENDING] No se pudo eliminar el objeto [${storageKey}] (${phase}): ${err?.message || err}`,
+      );
+      await this.auditService?.logBestEffort({
+        action: 'R2_CLEANUP_PENDING',
+        module: 'evidencias',
+        entityType: 'EvidenciaTecnica',
+        entityId: excludeEvidenciaId,
+        description: `Limpieza pendiente en Cloudflare R2 (${phase}) para clave ${storageKey}`,
+        newValues: { storageKey, phase, error: err?.message || 'Error desconocido' },
+        status: 'FAILURE',
+      });
+      return false;
+    }
+  }
+
+  /**
    * Subida estándar de fotos / evidencias vía NestJS hacia Cloudflare R2
    */
   async create(
@@ -273,12 +328,34 @@ export class EvidenciaTecnicaService {
     });
 
     try {
-      const saved = await this.evidenciaRepository.save(evidencia);
+      const saved = await this.evidenciaRepository.manager.transaction(async (manager) => {
+        const s = await manager.save(EvidenciaTecnica, evidencia);
+        await this.auditService?.logCritical(
+          {
+            action: 'EVIDENCE_CREATED',
+            module: 'evidencias',
+            entityType: 'EvidenciaTecnica',
+            entityId: s.id,
+            actorUserId: subidoPorId,
+            description: `Evidencia (${s.tipoArchivo}) registrada en orden #${orden.workOrderNumber || ordenId}`,
+            newValues: {
+              ordenId,
+              workOrderNumber: orden.workOrderNumber,
+              tipoArchivo: s.tipoArchivo,
+              mimeType: s.mimeType,
+              tamanoBytes: s.tamanoBytes,
+            },
+            status: 'SUCCESS',
+          },
+          manager,
+        );
+        return s;
+      });
       return await this.resolveSignedUrl(saved);
     } catch (error) {
-      // Si falla la BD y se había subido a R2, se limpia el objeto huérfano
+      // Si falla la BD y se había subido a R2, se limpia el objeto huérfano si no está referenciado
       if (storageKey) {
-        await this.storageService.deleteFile(storageKey).catch(() => null);
+        await this.safeDeleteR2IfUnreferenced(storageKey, undefined, 'compensation');
       }
       throw new InternalServerErrorException(
         `Error creando evidencia técnica: ${error.message}`,
@@ -400,7 +477,29 @@ export class EvidenciaTecnicaService {
     });
 
     try {
-      const saved = await this.evidenciaRepository.save(evidencia);
+      const saved = await this.evidenciaRepository.manager.transaction(async (manager) => {
+        const s = await manager.save(EvidenciaTecnica, evidencia);
+        await this.auditService?.logCritical(
+          {
+            action: 'EVIDENCE_CREATED',
+            module: 'evidencias',
+            entityType: 'EvidenciaTecnica',
+            entityId: s.id,
+            actorUserId: currentUser.id,
+            description: `Evidencia directa (${s.tipoArchivo}) confirmada en orden #${orden.workOrderNumber || dto.ordenId}`,
+            newValues: {
+              ordenId: dto.ordenId,
+              workOrderNumber: orden.workOrderNumber,
+              tipoArchivo: s.tipoArchivo,
+              mimeType: s.mimeType,
+              tamanoBytes: s.tamanoBytes,
+            },
+            status: 'SUCCESS',
+          },
+          manager,
+        );
+        return s;
+      });
       return await this.resolveSignedUrl(saved);
     } catch (error) {
       await this.storageService.deleteFile(dto.storageKey).catch(() => null);
@@ -486,8 +585,11 @@ export class EvidenciaTecnicaService {
   ): Promise<EvidenciaTecnica> {
     const evidencia = await this.findOne(id);
 
+    let oldStorageKeyToDelete: string | undefined;
+    let uploadedNewStorageKey: string | undefined;
+
     if (archivo) {
-      const oldStorageKey = evidencia.storageKey;
+      oldStorageKeyToDelete = evidencia.storageKey;
       const mediaInfo = this.normalizeAndValidateMedia(
         archivo.originalname,
         archivo.mimetype,
@@ -502,6 +604,7 @@ export class EvidenciaTecnicaService {
       const newStorageKey = `ordenes/${odsFolder}/evidencias/${folder}/${uuidv4()}_${Date.now()}${ext}`;
 
       await this.storageService.uploadFile(newStorageKey, archivo.buffer, mediaInfo.mimeType);
+      uploadedNewStorageKey = newStorageKey;
 
       evidencia.storageKey = newStorageKey;
       evidencia.nombreOriginal = archivo.originalname;
@@ -509,11 +612,6 @@ export class EvidenciaTecnicaService {
       evidencia.tamanoBytes = archivo.size;
       evidencia.tipoArchivo = tipoArchivo;
       evidencia.storageProvider = 'r2';
-
-      // Eliminar el archivo anterior en R2 si existía
-      if (oldStorageKey) {
-        await this.storageService.deleteFile(oldStorageKey).catch(() => null);
-      }
     }
 
     if (updateDto.descripcion !== undefined) {
@@ -521,9 +619,40 @@ export class EvidenciaTecnicaService {
     }
 
     try {
-      const saved = await this.evidenciaRepository.save(evidencia);
+      const saved = await this.evidenciaRepository.manager.transaction(async (manager) => {
+        const s = await manager.save(EvidenciaTecnica, evidencia);
+        await this.auditService?.logCritical(
+          {
+            action: 'EVIDENCE_UPDATED',
+            module: 'evidencias',
+            entityType: 'EvidenciaTecnica',
+            entityId: s.id,
+            description: `Evidencia #${s.id} (${s.tipoArchivo}) actualizada en orden #${evidencia.orden?.workOrderNumber || evidencia.orden?.id}`,
+            newValues: {
+              ordenId: evidencia.orden?.id,
+              workOrderNumber: evidencia.orden?.workOrderNumber,
+              tipoArchivo: s.tipoArchivo,
+              mimeType: s.mimeType,
+              tamanoBytes: s.tamanoBytes,
+            },
+            status: 'SUCCESS',
+          },
+          manager,
+        );
+        return s;
+      });
+
+      // Solo después de confirmar en PostgreSQL eliminamos el objeto anterior en R2 si nadie más lo referencia
+      if (oldStorageKeyToDelete) {
+        await this.safeDeleteR2IfUnreferenced(oldStorageKeyToDelete, saved.id, 'post_commit');
+      }
+
       return await this.resolveSignedUrl(saved);
     } catch (error) {
+      // Compensación: si falla la BD/auditoría, limpiar el archivo recién subido para evitar huérfanos
+      if (uploadedNewStorageKey) {
+        await this.safeDeleteR2IfUnreferenced(uploadedNewStorageKey, evidencia.id, 'compensation');
+      }
       throw new InternalServerErrorException(
         `Error actualizando evidencia técnica: ${error.message}`,
       );
@@ -535,13 +664,33 @@ export class EvidenciaTecnicaService {
    */
   async remove(id: number): Promise<void> {
     const evidencia = await this.findOne(id);
+    const storageKeyToDelete = evidencia.storageKey;
 
-    // Si tiene objeto en R2, se elimina físicamente del bucket
-    if (evidencia.storageKey) {
-      await this.storageService.deleteFile(evidencia.storageKey).catch(() => null);
+    await this.evidenciaRepository.manager.transaction(async (manager) => {
+      evidencia.deletedAt = new Date();
+      await manager.save(EvidenciaTecnica, evidencia);
+
+      await this.auditService?.logCritical(
+        {
+          action: 'EVIDENCE_DELETED',
+          module: 'evidencias',
+          entityType: 'EvidenciaTecnica',
+          entityId: evidencia.id,
+          description: `Evidencia #${evidencia.id} (${evidencia.tipoArchivo}) eliminada de orden #${evidencia.orden?.workOrderNumber || evidencia.orden?.id}`,
+          oldValues: {
+            ordenId: evidencia.orden?.id,
+            tipoArchivo: evidencia.tipoArchivo,
+            mimeType: evidencia.mimeType,
+          },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+    });
+
+    // Solo después de confirmar soft-delete + auditoría en PostgreSQL, eliminar objeto físico en R2 si no está referenciado
+    if (storageKeyToDelete) {
+      await this.safeDeleteR2IfUnreferenced(storageKeyToDelete, evidencia.id, 'post_commit');
     }
-
-    evidencia.deletedAt = new Date();
-    await this.evidenciaRepository.save(evidencia);
   }
 }

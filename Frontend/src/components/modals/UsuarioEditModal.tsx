@@ -58,77 +58,96 @@ export default function UsuarioEditModal({ isOpen, onClose, usuario, onSave }: P
 
         setCargando(true);
         try {
-            // Manejar actualización o eliminación de foto de perfil
+            let updatedFotoPerfilUrl: string | null | undefined = usuario.fotoPerfilUrl;
+            let fotoActualizada = false;
+
+            // Manejar actualización o eliminación de foto de perfil mediante /users/:id/avatar
             if (formData.fotoFile) {
-                try {
-                    const avatarFormData = new FormData();
-                    avatarFormData.append("foto", formData.fotoFile);
-                    const avRes = await fetch(
-                        `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${usuario.id}/avatar`,
-                        {
-                            method: "POST",
-                            headers: {
-                                Authorization: `Bearer ${token}`,
-                            },
-                            body: avatarFormData,
-                        }
-                    );
-                    if (avRes.ok) {
-                        const avData = await avRes.json();
-                        usuario.fotoPerfilUrl = avData.fotoPerfilUrl;
+                const avatarFormData = new FormData();
+                avatarFormData.append("foto", formData.fotoFile);
+                const avRes = await fetch(
+                    `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${usuario.id}/avatar`,
+                    {
+                        method: "POST",
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: avatarFormData,
                     }
-                } catch (avErr) {
-                    console.error("Error al actualizar foto de perfil:", avErr);
+                );
+                if (!avRes.ok) {
+                    const avErr = await avRes.json().catch(() => null);
+                    throw new Error(avErr?.message || "Error al actualizar la foto de perfil");
                 }
+                const avData = await avRes.json();
+                updatedFotoPerfilUrl = avData.fotoPerfilUrl;
+                fotoActualizada = true;
             } else if (formData.fotoPerfilUrl === null && usuario.fotoPerfilUrl) {
-                try {
-                    await fetch(
-                        `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${usuario.id}/avatar`,
-                        {
-                            method: "DELETE",
-                            headers: {
-                                Authorization: `Bearer ${token}`,
-                            },
-                        }
-                    );
-                    usuario.fotoPerfilUrl = null;
-                } catch (delErr) {
-                    console.error("Error al eliminar foto de perfil:", delErr);
+                const delRes = await fetch(
+                    `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${usuario.id}/avatar`,
+                    {
+                        method: "DELETE",
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    }
+                );
+                if (!delRes.ok) {
+                    const delErr = await delRes.json().catch(() => null);
+                    throw new Error(delErr?.message || "Error al eliminar la foto de perfil");
                 }
+                updatedFotoPerfilUrl = null;
+                fotoActualizada = true;
             }
 
-            // Preparar solo los campos modificados
+            // Preparar solo los campos modificados permitidos por UpdateUserDto
+            // (excluyendo campos internos de UI como fotoFile, fotoPerfilUrl y confirmPassword)
             const cambios: Record<string, any> = {};
 
             camposModificados.forEach((campo) => {
+                if (campo === 'fotoFile' || campo === 'fotoPerfilUrl' || campo === 'confirmPassword') {
+                    return;
+                }
                 const valor = formData[campo as keyof UsuarioFormData];
                 if (valor !== undefined && valor !== null) {
                     // Si es role, mapear directamente a roleIds
                     if (campo === 'role' && typeof valor === 'number' && valor > 0) {
                         cambios['roleIds'] = [valor];
-                    } else if (campo !== 'role' && campo !== 'confirmPassword') {
+                    } else if (campo !== 'role') {
                         // Enviar otros campos tal cual
                         cambios[campo] = valor;
                     }
                 }
             });
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${usuario.id}`, {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(cambios),
-            });
+            let savedUser: Usuario = {
+                ...usuario,
+                ...(fotoActualizada ? { fotoPerfilUrl: updatedFotoPerfilUrl } : {}),
+            };
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `Error: ${response.status}`);
+            if (Object.keys(cambios).length > 0) {
+                const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${usuario.id}`, {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(cambios),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => null);
+                    throw new Error(errorData?.message || `Error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                savedUser = {
+                    ...data,
+                    ...(fotoActualizada ? { fotoPerfilUrl: updatedFotoPerfilUrl } : {}),
+                };
             }
 
-            const data = await response.json();
-            onSave(data);
+            onSave(savedUser);
             toast.success("Cambios guardados correctamente");
             onClose();
         } catch (error) {

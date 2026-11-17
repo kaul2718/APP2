@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import { toast } from "react-toastify";
+import { trackClientEvent } from "@/lib/clientActivityTracker";
 
 export default function RestablecerPassword() {
     const router = useRouter();
@@ -34,6 +35,12 @@ export default function RestablecerPassword() {
         if (!validateFields()) return;
 
         setLoading(true);
+        void trackClientEvent({
+            eventName: "RECOVERY_FLOW_STARTED",
+            module: "recuperacion",
+            pagePath: "/reset-password",
+            metadata: { channel: "email" },
+        });
 
         try {
             const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/restablecer-contrasena`, {

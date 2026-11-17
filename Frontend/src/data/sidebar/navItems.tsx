@@ -8,6 +8,7 @@ import {
   Cog8ToothIcon,
   ChartBarIcon,
   ShieldCheckIcon,
+  EyeIcon,
 } from "@heroicons/react/24/outline";
 
 export type SubNavItem = {
@@ -147,6 +148,25 @@ export const navItems: NavItem[] = [
         path: "/reportes/equipos",
         roles: ["admin"],
         permission: "reportes.view",
+      },
+    ],
+  },
+  {
+    icon: <EyeIcon className="w-5 h-5" />,
+    name: "Actividad del sistema",
+    roles: ["admin"],
+    subItems: [
+      {
+        name: "Auditoría interna",
+        path: "/actividad-sistema/auditoria",
+        roles: ["admin"],
+        permission: "audit.view",
+      },
+      {
+        name: "Comportamiento de clientes",
+        path: "/actividad-sistema/clientes",
+        roles: ["admin"],
+        permission: "analytics.clients.view",
       },
     ],
   },

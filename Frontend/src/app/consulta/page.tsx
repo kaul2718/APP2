@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '@/components/landing/Navbar';
 import Footer from '@/components/landing/Footer';
+import AnalyticsConsentBanner from '@/components/privacy/AnalyticsConsentBanner';
+import { trackClientEvent } from '@/lib/clientActivityTracker';
 import {
   MagnifyingGlassIcon,
   IdentificationIcon,
@@ -87,6 +89,11 @@ export default function ConsultaPage() {
 
   // Auto-cargar parámetros de URL si vienen desde enlace o redirección
   useEffect(() => {
+    void trackClientEvent({
+      eventName: 'PORTAL_PAGE_VIEWED',
+      module: 'portal_publico',
+      pagePath: '/consulta',
+    });
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const qWorkorder = params.get('workorder') || params.get('orden') || params.get('ods');
@@ -120,6 +127,13 @@ export default function ConsultaPage() {
     setLoading(true);
     setError(null);
 
+    void trackClientEvent({
+      eventName: 'ORDER_LOOKUP_STARTED',
+      module: 'portal_publico',
+      pagePath: '/consulta',
+      metadata: { channel: 'web_consulta' },
+    });
+
     try {
       const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000/api/v1';
       const url = `${baseUrl}/orders/public/consulta?cedula=${encodeURIComponent(cleanCed)}&workorder=${encodeURIComponent(cleanOrd)}`;
@@ -139,9 +153,21 @@ export default function ConsultaPage() {
 
       const data: PublicOrderSummary = await res.json();
       setOrder(data);
+      void trackClientEvent({
+        eventName: 'ORDER_STATUS_HISTORY_VIEWED',
+        module: 'portal_publico',
+        pagePath: '/consulta',
+        metadata: { stepsCount: WORKFLOW_STEPS.length },
+      });
     } catch (err: any) {
       setError(err.message || 'Error desconocido');
       setOrder(null);
+      void trackClientEvent({
+        eventName: 'CLIENT_FLOW_ERROR',
+        module: 'portal_publico',
+        pagePath: '/consulta',
+        metadata: { errorCode: 'ORDER_LOOKUP_ERROR', flow: 'public_consulta' },
+      });
     } finally {
       setLoading(false);
     }
@@ -503,6 +529,7 @@ export default function ConsultaPage() {
       </main>
 
       <Footer />
+      <AnalyticsConsentBanner />
     </div>
   );
 }

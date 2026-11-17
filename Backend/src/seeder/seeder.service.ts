@@ -99,6 +99,11 @@ export class SeederService {
       // Notificaciones
       { nombre: 'Enviar Notificaciones', slug: 'notificaciones.send' },
       { nombre: 'Ver Notificaciones', slug: 'notificaciones.view' },
+
+      // Auditoría y Analítica
+      { nombre: 'Ver Auditoría del Sistema', slug: 'audit.view' },
+      { nombre: 'Ver Detalle de Auditoría', slug: 'audit.detail' },
+      { nombre: 'Ver Analítica de Clientes', slug: 'analytics.clients.view' },
     ];
 
     for (const permissionData of permissions) {

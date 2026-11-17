@@ -223,28 +223,12 @@ export default function EvidenciaTecnicaModal({
         };
     }, [isCameraOpen]);
 
-    const openCamera = async () => {
-        if (!navigator?.mediaDevices?.getUserMedia) {
-            if (photoCaptureInputRef.current) {
-                photoCaptureInputRef.current.click();
-                return;
-            }
-            setCameraError("Tu navegador no soporta acceso directo a cámara.");
-            return;
-        }
-
-        try {
-            setCameraError(null);
-            setCameraReady(false);
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: { ideal: "environment" } },
-                audio: false,
-            });
-
-            cameraStreamRef.current = stream;
-            setIsCameraOpen(true);
-        } catch (error) {
-            setCameraError("No se pudo abrir la cámara. Revisa permisos del navegador o usa 'Subir archivo'.");
+    const openCamera = () => {
+        stopCamera();
+        setCameraError(null);
+        if (photoCaptureInputRef.current) {
+            photoCaptureInputRef.current.value = "";
+            photoCaptureInputRef.current.click();
         }
     };
 
@@ -716,7 +700,7 @@ export default function EvidenciaTecnicaModal({
                                                 id="evidencia-photo-capture-input"
                                                 ref={photoCaptureInputRef}
                                                 type="file"
-                                                accept="image/*"
+                                                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/*"
                                                 capture="environment"
                                                 onChange={handleFileChange}
                                                 className="hidden"

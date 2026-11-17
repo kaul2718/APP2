@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { AjusteInventario } from './entities/ajuste-inventario.entity';
@@ -6,6 +6,7 @@ import { AjusteInventarioDetalle } from './entities/ajuste-inventario-detalle.en
 import { Parte } from '../parte/entities/parte.entity';
 import { CreateAjusteInventarioDto } from './dto/create-ajuste-inventario.dto';
 import { NotificacionService } from '../notificacion/notificacion.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class AjusteInventarioService {
@@ -18,6 +19,7 @@ export class AjusteInventarioService {
     private readonly parteRepository: Repository<Parte>,
     private readonly dataSource: DataSource,
     private readonly notificacionService: NotificacionService,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
 
   // Crear ajuste transaccionalmente
@@ -74,6 +76,30 @@ export class AjusteInventarioService {
 
       // Asignar los detalles guardados a la cabecera para retornar la estructura completa
       ajusteGuardado.detalles = detallesGuardados;
+
+      // Auditoría crítica transaccional: si falla el log, se revierte todo el ajuste de inventario
+      await this.auditService?.logCritical(
+        {
+          action: 'INVENTORY_STOCK_ADJUSTED',
+          module: 'inventario',
+          entityType: 'AjusteInventario',
+          entityId: ajusteGuardado.id,
+          actorUserId: usuarioId,
+          description: `Ajuste de inventario #${ajusteGuardado.id} (${createDto.motivo}) sobre ${detallesGuardados.length} repuesto(s)`,
+          newValues: {
+            motivo: createDto.motivo,
+            comentario: createDto.comentario,
+            items: detallesGuardados.map((d) => ({
+              parteId: d.parteId,
+              stockSistema: d.stockSistema,
+              stockFisico: d.stockFisico,
+              diferencia: d.diferencia,
+            })),
+          },
+          status: 'SUCCESS',
+        },
+        transactionalEntityManager,
+      );
 
       // 3. Ejecutar los triggers de notificación fuera de la transacción (para no bloquear)
       // pero asíncronamente

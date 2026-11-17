@@ -3,6 +3,7 @@ import {
   BadRequestException,
   NotFoundException,
   ConflictException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,6 +13,7 @@ import { UpdateRolDto } from './dto/update-rol.dto';
 import { RolePermission } from '../role-permission/entities/role-permission.entity';
 import { UserRole } from '../user-role/entities/user-role.entity';
 import { PermissionsService } from '../permissions/permissions.service';
+import { AuditService } from '../audit/audit.service';
 
 // Roles del sistema que NO se pueden eliminar/editar
 const SYSTEM_ROLES = ['admin', 'tech', 'recep', 'client', 'user'];
@@ -26,6 +28,7 @@ export class RolService {
     @InjectRepository(UserRole)
     private readonly userRoleRepository: Repository<UserRole>,
     private readonly permissionsService: PermissionsService,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
 
   async create(createRolDto: CreateRolDto): Promise<Rol> {
@@ -188,26 +191,45 @@ export class RolService {
     }
 
     // Validar que el rol existe
-    const rol = await this.rolRepository.findOne({ where: { id: roleId } });
+    const rol = await this.rolRepository.findOne({
+      where: { id: roleId },
+      relations: ['rolePermissions', 'rolePermissions.permission'],
+    });
     if (!rol) {
       throw new NotFoundException(`Rol con ID ${roleId} no encontrado`);
     }
 
-    // Eliminar permisos existentes
-    await this.rolePermissionRepository.delete({ roleId });
+    const oldPermissionSlugs = (rol.rolePermissions || [])
+      .map((rp) => rp.permission?.slug)
+      .filter(Boolean);
 
-    // ✅ Crear nuevos registros de permisos
+    const newPermissionSlugs: string[] = [];
     for (const permissionId of permissionIds) {
-      // Validar que el permiso existe
-      await this.permissionsService.findOne(permissionId);
-
-      const rolePermission = this.rolePermissionRepository.create({
-        roleId,
-        permissionId,
-      });
-
-      await this.rolePermissionRepository.save(rolePermission);
+      const perm = await this.permissionsService.findOne(permissionId);
+      newPermissionSlugs.push(perm.slug);
     }
+
+    await this.rolRepository.manager.transaction(async (manager) => {
+      await manager.delete(RolePermission, { roleId });
+      for (const permissionId of permissionIds) {
+        const rp = manager.create(RolePermission, { roleId, permissionId });
+        await manager.save(RolePermission, rp);
+      }
+
+      await this.auditService?.logCritical(
+        {
+          action: 'ROLE_PERMISSIONS_UPDATED',
+          module: 'permissions',
+          entityType: 'Rol',
+          entityId: rol.id,
+          description: `Permisos actualizados para el rol "${rol.nombre}" (${rol.slug})`,
+          oldValues: { permisos: oldPermissionSlugs },
+          newValues: { permisos: newPermissionSlugs },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+    });
   }
 
   async getPermissions(roleId: number): Promise<string[]> {
@@ -222,24 +244,46 @@ export class RolService {
 
   /** Bulk-replace ALL permissions for a role (accepts empty array to clear all) */
   async setPermissions(roleId: number, permissionIds: number[]): Promise<void> {
-    // Validate the role exists
-    await this.rolRepository.findOneOrFail({ where: { id: roleId } }).catch(() => {
-      throw new NotFoundException(`Rol con ID ${roleId} no encontrado`);
+    const rol = await this.rolRepository.findOne({
+      where: { id: roleId },
+      relations: ['rolePermissions', 'rolePermissions.permission'],
     });
-
-    // Remove all existing permissions
-    await this.rolePermissionRepository.delete({ roleId });
-
-    if (!permissionIds || permissionIds.length === 0) return;
-
-    // Validate no duplicates
-    const unique = [...new Set(permissionIds)];
-
-    for (const permissionId of unique) {
-      await this.permissionsService.findOne(permissionId);
-      const rp = this.rolePermissionRepository.create({ roleId, permissionId });
-      await this.rolePermissionRepository.save(rp);
+    if (!rol) {
+      throw new NotFoundException(`Rol con ID ${roleId} no encontrado`);
     }
+
+    const oldPermissionSlugs = (rol.rolePermissions || [])
+      .map((rp) => rp.permission?.slug)
+      .filter(Boolean);
+
+    const unique = [...new Set(permissionIds || [])];
+    const newPermissionSlugs: string[] = [];
+    for (const permissionId of unique) {
+      const perm = await this.permissionsService.findOne(permissionId);
+      newPermissionSlugs.push(perm.slug);
+    }
+
+    await this.rolRepository.manager.transaction(async (manager) => {
+      await manager.delete(RolePermission, { roleId });
+      for (const permissionId of unique) {
+        const rp = manager.create(RolePermission, { roleId, permissionId });
+        await manager.save(RolePermission, rp);
+      }
+
+      await this.auditService?.logCritical(
+        {
+          action: 'ROLE_PERMISSIONS_UPDATED',
+          module: 'permissions',
+          entityType: 'Rol',
+          entityId: rol.id,
+          description: `Permisos reemplazados para el rol "${rol.nombre}" (${rol.slug})`,
+          oldValues: { permisos: oldPermissionSlugs },
+          newValues: { permisos: newPermissionSlugs },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+    });
   }
 
   /** Remove a single permission from a role */

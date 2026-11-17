@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, Like } from 'typeorm';
 import { Compra } from './entities/compra.entity';
@@ -8,6 +8,7 @@ import { Proveedor } from '../proveedor/entities/proveedor.entity';
 import { CreateCompraDto } from './dto/create-compra.dto';
 import { NotificacionService } from '../notificacion/notificacion.service';
 import { Notificacion } from '../notificacion/entities/notificacion.entity';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class CompraService {
@@ -18,6 +19,7 @@ export class CompraService {
     private readonly proveedorRepository: Repository<Proveedor>,
     private readonly dataSource: DataSource,
     private readonly notificacionService: NotificacionService,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
 
   async create(createCompraDto: CreateCompraDto, usuarioId: number): Promise<Compra> {
@@ -128,6 +130,32 @@ export class CompraService {
 
       // Link details back to the header object for return response
       compraGuardada.detalles = detallesGuardados;
+
+      await this.auditService?.logCritical(
+        {
+          action: 'PURCHASE_CREATED',
+          module: 'inventario',
+          entityType: 'Compra',
+          entityId: compraGuardada.id,
+          actorUserId: usuarioId,
+          description: `Compra registrada (Factura ${numeroFactura}) por $${calculatedTotal.toFixed(2)} con ${detallesGuardados.length} ítem(s)`,
+          newValues: {
+            numeroFactura,
+            proveedorId,
+            subtotal: calculatedSubtotal,
+            ivaMonto: calculatedIvaMonto,
+            total: calculatedTotal,
+            items: detallesGuardados.map((d) => ({
+              parteId: d.parteId,
+              cantidad: d.cantidad,
+              precioUnitario: d.precioUnitario,
+            })),
+          },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+
       return compraGuardada;
     });
 
@@ -218,7 +246,7 @@ export class CompraService {
     }
 
     // Rollback stock when purchase is cancelled
-    return await this.dataSource.transaction(async (manager) => {
+    const updatedCompra = await this.dataSource.transaction(async (manager) => {
       for (const d of compra.detalles) {
         const parte = await manager.findOneBy(Parte, { id: d.parteId });
         if (parte) {
@@ -230,14 +258,30 @@ export class CompraService {
       compra.estado = 'Anulado';
       const updated = await manager.save(Compra, compra);
 
-      // Re-trigger low stock checks after rollback
-      for (const d of compra.detalles) {
-        this.notificacionService.checkAndNotificarStockBajo(d.parteId).catch((err) => {
-          console.error(`Error re-evaluando stock post-anulación del repuesto ${d.parteId}:`, err);
-        });
-      }
+      await this.auditService?.logCritical(
+        {
+          action: 'PURCHASE_CANCELLED',
+          module: 'inventario',
+          entityType: 'Compra',
+          entityId: updated.id,
+          description: `Compra #${updated.id} (Factura ${updated.numeroFactura}) anulada y stock revertido`,
+          oldValues: { estado: 'Completado', total: updated.total },
+          newValues: { estado: 'Anulado', total: updated.total },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
 
       return updated;
     });
+
+    // Post-commit: Re-trigger low stock checks after rollback
+    for (const d of compra.detalles) {
+      this.notificacionService.checkAndNotificarStockBajo(d.parteId).catch((err) => {
+        console.error(`Error re-evaluando stock post-anulación del repuesto ${d.parteId}:`, err);
+      });
+    }
+
+    return updatedCompra;
   }
 }

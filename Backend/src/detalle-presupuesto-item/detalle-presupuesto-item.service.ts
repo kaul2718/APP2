@@ -2,15 +2,17 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { DetallePresupuestoItem } from './entities/detalle-presupuesto-item.entity';
 import { CreateDetallePresupuestoItemDto } from './dto/create-detalle-presupuesto-item.dto';
 import { UpdateDetallePresupuestoItemDto } from './dto/update-detalle-presupuesto-item.dto';
 import { Presupuesto } from '../presupuesto/entities/presupuesto.entity';
 import { Parte } from '../parte/entities/parte.entity';
 import { NotificacionService } from '../notificacion/notificacion.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class DetallePresupuestoItemService {
@@ -22,31 +24,32 @@ export class DetallePresupuestoItemService {
     @InjectRepository(Parte)
     private readonly parteRepository: Repository<Parte>,
     private readonly notificacionService: NotificacionService,
+    @Optional() private readonly auditService?: AuditService,
   ) { }
 
-  private async notifyPresupuestoScopeChanged(presupuestoId: number) {
-    try {
-      const p = await this.presupuestoRepository.findOne({
-        where: { id: presupuestoId },
-        relations: ['estado'],
-      });
-      if (!p) return;
+  private async notifyPresupuestoScopeChanged(
+    presupuestoId: number,
+    manager?: EntityManager,
+  ) {
+    const presRepo = manager ? manager.getRepository(Presupuesto) : this.presupuestoRepository;
+    const p = await presRepo.findOne({
+      where: { id: presupuestoId },
+      relations: ['estado'],
+    });
+    if (!p) return;
 
-      let targetEstadoId = p.estadoId;
-      if (p.estado?.nombre?.toLowerCase() === 'aprobado') {
-        const pendiente = await this.presupuestoRepository.manager.getRepository('EstadoPresupuesto').findOne({
-          where: { nombre: 'Pendiente' },
-        });
-        if (pendiente) targetEstadoId = (pendiente as any).id;
-      }
-
-      await this.presupuestoRepository.update(presupuestoId, {
-        version: (p.version || 1) + 1,
-        estadoId: targetEstadoId,
+    let targetEstadoId = p.estadoId;
+    if (p.estado?.nombre?.toLowerCase() === 'aprobado') {
+      const pendiente = await presRepo.manager.getRepository('EstadoPresupuesto').findOne({
+        where: { nombre: 'Pendiente' },
       });
-    } catch (err: any) {
-      console.warn(`Error al actualizar versión del presupuesto ${presupuestoId}:`, err.message);
+      if (pendiente) targetEstadoId = (pendiente as any).id;
     }
+
+    await presRepo.update(presupuestoId, {
+      version: (p.version || 1) + 1,
+      estadoId: targetEstadoId,
+    });
   }
 
   private async resolveParteSelection(parteId?: number): Promise<Parte> {
@@ -85,28 +88,61 @@ export class DetallePresupuestoItemService {
       : Number(parte.precio1 ?? 0);
     const subtotal = precioUnitario * cantidad;
 
-    const detalle = this.detalleRepository.create({
-      cantidad,
-      precioUnitario,
-      subtotal,
-      fechaUso: new Date(),
-      presupuestoId,
-      parteId: parte.id,
-      parte,
-      comentario: createDto.comentario ?? null,
-      estado: true,
-      estadoOrdenId: presupuesto.orden?.estadoOrdenId || null,
+    let stockDescontado = false;
+    const detalleGuardado = await this.detalleRepository.manager.transaction(async (manager) => {
+      const detalleRepo = manager.getRepository(DetallePresupuestoItem);
+      const parteRepo = manager.getRepository(Parte);
+
+      const detalle = detalleRepo.create({
+        cantidad,
+        precioUnitario,
+        subtotal,
+        fechaUso: new Date(),
+        presupuestoId,
+        parteId: parte.id,
+        parte,
+        comentario: createDto.comentario ?? null,
+        estado: true,
+        estadoOrdenId: presupuesto.orden?.estadoOrdenId || null,
+      });
+
+      // Si el presupuesto ya está aprobado, descontamos del inventario inmediatamente
+      if (presupuesto.estado?.nombre?.toLowerCase() === 'aprobado' && parte.unidadMedida !== 'Servicio') {
+        parte.stock = Number(parte.stock) - cantidad;
+        await parteRepo.save(parte);
+        stockDescontado = true;
+      }
+
+      const saved = await detalleRepo.save(detalle);
+      await this.notifyPresupuestoScopeChanged(presupuestoId, manager);
+
+      await this.auditService?.logCritical(
+        {
+          action: 'BUDGET_ITEM_ADDED',
+          module: 'presupuestos',
+          entityType: 'DetallePresupuestoItem',
+          entityId: saved.id,
+          description: `Ítem "${parte.nombre}" (x${cantidad}, $${subtotal.toFixed(2)}) agregado al presupuesto #${presupuestoId}`,
+          newValues: {
+            presupuestoId,
+            parteId: parte.id,
+            parteNombre: parte.nombre,
+            cantidad,
+            precioUnitario,
+            subtotal,
+          },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+
+      return saved;
     });
 
-    // Si el presupuesto ya está aprobado, descontamos del inventario inmediatamente
-    if (presupuesto.estado?.nombre?.toLowerCase() === 'aprobado' && parte.unidadMedida !== 'Servicio') {
-      parte.stock = Number(parte.stock) - cantidad;
-      await this.parteRepository.save(parte);
-      await this.notificacionService.checkAndNotificarStockBajo(parte.id);
+    if (stockDescontado) {
+      this.notificacionService.checkAndNotificarStockBajo(parte.id).catch(() => null);
     }
 
-    const detalleGuardado = await this.detalleRepository.save(detalle);
-    await this.notifyPresupuestoScopeChanged(presupuestoId);
     return this.findOne(detalleGuardado.id, true);
   }
 
@@ -147,78 +183,108 @@ export class DetallePresupuestoItemService {
 
     const isApproved = detalle.presupuesto?.estado?.nombre?.toLowerCase() === 'aprobado';
 
-    let parteActualizada: Parte | null = null;
-    if (updateDto.parteId !== undefined && updateDto.parteId !== detalle.parteId) {
-      parteActualizada = await this.resolveParteSelection(updateDto.parteId);
-      const cantidad = updateDto.cantidad !== undefined ? updateDto.cantidad : detalle.cantidad;
-      
-      // Si el presupuesto está aprobado, revertimos stock de la parte anterior y descontamos de la nueva
-      if (isApproved) {
-        if (detalle.parte && detalle.parte.unidadMedida !== 'Servicio') {
-          detalle.parte.stock = Number(detalle.parte.stock) + detalle.cantidad;
-          await this.parteRepository.save(detalle.parte);
-        }
-        if (parteActualizada.unidadMedida !== 'Servicio') {
-          if (Number(parteActualizada.stock) < cantidad) {
-            // Revertir para mantener estado consistente
-            if (detalle.parte && detalle.parte.unidadMedida !== 'Servicio') {
-              detalle.parte.stock = Number(detalle.parte.stock) - detalle.cantidad;
-              await this.parteRepository.save(detalle.parte);
-            }
-            throw new BadRequestException(`Existencias insuficientes para el nuevo repuesto. Stock actual: ${parteActualizada.stock}`);
-          }
-          parteActualizada.stock = Number(parteActualizada.stock) - cantidad;
-          await this.parteRepository.save(parteActualizada);
-          await this.notificacionService.checkAndNotificarStockBajo(parteActualizada.id);
-        }
-      } else {
-        if (parteActualizada.unidadMedida !== 'Servicio' && Number(parteActualizada.stock) < cantidad) {
-          throw new BadRequestException(`Existencias insuficientes. Stock actual: ${parteActualizada.stock}`);
-        }
-      }
+    const oldValues = {
+      parteId: detalle.parteId,
+      cantidad: detalle.cantidad,
+      precioUnitario: Number(detalle.precioUnitario),
+      subtotal: Number(detalle.subtotal),
+      estado: detalle.estado,
+    };
 
-      detalle.parte = parteActualizada;
-      detalle.parteId = parteActualizada.id;
-    }
+    let notifyParteId: number | null = null;
+    const detalleActualizado = await this.detalleRepository.manager.transaction(async (manager) => {
+      const detalleRepo = manager.getRepository(DetallePresupuestoItem);
+      const parteRepo = manager.getRepository(Parte);
 
-    if (updateDto.cantidad !== undefined && updateDto.parteId === undefined) {
-      const p = detalle.parte;
-      if (p && p.unidadMedida !== 'Servicio') {
-        const oldQty = detalle.cantidad;
-        const newQty = updateDto.cantidad;
-        const diff = newQty - oldQty;
+      if (updateDto.parteId !== undefined && updateDto.parteId !== detalle.parteId) {
+        const parteActualizada = await this.resolveParteSelection(updateDto.parteId);
+        const cantidad = updateDto.cantidad !== undefined ? updateDto.cantidad : detalle.cantidad;
 
         if (isApproved) {
-          if (Number(p.stock) < diff) {
-            throw new BadRequestException(`Existencias insuficientes para aumentar cantidad. Disponible: ${p.stock}`);
+          if (detalle.parte && detalle.parte.unidadMedida !== 'Servicio') {
+            detalle.parte.stock = Number(detalle.parte.stock) + detalle.cantidad;
+            await parteRepo.save(detalle.parte);
           }
-          p.stock = Number(p.stock) - diff;
-          await this.parteRepository.save(p);
-          await this.notificacionService.checkAndNotificarStockBajo(p.id);
-        } else {
-          if (Number(p.stock) < newQty) {
+          if (parteActualizada.unidadMedida !== 'Servicio') {
+            if (Number(parteActualizada.stock) < cantidad) {
+              throw new BadRequestException(`Existencias insuficientes para el nuevo repuesto. Stock actual: ${parteActualizada.stock}`);
+            }
+            parteActualizada.stock = Number(parteActualizada.stock) - cantidad;
+            await parteRepo.save(parteActualizada);
+            notifyParteId = parteActualizada.id;
+          }
+        } else if (parteActualizada.unidadMedida !== 'Servicio' && Number(parteActualizada.stock) < cantidad) {
+          throw new BadRequestException(`Existencias insuficientes. Stock actual: ${parteActualizada.stock}`);
+        }
+
+        detalle.parte = parteActualizada;
+        detalle.parteId = parteActualizada.id;
+      }
+
+      if (updateDto.cantidad !== undefined && updateDto.parteId === undefined) {
+        const p = detalle.parte;
+        if (p && p.unidadMedida !== 'Servicio') {
+          const oldQty = detalle.cantidad;
+          const newQty = updateDto.cantidad;
+          const diff = newQty - oldQty;
+
+          if (isApproved) {
+            if (Number(p.stock) < diff) {
+              throw new BadRequestException(`Existencias insuficientes para aumentar cantidad. Disponible: ${p.stock}`);
+            }
+            p.stock = Number(p.stock) - diff;
+            await parteRepo.save(p);
+            notifyParteId = p.id;
+          } else if (Number(p.stock) < newQty) {
             throw new BadRequestException(`Existencias insuficientes. Stock actual: ${p.stock}`);
           }
         }
+        detalle.cantidad = updateDto.cantidad;
+      } else if (updateDto.cantidad !== undefined) {
+        detalle.cantidad = updateDto.cantidad;
       }
-      detalle.cantidad = updateDto.cantidad;
-    } else if (updateDto.cantidad !== undefined) {
-      detalle.cantidad = updateDto.cantidad;
+
+      if (updateDto.parteId !== undefined || updateDto.cantidad !== undefined) {
+        const p = detalle.parte;
+        const precioUnitario = Number(p?.precio1 ?? 0);
+        detalle.precioUnitario = precioUnitario;
+        detalle.subtotal = precioUnitario * detalle.cantidad;
+      }
+
+      if (updateDto.comentario !== undefined) detalle.comentario = updateDto.comentario;
+      if (updateDto.estado !== undefined) detalle.estado = updateDto.estado;
+      if (updateDto.presupuestoId !== undefined) detalle.presupuestoId = updateDto.presupuestoId;
+
+      const saved = await detalleRepo.save(detalle);
+      await this.notifyPresupuestoScopeChanged(saved.presupuestoId, manager);
+
+      await this.auditService?.logCritical(
+        {
+          action: 'BUDGET_ITEM_UPDATED',
+          module: 'presupuestos',
+          entityType: 'DetallePresupuestoItem',
+          entityId: saved.id,
+          description: `Ítem #${saved.id} del presupuesto #${saved.presupuestoId} actualizado`,
+          oldValues,
+          newValues: {
+            parteId: saved.parteId,
+            cantidad: saved.cantidad,
+            precioUnitario: Number(saved.precioUnitario),
+            subtotal: Number(saved.subtotal),
+            estado: saved.estado,
+          },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+
+      return saved;
+    });
+
+    if (notifyParteId) {
+      this.notificacionService.checkAndNotificarStockBajo(notifyParteId).catch(() => null);
     }
 
-    if (parteActualizada || updateDto.cantidad !== undefined) {
-      const p = parteActualizada ?? detalle.parte;
-      const precioUnitario = Number(p?.precio1 ?? 0);
-      detalle.precioUnitario = precioUnitario;
-      detalle.subtotal = precioUnitario * detalle.cantidad;
-    }
-
-    if (updateDto.comentario !== undefined) detalle.comentario = updateDto.comentario;
-    if (updateDto.estado !== undefined) detalle.estado = updateDto.estado;
-    if (updateDto.presupuestoId !== undefined) detalle.presupuestoId = updateDto.presupuestoId;
-
-    const detalleActualizado = await this.detalleRepository.save(detalle);
-    await this.notifyPresupuestoScopeChanged(detalleActualizado.presupuestoId);
     return this.findOne(detalleActualizado.id, true);
   }
 
@@ -229,16 +295,40 @@ export class DetallePresupuestoItemService {
     });
     if (!detalle) throw new NotFoundException(`Detalle con ID ${id} no encontrado`);
 
-    // Si el presupuesto está aprobado, devolvemos el stock al almacén
-    if (detalle.presupuesto?.estado?.nombre?.toLowerCase() === 'aprobado' && detalle.parte?.unidadMedida !== 'Servicio') {
-      detalle.parte.stock = Number(detalle.parte.stock) + detalle.cantidad;
-      await this.parteRepository.save(detalle.parte);
-    }
+    await this.detalleRepository.manager.transaction(async (manager) => {
+      const detalleRepo = manager.getRepository(DetallePresupuestoItem);
+      const parteRepo = manager.getRepository(Parte);
 
-    detalle.estado = false;
-    await this.detalleRepository.save(detalle);
-    await this.detalleRepository.softRemove(detalle);
-    await this.notifyPresupuestoScopeChanged(detalle.presupuestoId);
+      // Si el presupuesto está aprobado, devolvemos el stock al almacén
+      if (detalle.presupuesto?.estado?.nombre?.toLowerCase() === 'aprobado' && detalle.parte?.unidadMedida !== 'Servicio') {
+        detalle.parte.stock = Number(detalle.parte.stock) + detalle.cantidad;
+        await parteRepo.save(detalle.parte);
+      }
+
+      detalle.estado = false;
+      await detalleRepo.save(detalle);
+      await detalleRepo.softRemove(detalle);
+      await this.notifyPresupuestoScopeChanged(detalle.presupuestoId, manager);
+
+      await this.auditService?.logCritical(
+        {
+          action: 'BUDGET_ITEM_REMOVED',
+          module: 'presupuestos',
+          entityType: 'DetallePresupuestoItem',
+          entityId: detalle.id,
+          description: `Ítem #${detalle.id} (${detalle.parte?.nombre || 'Repuesto/Servicio'}) eliminado del presupuesto #${detalle.presupuestoId}`,
+          oldValues: {
+            presupuestoId: detalle.presupuestoId,
+            parteId: detalle.parteId,
+            cantidad: detalle.cantidad,
+            subtotal: Number(detalle.subtotal),
+          },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+    });
+
     return { message: `Detalle con ID ${id} eliminado lógicamente.` };
   }
 

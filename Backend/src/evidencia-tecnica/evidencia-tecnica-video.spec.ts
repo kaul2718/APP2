@@ -33,6 +33,15 @@ describe('EvidenciaTecnica — Videos, Cloudflare R2 SigV4 y Validaciones (Fase 
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((dto) => ({ id: 77, ...dto })),
       save: jest.fn(async (entity) => ({ id: 77, ...entity })),
+      manager: {
+        transaction: jest.fn(async (cb: any) =>
+          cb({
+            save: jest.fn(async (_entityCls: any, entity: any) =>
+              mockEvidenciaRepo.save(entity),
+            ),
+          }),
+        ),
+      },
     };
 
     mockOrderRepo = {

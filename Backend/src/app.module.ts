@@ -1,6 +1,9 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuditModule } from './audit/audit.module';
+import { AuditContextMiddleware } from './audit/audit-context';
+import { ClientActivityModule } from './client-activity/client-activity.module';
 import { UsersModule } from './users/users.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
@@ -104,8 +107,14 @@ import { ConfiguracionSistemaModule } from './configuracion-sistema/configuracio
     DocumentosOrdenModule,
     FirmaElectronicaModule,
     ConfiguracionSistemaModule,
+    AuditModule,
+    ClientActivityModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(AuditContextMiddleware).forRoutes('*');
+  }
+}

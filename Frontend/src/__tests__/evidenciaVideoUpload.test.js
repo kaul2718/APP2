@@ -57,12 +57,16 @@ test('12. Reproducción y visualización de videos en EvidenciaItem y Detalle de
   assert.match(orderDetailSrc, /Abrir o descargar archivo de video original/);
 });
 
-test('13, 14 y 15. Modal ofrece las tres opciones: Tomar foto, Grabar video (capture="environment") y Subir archivo', () => {
+test('13, 14 y 15. Modal ofrece las tres opciones: Tomar foto (capture="environment"), Grabar video (capture="environment") y Subir archivo', () => {
   assert.match(modalSrc, /Tomar foto/);
   assert.match(modalSrc, /Grabar video/);
   assert.match(modalSrc, /Subir archivo/);
   assert.match(modalSrc, /id="evidencia-video-capture-input"/);
   assert.match(modalSrc, /accept="video\/mp4,video\/quicktime,video\/webm,video\/\*"/);
+  assert.match(modalSrc, /id="evidencia-photo-capture-input"/);
+  assert.match(modalSrc, /accept="image\/jpeg,image\/png,image\/webp,image\/heic,image\/heif,image\/\*"/);
+  assert.match(modalSrc, /photoCaptureInputRef\.current\.click\(\)/);
+  assert.match(modalSrc, /videoCaptureInputRef\.current\.click\(\)/);
   assert.match(modalSrc, /capture="environment"/);
   assert.match(modalSrc, /openVideoRecorder/);
 });

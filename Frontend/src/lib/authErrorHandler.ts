@@ -1,6 +1,7 @@
 'use client';
 
 import { signOut } from 'next-auth/react';
+import { clearAnonymousTrackingSession } from './clientActivityTracker';
 import { toast } from 'react-toastify';
 
 /**
@@ -79,6 +80,7 @@ class AuthErrorHandler {
       const callbackUrl = `${currentPath}${currentSearch}`;
 
       // 4. Invalidar sesión en NextAuth (sin redirección automática del SDK)
+      clearAnonymousTrackingSession();
       try {
         await signOut({ redirect: false });
       } catch (signOutError) {

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Parte } from './entities/parte.entity';
@@ -7,6 +7,7 @@ import { Marca } from '../marca/entities/marca.entity';
 import { CreateParteDto } from './dto/create-parte.dto';
 import { UpdateParteDto } from './dto/update-parte.dto';
 import { NotificacionService } from '../notificacion/notificacion.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class ParteService {
@@ -18,6 +19,7 @@ export class ParteService {
     @InjectRepository(Marca)
     private readonly marcaRepository: Repository<Marca>,
     private readonly notificacionService: NotificacionService,
+    @Optional() private readonly auditService?: AuditService,
   ) { }
 
   private buildCodigoInterno(parte: Pick<Parte, 'id' | 'nombre' | 'modelo'>): string {
@@ -69,16 +71,43 @@ export class ParteService {
       marcaId: marca ? marca.id : undefined,
     });
 
-    const parteGuardada = await this.parteRepository.save(nuevo);
+    const parteGuardada = await this.parteRepository.manager.transaction(async (manager) => {
+      const parteRepo = manager.getRepository(Parte);
+      const saved = await parteRepo.save(nuevo);
 
-    // Auto-generar código si no viene
-    if (!parteGuardada.codigoInterno?.trim()) {
-      parteGuardada.codigoInterno = this.buildCodigoInterno(parteGuardada);
-      await this.parteRepository.save(parteGuardada);
-    }
+      // Auto-generar código si no viene
+      if (!saved.codigoInterno?.trim()) {
+        saved.codigoInterno = this.buildCodigoInterno(saved);
+        await parteRepo.save(saved);
+      }
 
-    // Alerta de stock bajo si aplica al crear
-    await this.notificacionService.checkAndNotificarStockBajo(parteGuardada.id);
+      await this.auditService?.logCritical(
+        {
+          action: 'CATALOG_ITEM_CREATED',
+          module: 'inventario',
+          entityType: 'Parte',
+          entityId: saved.id,
+          description: `Ítem de catálogo creado: ${saved.nombre} (costo: $${Number(saved.costo || 0).toFixed(2)}, precio1: $${Number(saved.precio1 || 0).toFixed(2)})`,
+          newValues: {
+            nombre: saved.nombre,
+            codigoInterno: saved.codigoInterno,
+            costo: Number(saved.costo || 0),
+            precio1: Number(saved.precio1 || 0),
+            precio2: saved.precio2 !== undefined && saved.precio2 !== null ? Number(saved.precio2) : null,
+            precio3: saved.precio3 !== undefined && saved.precio3 !== null ? Number(saved.precio3) : null,
+            stock: Number(saved.stock || 0),
+            unidadMedida: saved.unidadMedida,
+          },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+
+      return saved;
+    });
+
+    // Post-commit: Alerta de stock bajo si aplica al crear
+    this.notificacionService.checkAndNotificarStockBajo(parteGuardada.id).catch(() => null);
 
     return this.findOne(parteGuardada.id, true);
   }
@@ -139,27 +168,90 @@ export class ParteService {
       parte.marca = marca;
     }
 
-    // Actualizar Campos
+    const oldSnapshot = {
+      nombre: parte.nombre,
+      codigoInterno: parte.codigoInterno,
+      costo: Number(parte.costo || 0),
+      precio1: Number(parte.precio1 || 0),
+      precio2: parte.precio2 !== undefined && parte.precio2 !== null ? Number(parte.precio2) : null,
+      precio3: parte.precio3 !== undefined && parte.precio3 !== null ? Number(parte.precio3) : null,
+      stock: Number(parte.stock || 0),
+      estado: parte.estado,
+    };
+
+    // Actualizar Campos en memoria
     Object.assign(parte, updateDto);
 
-    await this.parteRepository.save(parte);
+    await this.parteRepository.manager.transaction(async (manager) => {
+      const parteRepo = manager.getRepository(Parte);
+      await parteRepo.save(parte);
 
-    if (!parte.codigoInterno?.trim()) {
-      parte.codigoInterno = this.buildCodigoInterno(parte);
-      await this.parteRepository.save(parte);
-    }
+      if (!parte.codigoInterno?.trim()) {
+        parte.codigoInterno = this.buildCodigoInterno(parte);
+        await parteRepo.save(parte);
+      }
 
-    // Alerta de stock bajo si aplica al actualizar
-    await this.notificacionService.checkAndNotificarStockBajo(parte.id);
+      const newSnapshot = {
+        nombre: parte.nombre,
+        codigoInterno: parte.codigoInterno,
+        costo: Number(parte.costo || 0),
+        precio1: Number(parte.precio1 || 0),
+        precio2: parte.precio2 !== undefined && parte.precio2 !== null ? Number(parte.precio2) : null,
+        precio3: parte.precio3 !== undefined && parte.precio3 !== null ? Number(parte.precio3) : null,
+        stock: Number(parte.stock || 0),
+        estado: parte.estado,
+      };
+
+      const economicChanged =
+        oldSnapshot.costo !== newSnapshot.costo ||
+        oldSnapshot.precio1 !== newSnapshot.precio1 ||
+        oldSnapshot.precio2 !== newSnapshot.precio2 ||
+        oldSnapshot.precio3 !== newSnapshot.precio3 ||
+        oldSnapshot.stock !== newSnapshot.stock;
+
+      await this.auditService?.logCritical(
+        {
+          action: economicChanged ? 'CATALOG_ITEM_PRICE_UPDATED' : 'CATALOG_ITEM_UPDATED',
+          module: 'inventario',
+          entityType: 'Parte',
+          entityId: parte.id,
+          description: `Ítem de catálogo #${parte.id} (${parte.nombre}) actualizado`,
+          oldValues: oldSnapshot,
+          newValues: newSnapshot,
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+    });
+
+    // Post-commit: Alerta de stock bajo si aplica al actualizar
+    this.notificacionService.checkAndNotificarStockBajo(parte.id).catch(() => null);
 
     return this.findOne(id, true);
   }
 
   async remove(id: number): Promise<{ message: string }> {
     const parte = await this.findOne(id);
-    await this.parteRepository.softRemove(parte);
-    parte.estado = false;
-    await this.parteRepository.save(parte);
+    await this.parteRepository.manager.transaction(async (manager) => {
+      const parteRepo = manager.getRepository(Parte);
+      await parteRepo.softRemove(parte);
+      parte.estado = false;
+      await parteRepo.save(parte);
+
+      await this.auditService?.logCritical(
+        {
+          action: 'CATALOG_ITEM_DEACTIVATED',
+          module: 'inventario',
+          entityType: 'Parte',
+          entityId: parte.id,
+          description: `Ítem de catálogo #${parte.id} (${parte.nombre}) deshabilitado`,
+          oldValues: { estado: true },
+          newValues: { estado: false },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+    });
     return { message: `Item con ID ${id} deshabilitado.` };
   }
 
@@ -229,8 +321,24 @@ export class ParteService {
 
   async toggleStatus(id: number): Promise<Parte> {
     const parte = await this.findOne(id, true);
-    parte.estado = !parte.estado;
-    await this.parteRepository.save(parte);
+    const prevEstado = parte.estado;
+    await this.parteRepository.manager.transaction(async (manager) => {
+      parte.estado = !parte.estado;
+      await manager.getRepository(Parte).save(parte);
+      await this.auditService?.logCritical(
+        {
+          action: 'CATALOG_ITEM_STATUS_TOGGLED',
+          module: 'inventario',
+          entityType: 'Parte',
+          entityId: parte.id,
+          description: `Estado de ítem #${parte.id} (${parte.nombre}) cambiado de ${prevEstado ? 'Activo' : 'Inactivo'} a ${parte.estado ? 'Activo' : 'Inactivo'}`,
+          oldValues: { estado: prevEstado },
+          newValues: { estado: parte.estado },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+    });
     return this.findOne(id, true);
   }
 }

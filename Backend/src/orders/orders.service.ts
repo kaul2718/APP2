@@ -30,6 +30,8 @@ import { TipoActivacion } from '../auth/entities/activacion-cuenta.entity';
 import { normalizeIp } from 'src/common/helpers/client-ip.helper';
 import { validateOrderTransition, normalizeToCanonicalKey } from './helpers/order-transition.helper';
 import { EstadoOrdenEnum } from 'src/common/enums/order-status.enum';
+import { AuditService } from '../audit/audit.service';
+import { ClientActivityService } from '../client-activity/client-activity.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -67,6 +69,10 @@ export class OrderService {
     @Inject(forwardRef(() => ActivacionService))
     @Optional()
     private readonly activacionService?: ActivacionService,
+    @Optional()
+    private readonly auditService?: AuditService,
+    @Optional()
+    private readonly clientActivityService?: ClientActivityService,
   ) { }
 
   async create(createDto: CreateOrderDto): Promise<Order> {
@@ -194,7 +200,44 @@ export class OrderService {
 
     let ordenGuardada: Order;
     try {
-      ordenGuardada = await this.orderRepository.save(nuevaOrden);
+      ordenGuardada = await this.orderRepository.manager.transaction(async (manager) => {
+        const orderRepo = manager.getRepository(Order);
+        const historialRepo = manager.getRepository(HistorialEstadoOrden);
+
+        const saved = await orderRepo.save(nuevaOrden);
+
+        const hist = new HistorialEstadoOrden();
+        hist.orden = { id: saved.id } as Order;
+        hist.estadoOrden = estadoOrden;
+        hist.usuario = recepcionista || technician || client;
+        hist.fechaCambio = new Date();
+        hist.observaciones = 'Creación de orden de servicio';
+        await historialRepo.save(hist);
+
+        await this.auditService?.logCritical(
+          {
+            action: 'ORDER_CREATED',
+            module: 'orders',
+            entityType: 'Order',
+            entityId: workOrderNumber || saved.id,
+            actorUserId: recepcionista?.id,
+            description: `Orden de servicio #${workOrderNumber} creada (${saved.tipoOrden}, estado inicial: ${estadoOrden.nombre})`,
+            newValues: {
+              orderId: saved.id,
+              workOrderNumber,
+              tipoOrden: saved.tipoOrden,
+              estadoInicial: estadoOrden.nombre,
+              clientId: client?.id,
+              equipoId: equipo?.id,
+              technicianId: technician?.id || null,
+            },
+            status: 'SUCCESS',
+          },
+          manager,
+        );
+
+        return saved;
+      });
     } catch (error: any) {
       // Carrera de concurrencia exacta en PostgreSQL (código 23505 - unique_violation)
       if (
@@ -214,15 +257,12 @@ export class OrderService {
       throw error;
     }
 
-    // Crear historial
-    await this.createHistorial(ordenGuardada, estadoOrden, recepcionista || technician || client);
-
-    // Notificaciones automáticas
+    // Post-commit: Notificaciones automáticas y activación fuera de la transacción de BD
     if (technician) {
-      await this.notificacionService.notificarAsignacionTecnico(ordenGuardada.id, technician.id, workOrderNumber);
+      this.notificacionService.notificarAsignacionTecnico(ordenGuardada.id, technician.id, workOrderNumber).catch(() => null);
     }
     if (client) {
-      await this.notificacionService.notificarCambioEstadoOds(ordenGuardada.id, client.id, workOrderNumber, estadoOrden.nombre);
+      this.notificacionService.notificarCambioEstadoOds(ordenGuardada.id, client.id, workOrderNumber, estadoOrden.nombre).catch(() => null);
     }
 
     // Verificar si el cliente tiene contraseña o su cuenta está pendiente de activación
@@ -695,8 +735,14 @@ export class OrderService {
       cambiosHistorial.push(`Equipo cambiado a ${equipo.numeroSerie}`);
     }
 
+    let techAssignedToNotify: number | null = null;
+    let statusChangedToNotify: { nombre: string; clientId?: number; technicianId?: number } | null = null;
+    let casilleroToRelease: Casillero | null = null;
+    let estadoChangedHistorial: HistorialEstadoOrden | null = null;
+
     if (updateDto.technicianId !== undefined) {
       const oldTech = orden.technician?.nombre;
+      const oldTechId = orden.technician?.id ?? orden.technicianId;
 
       if (updateDto.technicianId === null) {
         orden.technician = null;
@@ -704,14 +750,14 @@ export class OrderService {
       } else if (updateDto.technicianId > 0) {
         const technician = await this.validateUser(updateDto.technicianId, 'Técnico');
         orden.technician = technician;
-        if (!oldTech || technician.id !== orden.technician?.id) {
+        if (!oldTech || technician.id !== oldTechId) {
           cambiosHistorial.push(`Técnico cambiado a ${technician.nombre}`);
-          await this.notificacionService.notificarAsignacionTecnico(orden.id, technician.id, orden.workOrderNumber);
+          techAssignedToNotify = technician.id;
         }
       }
     }
 
-    // Manejo del estado de la orden + historial
+    // Manejo del estado de la orden + historial (diferido a la transacción)
     if (updateDto.estadoOrdenId !== undefined && updateDto.estadoOrdenId !== orden.estadoOrden?.id) {
       const estadoOrden = updateDto.estadoOrdenId
         ? await this.validateEstadoOrden(updateDto.estadoOrdenId)
@@ -723,25 +769,21 @@ export class OrderService {
 
       this.validarTransicionEstado(orden.estadoOrden, estadoOrden, usuarioCambio, orden, (updateDto as any).motivo);
 
-      const historialEstado = new HistorialEstadoOrden();
-      historialEstado.orden = { id: orden.id } as Order;  // **solo ID, evitar problemas**
-      historialEstado.estadoOrden = estadoOrden;
-      historialEstado.usuario = usuarioCambio;
-      historialEstado.fechaCambio = new Date();
-      historialEstado.observaciones = (updateDto as any).motivo || 'Estado cambiado desde actualización';
-
-      await this.historialEstadoOrdenRepository.save(historialEstado);
+      estadoChangedHistorial = new HistorialEstadoOrden();
+      estadoChangedHistorial.orden = { id: orden.id } as Order;
+      estadoChangedHistorial.estadoOrden = estadoOrden;
+      estadoChangedHistorial.usuario = usuarioCambio;
+      estadoChangedHistorial.fechaCambio = new Date();
+      estadoChangedHistorial.observaciones = (updateDto as any).motivo || 'Estado cambiado desde actualización';
 
       orden.estadoOrden = estadoOrden;
       cambiosHistorial.push(`Estado cambiado a: ${estadoOrden.nombre}`);
 
-      // Notificaciones automáticas de cambio de estado
-      if (orden.clientId) {
-        await this.notificacionService.notificarCambioEstadoOds(orden.id, orden.clientId, orden.workOrderNumber, estadoOrden.nombre);
-      }
-      if (orden.technicianId) {
-        await this.notificacionService.notificarCambioEstadoOds(orden.id, orden.technicianId, orden.workOrderNumber, estadoOrden.nombre);
-      }
+      statusChangedToNotify = {
+        nombre: estadoOrden.nombre,
+        clientId: orden.clientId,
+        technicianId: orden.technician?.id ?? orden.technicianId,
+      };
 
       const esEstadoLiberador = normalizeToCanonicalKey(estadoOrden.nombre) === 'entregado';
 
@@ -752,7 +794,7 @@ export class OrderService {
           casilleroActual.situacion = EstadoCasillero.DISPONIBLE;
           casilleroActual.order = null;
           casilleroActual.orderId = null;
-          await this.casilleroRepository.save(casilleroActual);
+          casilleroToRelease = casilleroActual;
           orden.casillero = null;
           orden.casilleroId = null;
           cambiosHistorial.push(`Casillero ${casilleroActual.codigo} liberado por cambio de estado a ${estadoOrden.nombre}`);
@@ -797,47 +839,93 @@ export class OrderService {
     const currentVersion = orden.version || 1;
     const nextVersion = currentVersion + 1;
 
-    // Actualización atómica con verificación de versión (Escenario A)
-    const updateResult = await this.orderRepository
-      .createQueryBuilder()
-      .update(Order)
-      .set({
-        problemaReportado: orden.problemaReportado,
-        fechaPrometidaEntrega: orden.fechaPrometidaEntrega,
-        accesorios: orden.accesorios,
-        estadoOrden: orden.estadoOrden,
-        casillero: orden.casillero,
-        client: orden.client,
-        equipo: orden.equipo,
-        technician: orden.technician,
-        tipoOrden: orden.tipoOrden,
-        checklistData: orden.checklistData,
-        esperaRepuesto: orden.esperaRepuesto,
-        tiempoEstimadoReparacion: orden.tiempoEstimadoReparacion,
-        version: nextVersion,
-      })
-      .where('id = :id AND (version = :currentVersion OR version IS NULL)', {
-        id: orden.id,
-        currentVersion,
-      })
-      .execute();
+    // Transacción atómica en PostgreSQL: actualización optimista de orden + historial + auditoría crítica
+    await this.orderRepository.manager.transaction(async (manager) => {
+      const updateResult = await manager
+        .createQueryBuilder()
+        .update(Order)
+        .set({
+          problemaReportado: orden.problemaReportado,
+          fechaPrometidaEntrega: orden.fechaPrometidaEntrega,
+          accesorios: orden.accesorios,
+          estadoOrden: orden.estadoOrden,
+          casillero: orden.casillero,
+          client: orden.client,
+          equipo: orden.equipo,
+          technician: orden.technician,
+          tipoOrden: orden.tipoOrden,
+          checklistData: orden.checklistData,
+          esperaRepuesto: orden.esperaRepuesto,
+          tiempoEstimadoReparacion: orden.tiempoEstimadoReparacion,
+          version: nextVersion,
+        })
+        .where('id = :id AND (version = :currentVersion OR version IS NULL)', {
+          id: orden.id,
+          currentVersion,
+        })
+        .execute();
 
-    if (updateResult.affected === 0) {
-      throw new ConflictException(
-        'Conflicto de concurrencia: La orden fue modificada simultáneamente por otro usuario en el servidor. Por favor recargue los datos para ver la información más reciente.'
+      if (updateResult.affected === 0) {
+        throw new ConflictException(
+          'Conflicto de concurrencia: La orden fue modificada simultáneamente por otro usuario en el servidor. Por favor recargue los datos para ver la información más reciente.'
+        );
+      }
+
+      if (casilleroToRelease) {
+        await manager.getRepository(Casillero).save(casilleroToRelease);
+      }
+
+      if (estadoChangedHistorial) {
+        await manager.getRepository(HistorialEstadoOrden).save(estadoChangedHistorial);
+      } else if (cambiosHistorial.length > 0) {
+        const historial = new HistorialEstadoOrden();
+        historial.orden = { id: orden.id } as Order;
+        historial.estadoOrden = orden.estadoOrden;
+        historial.usuario = usuarioCambio!;
+        historial.fechaCambio = new Date();
+        historial.observaciones = cambiosHistorial.join(', ');
+
+        await manager.getRepository(HistorialEstadoOrden).save(historial);
+      }
+
+      await this.auditService?.logCritical(
+        {
+          action:
+            updateDto.estadoOrdenId !== undefined
+              ? 'ORDER_STATUS_CHANGED'
+              : updateDto.technicianId !== undefined
+                ? 'ORDER_TECHNICIAN_ASSIGNED'
+                : 'ORDER_UPDATED',
+          module: 'orders',
+          entityType: 'Order',
+          entityId: orden.workOrderNumber || orden.id,
+          actorUserId: usuarioCambio?.id,
+          description: `Orden #${orden.workOrderNumber || orden.id} actualizada (${cambiosHistorial.join(', ') || 'datos generales'})`,
+          newValues: {
+            orderId: orden.id,
+            workOrderNumber: orden.workOrderNumber,
+            estadoOrden: orden.estadoOrden?.nombre,
+            technicianId: orden.technician?.id ?? orden.technicianId ?? null,
+            esperaRepuesto: orden.esperaRepuesto,
+            tipoOrden: orden.tipoOrden,
+          },
+          status: 'SUCCESS',
+        },
+        manager,
       );
+    });
+
+    // Post-commit: Notificaciones automáticas fuera de la transacción de BD
+    if (techAssignedToNotify) {
+      this.notificacionService.notificarAsignacionTecnico(orden.id, techAssignedToNotify, orden.workOrderNumber).catch(() => null);
     }
-
-    // Registrar cambios adicionales en historial si los hay (Escenario A - Trazabilidad de ambos trabajadores)
-    if (cambiosHistorial.length > 0) {
-      const historial = new HistorialEstadoOrden();
-      historial.orden = { id: orden.id } as Order;
-      historial.estadoOrden = orden.estadoOrden;
-      historial.usuario = usuarioCambio!;
-      historial.fechaCambio = new Date();
-      historial.observaciones = cambiosHistorial.join(', ');
-
-      await this.historialEstadoOrdenRepository.save(historial);
+    if (statusChangedToNotify) {
+      if (statusChangedToNotify.clientId) {
+        this.notificacionService.notificarCambioEstadoOds(orden.id, statusChangedToNotify.clientId, orden.workOrderNumber, statusChangedToNotify.nombre).catch(() => null);
+      }
+      if (statusChangedToNotify.technicianId) {
+        this.notificacionService.notificarCambioEstadoOds(orden.id, statusChangedToNotify.technicianId, orden.workOrderNumber, statusChangedToNotify.nombre).catch(() => null);
+      }
     }
 
     // Finalmente devuelve la orden actualizada
@@ -909,23 +997,42 @@ export class OrderService {
     orden.tipoOrden = OrderType.COMPLETA;
     orden.checklistData = updatedChecklistData;
 
-    await this.orderRepository.update(orden.id, {
-      tipoOrden: OrderType.COMPLETA,
-      checklistData: updatedChecklistData as any,
+    await this.orderRepository.manager.transaction(async (manager) => {
+      await manager.update(Order, orden.id, {
+        tipoOrden: OrderType.COMPLETA,
+        checklistData: updatedChecklistData as any,
+      });
+
+      const historial = new HistorialEstadoOrden();
+      historial.orden = { id: orden.id } as Order;
+      historial.estadoOrden = orden.estadoOrden;
+      if (usuarioCambio) historial.usuario = usuarioCambio;
+      historial.fechaCambio = new Date();
+      const authStatus = dto.autorizacionCliente?.autorizado
+        ? `Autorizado vía ${dto.autorizacionCliente.medio || 'No especificado'}`
+        : 'Pendiente de autorización';
+      historial.observaciones = `Escalamiento Express ➔ Completa. Motivo: ${dto.motivoEscalamiento}. Cliente: ${authStatus}`;
+
+      await manager.getRepository(HistorialEstadoOrden).save(historial);
+
+      await this.auditService?.logCritical(
+        {
+          action: 'ORDER_CONVERTED_TO_COMPLETA',
+          module: 'orders',
+          entityType: 'Order',
+          entityId: orden.workOrderNumber || orden.id,
+          actorUserId: effectiveUserId,
+          description: `Orden #${orden.workOrderNumber || orden.id} escalada de EXPRESS a COMPLETA`,
+          oldValues: { tipoOrden: OrderType.EXPRESS },
+          newValues: {
+            tipoOrden: OrderType.COMPLETA,
+            motivoEscalamiento: dto.motivoEscalamiento,
+          },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
     });
-
-    // Guardar en el historial de estados
-    const historial = new HistorialEstadoOrden();
-    historial.orden = { id: orden.id } as Order;
-    historial.estadoOrden = orden.estadoOrden;
-    if (usuarioCambio) historial.usuario = usuarioCambio;
-    historial.fechaCambio = new Date();
-    const authStatus = dto.autorizacionCliente?.autorizado
-      ? `Autorizado vía ${dto.autorizacionCliente.medio || 'No especificado'}`
-      : 'Pendiente de autorización';
-    historial.observaciones = `Escalamiento Express ➔ Completa. Motivo: ${dto.motivoEscalamiento}. Cliente: ${authStatus}`;
-
-    await this.historialEstadoOrdenRepository.save(historial);
 
     return this.findOne(id, true);
   }
@@ -1587,6 +1694,13 @@ export class OrderService {
 
     // 5. Respuesta uniforme contra enumeración: nunca revelar si falló la cédula o el número de orden
     if (!order) {
+      await this.clientActivityService?.recordBackendEvent({
+        eventName: 'ORDER_LOOKUP_NOT_FOUND',
+        module: 'portal_publico',
+        pagePath: '/consulta',
+        actorMode: 'anonymous',
+        metadata: { reason: 'NOT_FOUND' },
+      });
       throw new NotFoundException('No se encontró ninguna orden de servicio activa con los datos ingresados.');
     }
 
@@ -1604,6 +1718,17 @@ export class OrderService {
     const marcaModelo = [marca, modelo].filter(Boolean).join(' ') || null;
     const estadoActual = order.estadoOrden?.nombre || 'Recepción';
     const estadoStep = this.calcularStepPublico(estadoActual, order.tipoOrden);
+
+    await this.clientActivityService?.recordBackendEvent({
+      eventName: 'ORDER_LOOKUP_SUCCESS',
+      module: 'portal_publico',
+      pagePath: '/consulta',
+      actorMode: 'anonymous',
+      metadata: {
+        orderType: order.tipoOrden || OrderType.COMPLETA,
+        step: estadoStep,
+      },
+    });
     const mensajeEstado = this.obtenerMensajePublicoEstado(estadoActual, order);
     const fechaUltimaActualizacion = order.historialEstados?.[0]?.fechaCambio || order.updatedAt || order.createdAt;
 

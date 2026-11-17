@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Like, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -12,6 +12,7 @@ import { RolService } from 'src/rol/rol.service';
 import parsePhoneNumberFromString from 'libphonenumber-js';
 import { StorageService } from '../storage/storage.service';
 import { v4 as uuidv4 } from 'uuid';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class UsersService {
@@ -23,6 +24,7 @@ export class UsersService {
     private readonly usuarioRolService: UsuarioRolService,
     private readonly rolService: RolService,
     private readonly storageService: StorageService,
+    @Optional() private readonly auditService?: AuditService,
   ) { }
 
   async create(createDto: CreateUserDto): Promise<User> {
@@ -126,14 +128,6 @@ export class UsersService {
       hashedPassword = await bcrypt.hash(createDto.password, salt);
     }
 
-    const nuevoUsuario = this.userRepository.create({
-      ...createDto,
-      password: hashedPassword,
-      estado: createDto.estado !== undefined ? createDto.estado : true,
-    });
-
-    const usuarioGuardado = await this.userRepository.save(nuevoUsuario);
-
     // ✅ SOPORTE PARA ROL POR SLUG (Enviado desde el frontend como 'role')
     if (createDto.role && (!createDto.roleIds || createDto.roleIds.length === 0)) {
         try {
@@ -147,35 +141,63 @@ export class UsersService {
         }
     }
 
-    // ✅ ASIGNAR ROLES al nuevo usuario
-    if (createDto.roleIds && createDto.roleIds.length > 0) {
-      for (const roleId of createDto.roleIds) {
-        try {
-          const numericRoleId = Number(roleId);
-          if (!isNaN(numericRoleId)) {
-            await this.usuarioRolService.assignRoleToUser(usuarioGuardado.id, numericRoleId);
-          }
-        } catch (error) {
-          throw error;
-        }
-      }
-    }
-
-    // El envío de invitación se maneja explícitamente desde el frontend o AuthService
-    // para evitar duplicidad y asegurar el formato correcto del enlace.
-
-    // ✅ Recargar el usuario con sus relaciones de roles
-    const usuarioConRoles = await this.userRepository.findOne({
-      where: { id: usuarioGuardado.id },
-      relations: ['userRoles', 'userRoles.rol'],
+    const nuevoUsuario = this.userRepository.create({
+      ...createDto,
+      password: hashedPassword,
+      estado: createDto.estado !== undefined ? createDto.estado : true,
     });
 
-    // ✅ Mapear roles para respuesta
-    const usuarioObj = usuarioConRoles as any;
-    usuarioObj.role = usuarioConRoles?.userRoles?.length > 0 
-      ? usuarioConRoles.userRoles[0].rol.slug 
-      : 'client';
-    
+    const usuarioConRoles = await this.userRepository.manager.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      const usuarioGuardado = await userRepo.save(nuevoUsuario);
+
+      // ✅ ASIGNAR ROLES al nuevo usuario dentro de la misma transacción
+      if (createDto.roleIds && createDto.roleIds.length > 0) {
+        for (const roleId of createDto.roleIds) {
+          const numericRoleId = Number(roleId);
+          if (!isNaN(numericRoleId)) {
+            await manager.query(
+              `INSERT INTO "user_roles" ("userId", "roleId", "createdAt", "updatedAt") VALUES ($1, $2, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+              [usuarioGuardado.id, numericRoleId],
+            );
+          }
+        }
+      }
+
+      const reloaded = await userRepo.findOne({
+        where: { id: usuarioGuardado.id },
+        relations: ['userRoles', 'userRoles.rol'],
+      });
+
+      const resolvedRole = reloaded?.userRoles?.length > 0
+        ? reloaded.userRoles[0].rol.slug
+        : 'client';
+      (reloaded as any).role = resolvedRole;
+
+      const targetModule = resolvedRole === 'client' ? 'clients' : 'users';
+      await this.auditService?.logCritical(
+        {
+          action: targetModule === 'clients' ? 'CLIENT_CREATED' : 'USER_CREATED',
+          module: targetModule,
+          entityType: 'User',
+          entityId: reloaded.id,
+          description: `${targetModule === 'clients' ? 'Cliente' : 'Usuario'} creado: ${reloaded.nombre} ${reloaded.apellido || ''} (rol: ${resolvedRole})`.trim(),
+          newValues: {
+            id: reloaded.id,
+            nombre: reloaded.nombre,
+            apellido: reloaded.apellido,
+            ciudad: reloaded.ciudad,
+            role: resolvedRole,
+            estado: reloaded.estado,
+          },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+
+      return reloaded;
+    });
+
     return usuarioConRoles;
   }
 
@@ -383,40 +405,100 @@ export class UsersService {
       user.password = await bcrypt.hash(updateDto.password, salt);
     }
 
-    // Guardar los cambios del usuario
-    await this.userRepository.save(user);
+    // Guardar los cambios del usuario + roles + auditoría en una sola transacción
+    const oldSnapshot = {
+      nombre: user.nombre,
+      apellido: user.apellido,
+      ciudad: user.ciudad,
+      estado: user.estado,
+      role: (user as any).role,
+    };
 
-    // Actualizar roles si se proporciona roleIds
-    if (updateDto.roleIds && Array.isArray(updateDto.roleIds) && updateDto.roleIds.length > 0) {
-      // Obtener roles actuales del usuario
-      const rolesActuales = await this.usuarioRolService.findByUserId(user.id);
+    const updatedUser = await this.userRepository.manager.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      await userRepo.save(user);
 
-      // Eliminar roles existentes
-      for (const userRole of rolesActuales) {
-        await this.usuarioRolService.removeRoleFromUser(user.id, userRole.roleId);
-      }
-
-      // Asignar nuevos roles
-      for (const roleId of updateDto.roleIds) {
-        const roleIdNum = Number(roleId);
-        if (!isNaN(roleIdNum)) {
-          await this.usuarioRolService.assignRoleToUser(user.id, roleIdNum);
+      // Actualizar roles si se proporciona roleIds
+      if (updateDto.roleIds && Array.isArray(updateDto.roleIds) && updateDto.roleIds.length > 0) {
+        await manager.query(`DELETE FROM "user_roles" WHERE "userId" = $1`, [user.id]);
+        for (const roleId of updateDto.roleIds) {
+          const roleIdNum = Number(roleId);
+          if (!isNaN(roleIdNum)) {
+            await manager.query(
+              `INSERT INTO "user_roles" ("userId", "roleId", "createdAt", "updatedAt") VALUES ($1, $2, NOW(), NOW()) ON CONFLICT DO NOTHING`,
+              [user.id, roleIdNum],
+            );
+          }
         }
       }
-    }
 
-    return this.findOne(user.id, true);
+      const reloaded = await userRepo.findOne({
+        where: { id: user.id },
+        withDeleted: true,
+        relations: [
+          'userRoles',
+          'userRoles.rol',
+          'userRoles.rol.rolePermissions',
+          'userRoles.rol.rolePermissions.permission',
+        ],
+      });
+
+      const updatedRole = reloaded?.userRoles?.length > 0
+        ? reloaded.userRoles[0].rol.slug
+        : (oldSnapshot.role || 'client');
+      (reloaded as any).role = updatedRole;
+      const targetModule = updatedRole === 'client' ? 'clients' : 'users';
+
+      await this.auditService?.logCritical(
+        {
+          action: targetModule === 'clients' ? 'CLIENT_UPDATED' : 'USER_UPDATED',
+          module: targetModule,
+          entityType: 'User',
+          entityId: reloaded.id,
+          description: `Actualización de ${targetModule === 'clients' ? 'cliente' : 'usuario'} #${reloaded.id}`,
+          oldValues: oldSnapshot,
+          newValues: {
+            nombre: reloaded.nombre,
+            apellido: reloaded.apellido,
+            ciudad: reloaded.ciudad,
+            estado: reloaded.estado,
+            role: updatedRole,
+          },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+
+      return reloaded;
+    });
+
+    return this.findOne(updatedUser.id, true);
   }
 
   async remove(id: number): Promise<{ message: string }> {
     const user = await this.findOne(id);
+    const roleSlug = (user as any).role || 'client';
 
-    // Soft delete con TypeORM
-    await this.userRepository.softRemove(user);
+    await this.userRepository.manager.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      await userRepo.softRemove(user);
+      user.estado = false;
+      await userRepo.save(user);
 
-    // Además marcamos como inactivo
-    user.estado = false;
-    await this.userRepository.save(user);
+      await this.auditService?.logCritical(
+        {
+          action: roleSlug === 'client' ? 'CLIENT_DEACTIVATED' : 'USER_DEACTIVATED',
+          module: roleSlug === 'client' ? 'clients' : 'users',
+          entityType: 'User',
+          entityId: user.id,
+          description: `Usuario #${user.id} deshabilitado`,
+          oldValues: { estado: true },
+          newValues: { estado: false },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+    });
 
     return { message: `Usuario con ID ${id} deshabilitado (soft delete).` };
   }
@@ -506,9 +588,27 @@ export class UsersService {
 
   async toggleStatus(id: number): Promise<User> {
     const user = await this.findOne(id, true);
+    const prevEstado = user.estado;
+    const roleSlug = (user as any).role || 'client';
 
-    user.estado = !user.estado;
-    await this.userRepository.save(user);
+    await this.userRepository.manager.transaction(async (manager) => {
+      user.estado = !user.estado;
+      await manager.save(User, user);
+
+      await this.auditService?.logCritical(
+        {
+          action: user.estado ? 'USER_ACTIVATED' : 'USER_DEACTIVATED',
+          module: roleSlug === 'client' ? 'clients' : 'users',
+          entityType: 'User',
+          entityId: user.id,
+          description: `Estado de usuario #${user.id} cambiado de ${prevEstado ? 'Activo' : 'Inactivo'} a ${user.estado ? 'Activo' : 'Inactivo'}`,
+          oldValues: { estado: prevEstado },
+          newValues: { estado: user.estado },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+    });
 
     return user;
   }

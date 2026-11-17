@@ -42,6 +42,7 @@ import type { Order } from '@/types/order.types';
 import { OrderType } from '@/types/order.types';
 import { apiRequest } from '@/lib/api';
 import { useOrders } from '@/hooks/useOrders';
+import { trackClientEvent } from '@/lib/clientActivityTracker';
 import {
   usePresupuesto,
   formatModalidadAutorizacion,
@@ -332,6 +333,54 @@ export default function PerfilOrdenPage() {
       setIsDeleting(false);
     }
   };
+
+  // Analítica de cliente autenticado (no bloqueante, deduplicada)
+  useEffect(() => {
+    if (!isClient || !order?.id || !session?.accessToken) return;
+    const token = session.accessToken;
+    void trackClientEvent({
+      eventName: 'ORDER_DETAIL_VIEWED',
+      module: 'portal_cliente',
+      pagePath: '/ver-orden/[id]',
+      entityType: 'Order',
+      entityId: order.id,
+      metadata: { orderType: order.tipoOrden || 'COMPLETA' },
+      accessToken: token,
+    });
+    if (order.actividades && order.actividades.length > 0) {
+      void trackClientEvent({
+        eventName: 'DIAGNOSIS_VIEWED',
+        module: 'portal_cliente',
+        pagePath: '/ver-orden/[id]',
+        entityType: 'Order',
+        entityId: order.id,
+        metadata: { hasActivities: true },
+        accessToken: token,
+      });
+    }
+    if (order.presupuesto) {
+      void trackClientEvent({
+        eventName: 'BUDGET_VIEWED',
+        module: 'presupuestos',
+        pagePath: '/ver-orden/[id]',
+        entityType: 'Order',
+        entityId: order.id,
+        metadata: { budgetStatus: order.presupuesto.estado?.nombre || 'Pendiente' },
+        accessToken: token,
+      });
+    }
+    if (order.evidencias && order.evidencias.length > 0) {
+      void trackClientEvent({
+        eventName: 'EVIDENCE_SECTION_VIEWED',
+        module: 'evidencias',
+        pagePath: '/ver-orden/[id]',
+        entityType: 'Order',
+        entityId: order.id,
+        metadata: { itemsCount: order.evidencias.length },
+        accessToken: token,
+      });
+    }
+  }, [isClient, order?.id, session?.accessToken]);
 
   const handleSavePresupuesto = async (updatedPresupuesto: any, shouldClose: boolean = true) => {
     try {

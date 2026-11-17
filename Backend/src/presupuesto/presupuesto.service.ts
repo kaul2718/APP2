@@ -4,9 +4,10 @@ import {
   InternalServerErrorException,
   BadRequestException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository, IsNull } from 'typeorm';
+import { DataSource, EntityManager, Repository, IsNull } from 'typeorm';
 import * as crypto from 'crypto';
 import { Presupuesto } from './entities/presupuesto.entity';
 import {
@@ -23,6 +24,7 @@ import { Parte } from 'src/parte/entities/parte.entity';
 import { User } from 'src/users/entities/user.entity';
 import { HistorialEstadoOrden } from 'src/historial-estado-orden/entities/historial-estado-orden.entity';
 import { NotificacionService } from '../notificacion/notificacion.service';
+import { AuditService } from '../audit/audit.service';
 
 export function formatModalidadLabel(modalidad?: ModalidadAutorizacion | string): string {
   switch (modalidad) {
@@ -72,6 +74,7 @@ export class PresupuestoService {
 
     private readonly dataSource: DataSource,
     private readonly notificacionService: NotificacionService,
+    @Optional() private readonly auditService?: AuditService,
   ) { }
 
   async create(createDto: CreatePresupuestoDto): Promise<Presupuesto> {
@@ -98,7 +101,27 @@ export class PresupuestoService {
     });
 
     try {
-      return await this.presupuestoRepository.save(presupuesto);
+      return await this.dataSource.transaction(async (manager) => {
+        const saved = await manager.save(Presupuesto, presupuesto);
+        await this.auditService?.logCritical(
+          {
+            action: 'BUDGET_CREATED',
+            module: 'presupuestos',
+            entityType: 'Presupuesto',
+            entityId: saved.id,
+            description: `Presupuesto #${saved.id} creado para orden #${orden.workOrderNumber || ordenId} (${estado.nombre})`,
+            newValues: {
+              ordenId,
+              workOrderNumber: orden.workOrderNumber,
+              estado: estado.nombre,
+              descripcion,
+            },
+            status: 'SUCCESS',
+          },
+          manager,
+        );
+        return saved;
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error desconocido';
       throw new InternalServerErrorException(`Error creando presupuesto: ${message}`);
@@ -175,6 +198,12 @@ export class PresupuestoService {
       throw new NotFoundException(`Presupuesto con ID ${id} no encontrado.`);
     }
 
+    const oldBudgetSnapshot = {
+      estado: presupuesto.estado?.nombre,
+      descripcion: presupuesto.descripcion,
+      version: presupuesto.version,
+    };
+
     if (updateDto.ordenId && updateDto.ordenId !== presupuesto.ordenId) {
       const orden = await this.ordenRepository.findOne({
         where: { id: updateDto.ordenId },
@@ -195,14 +224,21 @@ export class PresupuestoService {
       presupuesto.orden = orden;
     }
 
+    let nuevoEstado: EstadoPresupuesto | null = null;
+    let estadoCambiado = false;
+    let autorizacionNueva: AutorizacionPresupuesto | null = null;
+    let regHistNuevo: HistorialEstadoOrden | null = null;
+    let accionStock: 'descontar' | 'revertir' | null = null;
+
     if (updateDto.estadoId) {
-      const nuevoEstado = await this.estadoPresupuestoRepository.findOne({ where: { id: updateDto.estadoId } });
+      nuevoEstado = await this.estadoPresupuestoRepository.findOne({ where: { id: updateDto.estadoId } });
       if (!nuevoEstado) throw new NotFoundException(`Estado con ID ${updateDto.estadoId} no encontrado.`);
 
       const estadoAnteriorNombre = presupuesto.estado?.nombre?.toLowerCase() || '';
       const nuevoEstadoNombre = nuevoEstado.nombre.toLowerCase();
 
       if (presupuesto.estadoId !== updateDto.estadoId) {
+        estadoCambiado = true;
         if (nuevoEstadoNombre === 'aprobado' || nuevoEstadoNombre === 'rechazado') {
           let autorizacion = await this.autorizacionRepository.findOne({
             where: {
@@ -275,7 +311,7 @@ export class PresupuestoService {
             });
             const hashIntegridad = crypto.createHash('sha256').update(hashPayload).digest('hex');
 
-            autorizacion = this.autorizacionRepository.create({
+            autorizacionNueva = this.autorizacionRepository.create({
               presupuestoId: presupuesto.id,
               ordenId: presupuesto.ordenId,
               versionPresupuesto: presupuesto.version || 1,
@@ -298,7 +334,6 @@ export class PresupuestoService {
               userAgent: userAgent || null,
               hashIntegridad,
             });
-            await this.autorizacionRepository.save(autorizacion);
 
             if (presupuesto.orden?.estadoOrden?.id || (presupuesto.orden as any)?.estadoOrdenId) {
               const estadoOrdenId = presupuesto.orden.estadoOrden?.id || (presupuesto.orden as any).estadoOrdenId;
@@ -307,37 +342,21 @@ export class PresupuestoService {
               const obsHistorial = `Presupuesto v${presupuesto.version || 1} ${etiquetaDecision} — Modalidad: ${etiquetaModalidad}${
                 observacionTexto ? ` | Obs: ${observacionTexto}` : ''
               }`;
-              const regHist = this.historialRepository.create({
+              regHistNuevo = this.historialRepository.create({
                 orden: { id: presupuesto.ordenId } as any,
                 estadoOrden: { id: estadoOrdenId } as any,
                 usuario: { id: operadorId } as any,
                 observaciones: obsHistorial,
                 fechaCambio: new Date(),
               });
-              await this.historialRepository.save(regHist);
             }
           }
         }
 
         if (nuevoEstadoNombre === 'aprobado' && estadoAnteriorNombre !== 'aprobado') {
-          await this.descontarInventario(presupuesto.id);
-        }
-        else if (nuevoEstadoNombre !== 'aprobado' && estadoAnteriorNombre === 'aprobado') {
-          await this.revertirInventario(presupuesto.id);
-        }
-
-        // Enviar notificaciones en tiempo real al cambiar el estado del presupuesto
-        if (presupuesto.orden) {
-          const client = presupuesto.orden.client;
-          const technician = presupuesto.orden.technician;
-          const orderNum = presupuesto.orden.workOrderNumber;
-
-          if (client) {
-            await this.notificacionService.notificarPresupuesto(presupuesto.orden.id, client.id, orderNum, nuevoEstado.nombre);
-          }
-          if (technician) {
-            await this.notificacionService.notificarPresupuesto(presupuesto.orden.id, technician.id, orderNum, nuevoEstado.nombre);
-          }
+          accionStock = 'descontar';
+        } else if (nuevoEstadoNombre !== 'aprobado' && estadoAnteriorNombre === 'aprobado') {
+          accionStock = 'revertir';
         }
       }
 
@@ -349,7 +368,73 @@ export class PresupuestoService {
       presupuesto.descripcion = updateDto.descripcion;
     }
 
-    await this.presupuestoRepository.save(presupuesto);
+    const newBudgetState = presupuesto.estado?.nombre || oldBudgetSnapshot.estado;
+    const isApproved = newBudgetState?.toLowerCase() === 'aprobado' && oldBudgetSnapshot.estado?.toLowerCase() !== 'aprobado';
+    const isRejected = newBudgetState?.toLowerCase() === 'rechazado' && oldBudgetSnapshot.estado?.toLowerCase() !== 'rechazado';
+
+    let partesStockBajo: number[] = [];
+
+    // Transacción atómica en PostgreSQL: autorización + historial + ajuste de stock + presupuesto + auditoría
+    await this.dataSource.transaction(async (manager) => {
+      if (autorizacionNueva) {
+        await manager.save(AutorizacionPresupuesto, autorizacionNueva);
+      }
+      if (regHistNuevo) {
+        await manager.save(HistorialEstadoOrden, regHistNuevo);
+      }
+      if (accionStock === 'descontar') {
+        partesStockBajo = await this.descontarInventario(presupuesto.id, manager);
+      } else if (accionStock === 'revertir') {
+        await this.revertirInventario(presupuesto.id, manager);
+      }
+
+      await manager.save(Presupuesto, presupuesto);
+
+      await this.auditService?.logCritical(
+        {
+          action: isApproved
+            ? 'BUDGET_APPROVED'
+            : isRejected
+              ? 'BUDGET_REJECTED'
+              : 'BUDGET_UPDATED',
+          module: 'presupuestos',
+          entityType: 'Presupuesto',
+          entityId: presupuesto.id,
+          actorUserId: operadorId,
+          ipAddress: ip,
+          userAgent,
+          description: `Presupuesto #${presupuesto.id} (ODS #${presupuesto.orden?.workOrderNumber || presupuesto.ordenId}) actualizado: ${oldBudgetSnapshot.estado} -> ${newBudgetState}`,
+          oldValues: oldBudgetSnapshot,
+          newValues: {
+            estado: newBudgetState,
+            descripcion: presupuesto.descripcion,
+            version: presupuesto.version,
+            modalidad: updateDto.modalidad,
+            observaciones: updateDto.observaciones,
+          },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+    });
+
+    // Post-commit: notificaciones externas / WebSockets fuera de la transacción de BD
+    for (const parteId of partesStockBajo) {
+      this.notificacionService.checkAndNotificarStockBajo(parteId).catch(() => null);
+    }
+
+    if (estadoCambiado && nuevoEstado && presupuesto.orden) {
+      const client = presupuesto.orden.client;
+      const technician = presupuesto.orden.technician;
+      const orderNum = presupuesto.orden.workOrderNumber;
+
+      if (client) {
+        this.notificacionService.notificarPresupuesto(presupuesto.orden.id, client.id, orderNum, nuevoEstado.nombre).catch(() => null);
+      }
+      if (technician) {
+        this.notificacionService.notificarPresupuesto(presupuesto.orden.id, technician.id, orderNum, nuevoEstado.nombre).catch(() => null);
+      }
+    }
 
     return this.findOne(id);
   }
@@ -364,12 +449,27 @@ export class PresupuestoService {
     if (!presupuesto) return null;
     if (presupuesto.deletedAt) return false;
 
-    // Si el presupuesto estaba aprobado, devolvemos el stock al almacén antes de eliminarlo
-    if (presupuesto.estado?.nombre?.toLowerCase() === 'aprobado') {
-      await this.revertirInventario(id);
-    }
+    await this.dataSource.transaction(async (manager) => {
+      // Si el presupuesto estaba aprobado, devolvemos el stock al almacén antes de eliminarlo
+      if (presupuesto.estado?.nombre?.toLowerCase() === 'aprobado') {
+        await this.revertirInventario(id, manager);
+      }
 
-    await this.presupuestoRepository.softDelete(id);
+      await manager.softDelete(Presupuesto, id);
+
+      await this.auditService?.logCritical(
+        {
+          action: 'BUDGET_DELETED',
+          module: 'presupuestos',
+          entityType: 'Presupuesto',
+          entityId: id,
+          description: `Presupuesto #${id} eliminado lógicamente`,
+          oldValues: { estado: presupuesto.estado?.nombre, ordenId: presupuesto.ordenId },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+    });
     return true;
   }
 
@@ -415,17 +515,29 @@ export class PresupuestoService {
     return { data, total };
   }
 
-  public async descontarInventario(presupuestoId: number) {
-    const detalles = await this.detallePresupuestoItemsRepository.find({
+  public async descontarInventario(
+    presupuestoId: number,
+    manager?: EntityManager,
+  ): Promise<number[]> {
+    const detalleRepo = manager
+      ? manager.getRepository(DetallePresupuestoItem)
+      : this.detallePresupuestoItemsRepository;
+    const parteRepo = manager
+      ? manager.getRepository(Parte)
+      : this.parteRepository;
+
+    const detalles = await detalleRepo.find({
       where: { presupuestoId, estado: true }, // Solo descontamos stock para detalles activos
       relations: ['parte'],
     });
+
+    const partesParaAlerta: number[] = [];
 
     for (const detalle of detalles) {
       const parteId = detalle.parteId ?? detalle.parte?.id;
       if (!parteId) throw new NotFoundException(`No se pudo resolver la parte asociada al detalle ${detalle.id}.`);
 
-      const parte = await this.parteRepository.findOne({ where: { id: parteId } });
+      const parte = await parteRepo.findOne({ where: { id: parteId } });
       if (!parte) throw new NotFoundException(`Producto de almacén con ID ${parteId} no encontrado.`);
 
       // Si es un servicio, omitimos el descuento y control de stock
@@ -435,15 +547,30 @@ export class PresupuestoService {
         throw new BadRequestException(`Existencias insuficientes para ${parte.nombre}. Disponible: ${parte.stock}`);
 
       parte.stock = Number(parte.stock) - detalle.cantidad;
-      await this.parteRepository.save(parte);
+      await parteRepo.save(parte);
+      partesParaAlerta.push(parte.id);
 
-      // Lanzar alerta de stock bajo si aplica
-      await this.notificacionService.checkAndNotificarStockBajo(parte.id);
+      if (!manager) {
+        // Solo disparar inmediatamente si no estamos dentro de una transacción pendiente de commit
+        await this.notificacionService.checkAndNotificarStockBajo(parte.id);
+      }
     }
+
+    return partesParaAlerta;
   }
 
-  public async revertirInventario(presupuestoId: number) {
-    const detalles = await this.detallePresupuestoItemsRepository.find({
+  public async revertirInventario(
+    presupuestoId: number,
+    manager?: EntityManager,
+  ) {
+    const detalleRepo = manager
+      ? manager.getRepository(DetallePresupuestoItem)
+      : this.detallePresupuestoItemsRepository;
+    const parteRepo = manager
+      ? manager.getRepository(Parte)
+      : this.parteRepository;
+
+    const detalles = await detalleRepo.find({
       where: { presupuestoId, estado: true }, // Solo devolvemos stock para detalles activos que no hayan sido eliminados previamente
       relations: ['parte'],
     });
@@ -451,15 +578,15 @@ export class PresupuestoService {
     for (const detalle of detalles) {
       const parteId = detalle.parteId ?? detalle.parte?.id;
       if (parteId) {
-        const parte = await this.parteRepository.findOne({ where: { id: parteId } });
+        const parte = await parteRepo.findOne({ where: { id: parteId } });
         // Solo revertir stock si no es un servicio
         if (parte && parte.unidadMedida !== 'Servicio') {
           parte.stock = Number(parte.stock) + detalle.cantidad;
-          await this.parteRepository.save(parte);
+          await parteRepo.save(parte);
         }
       }
       detalle.comentario = 'Stock devuelto por anulación de presupuesto';
-      await this.detallePresupuestoItemsRepository.save(detalle);
+      await detalleRepo.save(detalle);
     }
   }
 
