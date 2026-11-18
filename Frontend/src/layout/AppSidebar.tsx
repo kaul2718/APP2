@@ -13,12 +13,12 @@ const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
   
-  const { role, permissions } = usePermissions();
+  const { roles, role, permissions } = usePermissions();
 
-  // Filtrar los items de navegación según el rol y los permisos dinámicos
+  // Filtrar los items de navegación según todos los roles y permisos dinámicos
   const filteredNavItems = React.useMemo(() => {
-    return getFilteredNavItems(role, permissions);
-  }, [role, permissions]);
+    return getFilteredNavItems(roles.length > 0 ? roles : role, permissions);
+  }, [roles, role, permissions]);
 
   const renderMenuItems = (
     items: NavItem[],

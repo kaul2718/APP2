@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserRole } from '../user-role/entities/user-role.entity';
@@ -6,6 +6,7 @@ import { User } from '../users/entities/user.entity';
 import { Rol } from '../rol/entities/rol.entity';
 import { CreateUsuarioRolDto } from './dto/create-usuario-rol.dto';
 import { UpdateUsuarioRolDto } from './dto/update-usuario-rol.dto';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class UsuarioRolService {
@@ -16,49 +17,75 @@ export class UsuarioRolService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Rol)
     private readonly rolRepository: Repository<Rol>,
+    @Optional()
+    private readonly auditService?: AuditService,
   ) {}
+
+  private async getUserRoleSlugs(
+    userRoleRepo: Repository<UserRole>,
+    userId: number,
+  ): Promise<string[]> {
+    const assignments = await userRoleRepo.find({
+      where: { userId },
+      relations: ['rol'],
+    });
+    return assignments
+      .map((a) => a.rol?.slug)
+      .filter((slug): slug is string => Boolean(slug));
+  }
 
   async create(createUsuarioRolDto: CreateUsuarioRolDto): Promise<UserRole> {
     const { userId, roleId } = createUsuarioRolDto;
 
-    // Validar que los parámetros no sean null/undefined
     if (!userId || !roleId) {
       throw new BadRequestException(`userId y roleId son requeridos`);
     }
 
-    // Validar que el usuario existe y NO está borrado
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
-    if (!user) {
-      throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
-    }
+    return await this.userRoleRepository.manager.transaction(async (manager) => {
+      const userRepo = manager.getRepository(User);
+      const rolRepo = manager.getRepository(Rol);
+      const userRoleRepo = manager.getRepository(UserRole);
 
-    // Validar que el rol existe y NO está borrado
-    const rol = await this.rolRepository.findOne({
-      where: { id: roleId },
-    });
-    if (!rol) {
-      throw new NotFoundException(`Rol con ID ${roleId} no encontrado`);
-    }
+      const user = await userRepo.findOne({ where: { id: userId } });
+      if (!user) {
+        throw new NotFoundException(`Usuario con ID ${userId} no encontrado`);
+      }
 
-    // Validar que la asignación no exista
-    const existingUserRole = await this.userRoleRepository.findOne({
-      where: { userId, roleId },
-    });
+      const rol = await rolRepo.findOne({ where: { id: roleId } });
+      if (!rol) {
+        throw new NotFoundException(`Rol con ID ${roleId} no encontrado`);
+      }
 
-    if (existingUserRole) {
-      throw new BadRequestException(
-        `El usuario ya tiene asignado este rol`,
+      const existingUserRole = await userRoleRepo.findOne({
+        where: { userId, roleId },
+      });
+
+      if (existingUserRole) {
+        throw new BadRequestException(`El usuario ya tiene asignado este rol`);
+      }
+
+      const previousRoles = await this.getUserRoleSlugs(userRoleRepo, userId);
+
+      const userRole = userRoleRepo.create({ userId, roleId });
+      const saved = await userRoleRepo.save(userRole);
+      const nextRoles = Array.from(new Set([...previousRoles, rol.slug]));
+
+      await this.auditService?.logCritical(
+        {
+          action: 'USER_ROLE_ASSIGNED',
+          module: 'roles',
+          entityType: 'User',
+          entityId: userId,
+          description: `Rol "${rol.slug}" asignado al usuario #${userId} (${user.nombre} ${user.apellido || ''})`.trim(),
+          oldValues: { roles: previousRoles },
+          newValues: { roles: nextRoles, assignedRoleId: rol.id, assignedRoleSlug: rol.slug },
+          status: 'SUCCESS',
+        },
+        manager,
       );
-    }
 
-    const userRole = this.userRoleRepository.create({
-      userId,
-      roleId,
+      return saved;
     });
-
-    return await this.userRoleRepository.save(userRole);
   }
 
   async findAll(): Promise<UserRole[]> {
@@ -107,42 +134,74 @@ export class UsuarioRolService {
       throw new BadRequestException(`ID de asignación inválido`);
     }
 
-    const userRole = await this.findOne(id);
+    return await this.userRoleRepository.manager.transaction(async (manager) => {
+      const userRoleRepo = manager.getRepository(UserRole);
+      const rolRepo = manager.getRepository(Rol);
 
-    // Validar que no haya conflicto con otra asignación
-    if (
-      updateUsuarioRolDto.roleId &&
-      updateUsuarioRolDto.roleId !== userRole.roleId
-    ) {
-      if (updateUsuarioRolDto.roleId <= 0) {
-        throw new BadRequestException(`ID de rol inválido`);
-      }
-
-      const newRol = await this.rolRepository.findOne({
-        where: { id: updateUsuarioRolDto.roleId },
+      const userRole = await userRoleRepo.findOne({
+        where: { id },
+        relations: ['user', 'rol'],
       });
-      if (!newRol) {
-        throw new NotFoundException(
-          `Rol con ID ${updateUsuarioRolDto.roleId} no encontrado`,
-        );
+      if (!userRole) {
+        throw new NotFoundException(`Asignación de rol con ID ${id} no encontrada`);
       }
 
-      const existingUserRole = await this.userRoleRepository.findOne({
-        where: {
-          userId: userRole.userId,
-          roleId: updateUsuarioRolDto.roleId,
+      const previousRoles = await this.getUserRoleSlugs(userRoleRepo, userRole.userId);
+      let newRolSlug = userRole.rol?.slug;
+
+      if (
+        updateUsuarioRolDto.roleId &&
+        updateUsuarioRolDto.roleId !== userRole.roleId
+      ) {
+        if (updateUsuarioRolDto.roleId <= 0) {
+          throw new BadRequestException(`ID de rol inválido`);
+        }
+
+        const newRol = await rolRepo.findOne({
+          where: { id: updateUsuarioRolDto.roleId },
+        });
+        if (!newRol) {
+          throw new NotFoundException(
+            `Rol con ID ${updateUsuarioRolDto.roleId} no encontrado`,
+          );
+        }
+
+        const existingUserRole = await userRoleRepo.findOne({
+          where: {
+            userId: userRole.userId,
+            roleId: updateUsuarioRolDto.roleId,
+          },
+        });
+
+        if (existingUserRole) {
+          throw new BadRequestException(
+            `El usuario ya tiene asignado este rol`,
+          );
+        }
+
+        newRolSlug = newRol.slug;
+      }
+
+      Object.assign(userRole, updateUsuarioRolDto);
+      const saved = await userRoleRepo.save(userRole);
+      const nextRoles = await this.getUserRoleSlugs(userRoleRepo, userRole.userId);
+
+      await this.auditService?.logCritical(
+        {
+          action: 'USER_ROLE_UPDATED',
+          module: 'roles',
+          entityType: 'User',
+          entityId: userRole.userId,
+          description: `Asignación de rol #${id} actualizada para usuario #${userRole.userId} (nuevo rol: ${newRolSlug || saved.roleId})`,
+          oldValues: { roles: previousRoles },
+          newValues: { roles: nextRoles, updatedAssignmentId: id, roleId: saved.roleId, roleSlug: newRolSlug },
+          status: 'SUCCESS',
         },
-      });
+        manager,
+      );
 
-      if (existingUserRole) {
-        throw new BadRequestException(
-          `El usuario ya tiene asignado este rol`,
-        );
-      }
-    }
-
-    Object.assign(userRole, updateUsuarioRolDto);
-    return await this.userRoleRepository.save(userRole);
+      return saved;
+    });
   }
 
   async remove(id: number): Promise<{ message: string }> {
@@ -150,14 +209,40 @@ export class UsuarioRolService {
       throw new BadRequestException(`ID de asignación inválido`);
     }
 
-    const userRole = await this.findOne(id);
-    await this.userRoleRepository.remove(userRole);
+    return await this.userRoleRepository.manager.transaction(async (manager) => {
+      const userRoleRepo = manager.getRepository(UserRole);
+      const userRole = await userRoleRepo.findOne({
+        where: { id },
+        relations: ['user', 'rol'],
+      });
+      if (!userRole) {
+        throw new NotFoundException(`Asignación de rol con ID ${id} no encontrada`);
+      }
 
-    return { message: `Asignación de rol eliminada correctamente` };
+      const previousRoles = await this.getUserRoleSlugs(userRoleRepo, userRole.userId);
+      const removedSlug = userRole.rol?.slug || String(userRole.roleId);
+      await userRoleRepo.remove(userRole);
+      const nextRoles = await this.getUserRoleSlugs(userRoleRepo, userRole.userId);
+
+      await this.auditService?.logCritical(
+        {
+          action: 'USER_ROLE_REMOVED',
+          module: 'roles',
+          entityType: 'User',
+          entityId: userRole.userId,
+          description: `Rol "${removedSlug}" removido del usuario #${userRole.userId}`,
+          oldValues: { roles: previousRoles },
+          newValues: { roles: nextRoles, removedRoleId: userRole.roleId, removedRoleSlug: removedSlug },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
+
+      return { message: `Asignación de rol eliminada correctamente` };
+    });
   }
 
   async assignRoleToUser(userId: number, roleId: number): Promise<UserRole> {
-    // Validaciones de parámetros
     if (!userId || userId <= 0) {
       throw new BadRequestException(`ID de usuario inválido`);
     }
@@ -169,7 +254,6 @@ export class UsuarioRolService {
   }
 
   async removeRoleFromUser(userId: number, roleId: number): Promise<void> {
-    // Validaciones de parámetros
     if (!userId || userId <= 0) {
       throw new BadRequestException(`ID de usuario inválido`);
     }
@@ -177,14 +261,35 @@ export class UsuarioRolService {
       throw new BadRequestException(`ID de rol inválido`);
     }
 
-    const userRole = await this.userRoleRepository.findOne({
-      where: { userId, roleId },
+    await this.userRoleRepository.manager.transaction(async (manager) => {
+      const userRoleRepo = manager.getRepository(UserRole);
+      const userRole = await userRoleRepo.findOne({
+        where: { userId, roleId },
+        relations: ['rol'],
+      });
+
+      if (!userRole) {
+        throw new NotFoundException(`Asignación de rol no encontrada`);
+      }
+
+      const previousRoles = await this.getUserRoleSlugs(userRoleRepo, userId);
+      const removedSlug = userRole.rol?.slug || String(roleId);
+      await userRoleRepo.remove(userRole);
+      const nextRoles = await this.getUserRoleSlugs(userRoleRepo, userId);
+
+      await this.auditService?.logCritical(
+        {
+          action: 'USER_ROLE_REMOVED',
+          module: 'roles',
+          entityType: 'User',
+          entityId: userId,
+          description: `Rol "${removedSlug}" removido del usuario #${userId}`,
+          oldValues: { roles: previousRoles },
+          newValues: { roles: nextRoles, removedRoleId: roleId, removedRoleSlug: removedSlug },
+          status: 'SUCCESS',
+        },
+        manager,
+      );
     });
-
-    if (!userRole) {
-      throw new NotFoundException(`Asignación de rol no encontrada`);
-    }
-
-    await this.userRoleRepository.remove(userRole);
   }
 }

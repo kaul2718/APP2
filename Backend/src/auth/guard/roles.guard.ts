@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../../decorators/roles.decorator';
-import { ValidRole, VALID_ROLES, RoleHelper } from '../../common/helpers/role.helper';
+import { ValidRole, VALID_ROLES, resolveUserAuthContext } from '../../common/helpers/role.helper';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -24,22 +24,18 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
-    // Los roles del usuario vienen de la BD via UserRole o del fallback predeterminado
-    let userRoles: ValidRole[] = (user.userRoles || []).map(
-      (ur: any) => ur.rol?.slug,
-    );
-
-    if (userRoles.length === 0 && user.role) {
-      userRoles = [user.role as ValidRole];
+    const { roles: userRoles } = resolveUserAuthContext(user);
+    if (userRoles.length === 0) {
+      return false;
     }
 
-    // Si el usuario es admin, tiene acceso a todo
+    // Si el usuario es admin activo, tiene acceso administrativo
     if (userRoles.includes(VALID_ROLES.ADMIN)) {
       return true;
     }
 
     // Verificar si el usuario tiene al menos uno de los roles requeridos
-    return userRoles.some((role) => requiredRoles.includes(role));
+    return userRoles.some((role) => requiredRoles.includes(role as ValidRole));
   }
 }
 

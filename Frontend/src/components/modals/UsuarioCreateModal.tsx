@@ -86,11 +86,22 @@ export default function UsuarioCreateModal({ isOpen, onClose, onSave }: Props) {
                 datosCreacion.password = formData.password;
             }
 
-            // Mapear role (ID numérico) a roleIds
-            if (formData.role && formData.role > 0) {
-                datosCreacion.roleIds = [formData.role];
+            // Mapear roleIds múltiples (o fallback a role numérico único)
+            const selectedRoleIds =
+                Array.isArray(formData.roleIds) && formData.roleIds.length > 0
+                    ? formData.roleIds.filter((id) => Number(id) > 0)
+                    : formData.role && formData.role > 0
+                        ? [formData.role]
+                        : [];
+
+            if (selectedRoleIds.length > 0) {
+                datosCreacion.roleIds = selectedRoleIds;
             } else {
-                throw new Error("Debe seleccionar un rol");
+                throw new Error("Debe seleccionar al menos un rol");
+            }
+
+            if (formData.habilitadoTecnico !== undefined) {
+                datosCreacion.habilitadoTecnico = Boolean(formData.habilitadoTecnico);
             }
 
             const response = await fetch(

@@ -713,14 +713,14 @@ export class DashboardService {
     return results;
   }
 
-  // Carga de trabajo por técnico
+  // Carga de trabajo por técnico (fuente de verdad: habilitadoTecnico = true y usuario activo)
   private async getTechniciansWorkload(from?: Date): Promise<TechnicianWorkloadStat[]> {
     const techs = await this.userRepository.createQueryBuilder('u')
-      .innerJoin('u.userRoles', 'ur')
-      .innerJoin('ur.rol', 'r')
-      .where('r.slug = :slug', { slug: 'tech' })
+      .where('u.estado = :estado', { estado: true })
+      .andWhere('u.habilitadoTecnico = :habilitado', { habilitado: true })
       .andWhere('u.deletedAt IS NULL')
       .select(['u.id', 'u.nombre', 'u.apellido'])
+      .orderBy('u.nombre', 'ASC')
       .getMany();
 
     const stats: TechnicianWorkloadStat[] = [];

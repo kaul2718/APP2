@@ -177,13 +177,32 @@ export default function UsuarioNuevoTable({
     },
     {
       key: "rol",
-      header: "Rol",
+      header: "Roles / Capacidad",
       render: (usuario) => {
-        const rolNombre = roles.find((r) => r.slug === usuario.role)?.nombre || String(usuario.role);
+        const assignedSlugs: string[] =
+          Array.isArray((usuario as any).roles) && (usuario as any).roles.length > 0
+            ? (usuario as any).roles
+            : usuario.role
+              ? [String(usuario.role)]
+              : [];
+        const isTechEnabled = Boolean((usuario as any).habilitadoTecnico);
+
         return (
-          <Badge size="sm" color="primary">
-            {rolNombre}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-1">
+            {assignedSlugs.map((slug) => {
+              const rolNombre = roles.find((r) => r.slug === slug)?.nombre || slug;
+              return (
+                <Badge key={slug} size="sm" color="primary">
+                  {rolNombre}
+                </Badge>
+              );
+            })}
+            {isTechEnabled && !assignedSlugs.includes("tech") && (
+              <Badge size="sm" variant="light" color="info">
+                Técnico habilitado
+              </Badge>
+            )}
+          </div>
         );
       },
     },

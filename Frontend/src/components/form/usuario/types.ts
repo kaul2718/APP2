@@ -7,6 +7,8 @@ export interface UsuarioFormData {
     direccion: string;
     ciudad: string;
     role: number;
+    roleIds?: number[];
+    habilitadoTecnico?: boolean;
     password?: string;
     confirmPassword?: string;
     id?: string | number;

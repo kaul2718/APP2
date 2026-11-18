@@ -10,6 +10,7 @@ import { AuditLog, AuditActorType, AuditStatus } from './entities/audit-log.enti
 import { QueryAuditLogsDto } from './dto/query-audit-logs.dto';
 import { getAuditRequestContext } from './audit-context';
 import { sanitizeAuditPayload, computeChangedFields } from './audit-sanitizer';
+import { resolveUserAuthContext, isOperationalStaff } from '../common/helpers/role.helper';
 
 export interface RecordAuditInput {
   action: string;
@@ -57,18 +58,21 @@ export class AuditService {
         ? input.actorUserId
         : (ctxUser?.id ?? ctxUser?.sub ?? null);
 
+    const ctxAuth = ctxUser ? resolveUserAuthContext(ctxUser) : null;
+
     let actorRole: string | null = input.actorRole ?? null;
-    if (!actorRole && ctxUser) {
-      actorRole =
-        ctxUser.userRoles?.[0]?.rol?.slug ||
-        ctxUser.role ||
-        null;
+    if (!actorRole && ctxAuth) {
+      actorRole = ctxAuth.roles.length > 0 ? ctxAuth.role : (ctxUser?.role || null);
     }
 
     let actorType: AuditActorType = input.actorType ?? 'system';
     if (!input.actorType) {
       if (actorUserId) {
-        actorType = actorRole === 'client' ? 'client' : 'employee';
+        if (ctxUser && isOperationalStaff(ctxUser)) {
+          actorType = 'employee';
+        } else {
+          actorType = actorRole === 'client' ? 'client' : 'employee';
+        }
       } else if (ctx?.req) {
         actorType = 'anonymous';
       }

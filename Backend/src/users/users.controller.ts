@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, UseInterceptors, ClassSerializerInterceptor, BadRequestException, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query, UseInterceptors, ClassSerializerInterceptor, BadRequestException, ForbiddenException, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -9,6 +9,7 @@ import { CurrentUser } from '../auth/decorators/user.decorator';
 import { User } from './entities/user.entity';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { Rol } from 'src/rol/entities/rol.entity';
+import { resolveUserAuthContext, userHasRole } from '../common/helpers/role.helper';
 
 @Auth('admin', 'tech', 'recep') // Ajusta los roles según necesites
 
@@ -17,13 +18,20 @@ import { Rol } from 'src/rol/entities/rol.entity';
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
-  @Auth('admin', 'recep', 'tech')
+  @Auth('admin', 'recep')
   @Post()
   create(
     @CurrentUser() user: any,
     @Body() dto: CreateUserDto
   ): Promise<User> {
-    if (user.role === 'recep') {
+    const actorRoles: string[] = (user?.userRoles || [])
+      .map((ur: any) => ur.rol?.slug)
+      .filter(Boolean);
+    if (actorRoles.length === 0 && user?.role) {
+      actorRoles.push(user.role);
+    }
+    const isAdmin = actorRoles.includes('admin');
+    if (!isAdmin) {
       dto.role = 'client';
       dto.roleIds = undefined;
     }
@@ -39,6 +47,8 @@ export class UsersController {
     @Query('search') search?: string,
     @Query('includeInactive') includeInactive?: boolean,
     @Query('role') role?: string,
+    @Query('habilitadoTecnico') habilitadoTecnico?: string,
+    @Query('forOrderClient') forOrderClient?: string,
   ) {
     const ALLOWED_LIMITS = [10, 25, 50, 100, 200, 1000, 10000];
     
@@ -54,13 +64,24 @@ export class UsersController {
       limitNum = 10; // Default seguro
     }
 
-    // Si es recepcionista, obligar a filtrar únicamente por rol de cliente o técnico (para asignar órdenes)
+    const actorRoles = resolveUserAuthContext(user).roles;
+    const isAdmin = actorRoles.includes('admin');
+    const isRecepOnly = actorRoles.includes('recep') && !isAdmin;
+    const isForOrderClient = forOrderClient === 'true';
+
+    // Si es recepcionista (sin ser admin), restringir listados generales a clientes/técnicos o búsqueda para orden
     let finalRole = role;
-    if (user.role === 'recep') {
+    if (isRecepOnly && !isForOrderClient) {
       if (role !== 'client' && role !== 'tech') {
         finalRole = 'client';
       }
+    } else if (isForOrderClient) {
+      // Para seleccionar titular de orden (incluye empleados que traen equipo personal)
+      finalRole = 'all';
     }
+
+    const parsedHabilitadoTecnico =
+      habilitadoTecnico === 'true' ? true : habilitadoTecnico === 'false' ? false : undefined;
 
     const result = await this.usersService.findAllPaginated(
       pageNum,
@@ -68,6 +89,7 @@ export class UsersController {
       search,
       includeInactive,
       finalRole,
+      parsedHabilitadoTecnico,
     );
 
     return {
@@ -97,12 +119,42 @@ export class UsersController {
 
   @Auth('admin', 'recep', 'tech', 'client')
   @Patch(':id')
-  update(
+  async update(
     @CurrentUser() user: any,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserDto,
   ): Promise<User> {
-    return this.usersService.update(id, dto, user.role);
+    const actorRoles: string[] = (user?.userRoles || [])
+      .map((ur: any) => ur.rol?.slug)
+      .filter(Boolean);
+    if (actorRoles.length === 0 && user?.role) {
+      actorRoles.push(user.role);
+    }
+    const isAdmin = actorRoles.includes('admin');
+    const isRecep = actorRoles.includes('recep');
+    const actorId = Number(user?.sub || user?.id);
+
+    if (!isAdmin && !isRecep && actorId !== id) {
+      throw new ForbiddenException('Solo puede editar su propio perfil.');
+    }
+
+    const dtoRole = (dto as any).role;
+    if (!isAdmin) {
+      if (isRecep) {
+        if (dtoRole !== undefined && dtoRole !== 'client') {
+          throw new ForbiddenException('Solo un administrador puede asignar roles distintos a cliente.');
+        }
+        if (dto.roleIds !== undefined) {
+          throw new ForbiddenException('Solo un administrador puede modificar los roles de un usuario.');
+        }
+      } else {
+        if (dto.roleIds !== undefined || (dtoRole !== undefined && !actorRoles.includes(dtoRole))) {
+          throw new ForbiddenException('Solo un administrador puede modificar los roles de un usuario.');
+        }
+      }
+    }
+
+    return this.usersService.update(id, dto, isAdmin ? 'admin' : (isRecep ? 'recep' : user.role));
   }
 
   @Auth('admin')
@@ -123,10 +175,13 @@ export class UsersController {
     @CurrentUser() user: any,
     @Param('id', ParseIntPipe) id: number
   ): Promise<User> {
-    if (user.role === 'recep') {
+    const actorRoles = resolveUserAuthContext(user).roles;
+    if (actorRoles.includes('recep') && !actorRoles.includes('admin')) {
       const userToToggle = await this.usersService.findOne(id, true);
-      const userToToggleAny = userToToggle as any;
-      if (userToToggleAny.role !== 'client') {
+      const targetRoles = resolveUserAuthContext(userToToggle).roles;
+      const isOnlyClient =
+        targetRoles.length === 0 || targetRoles.every((r) => r === 'client');
+      if (!isOnlyClient) {
         throw new BadRequestException('Un recepcionista solo puede cambiar el estado de usuarios con rol cliente');
       }
     }

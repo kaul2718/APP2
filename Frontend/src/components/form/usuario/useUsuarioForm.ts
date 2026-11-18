@@ -9,7 +9,7 @@ interface UseUsuarioFormProps {
 
 export function useUsuarioForm({ initialData, mode }: UseUsuarioFormProps) {
     const [formData, setFormData] = useState<UsuarioFormData>(() => {
-        const defaults = {
+        const defaults: UsuarioFormData = {
             cedula: "",
             nombre: "",
             apellido: "",
@@ -18,10 +18,24 @@ export function useUsuarioForm({ initialData, mode }: UseUsuarioFormProps) {
             direccion: "",
             ciudad: "",
             role: 0,
+            roleIds: [],
+            habilitadoTecnico: false,
             password: "",
             confirmPassword: "",
         };
-        return initialData ? { ...defaults, ...initialData } : defaults;
+        if (!initialData) return defaults;
+        const resolvedRoleIds =
+            Array.isArray(initialData.roleIds) && initialData.roleIds.length > 0
+                ? initialData.roleIds
+                : initialData.role && initialData.role > 0
+                    ? [initialData.role]
+                    : [];
+        return {
+            ...defaults,
+            ...initialData,
+            roleIds: resolvedRoleIds,
+            habilitadoTecnico: Boolean(initialData.habilitadoTecnico),
+        };
     });
 
     const [errors, setErrors] = useState<UsuarioFormErrors>({});
@@ -34,9 +48,16 @@ export function useUsuarioForm({ initialData, mode }: UseUsuarioFormProps) {
             // Track modified fields for edit mode
             if (mode === "edit" && initialData) {
                 const isPasswordChange = field === "password" || field === "confirmPassword";
-                const isModified = isPasswordChange 
-                    ? !!value 
-                    : initialData[field] !== value;
+                let isModified = false;
+                if (isPasswordChange) {
+                    isModified = !!value;
+                } else if (field === "roleIds") {
+                    const prevIds = [...(initialData.roleIds || (initialData.role ? [initialData.role] : []))].map(Number).sort((a, b) => a - b);
+                    const nextIds = [...(Array.isArray(value) ? value : [])].map(Number).sort((a, b) => a - b);
+                    isModified = JSON.stringify(prevIds) !== JSON.stringify(nextIds);
+                } else {
+                    isModified = initialData[field] !== value;
+                }
 
                 if (isModified) {
                     setCamposModificados((prev) => new Set(prev).add(field));

@@ -194,51 +194,48 @@ export const useUserRole = () => {
   return session?.user?.role || null;
 };
 
-// Función para filtrar los items de navegación según los permisos en tiempo real
-export const getFilteredNavItems = (role: string | null, permissions: string[] = []) => {
-  if (!role) return [];
+// Función para filtrar los items de navegación según todos los roles y permisos efectivos
+export const getFilteredNavItems = (
+  roleOrRoles: string | string[] | null,
+  permissions: string[] = []
+) => {
+  const userRoles = Array.isArray(roleOrRoles)
+    ? roleOrRoles.filter(Boolean)
+    : roleOrRoles
+      ? [roleOrRoles]
+      : [];
 
-  const isAdmin = role === "admin";
+  if (userRoles.length === 0) return [];
+
+  const isAdmin = userRoles.includes("admin");
+  const isClient = userRoles.includes("client") || userRoles.includes("cliente");
+
+  const hasItemAccess = (entry: { permission?: string; roles?: string[] }) => {
+    if (isAdmin) return true;
+    if (entry.permission && permissions.includes(entry.permission)) return true;
+    if (isClient && entry.roles?.includes("client")) return true;
+    // Para items sin permiso específico, verificar si alguno de los roles coincide
+    if (!entry.permission && entry.roles) {
+      return entry.roles.some((r) => userRoles.includes(r));
+    }
+    return false;
+  };
 
   return navItems
     .filter(item => {
-      // 1. Si el item requiere un permiso específico, verificar si el usuario lo tiene (o es admin o si el rol es explícitamente cliente y está en la lista)
-      if (item.permission) {
-        const hasPerm = isAdmin || permissions.includes(item.permission) || (role === 'client' && item.roles?.includes('client'));
-        if (!hasPerm) return false;
-      }
-
-      // 2. Si es un menú contenedor (con subItems), mostrarlo si al menos un subItem es visible
       if (item.subItems) {
-        const hasVisibleSubItem = item.subItems.some(sub => {
-          if (sub.permission) {
-            const hasPerm = isAdmin || permissions.includes(sub.permission) || (role === 'client' && sub.roles?.includes('client'));
-            return hasPerm;
-          }
-          return true;
-        });
-        return hasVisibleSubItem;
+        return item.subItems.some(sub => hasItemAccess(sub));
       }
-
-      return true;
+      return hasItemAccess(item);
     })
     .map(item => {
-      // Filtrar los subItems internos del item de acuerdo a sus permisos individuales
       if (item.subItems) {
-        const filteredSub = item.subItems.filter(sub => {
-          if (sub.permission) {
-            const hasPerm = isAdmin || permissions.includes(sub.permission) || (role === 'client' && sub.roles?.includes('client'));
-            return hasPerm;
-          }
-          return true;
-        });
-
+        const filteredSub = item.subItems.filter(sub => hasItemAccess(sub));
         return {
           ...item,
           subItems: filteredSub.length > 0 ? filteredSub : undefined,
         };
       }
-
       return item;
     });
 };

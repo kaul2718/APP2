@@ -39,4 +39,8 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsOptional()
   @IsBoolean()
   estado?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  habilitadoTecnico?: boolean;
 }

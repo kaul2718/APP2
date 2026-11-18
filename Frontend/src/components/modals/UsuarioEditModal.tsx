@@ -23,9 +23,19 @@ export default function UsuarioEditModal({ isOpen, onClose, usuario, onSave }: P
 
     if (!usuario) return null;
 
-    // Convertir Usuario a UsuarioFormData
-    // usuario.role es string (slug), pero UsuarioFormData espera number (ID)
-    const roleId = roles.find(r => r.slug === usuario.role)?.id || 0;
+    // Convertir Usuario a UsuarioFormData preservando TODOS los roles asignados
+    const existingRoleIds: number[] = Array.isArray((usuario as any).userRoles) && (usuario as any).userRoles.length > 0
+        ? (usuario as any).userRoles
+            .map((ur: any) => Number(ur.rol?.id || ur.roleId))
+            .filter((id: number) => !isNaN(id) && id > 0)
+        : Array.isArray((usuario as any).roles) && (usuario as any).roles.length > 0
+            ? (usuario as any).roles
+                .map((slug: string) => roles.find((r) => r.slug === slug)?.id || 0)
+                .filter((id: number) => id > 0)
+            : [];
+
+    const roleId = existingRoleIds[0] || roles.find(r => r.slug === usuario.role)?.id || 0;
+    const resolvedRoleIds = existingRoleIds.length > 0 ? existingRoleIds : (roleId > 0 ? [roleId] : []);
     
     const usuarioFormData: UsuarioFormData = {
         id: usuario.id,
@@ -37,6 +47,8 @@ export default function UsuarioEditModal({ isOpen, onClose, usuario, onSave }: P
         direccion: usuario.direccion,
         ciudad: usuario.ciudad,
         role: roleId,
+        roleIds: resolvedRoleIds,
+        habilitadoTecnico: Boolean((usuario as any).habilitadoTecnico),
         estado: usuario.estado,
         fotoPerfilUrl: usuario.fotoPerfilUrl,
         createdAt: usuario.createdAt,
@@ -110,10 +122,11 @@ export default function UsuarioEditModal({ isOpen, onClose, usuario, onSave }: P
                 }
                 const valor = formData[campo as keyof UsuarioFormData];
                 if (valor !== undefined && valor !== null) {
-                    // Si es role, mapear directamente a roleIds
-                    if (campo === 'role' && typeof valor === 'number' && valor > 0) {
+                    if (campo === 'roleIds' && Array.isArray(valor) && valor.length > 0) {
+                        cambios['roleIds'] = valor.map(Number).filter((n) => !isNaN(n) && n > 0);
+                    } else if (campo === 'role' && typeof valor === 'number' && valor > 0 && !cambios['roleIds']) {
                         cambios['roleIds'] = [valor];
-                    } else if (campo !== 'role') {
+                    } else if (campo !== 'role' && campo !== 'roleIds') {
                         // Enviar otros campos tal cual
                         cambios[campo] = valor;
                     }

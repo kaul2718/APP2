@@ -112,15 +112,26 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
             (usuario) => {
                 if (!usuario || seen.has(usuario.id)) return false;
                 seen.add(usuario.id);
-                return (usuario.role === Role.CLIENT || usuario.role === undefined) && usuario.estado;
+                return usuario.estado && (
+                    remoteClientResults.some(r => r.id === usuario.id) ||
+                    extraClientes.some(e => e.id === usuario.id) ||
+                    usuario.role === Role.CLIENT ||
+                    usuario.role === undefined
+                );
             }
         );
     }, [clientUsuarios, extraClientes, remoteClientResults]);
 
-    const tecnicos = React.useMemo(() =>
-        techUsuarios.filter(usuario => usuario.role === Role.TECH && usuario.estado),
-        [techUsuarios]
-    );
+    const tecnicos = React.useMemo(() => {
+        if (techAvailability.length > 0) {
+            return techAvailability.map((t: any) => ({
+                id: t.technicianId,
+                nombre: t.nombreCompleto,
+                apellido: '',
+            }));
+        }
+        return techUsuarios.filter(usuario => usuario.estado && (usuario as any).habilitadoTecnico);
+    }, [techAvailability, techUsuarios]);
 
     // Búsqueda remota por cédula o nombre en tiempo real si el término tiene al menos 3 caracteres
     React.useEffect(() => {
@@ -135,7 +146,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
             try {
                 setIsSearchingClientRemote(true);
                 const res = await fetch(
-                    `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/all?page=1&limit=50&search=${encodeURIComponent(query)}&role=${Role.CLIENT}`,
+                    `${process.env.NEXT_PUBLIC_BACKEND_URL}/users/all?page=1&limit=50&search=${encodeURIComponent(query)}&forOrderClient=true`,
                     {
                         headers: {
                             Authorization: `Bearer ${session.accessToken}`,

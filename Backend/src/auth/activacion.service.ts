@@ -16,6 +16,8 @@ import { User } from '../users/entities/user.entity';
 import { GenerarActivacionDto } from './dto/generar-activacion.dto';
 import { ConsumirActivacionDto } from './dto/consumir-activacion.dto';
 
+import { resolveUserAuthContext, isOperationalStaff } from '../common/helpers/role.helper';
+
 @Injectable()
 export class ActivacionService {
   private readonly logger = new Logger(ActivacionService.name);
@@ -50,13 +52,14 @@ export class ActivacionService {
       throw new NotFoundException('Cliente no encontrado o inactivo en el sistema.');
     }
 
-    // 2. Verificar que el usuario tenga rol de cliente
-    const roleSlug =
-      user.userRoles && user.userRoles.length > 0
-        ? user.userRoles[0].rol?.slug
-        : 'client';
+    // 2. Verificar que el usuario tenga rol de cliente (y no sea personal operativo puro sin rol cliente)
+    const authCtx = resolveUserAuthContext(user);
+    const hasClientRole =
+      authCtx.roles.includes('client') ||
+      authCtx.roles.includes('cliente') ||
+      authCtx.roles.length === 0;
 
-    if (roleSlug !== 'client' && roleSlug !== 'cliente') {
+    if (!hasClientRole || isOperationalStaff(user)) {
       throw new BadRequestException(
         'Las credenciales de activación presencial son exclusivas para clientes. El personal técnico y administrativo gestiona su acceso mediante credenciales institucionales.',
       );

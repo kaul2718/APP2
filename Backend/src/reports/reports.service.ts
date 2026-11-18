@@ -870,14 +870,14 @@ export class ReportsService {
     const { from, to } = range;
     const now = new Date();
 
-    // Obtener todos los técnicos activos del sistema
+    // Obtener todos los técnicos activos y habilitados del sistema
     const techs = await this.userRepository
       .createQueryBuilder('u')
-      .innerJoin('u.userRoles', 'ur')
-      .innerJoin('ur.rol', 'r')
-      .where('r.slug = :slug', { slug: 'tech' })
+      .where('u.estado = :estado', { estado: true })
+      .andWhere('u.habilitadoTecnico = :habilitado', { habilitado: true })
       .andWhere('u.deletedAt IS NULL')
       .select(['u.id', 'u.nombre', 'u.apellido', 'u.correo'])
+      .orderBy('u.nombre', 'ASC')
       .getMany();
 
     const technicianStats = [];
@@ -1225,9 +1225,8 @@ export class ReportsService {
       }),
       this.userRepository
         .createQueryBuilder('u')
-        .innerJoin('u.userRoles', 'ur')
-        .innerJoin('ur.rol', 'r')
-        .where('r.slug = :slug', { slug: 'tech' })
+        .where('u.estado = :estado', { estado: true })
+        .andWhere('u.habilitadoTecnico = :habilitado', { habilitado: true })
         .andWhere('u.deletedAt IS NULL')
         .select(['u.id', 'u.nombre', 'u.apellido'])
         .orderBy('u.nombre', 'ASC')

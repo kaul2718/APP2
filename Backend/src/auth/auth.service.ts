@@ -15,6 +15,7 @@ import { GuardarNuevaClaveDto } from './dto/guardar-nueva-clave.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { BrevoService } from './brevo.service'; // ✅ Importación agregada
 import { AuditService } from '../audit/audit.service';
+import { resolveUserAuthContext, isOperationalStaff } from '../common/helpers/role.helper';
 
 @Injectable()
 export class AuthService {
@@ -56,6 +57,7 @@ export class AuthService {
 
     const hashedPassword = password ? await bcryptjs.hash(password, 10) : null;
 
+    // El registro público siempre asigna el rol 'client' e ignora roleIds del cliente HTTP
     const newUser = await this.usersService.create({
       cedula,
       nombre,
@@ -65,7 +67,7 @@ export class AuthService {
       direccion,
       ciudad,
       password: hashedPassword,
-      role: (roleIds && roleIds.length > 0) ? roleIds[0] : 'client',
+      role: 'client',
     });
 
     return {
@@ -116,22 +118,18 @@ export class AuthService {
       }
 
       // Restricción para personal administrativo y técnico: deben ingresar obligatoriamente por correo
-      const userRole =
-        userWithPassword.userRoles && userWithPassword.userRoles.length > 0
-          ? userWithPassword.userRoles[0].rol?.slug
-          : 'client';
-
-      if (userRole !== 'client' && userRole !== 'cliente') {
+      const staffLoginContext = resolveUserAuthContext(userWithPassword);
+      if (isOperationalStaff(userWithPassword)) {
         await this.auditService?.logBestEffort({
           action: 'AUTH_LOGIN_FAILED',
           module: 'auth',
           entityType: 'User',
           entityId: userWithPassword.id,
           actorUserId: userWithPassword.id,
-          actorRole: userRole,
+          actorRole: staffLoginContext.role,
           actorType: 'employee',
           description: 'Intento de inicio de sesión de personal mediante cédula bloqueado',
-          newValues: { reason: 'STAFF_MUST_USE_EMAIL' },
+          newValues: { reason: 'STAFF_MUST_USE_EMAIL', roles: staffLoginContext.roles },
           status: 'FAILURE',
         });
         throw new UnauthorizedException(
@@ -177,21 +175,20 @@ export class AuthService {
 
     // Validación segura de la contraseña con bcrypt
     const isPasswordValid = await bcryptjs.compare(password, userWithPassword.password);
+    const authCtx = resolveUserAuthContext(userWithPassword);
+    const actorType = isOperationalStaff(userWithPassword) ? 'employee' : 'client';
+
     if (!isPasswordValid) {
-      const failedRole =
-        userWithPassword.userRoles && userWithPassword.userRoles.length > 0
-          ? userWithPassword.userRoles[0].rol?.slug
-          : 'client';
       await this.auditService?.logBestEffort({
         action: 'AUTH_LOGIN_FAILED',
         module: 'auth',
         entityType: 'User',
         entityId: userWithPassword.id,
         actorUserId: userWithPassword.id,
-        actorRole: failedRole,
-        actorType: failedRole === 'client' ? 'client' : 'employee',
+        actorRole: authCtx.role,
+        actorType,
         description: 'Intento de inicio de sesión fallido por contraseña incorrecta',
-        newValues: { reason: 'INVALID_PASSWORD' },
+        newValues: { reason: 'INVALID_PASSWORD', roles: authCtx.roles },
         status: 'FAILURE',
       });
       throw new UnauthorizedException('Credenciales incorrectas.');
@@ -205,31 +202,19 @@ export class AuthService {
 
     const token = await this.jwtService.signAsync(payload);
 
-    // Obtener el rol principal del usuario
-    const userRole =
-      userWithPassword.userRoles && userWithPassword.userRoles.length > 0
-        ? userWithPassword.userRoles[0].rol.slug
-        : 'client';
-
-    // Obtener los permisos asociados
-    const permissionsSlugs =
-      userWithPassword.userRoles &&
-      userWithPassword.userRoles.length > 0 &&
-      userWithPassword.userRoles[0].rol.rolePermissions
-        ? userWithPassword.userRoles[0].rol.rolePermissions
-            .map((rp) => rp.permission?.slug)
-            .filter(Boolean)
-        : [];
-
     await this.auditService?.logBestEffort({
       action: 'AUTH_LOGIN_SUCCESS',
       module: 'auth',
       entityType: 'User',
       entityId: userWithPassword.id,
       actorUserId: userWithPassword.id,
-      actorRole: userRole,
-      actorType: userRole === 'client' ? 'client' : 'employee',
-      description: `Inicio de sesión exitoso (${userRole})`,
+      actorRole: authCtx.role,
+      actorType,
+      description: `Inicio de sesión exitoso (${authCtx.roles.join(', ') || authCtx.role})`,
+      newValues: {
+        roles: authCtx.roles,
+        habilitadoTecnico: authCtx.habilitadoTecnico,
+      },
       status: 'SUCCESS',
     });
 
@@ -244,8 +229,10 @@ export class AuthService {
         telefono: userWithPassword.telefono,
         direccion: userWithPassword.direccion,
         ciudad: userWithPassword.ciudad,
-        role: userRole,
-        permissions: permissionsSlugs,
+        role: authCtx.role,
+        roles: authCtx.roles,
+        permissions: authCtx.permissions,
+        habilitadoTecnico: authCtx.habilitadoTecnico,
       },
     };
   }
@@ -262,19 +249,7 @@ export class AuthService {
       throw new UnauthorizedException('Usuario no encontrado');
     }
 
-    const userRole =
-      user.userRoles && user.userRoles.length > 0
-        ? user.userRoles[0].rol.slug
-        : 'client';
-
-    const permissionsSlugs =
-      user.userRoles &&
-      user.userRoles.length > 0 &&
-      user.userRoles[0].rol.rolePermissions
-        ? user.userRoles[0].rol.rolePermissions
-            .map((rp) => rp.permission?.slug)
-            .filter(Boolean)
-        : [];
+    const authCtx = resolveUserAuthContext(user);
 
     return {
       id: user.id,
@@ -285,8 +260,10 @@ export class AuthService {
       telefono: user.telefono,
       direccion: user.direccion,
       ciudad: user.ciudad,
-      role: userRole,
-      permissions: permissionsSlugs,
+      role: authCtx.role,
+      roles: authCtx.roles,
+      permissions: authCtx.permissions,
+      habilitadoTecnico: authCtx.habilitadoTecnico,
     };
   }
 

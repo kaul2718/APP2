@@ -34,6 +34,7 @@ import { CreateCasilleroDto } from 'src/casillero/dto/create-casillero.dto';
 import { CreateEvidenciaTecnicaDto } from 'src/evidencia-tecnica/dto/create-evidencia-tecnica.dto';
 import { User } from 'src/users/entities/user.entity';
 import { extractClientIp } from 'src/common/helpers/client-ip.helper';
+import { isOperationalStaff } from 'src/common/helpers/role.helper';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('orders')
@@ -47,7 +48,7 @@ export class OrderController {
     return this.orderService.create(dto);
   }
 
-  @Auth('client')
+  @Auth('admin', 'tech', 'recep', 'client')
   @Get('my-orders')
   async getMyOrders(
     @UserDecorator() user: User,
@@ -164,16 +165,10 @@ export class OrderController {
     const parsedIncludeInactive = includeInactive === 'true';
     const order = await this.orderService.findOne(parsedId, parsedIncludeInactive);
 
-    const isClient =
-      user?.role === 'client' ||
-      user?.role === 'cliente' ||
-      (user?.userRoles &&
-        user.userRoles.some((r: any) =>
-          ['client', 'cliente'].includes(r.rol?.slug || r.rol?.nombre),
-        ));
-
     const userId = user?.sub || user?.id;
-    if (isClient && order.client?.id !== userId) {
+    // Un usuario con roles operativos (admin/tech/recep) puede consultar órdenes de taller;
+    // un cliente puro solo puede consultar sus propias órdenes.
+    if (!isOperationalStaff(user) && order.client?.id !== userId) {
       throw new ForbiddenException('No tiene permisos para consultar esta orden de servicio.');
     }
 
@@ -292,7 +287,7 @@ export class OrderController {
     return this.orderService.changeEstadoOrden(orderId, estadoOrdenId, user.id, motivo);
   }
 
-  @Auth('tech')
+  @Auth('admin', 'tech', 'recep')
   @RequirePermissions('orders.view')
   @Get('tecnico/mis-ordenes')
   async getOrdersForTechnician(
@@ -304,10 +299,10 @@ export class OrderController {
     return this.orderService.findOrdersByTechnician(user.id, parsedEstadoId, search);
   }
 
-  @Auth('client')
+  @Auth('admin', 'tech', 'recep', 'client')
   @Get('cliente/mis-ordenes')
-  async getOrdersForClient(@CurrentUser() user: any) {  // Usa any temporalmente para debug
-    return this.orderService.findOrdersByClient(user.id); // Usa user.id en lugar de user.sub
+  async getOrdersForClient(@CurrentUser() user: any) {
+    return this.orderService.findOrdersByClient(user.id);
   }
 
   @Get('public/consulta')
@@ -346,9 +341,9 @@ export class OrderController {
   }
 
   /**
-   * Autorización de presupuesto por cliente autenticado (Portal de Clientes con sesión JWT)
+   * Autorización de presupuesto por cliente autenticado mediante su sesión JWT (siempre validado por propiedad clientId === userId)
    */
-  @Auth('client')
+  @Auth('admin', 'tech', 'recep', 'client')
   @Post(':id/presupuesto/responder')
   async handleClientPresupuestoAction(
     @Param('id', ParseIntPipe) orderId: number,

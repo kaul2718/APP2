@@ -154,6 +154,11 @@ export class OrderService {
     const technician = createDto.technicianId
       ? await this.validateUser(createDto.technicianId, 'Técnico')
       : null;
+    if (technician && (!technician.estado || !technician.habilitadoTecnico)) {
+      throw new BadRequestException(
+        `El usuario #${technician.id} no está habilitado como técnico activo para asignación de órdenes.`,
+      );
+    }
 
     const recepcionista = createDto.recepcionistaId
       ? await this.validateUser(createDto.recepcionistaId, 'Recepcionista')
@@ -749,6 +754,11 @@ export class OrderService {
         cambiosHistorial.push('Técnico removido');
       } else if (updateDto.technicianId > 0) {
         const technician = await this.validateUser(updateDto.technicianId, 'Técnico');
+        if (technician.id !== oldTechId && (!technician.estado || !technician.habilitadoTecnico)) {
+          throw new BadRequestException(
+            `El usuario #${technician.id} no está habilitado como técnico activo para asignación de órdenes.`,
+          );
+        }
         orden.technician = technician;
         if (!oldTech || technician.id !== oldTechId) {
           cambiosHistorial.push(`Técnico cambiado a ${technician.nombre}`);
@@ -2369,8 +2379,8 @@ export class OrderService {
     const techs = await this.userRepository.createQueryBuilder('user')
       .leftJoinAndSelect('user.userRoles', 'userRoles')
       .leftJoinAndSelect('userRoles.rol', 'rol')
-      .where('rol.slug = :role', { role: 'tech' })
-      .andWhere('user.estado = :estado', { estado: true })
+      .where('user.estado = :estado', { estado: true })
+      .andWhere('user.habilitadoTecnico = :habilitado', { habilitado: true })
       .orderBy('user.nombre', 'ASC')
       .getMany();
 

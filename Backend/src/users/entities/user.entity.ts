@@ -46,6 +46,9 @@ export class User {
   @Column({ default: true })
   estado: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  habilitadoTecnico: boolean;
+
   @Column({ type: 'text', nullable: true })
   fotoPerfilUrl: string | null;
 

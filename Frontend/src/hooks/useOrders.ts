@@ -49,14 +49,24 @@ export function useOrders() {
         throw new Error("Sesión no disponible");
       }
 
-      // Determinar el endpoint basado en el rol del usuario
+      // Determinar el endpoint basado en todos los roles efectivos del usuario
+      const userRoles: string[] =
+        Array.isArray(session.user.roles) && session.user.roles.length > 0
+          ? session.user.roles
+          : session.user.role
+            ? [session.user.role]
+            : [];
+      const canViewAllOrders = userRoles.includes('admin') || userRoles.includes('recep');
+      const isTechOnly = !canViewAllOrders && userRoles.includes('tech');
+      const isClientOnly = !canViewAllOrders && !isTechOnly && userRoles.includes('client');
+
       let endpoint = 'orders';
       let isRoleSpecificEndpoint = false;
 
-      if (session.user.role === 'tech') {
+      if (isTechOnly) {
         endpoint = 'orders/tecnico/mis-ordenes';
         isRoleSpecificEndpoint = true;
-      } else if (session.user.role === 'client') {
+      } else if (isClientOnly) {
         endpoint = 'orders/cliente/mis-ordenes';
         isRoleSpecificEndpoint = true;
       }
@@ -64,7 +74,7 @@ export function useOrders() {
       let url = `/${endpoint}`;
 
       // Agregamos parámetros de consulta para el endpoint general y el de técnico
-      if (!isRoleSpecificEndpoint || session.user.role === 'tech') {
+      if (!isRoleSpecificEndpoint || isTechOnly) {
         const queryParams = new URLSearchParams();
         if (!isRoleSpecificEndpoint) {
           queryParams.append('page', page.toString());

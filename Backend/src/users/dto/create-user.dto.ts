@@ -49,6 +49,10 @@ export class CreateUserDto {
   estado?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  habilitadoTecnico?: boolean;
+
+  @IsOptional()
   fotoPerfilUrl?: string;
 
   @IsOptional()

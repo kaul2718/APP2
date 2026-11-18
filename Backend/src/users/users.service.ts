@@ -13,6 +13,7 @@ import parsePhoneNumberFromString from 'libphonenumber-js';
 import { StorageService } from '../storage/storage.service';
 import { v4 as uuidv4 } from 'uuid';
 import { AuditService } from '../audit/audit.service';
+import { resolveUserAuthContext, isOperationalStaff } from '../common/helpers/role.helper';
 
 @Injectable()
 export class UsersService {
@@ -141,10 +142,21 @@ export class UsersService {
         }
     }
 
+    let resolvedHabilitadoTecnico = Boolean(createDto.habilitadoTecnico);
+    if (createDto.habilitadoTecnico === undefined && createDto.roleIds && createDto.roleIds.length > 0) {
+      try {
+        const techRole = await this.rolService.findBySlug('tech');
+        if (techRole && createDto.roleIds.map(Number).includes(techRole.id)) {
+          resolvedHabilitadoTecnico = true;
+        }
+      } catch {}
+    }
+
     const nuevoUsuario = this.userRepository.create({
       ...createDto,
       password: hashedPassword,
       estado: createDto.estado !== undefined ? createDto.estado : true,
+      habilitadoTecnico: resolvedHabilitadoTecnico,
     });
 
     const usuarioConRoles = await this.userRepository.manager.transaction(async (manager) => {
@@ -169,25 +181,27 @@ export class UsersService {
         relations: ['userRoles', 'userRoles.rol'],
       });
 
-      const resolvedRole = reloaded?.userRoles?.length > 0
-        ? reloaded.userRoles[0].rol.slug
-        : 'client';
-      (reloaded as any).role = resolvedRole;
+      const authCtx = resolveUserAuthContext(reloaded);
+      (reloaded as any).role = authCtx.role;
+      (reloaded as any).roles = authCtx.roles;
+      (reloaded as any).habilitadoTecnico = Boolean(reloaded?.habilitadoTecnico);
 
-      const targetModule = resolvedRole === 'client' ? 'clients' : 'users';
+      const targetModule = isOperationalStaff(reloaded) ? 'users' : 'clients';
       await this.auditService?.logCritical(
         {
           action: targetModule === 'clients' ? 'CLIENT_CREATED' : 'USER_CREATED',
           module: targetModule,
           entityType: 'User',
           entityId: reloaded.id,
-          description: `${targetModule === 'clients' ? 'Cliente' : 'Usuario'} creado: ${reloaded.nombre} ${reloaded.apellido || ''} (rol: ${resolvedRole})`.trim(),
+          description: `${targetModule === 'clients' ? 'Cliente' : 'Usuario'} creado: ${reloaded.nombre} ${reloaded.apellido || ''} (roles: ${authCtx.roles.join(', ') || authCtx.role})`.trim(),
           newValues: {
             id: reloaded.id,
             nombre: reloaded.nombre,
             apellido: reloaded.apellido,
             ciudad: reloaded.ciudad,
-            role: resolvedRole,
+            role: authCtx.role,
+            roles: authCtx.roles,
+            habilitadoTecnico: Boolean(reloaded.habilitadoTecnico),
             estado: reloaded.estado,
           },
           status: 'SUCCESS',
@@ -211,7 +225,10 @@ export class UsersService {
     return Promise.all(
       data.map(async (user) => {
         const userObj = user as any;
-        userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'client';
+        const authCtx = resolveUserAuthContext(user);
+        userObj.role = authCtx.role;
+        userObj.roles = authCtx.roles;
+        userObj.habilitadoTecnico = Boolean(user.habilitadoTecnico);
         if (userObj.storageKeyFoto) {
           try {
             userObj.fotoPerfilUrl = await this.storageService.getPresignedUrl(userObj.storageKeyFoto, 86400 * 7);
@@ -239,7 +256,11 @@ export class UsersService {
     }
 
     const userObj = user as any;
-    userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'client';
+    const authCtx = resolveUserAuthContext(user);
+    userObj.role = authCtx.role;
+    userObj.roles = authCtx.roles;
+    userObj.permissions = authCtx.permissions;
+    userObj.habilitadoTecnico = Boolean(user.habilitadoTecnico);
     if (userObj.storageKeyFoto) {
       try {
         userObj.fotoPerfilUrl = await this.storageService.getPresignedUrl(userObj.storageKeyFoto, 86400 * 7);
@@ -305,16 +326,27 @@ export class UsersService {
   async update(id: number, updateDto: UpdateUserDto, currentUserRole?: string): Promise<User> {
     const user = await this.findOne(id, true);
 
-    if (currentUserRole === 'recep') {
-      const userAny = user as any;
-      if (userAny.role !== 'client') {
-        throw new BadRequestException('Un recepcionista solo puede editar usuarios con rol cliente');
-      }
-      if (updateDto.roleIds) {
-        const clientRole = await this.rolService.findBySlug('client');
-        if (clientRole) {
-          updateDto.roleIds = [clientRole.id];
+    if (currentUserRole && currentUserRole !== 'admin') {
+      if (currentUserRole === 'recep') {
+        const targetRoles = resolveUserAuthContext(user).roles;
+        const isOnlyClient =
+          targetRoles.length === 0 || targetRoles.every((r) => r === 'client');
+        if (!isOnlyClient) {
+          throw new BadRequestException('Un recepcionista solo puede editar usuarios con rol cliente');
         }
+        if (updateDto.roleIds) {
+          const clientRole = await this.rolService.findBySlug('client');
+          if (clientRole) {
+            updateDto.roleIds = [clientRole.id];
+          }
+        }
+        delete updateDto.habilitadoTecnico;
+      } else {
+        // Cualquier otro rol no-admin (tech, client, etc.) no puede modificar roleIds, estado ni habilitadoTecnico
+        delete updateDto.roleIds;
+        delete (updateDto as any).role;
+        delete updateDto.estado;
+        delete updateDto.habilitadoTecnico;
       }
     }
 
@@ -405,25 +437,34 @@ export class UsersService {
       user.password = await bcrypt.hash(updateDto.password, salt);
     }
 
+    if (updateDto.habilitadoTecnico !== undefined) {
+      user.habilitadoTecnico = Boolean(updateDto.habilitadoTecnico);
+    }
+
+    const oldAuthCtx = resolveUserAuthContext(user);
     // Guardar los cambios del usuario + roles + auditoría en una sola transacción
     const oldSnapshot = {
       nombre: user.nombre,
       apellido: user.apellido,
       ciudad: user.ciudad,
       estado: user.estado,
-      role: (user as any).role,
+      habilitadoTecnico: Boolean(user.habilitadoTecnico),
+      role: oldAuthCtx.role,
+      roles: oldAuthCtx.roles,
     };
 
     const updatedUser = await this.userRepository.manager.transaction(async (manager) => {
       const userRepo = manager.getRepository(User);
       await userRepo.save(user);
 
-      // Actualizar roles si se proporciona roleIds
+      // Actualizar roles si se proporciona roleIds (lista completa de roles asignados)
       if (updateDto.roleIds && Array.isArray(updateDto.roleIds) && updateDto.roleIds.length > 0) {
-        await manager.query(`DELETE FROM "user_roles" WHERE "userId" = $1`, [user.id]);
-        for (const roleId of updateDto.roleIds) {
-          const roleIdNum = Number(roleId);
-          if (!isNaN(roleIdNum)) {
+        const uniqueRoleIds = Array.from(
+          new Set(updateDto.roleIds.map(Number).filter((n) => !isNaN(n) && n > 0)),
+        );
+        if (uniqueRoleIds.length > 0) {
+          await manager.query(`DELETE FROM "user_roles" WHERE "userId" = $1`, [user.id]);
+          for (const roleIdNum of uniqueRoleIds) {
             await manager.query(
               `INSERT INTO "user_roles" ("userId", "roleId", "createdAt", "updatedAt") VALUES ($1, $2, NOW(), NOW()) ON CONFLICT DO NOTHING`,
               [user.id, roleIdNum],
@@ -443,11 +484,10 @@ export class UsersService {
         ],
       });
 
-      const updatedRole = reloaded?.userRoles?.length > 0
-        ? reloaded.userRoles[0].rol.slug
-        : (oldSnapshot.role || 'client');
-      (reloaded as any).role = updatedRole;
-      const targetModule = updatedRole === 'client' ? 'clients' : 'users';
+      const newAuthCtx = resolveUserAuthContext(reloaded);
+      (reloaded as any).role = newAuthCtx.role;
+      (reloaded as any).roles = newAuthCtx.roles;
+      const targetModule = isOperationalStaff(reloaded) ? 'users' : 'clients';
 
       await this.auditService?.logCritical(
         {
@@ -462,7 +502,9 @@ export class UsersService {
             apellido: reloaded.apellido,
             ciudad: reloaded.ciudad,
             estado: reloaded.estado,
-            role: updatedRole,
+            habilitadoTecnico: Boolean(reloaded.habilitadoTecnico),
+            role: newAuthCtx.role,
+            roles: newAuthCtx.roles,
           },
           status: 'SUCCESS',
         },
@@ -526,6 +568,7 @@ export class UsersService {
     search?: string,
     includeInactive = false,
     role?: string,
+    habilitadoTecnico?: boolean,
   ): Promise<{ data: User[]; total: number }> {
     const skip = (page - 1) * limit;
 
@@ -553,11 +596,21 @@ export class UsersService {
       query.andWhere('user.estado = :estado', { estado: true });
     }
 
+    if (habilitadoTecnico !== undefined) {
+      query.andWhere('user.habilitadoTecnico = :habilitadoTecnico', { habilitadoTecnico });
+    }
+
     if (role && role !== 'all') {
       if (role === 'client') {
-        query.andWhere('(rol.slug = :role OR rol.id IS NULL)', { role });
+        query.andWhere(
+          '(EXISTS (SELECT 1 FROM "user_roles" ur_f INNER JOIN "roles" r_f ON r_f."id" = ur_f."roleId" WHERE ur_f."userId" = user."id" AND r_f."slug" = :role AND r_f."activo" = TRUE AND r_f."deletedAt" IS NULL) OR NOT EXISTS (SELECT 1 FROM "user_roles" ur_none WHERE ur_none."userId" = user."id"))',
+          { role },
+        );
       } else {
-        query.andWhere('rol.slug = :role', { role });
+        query.andWhere(
+          'EXISTS (SELECT 1 FROM "user_roles" ur_f INNER JOIN "roles" r_f ON r_f."id" = ur_f."roleId" WHERE ur_f."userId" = user."id" AND r_f."slug" = :role AND r_f."activo" = TRUE AND r_f."deletedAt" IS NULL)',
+          { role },
+        );
       }
     }
 
@@ -567,11 +620,14 @@ export class UsersService {
 
     const [data, total] = await query.getManyAndCount();
 
-    // Transformar los usuarios para que tengan un campo 'role' mapeado desde userRoles y resolver fotoPerfilUrl
+    // Transformar los usuarios para que expongan role, roles[] y habilitadoTecnico
     const transformedData = await Promise.all(
       data.map(async user => {
         const userObj = user as any;
-        userObj.role = user.userRoles?.length > 0 ? user.userRoles[0].rol.slug : 'client';
+        const authCtx = resolveUserAuthContext(user);
+        userObj.role = authCtx.role;
+        userObj.roles = authCtx.roles;
+        userObj.habilitadoTecnico = Boolean(user.habilitadoTecnico);
         userObj.cuentaActivada = Boolean(user.password);
         delete userObj.password;
         if (userObj.storageKeyFoto) {

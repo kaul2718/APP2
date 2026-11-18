@@ -245,10 +245,26 @@ export default function OrdenEditModal({ isOpen, onClose, order, hasSignedRecept
 
   if (!order) return null;
 
-  const tecnicos = React.useMemo(() =>
-    usuarios.filter(usuario => usuario.role === Role.TECH && usuario.estado),
-    [usuarios]
-  );
+  const tecnicos = React.useMemo(() => {
+    if (techAvailability.length > 0) {
+      return techAvailability.map((t: any) => ({
+        id: t.technicianId,
+        nombre: t.nombreCompleto,
+        apellido: '',
+      }));
+    }
+    return usuarios.filter(usuario => usuario.estado && (usuario as any).habilitadoTecnico);
+  }, [techAvailability, usuarios]);
+
+  const canAssignTechnician = React.useMemo(() => {
+    const userRoles: string[] =
+      Array.isArray(session?.user?.roles) && session.user.roles.length > 0
+        ? session.user.roles
+        : session?.user?.role
+          ? [session.user.role]
+          : [];
+    return userRoles.includes('admin') || userRoles.includes('recep');
+  }, [session]);
 
   const estadosActivos = estadosOrden.filter(estado => estado.estado);
 
@@ -343,7 +359,7 @@ export default function OrdenEditModal({ isOpen, onClose, order, hasSignedRecept
         )}
 
         {/* Técnico asignado */}
-        {session?.user?.role !== 'tech' && (
+        {canAssignTechnician && (
           <div>
             <label htmlFor="edit-technicianId" className="block mb-2 font-medium text-gray-700 dark:text-gray-200">
               Técnico Asignado

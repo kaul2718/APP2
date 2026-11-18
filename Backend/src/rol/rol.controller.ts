@@ -1,49 +1,52 @@
-import { Controller, Get, Post, Put, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Patch, Param, Delete } from '@nestjs/common';
 import { RolService } from './rol.service';
 import { CreateRolDto } from './dto/create-rol.dto';
 import { UpdateRolDto } from './dto/update-rol.dto';
-import { AuthGuard } from '../auth/guard/auth.guard';
-import { RolesGuard } from '../auth/guard/roles.guard';
-import { Roles } from '../decorators/roles.decorator';
+import { Auth } from '../auth/decorators/auth.decorator';
+import { RequirePermissions } from '../decorators/permissions.decorator';
 
 
 @Controller('roles')
-@UseGuards(AuthGuard, RolesGuard)
 export class RolController {
   constructor(private readonly rolService: RolService) {}
 
   @Post()
-  @Roles('admin')
+  @Auth('admin')
+  @RequirePermissions('roles.manage')
   create(@Body() createRolDto: CreateRolDto) {
     return this.rolService.create(createRolDto);
   }
 
   @Get()
-  @Roles('admin', 'recep', 'tech')
+  @Auth('admin', 'recep', 'tech')
   findAll() {
     return this.rolService.findAll();
   }
 
   @Get(':id')
-  @Roles('admin')
+  @Auth('admin')
+  @RequirePermissions('roles.manage')
   findOne(@Param('id') id: string) {
     return this.rolService.findOne(+id);
   }
 
   @Patch(':id')
-  @Roles('admin')
+  @Auth('admin')
+  @RequirePermissions('roles.manage')
   update(@Param('id') id: string, @Body() updateRolDto: UpdateRolDto) {
     return this.rolService.update(+id, updateRolDto);
   }
 
   @Delete(':id')
-  @Roles('admin')
+  @Auth('admin')
+  @RequirePermissions('roles.manage')
   remove(@Param('id') id: string) {
     return this.rolService.remove(+id);
   }
 
   @Post(':roleId/permissions/:permissionId')
-  @Roles('admin')
+  @Auth('admin')
+  @RequirePermissions('roles.manage')
   async assignPermission(
     @Param('roleId') roleId: string,
     @Param('permissionId') permissionId: string,
@@ -53,14 +56,16 @@ export class RolController {
   }
 
   @Get(':roleId/permissions')
-  @Roles('admin')
+  @Auth('admin')
+  @RequirePermissions('roles.manage')
   getPermissions(@Param('roleId') roleId: string) {
     return this.rolService.getPermissions(+roleId);
   }
 
   /** Bulk-replace all permissions for a role (used by matrix UI) */
   @Put(':roleId/permissions')
-  @Roles('admin')
+  @Auth('admin')
+  @RequirePermissions('roles.manage')
   async setPermissions(
     @Param('roleId') roleId: string,
     @Body() body: { permissionIds: number[] },
@@ -71,7 +76,8 @@ export class RolController {
 
   /** Remove a single permission from a role */
   @Delete(':roleId/permissions/:permissionId')
-  @Roles('admin')
+  @Auth('admin')
+  @RequirePermissions('roles.manage')
   async removePermission(
     @Param('roleId') roleId: string,
     @Param('permissionId') permissionId: string,

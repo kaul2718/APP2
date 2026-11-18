@@ -19,6 +19,7 @@ import { FirmarDocumentoDto } from './dto/firmar-documento.dto';
 import { TipoDocumentoOrden } from './entities/documento-orden.entity';
 import { Auth } from '../auth/decorators/auth.decorator';
 import { CurrentUser } from '../auth/decorators/user.decorator';
+import { isOperationalStaff } from '../common/helpers/role.helper';
 import { User } from '../users/entities/user.entity';
 
 @UseInterceptors(ClassSerializerInterceptor)
@@ -60,9 +61,9 @@ export class DocumentosOrdenController {
     @Param('id', ParseIntPipe) orderId: number,
     @CurrentUser() user: any,
   ) {
-    const isClient = user?.role === 'client' || user?.role === 'cliente';
+    const isClientOnly = !isOperationalStaff(user);
     const userId = user?.sub || user?.id;
-    if (isClient) {
+    if (isClientOnly) {
       const pertenece = await this.documentosService.verificarPropiedadCliente(orderId, userId);
       if (!pertenece) {
         throw new ForbiddenException('No tiene permisos para ver documentos de esta orden.');
@@ -78,9 +79,9 @@ export class DocumentosOrdenController {
     @Param('tipo') tipo: string,
     @CurrentUser() user: any,
   ) {
-    const isClient = user?.role === 'client' || user?.role === 'cliente';
+    const isClientOnly = !isOperationalStaff(user);
     const userId = user?.sub || user?.id;
-    if (isClient) {
+    if (isClientOnly) {
       const pertenece = await this.documentosService.verificarPropiedadCliente(orderId, userId);
       if (!pertenece) {
         throw new ForbiddenException('No tiene permisos para ver documentos de esta orden.');
@@ -102,10 +103,10 @@ export class DocumentosOrdenController {
     @CurrentUser() user: any,
     @Res() res: Response,
   ) {
-    const isClient = user?.role === 'client' || user?.role === 'cliente';
-    const isStaff = ['admin', 'tech', 'recep'].includes(user?.role);
+    const isStaff = isOperationalStaff(user);
+    const isClientOnly = !isStaff;
     const userId = user?.sub || user?.id;
-    if (isClient) {
+    if (isClientOnly) {
       const pertenece = await this.documentosService.verificarPropiedadCliente(orderId, userId);
       if (!pertenece) {
         throw new ForbiddenException('No tiene permisos para ver documentos de esta orden.');
@@ -151,10 +152,10 @@ export class DocumentosOrdenController {
     @CurrentUser() user: any,
     @Res() res: Response,
   ) {
-    const isClient = user?.role === 'client' || user?.role === 'cliente';
-    const isStaff = ['admin', 'tech', 'recep'].includes(user?.role);
+    const isStaff = isOperationalStaff(user);
+    const isClientOnly = !isStaff;
     const userId = user?.sub || user?.id;
-    if (isClient) {
+    if (isClientOnly) {
       const pertenece = await this.documentosService.verificarPropiedadCliente(orderId, userId);
       if (!pertenece) {
         throw new ForbiddenException('No tiene permisos para ver documentos de esta orden.');

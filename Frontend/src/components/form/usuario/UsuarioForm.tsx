@@ -44,7 +44,7 @@ export default function UsuarioForm({
     const { formData, errors, handleChange, validateFields, camposModificados } =
         useUsuarioForm({ initialData, mode });
     const { roles } = useRoles();
-    const { role: currentUserRole } = usePermissions();
+    const { isAdmin, isRecep } = usePermissions();
     const { data: session } = useSession();
     const token = session?.accessToken || null;
 
@@ -383,40 +383,108 @@ export default function UsuarioForm({
                     )}
                 </div>
 
-                {/* Rol */}
-                <div>
-                    <Label htmlFor={roleInputId}>Rol *</Label>
-                    <div className="relative">
-                        <UserIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
-                        <select
-                            id={roleInputId}
-                            value={formData.role}
-                            onChange={(e) => handleChange("role", e.target.value ? parseInt(e.target.value) : 0)}
-                            disabled={isLoading}
-                            className="pl-10 pr-4 py-2 w-full rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                        >
-                            <option value="">Seleccionar un rol</option>
-                             {roles
-                                .filter((rol) => {
-                                    if (currentUserRole === 'recep') {
-                                        return rol.slug === 'client';
-                                    }
-                                    return true;
-                                })
-                                .map((rol) => (
-                                    <option key={rol.id} value={rol.id}>
-                                        {rol.nombre}
-                                    </option>
-                                ))}
-                        </select>
-                    </div>
+                {/* Roles asignados (multirrol para admin; solo cliente para recepción) */}
+                <div className="md:col-span-2 space-y-2">
+                    <Label htmlFor={roleInputId}>Roles asignados *</Label>
+                    {isAdmin ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {roles.map((rol) => {
+                                const selectedIds = Array.isArray(formData.roleIds) && formData.roleIds.length > 0
+                                    ? formData.roleIds
+                                    : formData.role > 0
+                                        ? [formData.role]
+                                        : [];
+                                const isChecked = selectedIds.includes(rol.id);
+                                return (
+                                    <label
+                                        key={rol.id}
+                                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
+                                            isChecked
+                                                ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300"
+                                                : "border-gray-300 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                                        }`}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            disabled={isLoading}
+                                            onChange={(e) => {
+                                                const nextIds = e.target.checked
+                                                    ? Array.from(new Set([...selectedIds, rol.id]))
+                                                    : selectedIds.filter((id) => id !== rol.id);
+                                                handleChange("roleIds", nextIds);
+                                                handleChange("role", nextIds[0] || 0);
+                                                if (rol.slug === "tech" && e.target.checked && !formData.habilitadoTecnico) {
+                                                    handleChange("habilitadoTecnico", true);
+                                                }
+                                            }}
+                                            className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                                        />
+                                        <span className="font-medium">{rol.nombre}</span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="relative">
+                            <UserIcon className="w-5 h-5 text-gray-600 dark:text-white absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                            <select
+                                id={roleInputId}
+                                value={formData.role}
+                                onChange={(e) => {
+                                    const val = e.target.value ? parseInt(e.target.value) : 0;
+                                    handleChange("role", val);
+                                    handleChange("roleIds", val > 0 ? [val] : []);
+                                }}
+                                disabled={isLoading}
+                                className="pl-10 pr-4 py-2 w-full rounded-md bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                            >
+                                <option value="">Seleccionar un rol</option>
+                                {roles
+                                    .filter((rol) => (isRecep && !isAdmin ? rol.slug === 'client' : true))
+                                    .map((rol) => (
+                                        <option key={rol.id} value={rol.id}>
+                                            {rol.nombre}
+                                        </option>
+                                    ))}
+                            </select>
+                        </div>
+                    )}
                     {errors.role && (
                         <p className="text-sm text-red-500 mt-1">{errors.role}</p>
                     )}
-                    {isEditMode && camposModificados.has("role") && (
-                        <ModifiedIndicator field={`rol a: ${roles.find(r => r.id === formData.role)?.nombre || formData.role}`} />
+                    {isEditMode && camposModificados.has("roleIds") && (
+                        <ModifiedIndicator
+                            field={`roles a: ${(formData.roleIds || []).map((id) => roles.find((r) => r.id === id)?.nombre || id).join(", ")}`}
+                        />
                     )}
                 </div>
+
+                {/* Capacidad operativa técnica (solo administradores) */}
+                {isAdmin && (
+                    <div className="md:col-span-2">
+                        <label className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/60 cursor-pointer">
+                            <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                    Habilitado como técnico asignable
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    Permite asignar órdenes de servicio y contabilizar productividad técnica (aplica también a administradores o recepcionistas con permisos operativos).
+                                </p>
+                            </div>
+                            <input
+                                type="checkbox"
+                                checked={Boolean(formData.habilitadoTecnico)}
+                                disabled={isLoading}
+                                onChange={(e) => handleChange("habilitadoTecnico", e.target.checked)}
+                                className="h-5 w-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                            />
+                        </label>
+                        {isEditMode && camposModificados.has("habilitadoTecnico") && (
+                            <ModifiedIndicator field={`habilitación técnica a: ${formData.habilitadoTecnico ? "Sí" : "No"}`} />
+                        )}
+                    </div>
+                )}
 
                 {/* Estado - Solo en edit mode */}
                 {isEditMode && formData.estado !== undefined && (

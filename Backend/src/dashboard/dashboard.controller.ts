@@ -23,7 +23,7 @@ export class DashboardController {
     return this.dashboardService.getAdminDashboard(range);
   }
 
-  @Auth('admin', 'tech')
+  @Auth('admin', 'tech', 'recep')
   @Get('tech')
   getTechDashboard(
     @CurrentUser() user: User,
@@ -41,7 +41,7 @@ export class DashboardController {
     return this.dashboardService.getRecepDashboard(user.id, range);
   }
 
-  @Auth('admin', 'client')
+  @Auth('admin', 'tech', 'recep', 'client')
   @Get('client')
   getClientDashboard(
     @CurrentUser() user: User,

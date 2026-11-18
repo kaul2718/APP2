@@ -183,3 +183,97 @@ export class RoleHelper {
     return this.roles.map((role) => getRoleLabel(role));
   }
 }
+
+export const ROLE_PRIORITY: ValidRole[] = [
+  VALID_ROLES.ADMIN,
+  VALID_ROLES.TECH,
+  VALID_ROLES.RECEP,
+  VALID_ROLES.CLIENT,
+  VALID_ROLES.USER,
+];
+
+export interface UserAuthContext {
+  roles: string[];
+  role: string;
+  permissions: string[];
+  habilitadoTecnico: boolean;
+}
+
+/**
+ * Resuelve de forma centralizada el contexto de autorización de un usuario
+ * combinando todos sus roles activos y la unión sin duplicados de sus permisos.
+ * El campo `role` se mantiene únicamente por compatibilidad con componentes heredados.
+ */
+export function resolveUserAuthContext(user: any): UserAuthContext {
+  if (!user) {
+    return {
+      roles: [],
+      role: 'client',
+      permissions: [],
+      habilitadoTecnico: false,
+    };
+  }
+
+  const activeUserRoles = Array.isArray(user.userRoles)
+    ? user.userRoles.filter(
+        (ur: any) =>
+          ur?.rol &&
+          ur.rol.slug &&
+          ur.rol.activo !== false &&
+          !ur.rol.deletedAt,
+      )
+    : [];
+
+  let roles: string[] = Array.from(
+    new Set(activeUserRoles.map((ur: any) => String(ur.rol.slug).trim())),
+  );
+
+  // Fallback solo si no existe relación userRoles cargada pero sí user.role (mocks / legacy)
+  if (roles.length === 0 && !Array.isArray(user.userRoles) && user.role) {
+    roles = [String(user.role).trim()];
+  }
+
+  // Ordenar por prioridad únicamente para determinar el rol principal de compatibilidad
+  const sortedRoles = [...roles].sort((a, b) => {
+    const idxA = ROLE_PRIORITY.indexOf(a as ValidRole);
+    const idxB = ROLE_PRIORITY.indexOf(b as ValidRole);
+    const rankA = idxA === -1 ? 999 : idxA;
+    const rankB = idxB === -1 ? 999 : idxB;
+    return rankA - rankB;
+  });
+
+  const permissionsSet = new Set<string>();
+  for (const ur of activeUserRoles) {
+    if (Array.isArray(ur.rol?.rolePermissions)) {
+      for (const rp of ur.rol.rolePermissions) {
+        if (rp?.permission?.slug) {
+          permissionsSet.add(String(rp.permission.slug));
+        }
+      }
+    }
+  }
+
+  return {
+    roles: sortedRoles,
+    role: sortedRoles[0] || 'client',
+    permissions: Array.from(permissionsSet),
+    habilitadoTecnico: Boolean(user.habilitadoTecnico),
+  };
+}
+
+export function userHasRole(user: any, roleSlug: string): boolean {
+  return resolveUserAuthContext(user).roles.includes(roleSlug);
+}
+
+export function userHasAnyRole(user: any, roleSlugs: string[]): boolean {
+  const userRoles = resolveUserAuthContext(user).roles;
+  return roleSlugs.some((slug) => userRoles.includes(slug));
+}
+
+export function isOperationalStaff(user: any): boolean {
+  return userHasAnyRole(user, [
+    VALID_ROLES.ADMIN,
+    VALID_ROLES.TECH,
+    VALID_ROLES.RECEP,
+  ]);
+}
