@@ -69,19 +69,20 @@ export class UsersController {
     const isRecepOnly = actorRoles.includes('recep') && !isAdmin;
     const isForOrderClient = forOrderClient === 'true';
 
-    // Si es recepcionista (sin ser admin), restringir listados generales a clientes/técnicos o búsqueda para orden
+    const parsedHabilitadoTecnico =
+      habilitadoTecnico === 'true' ? true : habilitadoTecnico === 'false' ? false : undefined;
+
+    // Si es recepcionista (sin ser admin), restringir listados generales a clientes/técnicos, búsqueda para orden o técnicos habilitados
     let finalRole = role;
-    if (isRecepOnly && !isForOrderClient) {
+    if (isForOrderClient) {
+      finalRole = 'all';
+    } else if (parsedHabilitadoTecnico === true) {
+      finalRole = role || 'all';
+    } else if (isRecepOnly) {
       if (role !== 'client' && role !== 'tech') {
         finalRole = 'client';
       }
-    } else if (isForOrderClient) {
-      // Para seleccionar titular de orden (incluye empleados que traen equipo personal)
-      finalRole = 'all';
     }
-
-    const parsedHabilitadoTecnico =
-      habilitadoTecnico === 'true' ? true : habilitadoTecnico === 'false' ? false : undefined;
 
     const result = await this.usersService.findAllPaginated(
       pageNum,

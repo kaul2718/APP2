@@ -47,11 +47,11 @@ interface Props {
 export default function OrdenEditModal({ isOpen, onClose, order, hasSignedReception = false, onSave }: Props) {
   const { data: session } = useSession();
   const token = session?.accessToken || null;
-  const { usuarios, loading: loadingUsuarios } = useUsuario({ defaultLimit: 1000, defaultRole: Role.TECH });
   const { estadosOrden, loading: loadingEstados } = useEstadoOrden();
   const { casilleros, fetchAvailableCasilleros, loading: loadingCasilleros } = useCasillero();
   const { getTechniciansAvailability } = useOrders();
   const [techAvailability, setTechAvailability] = useState<any[]>([]);
+  const [loadingTechs, setLoadingTechs] = useState(false);
 
   const [formData, setFormData] = useState({
     technicianId: '',
@@ -100,9 +100,12 @@ export default function OrdenEditModal({ isOpen, onClose, order, hasSignedRecept
         }
 
         fetchAvailableCasilleros();
-        getTechniciansAvailability().then(data => {
-          setTechAvailability(data || []);
-        });
+        setLoadingTechs(true);
+        getTechniciansAvailability()
+          .then(data => {
+            setTechAvailability(data || []);
+          })
+          .finally(() => setLoadingTechs(false));
       }
     }
   }, [order, isOpen]);
@@ -246,15 +249,12 @@ export default function OrdenEditModal({ isOpen, onClose, order, hasSignedRecept
   if (!order) return null;
 
   const tecnicos = React.useMemo(() => {
-    if (techAvailability.length > 0) {
-      return techAvailability.map((t: any) => ({
-        id: t.technicianId,
-        nombre: t.nombreCompleto,
-        apellido: '',
-      }));
-    }
-    return usuarios.filter(usuario => usuario.estado && (usuario as any).habilitadoTecnico);
-  }, [techAvailability, usuarios]);
+    return techAvailability.map((t: any) => ({
+      id: t.technicianId,
+      nombre: t.nombreCompleto,
+      apellido: '',
+    }));
+  }, [techAvailability]);
 
   const canAssignTechnician = React.useMemo(() => {
     const userRoles: string[] =
@@ -370,7 +370,7 @@ export default function OrdenEditModal({ isOpen, onClose, order, hasSignedRecept
               value={formData.technicianId}
               onChange={handleChange}
               className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white font-medium"
-              disabled={loadingUsuarios}
+              disabled={loadingTechs}
             >
               <option value="">Seleccione un técnico</option>
               {tecnicos.map(tecnico => {

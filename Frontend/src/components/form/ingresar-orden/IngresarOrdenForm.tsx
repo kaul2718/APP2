@@ -90,7 +90,6 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
 
     // Hooks para obtener datos necesarios
     const { usuarios: clientUsuarios = [], loading: loadingUsuarios, refetch: refetchUsuarios, fetchUsuarios, setUsuarios } = useUsuario({ defaultLimit: 1000, defaultRole: Role.CLIENT });
-    const { usuarios: techUsuarios = [] } = useUsuario({ defaultLimit: 1000, defaultRole: Role.TECH });
     const { equipos = [], loading: loadingEquipos, refetch: refetchEquipos, fetchEquipos } = useEquipos({ defaultLimit: 1000 });
     const { estadosOrden } = useEstadoOrden();
 
@@ -123,15 +122,12 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     }, [clientUsuarios, extraClientes, remoteClientResults]);
 
     const tecnicos = React.useMemo(() => {
-        if (techAvailability.length > 0) {
-            return techAvailability.map((t: any) => ({
-                id: t.technicianId,
-                nombre: t.nombreCompleto,
-                apellido: '',
-            }));
-        }
-        return techUsuarios.filter(usuario => usuario.estado && (usuario as any).habilitadoTecnico);
-    }, [techAvailability, techUsuarios]);
+        return techAvailability.map((t: any) => ({
+            id: t.technicianId,
+            nombre: t.nombreCompleto,
+            apellido: '',
+        }));
+    }, [techAvailability]);
 
     // Búsqueda remota por cédula o nombre en tiempo real si el término tiene al menos 3 caracteres
     React.useEffect(() => {

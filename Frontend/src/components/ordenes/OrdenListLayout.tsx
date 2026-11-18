@@ -89,12 +89,23 @@ export default function OrdenListLayout() {
     setFechaInicio,
     fechaFin,
     setFechaFin,
+    getTechniciansAvailability,
   } = useOrders();
 
-  const { usuarios: techUsuarios = [] } = useUsuario({ defaultLimit: 1000, defaultRole: Role.TECH });
+  const [techAvailability, setTechAvailability] = React.useState<any[]>([]);
+  React.useEffect(() => {
+    getTechniciansAvailability()
+      .then((data) => setTechAvailability(Array.isArray(data) ? data : []))
+      .catch(() => setTechAvailability([]));
+  }, []);
+
   const tecnicos = React.useMemo(() => {
-    return techUsuarios.filter((u) => u.role === Role.TECH && u.estado);
-  }, [techUsuarios]);
+    return techAvailability.map((t: any) => ({
+      id: t.technicianId,
+      nombre: t.nombreCompleto,
+      apellido: '',
+    }));
+  }, [techAvailability]);
 
   React.useEffect(() => {
     const estadoParam = searchParams.get("estadoId");

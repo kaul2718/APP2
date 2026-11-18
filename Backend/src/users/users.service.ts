@@ -603,12 +603,12 @@ export class UsersService {
     if (role && role !== 'all') {
       if (role === 'client') {
         query.andWhere(
-          '(EXISTS (SELECT 1 FROM "user_roles" ur_f INNER JOIN "roles" r_f ON r_f."id" = ur_f."roleId" WHERE ur_f."userId" = user."id" AND r_f."slug" = :role AND r_f."activo" = TRUE AND r_f."deletedAt" IS NULL) OR NOT EXISTS (SELECT 1 FROM "user_roles" ur_none WHERE ur_none."userId" = user."id"))',
+          '(EXISTS (SELECT 1 FROM "user_roles" ur_f INNER JOIN "roles" r_f ON r_f."id" = ur_f."roleId" WHERE ur_f."userId" = "user"."id" AND r_f."slug" = :role AND r_f."activo" = TRUE AND r_f."deletedAt" IS NULL) OR NOT EXISTS (SELECT 1 FROM "user_roles" ur_none WHERE ur_none."userId" = "user"."id"))',
           { role },
         );
       } else {
         query.andWhere(
-          'EXISTS (SELECT 1 FROM "user_roles" ur_f INNER JOIN "roles" r_f ON r_f."id" = ur_f."roleId" WHERE ur_f."userId" = user."id" AND r_f."slug" = :role AND r_f."activo" = TRUE AND r_f."deletedAt" IS NULL)',
+          'EXISTS (SELECT 1 FROM "user_roles" ur_f INNER JOIN "roles" r_f ON r_f."id" = ur_f."roleId" WHERE ur_f."userId" = "user"."id" AND r_f."slug" = :role AND r_f."activo" = TRUE AND r_f."deletedAt" IS NULL)',
           { role },
         );
       }
