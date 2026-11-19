@@ -682,3 +682,5 @@
 [2026-06-23T15:30:40.324Z] SERVICE: skip=0, take=1000, totalItemsRequested=1000
 [2026-06-23T19:26:22.126Z] CONTROLLER: page=1 (pageNum=1), limit=1000 (limitNum=1000)
 [2026-06-23T19:26:22.129Z] SERVICE: skip=0, take=1000, totalItemsRequested=1000
+[2026-11-19T22:04:18.927Z] CONTROLLER: page=1 (pageNum=1), limit=100 (limitNum=100)
+[2026-11-19T22:04:18.930Z] SERVICE: skip=0, take=100, totalItemsRequested=100

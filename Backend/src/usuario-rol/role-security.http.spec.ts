@@ -233,12 +233,27 @@ describe('Pruebas HTTP reales de seguridad de roles y regresión operativa', () 
       expect.objectContaining({ role: 'client' }),
     );
 
-    // 2. Técnico intentando crear usuario -> 403
+    // 2. Técnico puede registrar cliente (flujo de crear ODS), pero cualquier intento de asignar admin/habilitadoTecnico se fuerza a client
     await request(app.getHttpServer())
       .post('/api/v1/users')
       .set('Authorization', `Bearer ${tokenFor(3)}`)
-      .send({ nombre: 'X', role: 'admin' })
-      .expect(403);
+      .send({
+        cedula: '0503646812',
+        nombre: 'Cli',
+        apellido: 'Tech',
+        correo: 'clitech@test.com',
+        telefono: '0991234569',
+        direccion: 'Calle 2',
+        ciudad: 'Latacunga',
+        role: 'admin',
+        roleIds: [1],
+        habilitadoTecnico: true,
+      })
+      .expect(201);
+
+    expect(mockUsersService.create).toHaveBeenLastCalledWith(
+      expect.objectContaining({ role: 'client', roleIds: undefined, habilitadoTecnico: false }),
+    );
 
     // 3. Recepcionista intentando crear admin -> forzado a 'client'
     await request(app.getHttpServer())

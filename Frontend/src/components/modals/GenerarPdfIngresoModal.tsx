@@ -12,10 +12,12 @@ import {
   DocumentCheckIcon,
   ArrowPathIcon,
   TicketIcon,
+  TagIcon,
 } from '@heroicons/react/24/outline';
 import { useSession } from 'next-auth/react';
 import TabletSignatureModal from './TabletSignatureModal';
 import TicketTermicoModal from './TicketTermicoModal';
+import EtiquetaEquipoModal from './EtiquetaEquipoModal';
 
 interface Props {
   isOpen: boolean;
@@ -39,6 +41,7 @@ export default function GenerarPdfIngresoModal({
   const [signedDoc, setSignedDoc] = React.useState<any | null>(null);
   const [isSignModalOpen, setIsSignModalOpen] = React.useState(false);
   const [isTicketModalOpen, setIsTicketModalOpen] = React.useState(false);
+  const [isEtiquetaModalOpen, setIsEtiquetaModalOpen] = React.useState(false);
 
   // Carga documento firmado existente en R2
   const fetchSignedDoc = React.useCallback(
@@ -243,6 +246,17 @@ export default function GenerarPdfIngresoModal({
             Ticket 80 mm
           </button>
 
+          {/* Botón Imprimir Etiqueta Adhesiva 2" x 1" */}
+          <button
+            type="button"
+            onClick={() => setIsEtiquetaModalOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-semibold text-gray-800 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg shadow-xs transition-colors dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700 dark:hover:bg-gray-700"
+            title='Imprimir etiqueta adhesiva de equipo (2" × 1")'
+          >
+            <TagIcon className="h-4 w-4 text-gray-700 dark:text-gray-300 shrink-0" />
+            Etiqueta 2&quot;×1&quot;
+          </button>
+
           {/* Botón Firmar en Tablet */}
           {!signedDoc && (
             <button
@@ -352,6 +366,16 @@ export default function GenerarPdfIngresoModal({
           onClose={() => setIsTicketModalOpen(false)}
           order={order}
           orderId={order.id}
+        />
+      )}
+
+      {/* Modal de Etiqueta Adhesiva 2" x 1" */}
+      {order && (
+        <EtiquetaEquipoModal
+          isOpen={isEtiquetaModalOpen}
+          onClose={() => setIsEtiquetaModalOpen(false)}
+          order={order}
+          mode="print"
         />
       )}
     </Modal>

@@ -174,23 +174,24 @@ describe('Seguridad de asignación y gestión de roles y permisos (Prioridad 1)'
       );
     });
 
-    it('UsersController.create no permite que un técnico pase RolesGuard y fuerza client si no es admin', async () => {
+    it('UsersController.create permite a tech y recep crear clientes pero fuerza role=client y habilitadoTecnico=false si no es admin', async () => {
       const techCtx = makeExecutionContext(
         UsersController.prototype.create,
         UsersController,
-        makeUser('tech', ['orders.view'], 3),
+        makeUser('tech', ['orders.create'], 3),
       );
-      expect(rolesGuard.canActivate(techCtx)).toBe(false);
+      expect(rolesGuard.canActivate(techCtx)).toBe(true);
 
       const mockUsersService = { create: jest.fn().mockResolvedValue({ id: 50 }) } as any;
       const controller = new UsersController(mockUsersService);
-      const recepUser = makeUser('recep', ['users.create'], 4);
-      const dto: any = { nombre: 'X', role: 'admin', roleIds: [1] };
 
-      await controller.create(recepUser, dto);
-      expect(mockUsersService.create).toHaveBeenCalledWith(
-        expect.objectContaining({ role: 'client', roleIds: undefined }),
-      );
+      for (const actor of [makeUser('recep', ['users.create'], 4), makeUser('tech', ['orders.create'], 3)]) {
+        const dto: any = { nombre: 'X', role: 'admin', roleIds: [1], habilitadoTecnico: true };
+        await controller.create(actor, dto);
+        expect(mockUsersService.create).toHaveBeenLastCalledWith(
+          expect.objectContaining({ role: 'client', roleIds: undefined, habilitadoTecnico: false }),
+        );
+      }
     });
 
     it('UsersController.update impide que client, tech o recep modifiquen roleIds o editen otros perfiles sin permiso', async () => {

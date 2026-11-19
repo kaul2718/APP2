@@ -17,6 +17,7 @@ import AgregarEquipoModal from "@/components/modals/AgregarEquipoModal";
 import OrdenCreadaModal from "@/components/modals/OrdenCreadaModal";
 import GenerarPdfIngresoModal from "@/components/modals/GenerarPdfIngresoModal";
 import TicketTermicoModal from "@/components/modals/TicketTermicoModal";
+import EtiquetaEquipoModal from "@/components/modals/EtiquetaEquipoModal";
 import { Combobox } from '@headlessui/react'
 import { MagnifyingGlassIcon, ClipboardDocumentCheckIcon, BoltIcon } from '@heroicons/react/24/outline'
 import { OrderType } from "@/types/order.types";
@@ -74,6 +75,7 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
     const [isOrderCreatedModalOpen, setIsOrderCreatedModalOpen] = React.useState(false);
     const [isPdfModalOpen, setIsPdfModalOpen] = React.useState(false);
     const [isTicketModalOpen, setIsTicketModalOpen] = React.useState(false);
+    const [isEtiquetaModalOpen, setIsEtiquetaModalOpen] = React.useState(false);
 
     // IDs de Accesibilidad
     const accessoryInputId = React.useId();
@@ -1252,11 +1254,27 @@ export default function IngresarOrdenForm({ onSuccess, onCancel, embeddedMode = 
                     setIsOrderCreatedModalOpen(false);
                     setIsPdfModalOpen(true);
                 }}
+                onOpenEtiquetaModal={() => {
+                    setIsOrderCreatedModalOpen(false);
+                    setIsEtiquetaModalOpen(true);
+                }}
                 onFinalize={() => {
                     setIsOrderCreatedModalOpen(false);
                     router.push('/ver-orden');
                 }}
             />
+
+            {createdOrder && (
+                <EtiquetaEquipoModal
+                    isOpen={isEtiquetaModalOpen}
+                    onClose={() => {
+                        setIsEtiquetaModalOpen(false);
+                        router.push('/ver-orden');
+                    }}
+                    order={createdOrder}
+                    mode="print"
+                />
+            )}
 
             {createdOrder && (
                 <GenerarPdfIngresoModal

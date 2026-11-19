@@ -14,6 +14,7 @@ import {
   ShieldCheckIcon,
   TicketIcon,
   DocumentTextIcon,
+  TagIcon,
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-toastify';
 
@@ -36,6 +37,7 @@ interface Props {
   } | null;
   onOpenPdfModal?: () => void;
   onOpenTicketModal?: () => void;
+  onOpenEtiquetaModal?: () => void;
   onFinalize: () => void;
 }
 
@@ -45,6 +47,7 @@ export default function OrdenCreadaModal({
   order,
   onOpenPdfModal,
   onOpenTicketModal,
+  onOpenEtiquetaModal,
   onFinalize,
 }: Props) {
   const [copied, setCopied] = useState(false);
@@ -189,6 +192,17 @@ export default function OrdenCreadaModal({
               >
                 <DocumentTextIcon className="h-4 w-4 text-brand-600 dark:text-brand-400 shrink-0" />
                 <span>Generar ODS Completa (A4)</span>
+              </button>
+            )}
+
+            {onOpenEtiquetaModal && (
+              <button
+                type="button"
+                onClick={onOpenEtiquetaModal}
+                className="sm:col-span-2 flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-gray-50 p-3 text-xs font-bold text-gray-800 hover:bg-gray-100 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 shadow-xs"
+              >
+                <TagIcon className="h-4 w-4 text-gray-700 dark:text-gray-300 shrink-0" />
+                <span>Imprimir Etiqueta Adhesiva (2&quot; × 1&quot;)</span>
               </button>
             )}
           </div>

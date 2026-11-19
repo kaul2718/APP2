@@ -18,7 +18,7 @@ import { resolveUserAuthContext, userHasRole } from '../common/helpers/role.help
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
-  @Auth('admin', 'recep')
+  @Auth('admin', 'recep', 'tech')
   @Post()
   create(
     @CurrentUser() user: any,
@@ -34,6 +34,7 @@ export class UsersController {
     if (!isAdmin) {
       dto.role = 'client';
       dto.roleIds = undefined;
+      dto.habilitadoTecnico = false;
     }
     return this.usersService.create(dto);
   }

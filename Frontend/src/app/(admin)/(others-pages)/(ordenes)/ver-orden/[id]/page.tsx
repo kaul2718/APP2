@@ -61,6 +61,7 @@ import AgregarEvidenciaTecnicaModal from "@/components/modals/AgregarEvidenciaTe
 import GenerarPdfIngresoModal from "@/components/modals/GenerarPdfIngresoModal";
 import GenerarPdfEntregaModal from "@/components/modals/GenerarPdfEntregaModal";
 import TicketTermicoModal from "@/components/modals/TicketTermicoModal";
+import EtiquetaEquipoModal from "@/components/modals/EtiquetaEquipoModal";
 import AgregarPresupuestoModal from "@/components/modals/AgregarPresupuestoModal";
 import PresupuestoEditModal from "@/components/modals/PresupuestoEditModal";
 import ConfirmDialog from "@/components/modals/ConfirmDialog";
@@ -79,7 +80,8 @@ export default function PerfilOrdenPage() {
   const { updateOrder, changeOrderStatus } = useOrders();
   const { updatePresupuesto } = usePresupuesto();
   const { estadosOrden } = useEstadoOrden();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, isOperationalStaff } = usePermissions();
+  const canPrintEquipmentLabel = isOperationalStaff;
   const canOperateOrders = hasPermission("orders.update");
 
   const sortedEstadosOrden = React.useMemo(() => sortEstadosOrden(estadosOrden), [estadosOrden]);
@@ -96,6 +98,7 @@ export default function PerfilOrdenPage() {
   const [isPdfIngresoOpen, setIsPdfIngresoOpen] = useState(false);
   const [isPdfEntregaOpen, setIsPdfEntregaOpen] = useState(false);
   const [isTicketTermicoOpen, setIsTicketTermicoOpen] = useState(false);
+  const [isEtiquetaEquipoOpen, setIsEtiquetaEquipoOpen] = useState(false);
   const [isPresupuestoModalOpen, setIsPresupuestoModalOpen] = useState(false);
   const [isEditPresupuestoModalOpen, setIsEditPresupuestoModalOpen] = useState(false);
   const [isPresupuestoPresencialOpen, setIsPresupuestoPresencialOpen] = useState(false);
@@ -690,6 +693,18 @@ export default function PerfilOrdenPage() {
 
                 <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 mx-0.5 hidden sm:block"></div>
               </>
+            )}
+
+            {canPrintEquipmentLabel && (
+              <button
+                type="button"
+                onClick={() => setIsEtiquetaEquipoOpen(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-gray-800 shadow-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+                title='Reimprimir etiqueta adhesiva de equipo (2" × 1")'
+              >
+                <span className="text-xs font-bold">2&quot;×1&quot;</span>
+                <span className="hidden lg:inline">Reimprimir Etiqueta</span>
+              </button>
             )}
 
             {!isClient && (
@@ -1736,6 +1751,13 @@ export default function PerfilOrdenPage() {
             orderId={order.id}
           />
 
+          <EtiquetaEquipoModal
+            isOpen={isEtiquetaEquipoOpen}
+            onClose={() => setIsEtiquetaEquipoOpen(false)}
+            order={order}
+            mode="reprint"
+          />
+
           <GenerarPdfEntregaModal
             isOpen={isPdfEntregaOpen}
             onClose={() => setIsPdfEntregaOpen(false)}
@@ -2086,6 +2108,10 @@ export default function PerfilOrdenPage() {
             );
             setInvitacionGenerada(null);
             setIsPdfIngresoOpen(true);
+          }}
+          onOpenEtiquetaModal={() => {
+            setInvitacionGenerada(null);
+            setIsEtiquetaEquipoOpen(true);
           }}
           onFinalize={() => setInvitacionGenerada(null)}
         />
